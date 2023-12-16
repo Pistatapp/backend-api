@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Api\Auth\AuthController;
+use App\Http\Controllers\Api\V1\ProfileController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -14,6 +16,15 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-    return $request->user();
+Route::controller(AuthController::class)->prefix('auth')->as('auth.')->group(function () {
+    Route::middleware('guest')->group(function () {
+        Route::post('/send', 'sendToken')->name('send');
+        Route::post('/verify', 'verifyToken')->name('verify');
+    });
+    Route::post('logout', [AuthController::class, 'logout'])->middleware('auth:sanctum')->name('logout');
+});
+
+
+Route::middleware(['auth:sanctum', 'last.activity'])->group(function () {
+    Route::apiSingleton('profile', ProfileController::class);
 });

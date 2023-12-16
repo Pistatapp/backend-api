@@ -1,0 +1,6 @@
+{
+    "Verification token sent successfully.": "کد تایید با موفقیت ارسال شد.",
+    "The provided token is incorrect.": "کد تایید وارد شده اشتباه است.",
+    "Logged out successfully.": "با موفقیت خارج شدید.",
+    "Too many login attempts. Please try again in :seconds seconds.": "تعداد تلاش‌های ورود بیش از حد مجاز است. لطفا :seconds ثانیه دیگر مجددا تلاش کنید."
+}
