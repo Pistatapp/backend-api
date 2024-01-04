@@ -42,6 +42,7 @@ class AuthController extends Controller
             'mobile' => $user->mobile,
         ], [
             'token' => Hash::make($token),
+            'created_at' => now(),
         ]);
 
         $user->notify(new VerifyMobile($token));

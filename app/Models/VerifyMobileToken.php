@@ -17,10 +17,7 @@ class VerifyMobileToken extends Model
 
     public $timestamps = false;
 
-    protected $fillable = [
-        'mobile',
-        'token',
-    ];
+    protected $guarded = [];
 
     protected $casts = [
         'created_at' => 'datetime',
