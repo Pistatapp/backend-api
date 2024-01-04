@@ -17,8 +17,8 @@ class AuthController extends Controller
 {
     use ThrottlesLogins;
 
-    protected $maxAttempts = 5;
-    protected $decayMinutes = 2;
+    protected $maxAttempts = 3;
+    protected $decayMinutes = 1;
 
     /**
      * Send token to user mobile.
@@ -61,7 +61,7 @@ class AuthController extends Controller
     {
         $request->validate([
             'mobile' => 'required|ir_mobile:zero',
-            'token' => 'required|digits:6',
+            'token' => 'required|numeric|digits:6',
         ]);
 
         if (!$this->hasTooManyLoginAttempts($request)) {
