@@ -72,4 +72,14 @@ class Farm extends Model
     {
         return $this->hasManyDeep(Tree::class, [Field::class, Row::class]);
     }
+
+    /**
+     * Get pumps of the farm.
+     * 
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function pumps()
+    {
+        return $this->hasMany(Pump::class);
+    }
 }

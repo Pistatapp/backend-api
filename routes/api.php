@@ -7,6 +7,8 @@ use App\Http\Controllers\Api\V1\Farm\FieldController;
 use App\Http\Controllers\Api\V1\Farm\RowController;
 use App\Http\Controllers\Api\V1\Farm\TreeController;
 use App\Http\Controllers\Api\V1\Farm\BlockController;
+use App\Http\Controllers\Api\V1\Farm\PumpController;
+use App\Http\Controllers\Api\V1\Farm\ValveController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -25,7 +27,7 @@ Route::controller(AuthController::class)->prefix('auth')->group(function () {
         Route::post('/send', 'sendToken');
         Route::post('/verify', 'verifyToken');
     });
-    Route::post('logout', 'logout')->middleware('auth:sanctum')->name('logout');
+    Route::post('logout', 'logout')->middleware('auth:sanctum');
 });
 
 
@@ -38,4 +40,6 @@ Route::middleware(['auth:sanctum', 'last.activity'])->group(function () {
     Route::post('rows/{row}/trees/batch-store', [TreeController::class, 'batchStore'])->name('rows.trees.batch-store');
     Route::apiResource('rows.trees', TreeController::class)->shallow();
     Route::apiResource('fields.blocks', BlockController::class)->shallow();
+    Route::apiResource('farms.pumps', PumpController::class)->shallow();
+    Route::apiResource('pumps.valves', ValveController::class)->shallow();
 });
