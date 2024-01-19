@@ -56,4 +56,24 @@ class User extends Authenticatable implements HasMedia
     {
         return $this->hasOne(Profile::class);
     }
+
+    /**
+     * Get the user's farms.
+     * 
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function farms()
+    {
+        return $this->hasMany(Farm::class);
+    }
+
+    /**
+     * Determine if user has any farms.
+     * 
+     * @return bool
+     */
+    public function hasFarm()
+    {
+        return $this->farms()->exists();
+    }
 }

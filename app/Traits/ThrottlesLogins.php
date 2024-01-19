@@ -122,5 +122,5 @@ trait ThrottlesLogins
      *
      * @return string
      */
-    abstract protected function username(): string;
+    abstract protected function username();
 }

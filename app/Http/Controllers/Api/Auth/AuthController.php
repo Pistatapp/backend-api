@@ -4,11 +4,11 @@ namespace App\Http\Controllers\Api\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AuthenticatedUserResource;
-use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\VerifyMobileToken;
 use App\Notifications\VerifyMobile;
 use App\Traits\ThrottlesLogins;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
@@ -18,6 +18,7 @@ class AuthController extends Controller
     use ThrottlesLogins;
 
     protected $maxAttempts = 3;
+
     protected $decayMinutes = 1;
 
     /**
@@ -26,7 +27,7 @@ class AuthController extends Controller
      * @param \Illuminate\Http\Request $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function sendToken(Request $request): \Illuminate\Http\JsonResponse
+    public function sendToken(Request $request)
     {
         $request->validate([
             'mobile' => 'required|ir_mobile:zero',
@@ -57,8 +58,9 @@ class AuthController extends Controller
      * 
      * @param \Illuminate\Http\Request $request
      * @return \App\Http\Resources\AuthenticatedUserResource
+     * @throws \Illuminate\Validation\ValidationException
      */
-    public function verifyToken(Request $request): AuthenticatedUserResource
+    public function verifyToken(Request $request)
     {
         $request->validate([
             'mobile' => 'required|ir_mobile:zero',
@@ -115,7 +117,7 @@ class AuthController extends Controller
      * @param \Illuminate\Http\Request $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function logout(Request $request): \Illuminate\Http\JsonResponse
+    public function logout(Request $request)
     {
         $this->guard()->logout();
 
@@ -134,17 +136,17 @@ class AuthController extends Controller
      * 
      * @return \Illuminate\Contracts\Auth\StatefulGuard
      */
-    protected function guard(): \Illuminate\Contracts\Auth\StatefulGuard
+    protected function guard() 
     {
         return Auth::guard('web');
     }
 
     /**
-     * Get the login username to be used by the controller.
+     * Get the login username to authenticate user.
      * 
      * @return string
      */
-    protected function username(): string
+    protected function username()
     {
         return 'mobile';
     }
