@@ -20,8 +20,10 @@ class FarmResource extends JsonResource
             'name' => $this->name,
             'coordinates' => $this->coordinates,
             'center' => $this->center,
-            'area' => $this->area,
+            'area' => number_format($this->area, 2),
             'products' => $this->products,
+            'fields_count' => $this->fields_count,
+            'trees_count' => $this->trees_count,
             'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),
         ];
     }
