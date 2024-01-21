@@ -12,6 +12,7 @@
         "laravel/sanctum": "^3.3",
         "laravel/tinker": "^2.8",
         "morilog/jalali": "3.*",
+        "predis/predis": "*",
         "sadegh19b/laravel-persian-validation": "^1.4",
         "simplesoftwareio/simple-qrcode": "~4",
         "spatie/laravel-medialibrary": "^10.0.0",
