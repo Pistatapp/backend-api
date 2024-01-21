@@ -50,7 +50,7 @@ class TreeController extends Controller
         $uniqueId = Str::random(15);
         $tree->unique_id = $uniqueId;
 
-        $tree->qr_code = QrCode::size(300)->generate($uniqueId);
+        $tree->qr_code = base64_encode(QrCode::size(300)->generate($uniqueId));
 
         $tree->save();
 
@@ -114,7 +114,7 @@ class TreeController extends Controller
                 'product' => $tree['product'],
                 'location' => $tree['location'],
                 'unique_id' => $uniqueId = Str::random(15),
-                'qr_code' => QrCode::size(300)->generate($uniqueId),
+                'qr_code' => base64_encode(QrCode::size(300)->generate($uniqueId)),
             ];
 
             $treesData[] = $treeData;

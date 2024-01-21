@@ -24,10 +24,10 @@ class FarmController extends Controller
     public function index()
     {
         $farms = request()->user()
-        ->farms()
-        ->withCount('trees')
-        ->withCount('fields')
-        ->get();
+            ->farms()
+            ->withCount('trees')
+            ->withCount('fields')
+            ->get();
 
         return FarmResource::collection($farms);
     }

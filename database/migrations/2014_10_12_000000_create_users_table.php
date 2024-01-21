@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('mobile')->unique();
             $table->timestamp('mobile_verified_at')->nullable();
             $table->timestamp('last_activity_at')->nullable();
+            $table->string('role')->default('user');
             $table->unsignedInteger('created_by')->nullable();
             $table->timestamps();
         });
