@@ -53,6 +53,7 @@ class FarmController extends Controller
             'name' => $request->name,
             'coordinates' => $request->coordinates,
             'center' => $request->center,
+            'zoom' => $request->zoom,
             'area' => $request->area,
             'products' => implode(',', $request->products)
         ]);
@@ -72,6 +73,7 @@ class FarmController extends Controller
             'name' => $request->name,
             'coordinates' => $request->coordinates,
             'center' => $request->center,
+            'zoom' => $request->zoom,
             'area' => $request->area,
             'products' => implode(',', $request->products)
         ]);

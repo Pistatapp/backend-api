@@ -22,6 +22,7 @@ class AuthenticatedUserResource extends JsonResource
             'photo' => $this->getFirstMediaUrl('photo'),
             'token' => $this->createToken('mobile')->plainTextToken,
             'new_user' => $this->wasChanged('mobile_verified_at'),
+            'is_admin' => $this->is_admin,
             'profile' => new ProfileResource($this->whenLoaded('profile')),
         ];
     }

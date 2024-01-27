@@ -20,6 +20,7 @@ class FarmResource extends JsonResource
             'name' => $this->name,
             'coordinates' => $this->coordinates,
             'center' => $this->center,
+            'zoom' => $this->zoom,
             'area' => number_format($this->area, 2),
             'products' => $this->products,
             'fields_count' => $this->fields_count,

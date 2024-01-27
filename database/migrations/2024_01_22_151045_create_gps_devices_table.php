@@ -11,15 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('farms', function (Blueprint $table) {
+        Schema::create('gps_devices', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->bigInteger('trucktor_id')->unsigned()->nullable();
             $table->string('name');
-            $table->json('coordinates');
-            $table->integer('zoom')->default(15);
-            $table->string('center');
-            $table->float('area');
-            $table->string('products')->nullable();
+            $table->string('imei')->unique();
+            $table->string('sim_number')->unique();
             $table->timestamps();
         });
     }
@@ -29,6 +27,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('farms');
+        Schema::dropIfExists('gps_devices');
     }
 };

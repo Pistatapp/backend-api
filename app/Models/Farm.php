@@ -16,6 +16,7 @@ class Farm extends Model
         'coordinates',
         'products',
         'center',
+        'zoom',
         'area',
     ];
 
@@ -81,5 +82,15 @@ class Farm extends Model
     public function pumps()
     {
         return $this->hasMany(Pump::class);
+    }
+
+    /**
+     * Get trucktors of the farm.
+     * 
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function trucktors()
+    {
+        return $this->hasMany(Trucktor::class);
     }
 }

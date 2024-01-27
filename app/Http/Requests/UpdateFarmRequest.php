@@ -26,6 +26,7 @@ class UpdateFarmRequest extends FormRequest
             'coordinates' => 'required|array|min:3',
             'coordinates.*' => 'required|string|regex:/^\d+,\d+$/',
             'center' => 'required|string|max:255|regex:/^\d+,\d+$/',
+            'zoom' => 'required|numeric|min:1',
             'area' => 'required|numeric|min:0',
             'products' => 'nullable|array|min:1',
         ];

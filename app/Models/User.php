@@ -25,6 +25,7 @@ class User extends Authenticatable implements HasMedia
         'mobile_verified_at',
         'last_activity_at',
         'avatar',
+        'is_admin',
     ];
 
     /**
@@ -75,5 +76,25 @@ class User extends Authenticatable implements HasMedia
     public function hasFarm()
     {
         return $this->farms()->exists();
+    }
+
+    /**
+     * Get the user's gps devices.
+     * 
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function gpsDevices()
+    {
+        return $this->hasMany(GpsDevice::class);
+    }
+
+    /**
+     * Determine if user is admin.
+     * 
+     * @return bool
+     */
+    public function isAdmin()
+    {
+        return $this->is_admin;
     }
 }

@@ -11,15 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('farms', function (Blueprint $table) {
+        Schema::create('drivers', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('trucktor_id')->constrained()->cascadeOnDelete();
             $table->string('name');
-            $table->json('coordinates');
-            $table->integer('zoom')->default(15);
-            $table->string('center');
-            $table->float('area');
-            $table->string('products')->nullable();
+            $table->string('mobile');
             $table->timestamps();
         });
     }
@@ -29,6 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('farms');
+        Schema::dropIfExists('drivers');
     }
 };

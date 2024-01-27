@@ -182,6 +182,8 @@ return [
         "available" => "موجود",
         "size" => "اندازه",
 		"file" => "فایل",
-		"fullname" => "نام کامل"
+		"fullname" => "نام کامل",
+        "imei" => "IMEI",
+        "sim_number" => "شماره سیم کارت",
     ],
 ];

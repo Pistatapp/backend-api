@@ -3,15 +3,16 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use App\Models\GpsDevice;
 
-class StoreFarmRequest extends FormRequest
+class StoreGpsDeviceRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
      */
     public function authorize(): bool
     {
-        return true;
+        return $this->user()->can('create', GpsDevice::class);
     }
 
     /**
@@ -22,13 +23,10 @@ class StoreFarmRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'user_id' => 'required|exists:users,id',
             'name' => 'required|string|max:255',
-            'coordinates' => 'required|array|min:3',
-            'coordinates.*' => 'required|string|regex:/^\d+,\d+$/',
-            'center' => 'required|string|max:255|regex:/^\d+,\d+$/',
-            'zoom' => 'required|numeric|min:1',
-            'area' => 'required|numeric|min:0',
-            'products' => 'nullable|array|min:1',
+            'imei' => 'required|string|max:255|unique:gps_devices,imei',
+            'sim_number' => 'required|string|max:255|unique:gps_devices,sim_number',
         ];
     }
 }
