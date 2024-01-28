@@ -58,4 +58,14 @@ class Trucktor extends Model
     {
         return $this->hasManyThrough(GpsReport::class, GpsDevice::class);
     }
+
+    /**
+     * Get the gps daily reports for the trucktor.
+     * 
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function gpsDailyReports()
+    {
+        return $this->hasMany(GpsDailyReport::class);
+    }
 }

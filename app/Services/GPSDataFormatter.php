@@ -130,7 +130,8 @@ class GPSDataFormatter
             return GpsDevice::whereHas('user')
                 ->whereHas('trucktor')
                 ->where('imei', $imei)
-                ->with('trucktor')
+                ->select('id', 'trucktor_id', 'imei')
+                ->with('trucktor:id,start_work_time,end_work_time,expected_daily_work_time')
                 ->first();
         });
     }
