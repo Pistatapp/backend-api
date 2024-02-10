@@ -14,6 +14,7 @@ class Valve extends Model
         'name',
         'location',
         'is_open',
+        'irrigation_capacity',
     ];
 
     protected $attributes = [

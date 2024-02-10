@@ -5,7 +5,7 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class ValveResource extends JsonResource
+class TeamResource extends JsonResource
 {
     /**
      * Transform the resource into an array.
@@ -16,11 +16,10 @@ class ValveResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'pump_id' => $this->pump_id,
             'name' => $this->name,
-            'location' => $this->location,
-            'irrigation_capacity' => $this->irrigation_capacity,
-            'is_open' => $this->is_open,
+            'farm_id' => $this->farm_id,
+            'labors' => LaborResource::collection($this->whenLoaded('labors')),
+            'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s')
         ];
     }
 }

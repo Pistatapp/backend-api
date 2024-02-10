@@ -93,4 +93,14 @@ class Farm extends Model
     {
         return $this->hasMany(Trucktor::class);
     }
+
+    /**
+     * Get teams of the farm.
+     * 
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function teams()
+    {
+        return $this->hasMany(Team::class);
+    }
 }

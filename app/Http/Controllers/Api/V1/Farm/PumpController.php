@@ -11,11 +11,6 @@ use App\Models\Farm;
 
 class PumpController extends Controller
 {
-    public function __construct()
-    {
-        $this->authorizeResource(Pump::class, 'pump');
-    }
-
     /**
      * Display a listing of the resource.
      */

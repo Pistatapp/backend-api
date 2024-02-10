@@ -26,9 +26,10 @@ class ValveController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'location' => 'required|string|regex:/^\d+,\d+$/',
+            'irrigation_capacity' => 'required|integer|min:0|max:100',
         ]);
 
-        $valve = $pump->valves()->create($request->only('name', 'location'));
+        $valve = $pump->valves()->create($request->only('name', 'location', 'irrigation_capacity'));
 
         return new ValveResource($valve);
     }
@@ -49,9 +50,10 @@ class ValveController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'location' => 'required|string|regex:/^\d+,\d+$/',
+            'irrigation_capacity' => 'required|integer|min:0|max:100',
         ]);
 
-        $valve->update($request->only('name', 'location'));
+        $valve->update($request->only('name', 'location', 'irrigation_capacity'));
 
         return new ValveResource($valve);
     }
