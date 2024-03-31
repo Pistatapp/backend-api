@@ -25,8 +25,8 @@ class StoreFieldRequest extends FormRequest
         return [
             'name' => 'required|string|max:255',
             'coordinates' => 'required|array|min:3',
-            'coordinates.*' => 'required|string|regex:/^\d+,\d+$/',
-            'center' => 'required|string|max:255|regex:/^\d+,\d+$/',
+            'coordinates.*' => 'required|string|/^\d+(\.\d+)?,\d+(\.\d+)?$/',
+            'center' => 'required|string|max:255|/^\d+(\.\d+)?,\d+(\.\d+)?$/',
             'area' => 'required|numeric|min:0',
             'products' => 'nullable|array|min:1',
         ];

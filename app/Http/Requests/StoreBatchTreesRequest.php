@@ -25,7 +25,7 @@ class StoreBatchTreesRequest extends FormRequest
             'trees' => 'required|array|min:1',
             'trees.*.name' => 'required|string',
             'trees.*.product' => 'required|string',
-            'trees.*.location' => 'required|string|regex:/^\d+,\d+$/',
+            'trees.*.location' => 'required|string|/^\d+(\.\d+)?,\d+(\.\d+)?$/',
         ];
     }
 }
