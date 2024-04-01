@@ -26,7 +26,7 @@ class BlockController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'coordinates' => 'required|array',
-            'coordinates.*' => 'required|string|regex:/^\d+,\d+$/',
+            'coordinates.*' => 'required|string',
         ]);
 
         throw_unless($field->hasRows(), new \Exception('Field must have rows before creating blocks.'));
@@ -55,7 +55,7 @@ class BlockController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'coordinates' => 'required|array',
-            'coordinates.*' => 'required|string|regex:/^\d+,\d+$/',
+            'coordinates.*' => 'required|string',
         ]);
 
         $block->update($request->only([

@@ -21,9 +21,13 @@ class Tree extends Model implements HasMedia
         'qr_code',
     ];
 
+    protected $casts = [
+        'location' => 'array',
+    ];
+
     /**
      * Get the row that owns the tree.
-     * 
+     *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
     public function row()

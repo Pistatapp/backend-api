@@ -27,9 +27,15 @@ class Pump extends Model
         'location',
     ];
 
+    protected $casts = [
+        'is_active' => 'boolean',
+        'is_healthy' => 'boolean',
+        'location' => 'array',
+    ];
+
     /**
      * Get the farm that owns the pump.
-     * 
+     *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
     public function farm()
@@ -39,7 +45,7 @@ class Pump extends Model
 
     /**
      * Get valves of the pump.
-     * 
+     *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function valves()

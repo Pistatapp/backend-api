@@ -25,7 +25,7 @@ class ValveController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'location' => 'required|string|regex:/^\d+,\d+$/',
+            'location' => 'required|string',
             'irrigation_capacity' => 'required|integer|min:0|max:100',
         ]);
 
@@ -49,7 +49,7 @@ class ValveController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'location' => 'required|string|regex:/^\d+,\d+$/',
+            'location' => 'required|string',
             'irrigation_capacity' => 'required|integer|min:0|max:100',
         ]);
 

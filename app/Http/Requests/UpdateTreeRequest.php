@@ -24,7 +24,7 @@ class UpdateTreeRequest extends FormRequest
         return [
             'name' => 'required|string|max:255',
             'product' => 'required|string|max:255',
-            'location' => 'required|string|/^\d+(\.\d+)?,\d+(\.\d+)?$/',
+            'location' => 'required|string',
             'image' => 'nullable|image|max:1024',
         ];
     }

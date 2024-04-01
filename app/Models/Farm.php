@@ -22,11 +22,13 @@ class Farm extends Model
 
     protected $casts = [
         'coordinates' => 'array',
+        'products' => 'array',
+        'center' => 'array',
     ];
 
     /**
      * Get the user that owns the farm.
-     * 
+     *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
     public function user()
@@ -36,7 +38,7 @@ class Farm extends Model
 
     /**
      * Get fields of the farm.
-     * 
+     *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function fields()
@@ -46,7 +48,7 @@ class Farm extends Model
 
     /**
      * Get blocks of the farm.
-     * 
+     *
      * @return \Illuminate\Database\Eloquent\Relations\HasManyThrough
      */
     public function blocks()
@@ -56,7 +58,7 @@ class Farm extends Model
 
     /**
      * Get rows of the farm.
-     * 
+     *
      * @return \Illuminate\Database\Eloquent\Relations\HasManyDeep
      */
     public function rows()
@@ -66,7 +68,7 @@ class Farm extends Model
 
     /**
      * Get trees of the farm.
-     * 
+     *
      * @return \Illuminate\Database\Eloquent\Relations\HasManyDeep
      */
     public function trees()
@@ -76,7 +78,7 @@ class Farm extends Model
 
     /**
      * Get pumps of the farm.
-     * 
+     *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function pumps()
@@ -86,7 +88,7 @@ class Farm extends Model
 
     /**
      * Get trucktors of the farm.
-     * 
+     *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function trucktors()
@@ -96,7 +98,7 @@ class Farm extends Model
 
     /**
      * Get teams of the farm.
-     * 
+     *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function teams()

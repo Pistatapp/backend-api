@@ -21,9 +21,14 @@ class Valve extends Model
         'is_open' => false,
     ];
 
+    protected $casts = [
+        'location' => 'array',
+        'is_open' => 'boolean',
+    ];
+
     /**
      * Get the pump that owns the valve.
-     * 
+     *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
     public function pump()

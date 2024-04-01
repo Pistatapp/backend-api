@@ -33,7 +33,7 @@ class UpdatePumpRequest extends FormRequest
             'rpm' => 'required|numeric|min:0',
             'pipe_size' => 'required|numeric|min:0',
             'debi' => 'required|numeric|min:0',
-            'location' => 'required|string|/^\d+(\.\d+)?,\d+(\.\d+)?$/',
+            'location' => 'required|string',
         ];
     }
 }

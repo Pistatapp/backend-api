@@ -26,7 +26,7 @@ class RowController extends Controller
         $request->validate([
             'coordinates' => 'required|array|min:1',
             'coordinates.*' => 'required|array|size:2',
-            'coordinates.*.*' => 'required|string|regex:/^\d+,\d+$/',
+            'coordinates.*.*' => 'required|string',
         ]);
 
         $rows = $request->input('coordinates');

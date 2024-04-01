@@ -24,8 +24,8 @@ class StoreFarmRequest extends FormRequest
         return [
             'name' => 'required|string|max:255',
             'coordinates' => 'required|array|min:3',
-            'coordinates.*' => 'required|string|/^\d+(\.\d+)?,\d+(\.\d+)?$/',
-            'center' => 'required|regex:/^\d+(\.\d+)?,\d+(\.\d+)?$/',
+            'coordinates.*' => 'required|string',
+            'center' => 'required|string',
             'zoom' => 'required|numeric|min:1',
             'area' => 'required|numeric|min:0',
             'products' => 'nullable|array|min:1',

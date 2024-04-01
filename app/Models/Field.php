@@ -20,6 +20,8 @@ class Field extends Model
 
     protected $casts = [
         'coordinates' => 'array',
+        'products' => 'array',
+        'center' => 'array',
     ];
 
     /**
