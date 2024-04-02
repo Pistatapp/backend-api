@@ -18,7 +18,7 @@ return new class extends Migration
             $table->json('coordinates');
             $table->integer('zoom')->default(15);
             $table->string('center');
-            $table->float('area');
+            $table->double('area');
             $table->string('products')->nullable();
             $table->timestamps();
         });
