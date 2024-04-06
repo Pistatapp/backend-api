@@ -17,7 +17,7 @@ class TreeController extends Controller
 {
     /**
      * Display a listing of the resource.
-     * 
+     *
      * @param \App\Models\Row $row
      * @return \App\Http\Resources\TreeResource
      */
@@ -29,7 +29,7 @@ class TreeController extends Controller
 
     /**
      * Store a newly created resource in storage.
-     * 
+     *
      * @param \Illuminate\Http\StoreTreeRequest $request
      * @param \App\Models\Row $row
      * @return \App\Http\Resources\TreeResource
@@ -59,7 +59,7 @@ class TreeController extends Controller
 
     /**
      * Display the specified resource.
-     * 
+     *
      * @param \App\Models\Tree $tree
      * @return \App\Http\Resources\TreeResource
      */
@@ -70,7 +70,7 @@ class TreeController extends Controller
 
     /**
      * Update the specified resource in storage.
-     * 
+     *
      * @param \App\Http\Requests\UpdateTreeRequest $request
      * @param \App\Models\Tree $tree
      * @return \App\Http\Resources\TreeResource
@@ -96,7 +96,7 @@ class TreeController extends Controller
 
     /**
      * Batch store a collection of trees.
-     * 
+     *
      * @param \App\Http\Requests\StoreBatchTreesRequest $request
      * @param \App\Models\Row $row
      * @return \Illuminate\Http\Response
@@ -112,7 +112,7 @@ class TreeController extends Controller
                 'row_id' => $row->id,
                 'name' => $tree['name'],
                 'product' => $tree['product'],
-                'location' => $tree['location'],
+                'location' => json_encode($tree['location']),
                 'unique_id' => $uniqueId = Str::random(15),
                 'qr_code' => base64_encode(QrCode::size(300)->generate($uniqueId)),
             ];
@@ -127,7 +127,7 @@ class TreeController extends Controller
 
     /**
      * Remove the specified resource from storage.
-     * 
+     *
      * @param \App\Models\Tree $tree
      * @return \Illuminate\Http\Response
      */
