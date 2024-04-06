@@ -66,7 +66,7 @@ class DriverController extends Controller
     public function destroy(Trucktor $trucktor)
     {
         throw_unless($trucktor->driver()->exists(), new \Exception('Driver not found.'));
-        
+
         $trucktor->driver()->delete();
 
         return response()->noContent();

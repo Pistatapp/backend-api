@@ -30,6 +30,7 @@ class PumpResource extends JsonResource
             'debi' => $this->debi,
             'location' => $this->location,
             'created_at' => jdate($this->created_at)->format('Y-m-d H:i:s'),
+            'attachments' => AttachmentResource::collection($this->whenLoaded('attachments')),
         ];
     }
 }

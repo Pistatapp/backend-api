@@ -50,7 +50,7 @@ class User extends Authenticatable implements HasMedia
 
     /**
      * Get the user's profile.
-     * 
+     *
      * @return \Illuminate\Database\Eloquent\Relations\HasOne
      */
     public function profile()
@@ -60,7 +60,7 @@ class User extends Authenticatable implements HasMedia
 
     /**
      * Get the user's farms.
-     * 
+     *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function farms()
@@ -70,7 +70,7 @@ class User extends Authenticatable implements HasMedia
 
     /**
      * Determine if user has any farms.
-     * 
+     *
      * @return bool
      */
     public function hasFarm()
@@ -80,7 +80,7 @@ class User extends Authenticatable implements HasMedia
 
     /**
      * Get the user's gps devices.
-     * 
+     *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function gpsDevices()
@@ -90,11 +90,11 @@ class User extends Authenticatable implements HasMedia
 
     /**
      * Determine if user is admin.
-     * 
+     *
      * @return bool
      */
     public function isAdmin()
     {
-        return $this->is_admin;
+        return $this->is_admin === true;
     }
 }

@@ -5,7 +5,7 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class FieldResource extends JsonResource
+class AttachmentResource extends JsonResource
 {
     /**
      * Transform the resource into an array.
@@ -16,14 +16,13 @@ class FieldResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'farm_id' => $this->farm_id,
             'name' => $this->name,
-            'coordinates' => $this->coordinates,
-            'center' => $this->center,
-            'area' => $this->area,
-            'products' => $this->products,
+            'description' => $this->description,
+            'verified' => $this->verified,
+            'url' => $this->getMediaUrlAttribute(),
+            'size' => $this->getMediaSizeAttribute(),
+            'extension' => $this->getMediaExtensionAttribute(),
             'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),
-            'attachments' => AttachmentResource::collection($this->whenLoaded('attachments')),
         ];
     }
 }

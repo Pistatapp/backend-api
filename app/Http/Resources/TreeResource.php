@@ -23,6 +23,8 @@ class TreeResource extends JsonResource
             'image' => $this->when($this->image, $this->image),
             'unique_id' => $this->when($this->unique_id, $this->unique_id),
             'qr_code' => $this->when($this->qr_code, $this->qr_code),
+            'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),
+            'attachments' => AttachmentResource::collection($this->whenLoaded('attachments')),
         ];
     }
 }

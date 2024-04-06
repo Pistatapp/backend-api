@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\V1\Trucktor\DriverController;
 use App\Http\Controllers\Api\V1\Trucktor\GpsReportController;
 use App\Http\Controllers\Api\V1\Trucktor\TrucktorController;
 use App\Http\Controllers\Api\V1\Management\LaborController;
+use App\Http\Controllers\Api\V1\Farm\AttachmentController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -61,6 +62,7 @@ Route::middleware(['auth:sanctum', 'last.activity'])->group(function () {
     Route::apiSingleton('trucktors.driver', DriverController::class)->creatable();
     Route::apiResource('farms.teams', TeamController::class)->shallow();
     Route::apiResource('teams.labors', LaborController::class)->shallow();
+    Route::apiResource('attachments', AttachmentController::class)->except('show', 'index');
 });
 
 Route::post('/gps/reports', [GpsReportController::class, 'store']);

@@ -13,7 +13,7 @@ class FieldController extends Controller
 {
     /**
      * Display a listing of the resource.
-     * 
+     *
      * @param \App\Models\Farm $farm
      * @return \Illuminate\Http\Resources\FieldResource
      */
@@ -26,7 +26,7 @@ class FieldController extends Controller
 
     /**
      * Store a newly created resource in storage.
-     * 
+     *
      * @param \App\Http\Requests\StoreFieldRequest $request
      * @param \App\Models\Farm $farm
      * @return \Illuminate\Http\Resources\FieldResource
@@ -46,18 +46,18 @@ class FieldController extends Controller
 
     /**
      * Display the specified resource.
-     * 
+     *
      * @param \App\Models\Field $field
      * @return \Illuminate\Http\Resources\FieldResource
      */
     public function show(Field $field)
     {
-        return new FieldResource($field);
+        return new FieldResource($field->load('attachments'));
     }
 
     /**
      * Update the specified resource in storage.
-     * 
+     *
      * @param \App\Http\Requests\UpdateFieldRequest $request
      * @param \App\Models\Field $field
      * @return \Illuminate\Http\Resources\FieldResource
@@ -77,7 +77,7 @@ class FieldController extends Controller
 
     /**
      * Remove the specified resource from storage.
-     * 
+     *
      * @param \App\Models\Field $field
      * @return \Illuminate\Http\Response
      */

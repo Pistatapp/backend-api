@@ -34,4 +34,14 @@ class Tree extends Model implements HasMedia
     {
         return $this->belongsTo(Row::class);
     }
+
+    /**
+     * Get the attachments for the tree.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function attachments()
+    {
+        return $this->morphMany(Attachment::class, 'attachable');
+    }
 }

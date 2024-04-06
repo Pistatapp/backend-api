@@ -34,7 +34,7 @@ class PumpController extends Controller
      */
     public function show(Pump $pump)
     {
-        return new PumpResource($pump);
+        return new PumpResource($pump->load('attachments'));
     }
 
     /**

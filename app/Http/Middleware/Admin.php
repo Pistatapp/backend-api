@@ -15,10 +15,10 @@ class Admin
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (! $request->user()->isAdmin()) {
+        if (!$request->user()->isAdmin()) {
             abort(Response::HTTP_FORBIDDEN, 'You are not allowed to access this page.');
         }
-        
+
         return $next($request);
     }
 }

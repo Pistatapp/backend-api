@@ -26,7 +26,7 @@ class Field extends Model
 
     /**
      * Get the farm that owns the field.
-     * 
+     *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
     public function farm()
@@ -36,7 +36,7 @@ class Field extends Model
 
     /**
      * Get the rows for the field.
-     * 
+     *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function rows()
@@ -46,7 +46,7 @@ class Field extends Model
 
     /**
      * Determine if the field has rows.
-     * 
+     *
      * @return bool
      */
     public function hasRows()
@@ -56,11 +56,21 @@ class Field extends Model
 
     /**
      * Get the blocks for the field.
-     * 
+     *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function blocks()
     {
         return $this->hasMany(Block::class);
+    }
+
+    /**
+     * Get attachments for the field.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\MorphMany
+     */
+    public function attachments()
+    {
+        return $this->morphMany(Attachment::class, 'attachable');
     }
 }

@@ -65,7 +65,7 @@ class TreeController extends Controller
      */
     public function show(Tree $tree)
     {
-        return new TreeResource($tree);
+        return new TreeResource($tree->load('attachments'));
     }
 
     /**

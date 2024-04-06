@@ -44,7 +44,7 @@ class BlockController extends Controller
      */
     public function show(Block $block)
     {
-        return new BlockResource($block);
+        return new BlockResource($block->load('attachments'));
     }
 
     /**

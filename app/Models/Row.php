@@ -20,7 +20,7 @@ class Row extends Model
 
     /**
      * Get the field that owns the row.
-     * 
+     *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
     public function field()
@@ -30,7 +30,7 @@ class Row extends Model
 
     /**
      * Get the trees for the row.
-     * 
+     *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function trees()

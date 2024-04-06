@@ -19,6 +19,8 @@ class BlockResource extends JsonResource
             'field_id' => $this->field_id,
             'name' => $this->name,
             'coordinates' => $this->coordinates,
+            'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),
+            'attachments' => AttachmentResource::collection($this->whenLoaded('attachments')),
         ];
     }
 }
