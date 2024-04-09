@@ -73,9 +73,9 @@ class AuthController extends Controller
             ]);
         }
 
-        $token = VerifyMobileToken::where('mobile', $request->mobile)->first();
+        $token = VerifyMobileToken::where('mobile', $request->mobile)->firstOrFail();
 
-        if (is_null($token) || !Hash::check($request->token, $token->token) || $token->isExpired()) {
+        if (!Hash::check($request->token, $token->token) || $token->isExpired()) {
             $this->incrementLoginAttempts($request);
             throw ValidationException::withMessages([
                 'token' => __('The provided token is incorrect.'),
