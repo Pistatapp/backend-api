@@ -39,6 +39,15 @@ class User extends Authenticatable implements HasMedia
     ];
 
     /**
+     * The attributes that should have default values.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'is_admin' => false,
+    ];
+
+    /**
      * Get the user's mobile number.
      *
      * @return string

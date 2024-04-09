@@ -22,4 +22,14 @@ class VerifyMobileToken extends Model
     protected $casts = [
         'created_at' => 'datetime',
     ];
+
+    /**
+     * Determine if the token is expired.
+     *
+     * @return bool
+     */
+    public function isExpired(): bool
+    {
+        return $this->created_at->addMinutes(2)->isPast();
+    }
 }
