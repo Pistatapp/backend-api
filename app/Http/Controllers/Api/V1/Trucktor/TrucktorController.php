@@ -17,10 +17,10 @@ class TrucktorController extends Controller
     public function index(Farm $farm)
     {
         return TrucktorResource::collection(
-            $farm->trucktors->load(
+            $farm->trucktors()->with(
                 'driver:id,trucktor_id,name,mobile',
                 'gpsDevice:id,trucktor_id,imei'
-            )
+            )->simplePaginate()
         );
     }
 
@@ -33,9 +33,9 @@ class TrucktorController extends Controller
             'name' => 'required|string|max:255',
             'start_work_time' => 'required|date_format:H:i',
             'end_work_time' => 'required|date_format:H:i',
-            'expected_daily_work_time' => 'required|integer',
-            'expected_monthly_work_time' => 'required|integer',
-            'expected_yearly_work_time' => 'required|integer',
+            'expected_daily_work_time' => 'required|integer:0,24',
+            'expected_monthly_work_time' => 'required|integer:0,744',
+            'expected_yearly_work_time' => 'required|integer:0,8760',
         ]);
 
         $this->authorize('create', [Trucktor::class, $farm]);
@@ -137,7 +137,7 @@ class TrucktorController extends Controller
     {
         $this->authorize('update', $trucktor);
 
-        $gpsDevice->trucktor()->dissociate()->save();
+        $gpsDevice->trucktor()->disassociate()->save();
 
         return response()->noContent();
     }

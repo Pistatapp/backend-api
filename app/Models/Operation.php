@@ -5,20 +5,17 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class GpsDevice extends Model
+class Operation extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'user_id',
-        'trucktor_id',
         'name',
-        'imei',
-        'sim_number',
     ];
 
     /**
-     * Get the user that owns the GpsDevice
+     * Get the user that owns the Operation
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
@@ -28,22 +25,12 @@ class GpsDevice extends Model
     }
 
     /**
-     * Get the trucktor that owns the GpsDevice
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
-     */
-    public function trucktor()
-    {
-        return $this->belongsTo(Trucktor::class);
-    }
-
-    /**
-     * Get the gps reports for the gps device.
+     * Get the operation reports for the operation.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
-    public function reports()
+    public function operationReports()
     {
-        return $this->hasMany(GpsReport::class);
+        // return $this->hasMany(OperationReport::class);
     }
 }

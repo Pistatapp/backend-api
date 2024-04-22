@@ -16,6 +16,9 @@ use App\Http\Controllers\Api\V1\Trucktor\GpsReportController;
 use App\Http\Controllers\Api\V1\Trucktor\TrucktorController;
 use App\Http\Controllers\Api\V1\Management\LaborController;
 use App\Http\Controllers\Api\V1\Farm\AttachmentController;
+use App\Http\Controllers\Api\V1\Admin\UserController;
+use App\Http\Controllers\Api\V1\Management\OprationController;
+use App\Http\Controllers\Api\V1\Trucktor\TrucktorTaskController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -37,11 +40,11 @@ Route::controller(AuthController::class)->prefix('auth')->group(function () {
     Route::post('logout', 'logout')->middleware('auth:sanctum');
 });
 
-
 Route::middleware(['auth:sanctum', 'last.activity'])->group(function () {
 
     Route::middleware('admin')->prefix('admin')->group(function () {
-        Route::apiResource('gps-devices', GpsDeviceController::class)->except('show');
+        Route::apiResource('gps_devices', GpsDeviceController::class)->except('show');
+        Route::apiResource('users', UserController::class)->except('show');
     });
 
     Route::apiSingleton('profile', ProfileController::class);
@@ -56,13 +59,16 @@ Route::middleware(['auth:sanctum', 'last.activity'])->group(function () {
     Route::apiResource('pumps.valves', ValveController::class)->shallow();
     Route::apiResource('farms.trucktors', TrucktorController::class)->shallow();
 
-    Route::get('/trucktors/{trucktor}/get-devices', [TrucktorController::class, 'getAvailableDevices']);
-    Route::post('/trucktors/{trucktor}/assign-device/{gps_device}', [TrucktorController::class, 'assignDevice']);
-    Route::post('/trucktors/{trucktor}/unassign-device/{gps_device}', [TrucktorController::class, 'unassignDevice']);
+    Route::get('/trucktors/{trucktor}/get_devices', [TrucktorController::class, 'getAvailableDevices']);
+    Route::post('/trucktors/{trucktor}/assign_device/{gps_device}', [TrucktorController::class, 'assignDevice']);
+    Route::post('/trucktors/{trucktor}/unassign_device/{gps_device}', [TrucktorController::class, 'unassignDevice']);
     Route::apiSingleton('trucktors.driver', DriverController::class)->creatable();
+
     Route::apiResource('farms.teams', TeamController::class)->shallow();
     Route::apiResource('teams.labors', LaborController::class)->shallow();
     Route::apiResource('attachments', AttachmentController::class)->except('show', 'index');
+    Route::apiResource('farms.operations', OprationController::class)->except('show');
+    Route::apiResource('trucktors.trucktor_tasks', TrucktorTaskController::class)->shallow();
 });
 
 Route::post('/gps/reports', [GpsReportController::class, 'store']);

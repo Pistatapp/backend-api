@@ -22,7 +22,7 @@ class StoreBatchTreesRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'trees' => 'required|array|min:1',
+            'trees' => 'required|array:name,product,location|min:1',
             'trees.*.name' => 'required|string',
             'trees.*.product' => 'required|string',
             'trees.*.location' => 'required|string',

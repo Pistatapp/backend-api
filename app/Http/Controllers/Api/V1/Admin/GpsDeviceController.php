@@ -16,7 +16,7 @@ class GpsDeviceController extends Controller
      */
     public function index()
     {
-        $devices = GpsDevice::with('user:id,username,mobile')->paginate();
+        $devices = GpsDevice::with('user:id,username,mobile')->simplePaginate();
         return GpsDeviceResource::collection($devices);
     }
 
@@ -46,7 +46,7 @@ class GpsDeviceController extends Controller
     public function destroy(GpsDevice $gpsDevice)
     {
         $this->authorize('delete', $gpsDevice);
-        
+
         $gpsDevice->delete();
 
         return response()->noContent();

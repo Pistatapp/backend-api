@@ -29,16 +29,6 @@ class User extends Authenticatable implements HasMedia
     ];
 
     /**
-     * The attributes that should be cast.
-     *
-     * @var array<string, string>
-     */
-    protected $casts = [
-        'mobile_verified_at' => 'datetime',
-        'last_activity_at' => 'datetime',
-    ];
-
-    /**
      * The attributes that should have default values.
      *
      * @var array<string, mixed>
@@ -46,6 +36,20 @@ class User extends Authenticatable implements HasMedia
     protected $attributes = [
         'is_admin' => false,
     ];
+
+    /**
+     * The attributes that should be hidden for arrays.
+     *
+     * @return array<int, string>
+     */
+    protected function casts()
+    {
+        return [
+            'mobile_verified_at' => 'datetime',
+            'last_activity_at' => 'datetime',
+            'is_admin' => 'boolean',
+        ];
+    }
 
     /**
      * Get the user's mobile number.
@@ -105,5 +109,16 @@ class User extends Authenticatable implements HasMedia
     public function isAdmin()
     {
         return $this->is_admin === true;
+    }
+
+    /**
+     * Scope a query to only include users that are not admin.
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeNotAdmin($query)
+    {
+        return $query->where('is_admin', false);
     }
 }

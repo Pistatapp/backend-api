@@ -11,7 +11,7 @@ class UpdateFieldRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return $this->user()->can('update', $this->route('field'));
+        return $this->user()->can('update', $this->field);
     }
 
     /**

@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('gps_daily_reports', function (Blueprint $table) {
             $table->id();
             $table->foreignId('trucktor_id')->constrained();
-            $table->float('travel_distance');
+            $table->float('traveled_distance');
             $table->unsignedBigInteger('work_duration');
             $table->integer('stoppage_count');
             $table->unsignedBigInteger('stoppage_duration');

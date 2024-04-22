@@ -15,7 +15,7 @@ class TeamController extends Controller
      */
     public function index(Farm $farm)
     {
-        return TeamResource::collection($farm->teams); 
+        return TeamResource::collection($farm->teams);
     }
 
     /**
@@ -27,7 +27,7 @@ class TeamController extends Controller
             'name' => 'required|string|max:255'
         ]);
 
-        $team = $farm->teams()->create($request->all());
+        $team = $farm->teams()->create($request->only('name'));
 
         return new TeamResource($team);
     }
@@ -49,7 +49,7 @@ class TeamController extends Controller
             'name' => 'required|string|max:255'
         ]);
 
-        $team->update($request->all());
+        $team->update($request->only('name'));
 
         return new TeamResource($team->fresh());
     }

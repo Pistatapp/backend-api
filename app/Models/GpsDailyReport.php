@@ -14,7 +14,7 @@ class GpsDailyReport extends Model
     public $timestamps = false;
 
     protected $attributes = [
-        'travel_distance' => 0,
+        'traveled_distance' => 0,
         'work_duration' => 0,
         'stoppage_count' => 0,
         'stoppage_duration' => 0,
@@ -22,7 +22,7 @@ class GpsDailyReport extends Model
         'max_speed' => 0,
         'efficiency' => 0,
     ];
-    
+
     public function trucktor()
     {
         return $this->belongsTo(Trucktor::class);

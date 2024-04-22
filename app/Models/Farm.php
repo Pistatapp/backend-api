@@ -105,4 +105,14 @@ class Farm extends Model
     {
         return $this->hasMany(Team::class);
     }
+
+    /**
+     * Get operations of the farm.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function operations()
+    {
+        return $this->hasMany(Operation::class);
+    }
 }

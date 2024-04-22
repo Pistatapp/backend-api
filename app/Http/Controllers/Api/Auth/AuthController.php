@@ -73,7 +73,13 @@ class AuthController extends Controller
             ]);
         }
 
-        $token = VerifyMobileToken::where('mobile', $request->mobile)->firstOrFail();
+        try {
+            $token = VerifyMobileToken::where('mobile', $request->mobile)->firstOrFail();
+        } catch (\Exception $e) {
+            throw ValidationException::withMessages([
+                'token' => __('Token not found.'),
+            ]);
+        }
 
         if (!Hash::check($request->token, $token->token) || $token->isExpired()) {
             $this->incrementLoginAttempts($request);

@@ -21,7 +21,7 @@ class Trucktor extends Model
 
     /**
      * Get the farm that owns the Trucktor
-     * 
+     *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
     public function farm()
@@ -31,7 +31,7 @@ class Trucktor extends Model
 
     /**
      * Get driver of the trucktor.
-     * 
+     *
      * @return \Illuminate\Database\Eloquent\Relations\HasOne
      */
     public function driver()
@@ -41,7 +41,7 @@ class Trucktor extends Model
 
     /**
      * Get the gps device of the trucktor.
-     * 
+     *
      * @return \Illuminate\Database\Eloquent\Relations\HasOne
      */
     public function gpsDevice()
@@ -51,7 +51,7 @@ class Trucktor extends Model
 
     /**
      * Get the gps reports for the trucktor.
-     * 
+     *
      * @return \Illuminate\Database\Eloquent\Relations\HasManyThrough
      */
     public function gpsReports()
@@ -61,11 +61,21 @@ class Trucktor extends Model
 
     /**
      * Get the gps daily reports for the trucktor.
-     * 
+     *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function gpsDailyReports()
     {
         return $this->hasMany(GpsDailyReport::class);
+    }
+
+    /**
+     * Get the tasks for the trucktor.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function tasks()
+    {
+        return $this->hasMany(TrucktorTask::class);
     }
 }

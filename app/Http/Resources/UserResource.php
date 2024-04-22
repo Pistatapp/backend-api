@@ -5,7 +5,7 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class AuthenticatedUserResource extends JsonResource
+class UserResource extends JsonResource
 {
     /**
      * Transform the resource into an array.
@@ -18,11 +18,10 @@ class AuthenticatedUserResource extends JsonResource
             'id' => $this->id,
             'username' => $this->username,
             'mobile' => $this->mobile,
-            'last_activity_at' => jdate($this->last_activity_at)->format('Y/m/d H:i:s'),
-            'photo' => $this->getFirstMediaUrl('photo'),
-            'token' => $this->createToken('mobile')->plainTextToken,
-            'new_user' => $this->wasChanged('mobile_verified_at'),
-            'is_admin' => $this->is_admin,
+            'mobile_verified_at' => $this->mobile_verified_at,
+            'last_activity_at' => $this->last_activity_at,
+            'gps_devices_count' => $this->whenCounted('gpsDevices'),
+            'profile' => new ProfileResource($this->whenLoaded('profile')),
         ];
     }
 }

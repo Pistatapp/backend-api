@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('gps_reports', function (Blueprint $table) {
             $table->id();
-            $table->string('device_id');
+            $table->foreignId('gps_device_id')->constrained()->onDelete('cascade');
             $table->string('imei');
             $table->string('latitude');
             $table->string('longitude');
@@ -23,7 +23,7 @@ return new class extends Migration
             $table->unsignedBigInteger('stoppage_time')->default(0);
             $table->boolean('is_starting_point')->default(false);
             $table->boolean('is_ending_point')->default(false);
-            $table->timestamps();
+            $table->dateTime('date_time');
         });
     }
 

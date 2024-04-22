@@ -9,18 +9,9 @@ class GpsReport extends Model
 {
     use HasFactory;
 
-    protected $fillable = [
-        'device_id',
-        'imei',
-        'latitude',
-        'longitude',
-        'speed',
-        'status',
-        'is_stopped',
-        'stoppage_time',
-        'is_starting_point',
-        'is_ending_point',
-    ];
+    protected $guarded = [];
+
+    public $timestamps = false;
 
     protected $casts = [
         'is_stopped' => 'boolean',
@@ -30,7 +21,7 @@ class GpsReport extends Model
 
     /**
      * Get the gpsDevice that owns the GpsReport
-     * 
+     *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
     public function gpsDevice()
