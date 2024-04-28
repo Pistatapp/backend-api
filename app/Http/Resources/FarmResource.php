@@ -23,8 +23,9 @@ class FarmResource extends JsonResource
             'zoom' => $this->zoom,
             'area' => number_format($this->area, 2),
             'products' => $this->products,
-            'fields_count' => $this->fields_count,
-            'trees_count' => $this->trees_count,
+            'fields_count' => $this->whenCounted('fields'),
+            'trees_count' => $this->whenCounted('trees'),
+            'is_working_environment' => $this->is_working_environment,
             'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),
         ];
     }

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api\V1\Farm;
+namespace App\Http\Controllers\Api\V1\User\Farm;
 
 use App\Models\Pump;
 use App\Http\Requests\StorePumpRequest;

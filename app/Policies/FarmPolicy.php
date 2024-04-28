@@ -37,7 +37,7 @@ class FarmPolicy
      */
     public function update(User $user, Farm $farm): bool
     {
-        return $farm->user()->is($user);
+        return $farm->user->is($user);
     }
 
     /**
@@ -45,6 +45,14 @@ class FarmPolicy
      */
     public function delete(User $user, Farm $farm): bool
     {
-        return $farm->user()->is($user);
+        return $farm->user->is($user);
+    }
+
+    /**
+     * Determine whether the user can set farm as the working environment.
+     */
+    public function setWorkingEnvironment(User $user, Farm $farm): bool
+    {
+        return $farm->user->is($user);
     }
 }

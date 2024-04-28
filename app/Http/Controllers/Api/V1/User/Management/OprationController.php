@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api\V1\Management;
+namespace App\Http\Controllers\Api\V1\User\Management;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\OperationCollection;

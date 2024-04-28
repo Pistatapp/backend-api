@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api\V1\Trucktor;
+namespace App\Http\Controllers\Api\V1\User\Trucktor;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreTrucktorTaskRequest;

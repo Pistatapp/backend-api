@@ -2,24 +2,24 @@
 
 use App\Http\Controllers\Api\Auth\AuthController;
 use App\Http\Controllers\Api\V1\ProfileController;
-use App\Http\Controllers\Api\V1\Farm\FarmController;
-use App\Http\Controllers\Api\V1\Farm\FieldController;
-use App\Http\Controllers\Api\V1\Farm\RowController;
-use App\Http\Controllers\Api\V1\Farm\TreeController;
-use App\Http\Controllers\Api\V1\Farm\BlockController;
-use App\Http\Controllers\Api\V1\Farm\PumpController;
-use App\Http\Controllers\Api\V1\Farm\ValveController;
-use App\Http\Controllers\Api\V1\Admin\GpsDeviceController;
-use App\Http\Controllers\Api\V1\Management\TeamController;
-use App\Http\Controllers\Api\V1\Trucktor\DriverController;
-use App\Http\Controllers\Api\V1\Trucktor\GpsReportController;
-use App\Http\Controllers\Api\V1\Trucktor\TrucktorController;
-use App\Http\Controllers\Api\V1\Management\LaborController;
-use App\Http\Controllers\Api\V1\Farm\AttachmentController;
+use App\Http\Controllers\Api\V1\User\Farm\FarmController;
+use App\Http\Controllers\Api\V1\User\Farm\FieldController;
+use App\Http\Controllers\Api\V1\User\Farm\RowController;
+use App\Http\Controllers\Api\V1\User\Farm\TreeController;
+use App\Http\Controllers\Api\V1\User\Farm\BlockController;
+use App\Http\Controllers\Api\V1\User\Farm\PumpController;
+use App\Http\Controllers\Api\V1\User\Farm\ValveController;
+use App\Http\Controllers\Api\V1\User\Management\TeamController;
+use App\Http\Controllers\Api\V1\User\Trucktor\DriverController;
+use App\Http\Controllers\Api\V1\User\Trucktor\GpsReportController;
+use App\Http\Controllers\Api\V1\User\Trucktor\TrucktorController;
+use App\Http\Controllers\Api\V1\User\Management\LaborController;
+use App\Http\Controllers\Api\V1\User\Farm\AttachmentController;
+use App\Http\Controllers\Api\V1\User\Management\OprationController;
+use App\Http\Controllers\Api\V1\User\Trucktor\TrucktorTaskController;
+use App\Http\Controllers\Api\V1\User\Farm\IrrigationController;
 use App\Http\Controllers\Api\V1\Admin\UserController;
-use App\Http\Controllers\Api\V1\Management\OprationController;
-use App\Http\Controllers\Api\V1\Trucktor\TrucktorTaskController;
-use App\Http\Controllers\Api\V1\Farm\IrrigationController;
+use App\Http\Controllers\Api\V1\Admin\GpsDeviceController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -53,6 +53,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
         Route::apiSingleton('profile', ProfileController::class);
     });
 
+    Route::get('/farms/{farm}/set_working_environment', [FarmController::class, 'setWorkingEnvironment']);
     Route::apiResource('farms', FarmController::class);
     Route::apiResource('farms.fields', FieldController::class)->shallow();
     Route::apiResource('fields.rows', RowController::class)->except('show', 'update')->shallow();

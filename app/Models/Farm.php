@@ -18,12 +18,14 @@ class Farm extends Model
         'center',
         'zoom',
         'area',
+        'is_working_environment',
     ];
 
     protected $casts = [
         'coordinates' => 'array',
         'products' => 'array',
         'center' => 'array',
+        'is_working_environment' => 'boolean',
     ];
 
     /**
