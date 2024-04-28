@@ -3,5 +3,7 @@
     "The provided token is incorrect.": "کد تایید وارد شده اشتباه است.",
     "Logged out successfully.": "با موفقیت خارج شدید.",
     "Too many login attempts. Please try again in :seconds seconds.": "تعداد تلاش‌های ورود بیش از حد مجاز است. لطفا :seconds ثانیه دیگر مجددا تلاش کنید.",
-    "A task already exists for the vehicle within the selected date range.": "یک وظیفه برای این خودرو در بازه زمانی انتخاب شده وجود دارد."
+    "A task already exists for the vehicle within the selected date range.": "یک وظیفه برای این خودرو در بازه زمانی انتخاب شده وجود دارد.",
+    "An irrigation report has already been stored for these valves withing this time range.": "یک گزارش آبیاری برای این شیر فلکه ها در این بازه زمانی ذخیره شده است.",
+    "You must set a username before proceeding.": "شما باید یک نام کاربری تعیین کنید."
 }

@@ -19,7 +19,7 @@ class ValveResource extends JsonResource
             'pump_id' => $this->pump_id,
             'name' => $this->name,
             'location' => $this->location,
-            'irrigation_capacity' => $this->irrigation_capacity,
+            'flow_rate' => $this->flow_rate,
             'is_open' => $this->is_open,
         ];
     }

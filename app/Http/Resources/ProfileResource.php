@@ -20,7 +20,6 @@ class ProfileResource extends JsonResource
             'province'   => $this->province,
             'city'       => $this->city,
             'company'    => $this->company,
-            'username'   => $this->user->username,
             'photo'      => $this->user->getFirstMediaUrl('photo'),
         ];
     }

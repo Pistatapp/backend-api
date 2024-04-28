@@ -27,7 +27,6 @@ class UpdateProfileRequest extends FormRequest
             'province'   => ['required', 'string', 'max:255'],
             'city'       => ['required', 'string', 'max:255'],
             'company'    => ['required', 'string', 'max:255'],
-            'username'   => ['required', 'string', 'max:255', 'unique:users,username,' . auth()->id()],
             'photo'     => ['nullable', 'image', 'max:1024'],
         ];
     }

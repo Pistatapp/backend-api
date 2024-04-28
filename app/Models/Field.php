@@ -9,6 +9,11 @@ class Field extends Model
 {
     use HasFactory;
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<string>
+     */
     protected $fillable = [
         'farm_id',
         'name',
@@ -18,6 +23,11 @@ class Field extends Model
         'products',
     ];
 
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array<string, mixed>
+     */
     protected $casts = [
         'coordinates' => 'array',
         'products' => 'array',
@@ -72,5 +82,15 @@ class Field extends Model
     public function attachments()
     {
         return $this->morphMany(Attachment::class, 'attachable');
+    }
+
+    /**
+     * Get the irrigations for the field.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function irrigations()
+    {
+        return $this->hasMany(Irrigation::class);
     }
 }

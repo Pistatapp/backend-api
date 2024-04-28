@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Http\Requests\UpdateProfileRequest;
 use App\Http\Resources\ProfileResource;
+use Illuminate\Http\JsonResponse;
 
 class ProfileController extends Controller
 {
@@ -32,8 +33,6 @@ class ProfileController extends Controller
     {
         $profile = $request->user()->profile;
 
-        $request->user()->update(['username' => $request->username]);
-
         $profile->update($request->only([
             'first_name',
             'last_name',
@@ -48,5 +47,22 @@ class ProfileController extends Controller
         }
 
         return new ProfileResource($profile->refresh());
+    }
+
+    /**
+     * Set the authenticated user's username.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \App\Http\Resources\ProfileResource
+     */
+    public function setUsername(Request $request)
+    {
+        $request->validate([
+            'username' => 'required|string|max:255|unique:users',
+        ]);
+
+        $request->user()->update(['username' => str_replace(' ', '_', $request->username)]);
+
+        return new JsonResponse([], 204);
     }
 }

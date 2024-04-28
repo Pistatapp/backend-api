@@ -23,6 +23,7 @@ return new class extends Migration
             $table->unsignedInteger('voltage');
             $table->unsignedInteger('ampere');
             $table->unsignedInteger('rpm');
+            $table->integer('tempurature')->nullable();
             $table->float('pipe_size');
             $table->float('debi');
             $table->boolean('is_active')->default(false);

@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignId('pump_id')->constrained()->onDelete('cascade');
             $table->string('name');
             $table->string('location');
-            $table->tinyInteger('irrigation_capacity')->default(0);
+            $table->tinyInteger('flow_rate')->default(0);
             $table->boolean('is_open')->default(false);
             $table->timestamps();
         });

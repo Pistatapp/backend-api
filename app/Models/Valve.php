@@ -14,17 +14,26 @@ class Valve extends Model
         'name',
         'location',
         'is_open',
-        'irrigation_capacity',
+        'flow_rate',
     ];
 
     protected $attributes = [
         'is_open' => false,
     ];
 
-    protected $casts = [
-        'location' => 'array',
-        'is_open' => 'boolean',
-    ];
+    /**
+     * The attributes that should be cast.
+     *
+     * @return array<string, mixed>
+     */
+    protected function casts(): array
+    {
+        return  [
+            'flow_rate' => 'float',
+            'location' => 'array',
+            'is_open' => 'boolean',
+        ];
+    }
 
     /**
      * Get the pump that owns the valve.

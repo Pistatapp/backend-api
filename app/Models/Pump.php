@@ -27,13 +27,22 @@ class Pump extends Model implements HasMedia
         'is_active',
         'is_healthy',
         'location',
+        'tempurature'
     ];
 
-    protected $casts = [
-        'is_active' => 'boolean',
-        'is_healthy' => 'boolean',
-        'location' => 'array',
-    ];
+    /**
+     * The attributes that should be cast.
+     *
+     * @return array<string, string|mixed>
+     */
+    protected function casts(): array
+    {
+        return [
+            'is_active' => 'boolean',
+            'is_healthy' => 'boolean',
+            'location' => 'array',
+        ];
+    }
 
     /**
      * Get the farm that owns the pump.

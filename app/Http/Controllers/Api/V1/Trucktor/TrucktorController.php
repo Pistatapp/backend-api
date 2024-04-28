@@ -20,7 +20,7 @@ class TrucktorController extends Controller
             $farm->trucktors()->with(
                 'driver:id,trucktor_id,name,mobile',
                 'gpsDevice:id,trucktor_id,imei'
-            )->simplePaginate()
+            )->get()
         );
     }
 

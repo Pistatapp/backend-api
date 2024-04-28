@@ -26,19 +26,11 @@ class ValveController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'location' => 'required|string',
-            'irrigation_capacity' => 'required|integer|min:0|max:100',
+            'flow_rate' => 'required|integer|min:0|max:100',
         ]);
 
-        $valve = $pump->valves()->create($request->only('name', 'location', 'irrigation_capacity'));
+        $valve = $pump->valves()->create($request->all());
 
-        return new ValveResource($valve);
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(Valve $valve)
-    {
         return new ValveResource($valve);
     }
 
@@ -50,10 +42,10 @@ class ValveController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'location' => 'required|string',
-            'irrigation_capacity' => 'required|integer|min:0|max:100',
+            'flow_rate' => 'required|integer|min:0|max:100',
         ]);
 
-        $valve->update($request->only('name', 'location', 'irrigation_capacity'));
+        $valve->update($request->all());
 
         return new ValveResource($valve);
     }
@@ -66,5 +58,17 @@ class ValveController extends Controller
         $valve->delete();
 
         return response()->noContent();
+    }
+
+    /**
+     * Toggle the specified resource in storage.
+     */
+    public function toggle(Valve $valve)
+    {
+        $valve->update([
+            'is_open' => !$valve->is_open,
+        ]);
+
+        return new ValveResource($valve);
     }
 }

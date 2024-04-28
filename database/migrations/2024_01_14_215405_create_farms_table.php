@@ -20,6 +20,7 @@ return new class extends Migration
             $table->string('center');
             $table->double('area');
             $table->string('products')->nullable();
+            $table->boolean('is_working_environment')->default(false);
             $table->timestamps();
         });
     }

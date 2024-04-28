@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\V1\Farm\AttachmentController;
 use App\Http\Controllers\Api\V1\Admin\UserController;
 use App\Http\Controllers\Api\V1\Management\OprationController;
 use App\Http\Controllers\Api\V1\Trucktor\TrucktorTaskController;
+use App\Http\Controllers\Api\V1\Farm\IrrigationController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -34,29 +35,34 @@ use Illuminate\Support\Facades\Route;
 
 Route::controller(AuthController::class)->prefix('auth')->group(function () {
     Route::middleware('guest')->group(function () {
-        Route::post('/send', 'sendToken');
-        Route::post('/verify', 'verifyToken');
+        Route::post('send', 'sendToken');
+        Route::post('verify', 'verifyToken');
     });
     Route::post('logout', 'logout')->middleware('auth:sanctum');
 });
 
-Route::middleware(['auth:sanctum', 'last.activity'])->group(function () {
+Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(function () {
 
     Route::middleware('admin')->prefix('admin')->group(function () {
         Route::apiResource('gps_devices', GpsDeviceController::class)->except('show');
         Route::apiResource('users', UserController::class)->except('show');
     });
 
-    Route::apiSingleton('profile', ProfileController::class);
+    Route::withoutMiddleware('ensure.username')->group(function () {
+        Route::patch('username', [ProfileController::class, 'setUsername']);
+        Route::apiSingleton('profile', ProfileController::class);
+    });
 
     Route::apiResource('farms', FarmController::class);
     Route::apiResource('farms.fields', FieldController::class)->shallow();
-    Route::apiResource('fields.rows', RowController::class)->only('index', 'store', 'destroy')->shallow();
-    Route::post('rows/{row}/trees/batch-store', [TreeController::class, 'batchStore']);
+    Route::apiResource('fields.rows', RowController::class)->except('show', 'update')->shallow();
+    Route::post('rows/{row}/trees/batch_store', [TreeController::class, 'batchStore']);
     Route::apiResource('rows.trees', TreeController::class)->shallow();
     Route::apiResource('fields.blocks', BlockController::class)->shallow();
     Route::apiResource('farms.pumps', PumpController::class)->shallow();
-    Route::apiResource('pumps.valves', ValveController::class)->shallow();
+
+    Route::get('/valves/{valve}/toggle', [ValveController::class, 'toggle']);
+    Route::apiResource('pumps.valves', ValveController::class)->except('show')->shallow();
     Route::apiResource('farms.trucktors', TrucktorController::class)->shallow();
 
     Route::get('/trucktors/{trucktor}/get_devices', [TrucktorController::class, 'getAvailableDevices']);
@@ -69,6 +75,8 @@ Route::middleware(['auth:sanctum', 'last.activity'])->group(function () {
     Route::apiResource('attachments', AttachmentController::class)->except('show', 'index');
     Route::apiResource('farms.operations', OprationController::class)->except('show');
     Route::apiResource('trucktors.trucktor_tasks', TrucktorTaskController::class)->shallow();
+    Route::post('/fields/{field}/irrigations/reports', [IrrigationController::class, 'filterReports']);
+    Route::apiResource('fields.irrigations', IrrigationController::class)->except('show')->shallow();
 });
 
 Route::post('/gps/reports', [GpsReportController::class, 'store']);
