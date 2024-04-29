@@ -48,7 +48,17 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::middleware('admin')->prefix('admin')->group(function () {
         Route::apiResource('gps_devices', GpsDeviceController::class)->except('show');
         Route::apiResource('users', UserController::class)->except('show');
-        Route::apiResource('products', ProductController::class);
+
+        Route::controller(ProductController::class)->prefix('products')->group(function () {
+            Route::withoutMiddleware('admin')->group(function () {
+                Route::get('/', 'index');
+                Route::get('/{product}', 'show');
+            });
+            Route::post('/', 'store');
+            Route::put('/{product}', 'update');
+            Route::delete('/{product}', 'destroy');
+        });
+
         Route::apiResource('products.product_types', ProductTypeController::class)->except('index', 'show')->shallow();
     });
 
