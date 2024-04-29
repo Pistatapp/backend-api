@@ -8,7 +8,6 @@ use App\Http\Requests\UpdateIrrigationRequest;
 use App\Http\Resources\IrrigationResource;
 use App\Models\Field;
 use App\Models\Irrigation;
-use App\Models\Valve;
 use Illuminate\Http\Request;
 
 class IrrigationController extends Controller

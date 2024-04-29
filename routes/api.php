@@ -20,6 +20,8 @@ use App\Http\Controllers\Api\V1\User\Trucktor\TrucktorTaskController;
 use App\Http\Controllers\Api\V1\User\Farm\IrrigationController;
 use App\Http\Controllers\Api\V1\Admin\UserController;
 use App\Http\Controllers\Api\V1\Admin\GpsDeviceController;
+use App\Http\Controllers\Api\V1\Admin\ProductController;
+use App\Http\Controllers\Api\V1\Admin\ProductTypeController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -46,6 +48,8 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::middleware('admin')->prefix('admin')->group(function () {
         Route::apiResource('gps_devices', GpsDeviceController::class)->except('show');
         Route::apiResource('users', UserController::class)->except('show');
+        Route::apiResource('products', ProductController::class);
+        Route::apiResource('products.product_types', ProductTypeController::class)->except('index', 'show')->shallow();
     });
 
     Route::withoutMiddleware('ensure.username')->group(function () {

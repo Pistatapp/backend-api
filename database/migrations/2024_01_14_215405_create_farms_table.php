@@ -19,8 +19,8 @@ return new class extends Migration
             $table->integer('zoom')->default(15);
             $table->string('center');
             $table->double('area');
-            $table->string('products')->nullable();
             $table->boolean('is_working_environment')->default(false);
+            $table->integer('product_id')->nullable();
             $table->timestamps();
         });
     }

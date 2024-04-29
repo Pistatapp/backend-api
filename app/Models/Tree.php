@@ -14,7 +14,6 @@ class Tree extends Model implements HasMedia
     protected $fillable = [
         'row_id',
         'name',
-        'product',
         'location',
         'image',
         'unique_id',

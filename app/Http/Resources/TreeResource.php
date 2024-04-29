@@ -18,7 +18,6 @@ class TreeResource extends JsonResource
             'id' => $this->id,
             'row_id' => $this->row_id,
             'name' => $this->when($this->name, $this->name),
-            'product' => $this->when($this->product, $this->product),
             'location' => $this->location,
             'image' => $this->when($this->image, $this->image),
             'unique_id' => $this->when($this->unique_id, $this->unique_id),

@@ -20,7 +20,7 @@ class Field extends Model
         'coordinates',
         'center',
         'area',
-        'products',
+        'product_type_id',
     ];
 
     /**
@@ -30,9 +30,18 @@ class Field extends Model
      */
     protected $casts = [
         'coordinates' => 'array',
-        'products' => 'array',
         'center' => 'array',
     ];
+
+    /**
+     * Get the product type that owns the field.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
+    public function productType()
+    {
+        return $this->belongsTo(ProductType::class);
+    }
 
     /**
      * Get the farm that owns the field.

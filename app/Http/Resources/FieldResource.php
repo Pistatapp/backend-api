@@ -21,7 +21,12 @@ class FieldResource extends JsonResource
             'coordinates' => $this->coordinates,
             'center' => $this->center,
             'area' => $this->area,
-            'products' => $this->products,
+            'product_type' => $this->whenLoaded('productType', function () {
+                return [
+                    'id' => $this->productType->id,
+                    'name' => $this->productType->name,
+                ];
+            }),
             'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),
             'attachments' => AttachmentResource::collection($this->whenLoaded('attachments')),
         ];

@@ -22,7 +22,12 @@ class FarmResource extends JsonResource
             'center' => $this->center,
             'zoom' => $this->zoom,
             'area' => number_format($this->area, 2),
-            'products' => $this->products,
+            'product' => $this->whenLoaded('product', function () {
+                return [
+                    'id' => $this->product->id,
+                    'name' => $this->product->name,
+                ];
+            }),
             'fields_count' => $this->whenCounted('fields'),
             'trees_count' => $this->whenCounted('trees'),
             'is_working_environment' => $this->is_working_environment,

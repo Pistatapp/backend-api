@@ -58,7 +58,7 @@ class ProfileController extends Controller
     public function setUsername(Request $request)
     {
         $request->validate([
-            'username' => 'required|string|max:255|unique:users',
+            'username' => 'required|string|max:255|unique:users,username|regex:/^[a-zA-Z0-9_]+$/',
         ]);
 
         $request->user()->update(['username' => str_replace(' ', '_', $request->username)]);

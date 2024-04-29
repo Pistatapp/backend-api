@@ -27,16 +27,6 @@ class FarmController extends Controller
     }
 
     /**
-     * Get a single farm
-     * @param Farm $farm
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function show(Farm $farm)
-    {
-        return new FarmResource($farm->loadCount(['trees', 'fields']));
-    }
-
-    /**
      * Create a new farm
      *
      * @param Request $request
@@ -45,13 +35,13 @@ class FarmController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'name' => 'required|string|max:255',
+            'name' => 'required|string|max:255|unique:farms,name',
             'coordinates' => 'required|array|min:3',
             'coordinates.*' => 'required|string',
             'center' => 'required|string',
             'zoom' => 'required|numeric|min:1',
             'area' => 'required|numeric|min:0',
-            'products' => 'nullable|array|min:1',
+            'product_id' => 'required|exists:products,id',
         ]);
 
         $farm = Farm::create([
@@ -61,11 +51,23 @@ class FarmController extends Controller
             'center' => $request->center,
             'zoom' => $request->zoom,
             'area' => $request->area,
-            'products' => $request->products
+            'product_id' => $request->product_id,
+            'is_working_environment' => Farm::count() === 0,
         ]);
 
         return new FarmResource($farm);
     }
+
+    /**
+     * Get a single farm
+     * @param Farm $farm
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function show(Farm $farm)
+    {
+        return new FarmResource($farm->loadCount(['trees', 'fields'])->load('product'));
+    }
+
 
     /**
      * Update a farm
@@ -77,13 +79,13 @@ class FarmController extends Controller
     public function update(Request $request, Farm $farm)
     {
         $request->validate([
-            'name' => 'required|string|max:255',
+            'name' => 'required|string|max:255|unique:farms,name,' . $farm->id,
             'coordinates' => 'required|array|min:3',
             'coordinates.*' => 'required|string',
             'center' => 'required|string',
             'zoom' => 'required|numeric|min:1',
             'area' => 'required|numeric|min:0',
-            'products' => 'nullable|array|min:1',
+            'product_id' => 'required|exists:products,id',
         ]);
 
         $farm->update([
@@ -92,7 +94,7 @@ class FarmController extends Controller
             'center' => $request->center,
             'zoom' => $request->zoom,
             'area' => $request->area,
-            'products' => $request->products
+            'product_id' => $request->product_id
         ]);
 
         return new FarmResource($farm);

@@ -18,7 +18,7 @@ return new class extends Migration
             $table->json('coordinates');
             $table->string('center');
             $table->float('area');
-            $table->string('products')->nullable();
+            $table->integer('product_type_id')->nullable();
             $table->timestamps();
         });
     }

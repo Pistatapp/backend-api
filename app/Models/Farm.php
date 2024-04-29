@@ -14,19 +14,37 @@ class Farm extends Model
         'user_id',
         'name',
         'coordinates',
-        'products',
+        'product_id',
         'center',
         'zoom',
         'area',
         'is_working_environment',
     ];
 
-    protected $casts = [
-        'coordinates' => 'array',
-        'products' => 'array',
-        'center' => 'array',
-        'is_working_environment' => 'boolean',
-    ];
+    /**
+     * The attributes that should be cast.
+     *
+     * @return array<string, mixed>
+     */
+    protected function casts()
+    {
+        return [
+            'coordinates' => 'array',
+            'products' => 'array',
+            'center' => 'array',
+            'is_working_environment' => 'boolean',
+        ];
+    }
+
+    /**
+     * Get the product that owns the farm.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
+    public function product()
+    {
+        return $this->belongsTo(Product::class);
+    }
 
     /**
      * Get the user that owns the farm.

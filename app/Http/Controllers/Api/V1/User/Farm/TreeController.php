@@ -3,13 +3,10 @@
 namespace App\Http\Controllers\Api\V1\User\Farm;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\StoreBatchTreesRequest;
 use App\Http\Resources\TreeResource;
 use App\Models\Row;
 use App\Models\Tree;
 use Illuminate\Http\Request;
-use App\Http\Requests\StoreTreeRequest;
-use App\Http\Requests\UpdateTreeRequest;
 use Illuminate\Support\Str;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
@@ -30,15 +27,20 @@ class TreeController extends Controller
     /**
      * Store a newly created resource in storage.
      *
-     * @param \Illuminate\Http\StoreTreeRequest $request
+     * @param \Illuminate\Http\Request $request
      * @param \App\Models\Row $row
      * @return \App\Http\Resources\TreeResource
      */
-    public function store(StoreTreeRequest $request, Row $row)
+    public function store(Request $request, Row $row)
     {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'product' => 'required|string|max:255',
+            'image' => 'nullable|image|max:1024',
+        ]);
+
         $tree = $row->trees()->create($request->only([
             'name',
-            'product',
             'location',
         ]));
 
@@ -71,15 +73,21 @@ class TreeController extends Controller
     /**
      * Update the specified resource in storage.
      *
-     * @param \App\Http\Requests\UpdateTreeRequest $request
+     * @param \Illuminate\Http\Request $request
      * @param \App\Models\Tree $tree
      * @return \App\Http\Resources\TreeResource
      */
-    public function update(UpdateTreeRequest $request, Tree $tree)
+    public function update(Request $request, Tree $tree)
     {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'location' => 'required|array|min:2',
+            'location.*' => 'required|numeric',
+            'image' => 'nullable|image|max:1024',
+        ]);
+
         $tree->fill($request->only([
             'name',
-            'product',
             'location',
         ]));
 
@@ -97,12 +105,18 @@ class TreeController extends Controller
     /**
      * Batch store a collection of trees.
      *
-     * @param \App\Http\Requests\StoreBatchTreesRequest $request
+     * @param \Illuminate\Http\Request $request
      * @param \App\Models\Row $row
      * @return \Illuminate\Http\Response
      */
-    public function batchStore(StoreBatchTreesRequest $request, Row $row)
+    public function batchStore(Request $request, Row $row)
     {
+        $request->validate([
+            'trees' => 'required|array|min:1',
+            'trees.*.name' => 'required|string',
+            'trees.*.location' => 'required|array|min:2',
+            'trees.*.location.*' => 'required|numeric',
+        ]);
 
         $trees = $request->input('trees');
         $treesData = [];
@@ -111,7 +125,6 @@ class TreeController extends Controller
             $treeData = [
                 'row_id' => $row->id,
                 'name' => $tree['name'],
-                'product' => $tree['product'],
                 'location' => json_encode($tree['location']),
                 'unique_id' => $uniqueId = Str::random(15),
                 'qr_code' => base64_encode(QrCode::size(300)->generate($uniqueId)),

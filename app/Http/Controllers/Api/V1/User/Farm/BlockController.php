@@ -29,8 +29,6 @@ class BlockController extends Controller
             'coordinates.*' => 'required|string',
         ]);
 
-        throw_unless($field->hasRows(), new \Exception('Field must have rows before creating blocks.'));
-
         $block = $field->blocks()->create($request->only([
             'name',
             'coordinates',

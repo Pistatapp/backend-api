@@ -11,14 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('trees', function (Blueprint $table) {
+        Schema::create('product_types', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('row_id')->constrained()->onDelete('cascade');
-            $table->string('name')->nullable();
-            $table->string('location');
-            $table->string('image')->nullable();
-            $table->string('unique_id')->nullable();
-            $table->text('qr_code')->nullable();
+            $table->foreignId('product_id')->constrained()->onDelete('cascade');
+            $table->string('name');
             $table->timestamps();
         });
     }
@@ -28,6 +24,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('trees');
+        Schema::dropIfExists('product_types');
     }
 };
