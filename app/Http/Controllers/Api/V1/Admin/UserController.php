@@ -14,7 +14,7 @@ class UserController extends Controller
      */
     public function index()
     {
-        $users = User::notAdmin()->with('profile')->withCount('gpsDevices');
+        $users = User::notAdmin()->withCount('gpsDevices');
 
         if (request()->query('without_pagination')) {
             return UserResource::collection($users->get());
@@ -38,6 +38,14 @@ class UserController extends Controller
 
         $user->profile()->create($request->only('first_name', 'last_name'));
 
+        return new UserResource($user->load('profile'));
+    }
+
+    /**
+     * Display the specified resource.
+     */
+    public function show(User $user)
+    {
         return new UserResource($user->load('profile'));
     }
 

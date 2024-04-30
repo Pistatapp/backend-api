@@ -18,8 +18,8 @@ class UserResource extends JsonResource
             'id' => $this->id,
             'username' => $this->username,
             'mobile' => $this->mobile,
-            'mobile_verified_at' => $this->mobile_verified_at,
-            'last_activity_at' => $this->last_activity_at,
+            'mobile_verified_at' => jdate($this->mobile_verified_at)->format('Y/m/d H:i:s'),
+            'last_activity_at' => jdate($this->last_activity_at)->format('Y/m/d H:i:s'),
             'gps_devices_count' => $this->whenCounted('gpsDevices'),
             'profile' => new ProfileResource($this->whenLoaded('profile')),
         ];

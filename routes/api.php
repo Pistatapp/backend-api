@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\V1\User\Farm\AttachmentController;
 use App\Http\Controllers\Api\V1\User\Management\OprationController;
 use App\Http\Controllers\Api\V1\User\Trucktor\TrucktorTaskController;
 use App\Http\Controllers\Api\V1\User\Farm\IrrigationController;
+use App\Http\Controllers\Api\V1\User\Trucktor\TrucktorReportController;
 use App\Http\Controllers\Api\V1\Admin\UserController;
 use App\Http\Controllers\Api\V1\Admin\GpsDeviceController;
 use App\Http\Controllers\Api\V1\Admin\ProductController;
@@ -47,7 +48,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
 
     Route::middleware('admin')->prefix('admin')->group(function () {
         Route::apiResource('gps_devices', GpsDeviceController::class)->except('show');
-        Route::apiResource('users', UserController::class)->except('show');
+        Route::apiResource('users', UserController::class);
 
         Route::controller(ProductController::class)->prefix('products')->group(function () {
             Route::withoutMiddleware('admin')->group(function () {
@@ -78,11 +79,13 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
 
     Route::get('/valves/{valve}/toggle', [ValveController::class, 'toggle']);
     Route::apiResource('pumps.valves', ValveController::class)->except('show')->shallow();
-    Route::apiResource('farms.trucktors', TrucktorController::class)->shallow();
 
-    Route::get('/trucktors/{trucktor}/get_devices', [TrucktorController::class, 'getAvailableDevices']);
+    Route::get('/farms/{farm}/trucktors/active', [TrucktorReportController::class, 'index']);
+    Route::apiResource('farms.trucktors', TrucktorController::class)->shallow();
+    Route::get('/trucktors/{trucktor}/devices', [TrucktorController::class, 'getAvailableDevices']);
     Route::post('/trucktors/{trucktor}/assign_device/{gps_device}', [TrucktorController::class, 'assignDevice']);
     Route::post('/trucktors/{trucktor}/unassign_device/{gps_device}', [TrucktorController::class, 'unassignDevice']);
+    Route::get('/trucktors/{trucktor}/reports', [TrucktorReportController::class, 'reports']);
     Route::apiSingleton('trucktors.driver', DriverController::class)->creatable();
 
     Route::apiResource('farms.teams', TeamController::class)->shallow();
