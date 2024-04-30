@@ -73,4 +73,14 @@ class Pump extends Model implements HasMedia
     {
         return $this->morphMany(Attachment::class, 'attachable');
     }
+
+    /**
+     * Get the maintenance reports for the pump.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\MorphMany
+     */
+    public function maintenanceReports()
+    {
+        return $this->morphMany(MaintenanceReport::class, 'maintainable');
+    }
 }

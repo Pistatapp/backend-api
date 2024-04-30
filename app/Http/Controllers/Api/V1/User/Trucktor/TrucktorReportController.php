@@ -3,66 +3,128 @@
 namespace App\Http\Controllers\Api\V1\User\Trucktor;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\ActiveTrucktorResource;
+use App\Http\Resources\TrucktorReportResource;
 use App\Models\Trucktor;
+use App\Models\TrucktorReport;
 use Illuminate\Http\Request;
-use App\Http\Resources\PointsResource;
-use App\Models\Farm;
 
 class TrucktorReportController extends Controller
 {
 
-    /**
-     * Get active trucktors for the farm
-     *
-     * @param Farm $farm
-     * @return \Illuminate\Http\Resources\Json\AnonymousResourceCollection
-     */
-    public function index(Farm $farm)
+    public function __construct()
     {
-        $trucktors = Trucktor::whereBelongsTo($farm)->whereHas('gpsDevice')
-            ->whereHas('driver')
-            ->with(['gpsDevice', 'driver', 'gpsReports' => function ($query) {
-                $query->whereDate('date_time', today())->latest('date_time')->limit(1);
-            }])
-            ->get();
-
-        return ActiveTrucktorResource::collection($trucktors);
+        $this->authorizeResource(TrucktorReport::class);
     }
+
     /**
-     * Get reports for a sepcific trucktor
-     *
-     * @param Request $request
-     * @param Trucktor $trucktor
-     * @return \Illuminate\Http\JsonResponse
+     * Display a listing of the resource.
      */
-    public function reports(Request $request, Trucktor $trucktor)
+    public function index(Trucktor $trucktor)
+    {
+        $reports = $trucktor->reports()->latest()->simplePaginate();
+        return TrucktorReportResource::collection($reports);
+    }
+
+    /**
+     * Store a newly created resource in storage.
+     */
+    public function store(Request $request, Trucktor $trucktor)
     {
         $request->validate([
-            'date' => 'required|shamsi_date'
+            'date' => 'required|date',
+            'start_time' => 'required|date_format:H:i',
+            'end_time' => 'required|date_format:H:i',
+            'operation_id' => 'required|exists:operations,id',
+            'field_id' => 'required|exists:fields,id',
+            'description' => 'nullable|string',
         ]);
 
-        $date = jalali_to_carbon($request->date);
-
-        $dailyReport = $trucktor->gpsDailyReports()->where('date', $date)->first();
-
-        $reports = $trucktor->gpsReports()->whereDate('date_time', $date)->orderBy('date_time')->get();
-        $startWorkingTime = count($reports) > 0 ? $reports->where('is_start_point', 1)->first() : null;
-
-        return response()->json([
-            'data' => [
-                'id' => $trucktor->id,
-                'name' => $trucktor->name,
-                'speed' => $reports->last()->speed ?? 0,
-                'status' => $reports->last()->status ?? 0,
-                'start_working_time' => $startWorkingTime ? $startWorkingTime->date_time->format('H:i:s') : '00:00:00',
-                'traveled_distance' => number_format($dailyReport->traveled_distance ?? 0, 2),
-                'work_duration' => gmdate('H:i:s', $dailyReport->work_duration ?? 0),
-                'stoppage_count' => $dailyReport->stoppage_count ?? 0,
-                'stoppage_duration' => gmdate('H:i:s', $dailyReport->stoppage_duration ?? 0),
-                'efficiency' => number_format($dailyReport->efficiency ?? 0, 2),
-                'points' => PointsResource::collection($reports),
-            ]
+        $trucktorReport = $trucktor->reports()->create([
+            'date' => jalali_to_carbon($request->date),
+            'start_time' => $request->start_time,
+            'end_time' => $request->end_time,
+            'operation_id' => $request->operation_id,
+            'field_id' => $request->field_id,
+            'description' => $request->description,
+            'created_by' => auth()->id(),
         ]);
+
+        return new TrucktorReportResource($trucktorReport);
+    }
+
+    /**
+     * Display the specified resource.
+     */
+    public function show(TrucktorReport $trucktorReport)
+    {
+        return new TrucktorReportResource($trucktorReport);
+    }
+
+    /**
+     * Update the specified resource in storage.
+     */
+    public function update(Request $request, TrucktorReport $trucktorReport)
+    {
+        $request->validate([
+            'date' => 'required|date',
+            'start_time' => 'required|date_format:H:i',
+            'end_time' => 'required|date_format:H:i',
+            'operation_id' => 'required|exists:operations,id',
+            'field_id' => 'required|exists:fields,id',
+            'description' => 'nullable|string',
+        ]);
+
+        $trucktorReport->update([
+            'date' => jalali_to_carbon($request->date),
+            'start_time' => $request->start_time,
+            'end_time' => $request->end_time,
+            'operation_id' => $request->operation_id,
+            'field_id' => $request->field_id,
+            'description' => $request->description,
+        ]);
+
+        return new TrucktorReportResource($trucktorReport);
+    }
+
+    /**
+     * Remove the specified resource from storage.
+     */
+    public function destroy(TrucktorReport $trucktorReport)
+    {
+        $trucktorReport->delete();
+
+        return response()->noContent();
+    }
+
+    /**
+     * Filter the specified resource from storage.
+     */
+    public function filter(Request $request)
+    {
+        $request->validate([
+            'from' => 'required|shamsi_date',
+            'to' => 'required|shamsi_date',
+            'operation_id' => 'nullable|exists:operations,id',
+            'field_id' => 'nullable|exists:fields,id',
+            'trucktor_id' => 'nullable|exists:trucktors,id',
+        ]);
+
+        $reports = TrucktorReport::whereBetween('date', [
+            jalali_to_carbon($request->from),
+            jalali_to_carbon($request->to),
+        ])
+            ->when($request->has('operation_id'), function ($query) use ($request) {
+                return $query->where('operation_id', $request->operation_id);
+            })
+            ->when($request->has('field_id'), function ($query) use ($request) {
+                return $query->where('field_id', $request->field_id);
+            })
+            ->when($request->has('trucktor_id'), function ($query) use ($request) {
+                return $query->where('trucktor_id', $request->trucktor_id);
+            })
+            ->latest()
+            ->simplePaginate();
+
+        return TrucktorReportResource::collection($reports);
     }
 }

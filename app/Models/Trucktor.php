@@ -78,4 +78,24 @@ class Trucktor extends Model
     {
         return $this->hasMany(TrucktorTask::class);
     }
+
+    /**
+     * Get the reports for the trucktor.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function reports()
+    {
+        return $this->hasMany(TrucktorReport::class);
+    }
+
+    /**
+     * Get the maintenance reports for the trucktor.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\MorphMany
+     */
+    public function maintenanceReports()
+    {
+        return $this->morphMany(MaintenanceReport::class, 'maintainable');
+    }
 }

@@ -29,9 +29,14 @@ class Labor extends Model
         'monthly_salary',
     ];
 
+    public function getFullNameAttribute()
+    {
+        return $this->fname . ' ' . $this->lname;
+    }
+
     /**
      * Get the team that owns the Labor
-     * 
+     *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
     public function team()

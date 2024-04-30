@@ -121,4 +121,14 @@ class User extends Authenticatable implements HasMedia
     {
         return $query->where('is_admin', false);
     }
+
+    /**
+     * Get the active farm of the user.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasOne
+     */
+    public function active_farm()
+    {
+        return $this->hasOne(Farm::class)->where('is_working_environment', true);
+    }
 }

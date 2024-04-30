@@ -135,4 +135,24 @@ class Farm extends Model
     {
         return $this->hasMany(Operation::class);
     }
+
+    /**
+     * Get maintenances of the farm.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function maintenances()
+    {
+        return $this->hasMany(Maintenance::class);
+    }
+
+    /**
+     * Get the maintenance reports for the farm.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasManyThrough
+     */
+    public function maintenanceReports()
+    {
+        return $this->hasManyThrough(MaintenanceReport::class, Maintenance::class);
+    }
 }

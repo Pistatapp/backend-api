@@ -27,3 +27,13 @@ function time_to_hours(string $time): float
     $hours += $minutes / 60;
     return $hours;
 }
+
+/**
+ * Get the active farm of the authenticated user
+ *
+ * @return \App\Models\Farm
+ */
+function get_active_farm()
+{
+    return auth()->user()->active_farm;
+}

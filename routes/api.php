@@ -23,6 +23,9 @@ use App\Http\Controllers\Api\V1\Admin\UserController;
 use App\Http\Controllers\Api\V1\Admin\GpsDeviceController;
 use App\Http\Controllers\Api\V1\Admin\ProductController;
 use App\Http\Controllers\Api\V1\Admin\ProductTypeController;
+use App\Http\Controllers\Api\V1\User\Trucktor\ActiveTrucktorController;
+use App\Http\Controllers\Api\V1\User\Management\MaintenanceController;
+use App\Http\Controllers\Api\V1\User\MaintenanceReportController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -80,13 +83,20 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::get('/valves/{valve}/toggle', [ValveController::class, 'toggle']);
     Route::apiResource('pumps.valves', ValveController::class)->except('show')->shallow();
 
-    Route::get('/farms/{farm}/trucktors/active', [TrucktorReportController::class, 'index']);
+    Route::get('/farms/{farm}/trucktors/active', [ActiveTrucktorController::class, 'index']);
     Route::apiResource('farms.trucktors', TrucktorController::class)->shallow();
     Route::get('/trucktors/{trucktor}/devices', [TrucktorController::class, 'getAvailableDevices']);
     Route::post('/trucktors/{trucktor}/assign_device/{gps_device}', [TrucktorController::class, 'assignDevice']);
     Route::post('/trucktors/{trucktor}/unassign_device/{gps_device}', [TrucktorController::class, 'unassignDevice']);
-    Route::get('/trucktors/{trucktor}/reports', [TrucktorReportController::class, 'reports']);
+    Route::get('/trucktors/{trucktor}/reports', [ActiveTrucktorController::class, 'reports']);
     Route::apiSingleton('trucktors.driver', DriverController::class)->creatable();
+    Route::apiResource('trucktors.trucktor_reports', TrucktorReportController::class)->shallow();
+    Route::post('/trucktor_reports/filter', [TrucktorReportController::class, 'filter']);
+
+
+    Route::apiResource('farms.maintenances', MaintenanceController::class)->except('show')->shallow();
+    Route::post(('maintenance_reports/filter'), [MaintenanceReportController::class, 'filter']);
+    Route::apiResource('maintenance_reports', MaintenanceReportController::class)->except('show')->shallow();
 
     Route::apiResource('farms.teams', TeamController::class)->shallow();
     Route::apiResource('teams.labors', LaborController::class)->shallow();
