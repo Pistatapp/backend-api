@@ -10,27 +10,38 @@ class Operation extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id',
+        'farm_id',
+        'parent_id',
         'name',
     ];
 
     /**
-     * Get the user that owns the Operation
+     * Get the parent that owns the Operation
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
-    public function user()
+    public function parent()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(Operation::class);
     }
 
     /**
-     * Get the operation reports for the operation.
+     * Get the children for the Operation
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
-    public function operationReports()
+    public function children()
     {
-        // return $this->hasMany(OperationReport::class);
+        return $this->hasMany(Operation::class, 'parent_id');
+    }
+
+    /**
+     * Get the farm that owns the Operation
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
+    public function farm()
+    {
+        return $this->belongsTo(Farm::class);
     }
 }

@@ -101,7 +101,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::apiResource('farms.teams', TeamController::class)->shallow();
     Route::apiResource('teams.labors', LaborController::class)->shallow();
     Route::apiResource('attachments', AttachmentController::class)->except('show', 'index');
-    Route::apiResource('farms.operations', OprationController::class)->except('show');
+    Route::apiResource('farms.operations', OprationController::class)->shallow();
     Route::apiResource('trucktors.trucktor_tasks', TrucktorTaskController::class)->shallow();
     Route::post('/fields/{field}/irrigations/reports', [IrrigationController::class, 'filterReports']);
     Route::apiResource('fields.irrigations', IrrigationController::class)->except('show')->shallow();

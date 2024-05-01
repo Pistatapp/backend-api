@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api\V1\User\Management;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\OperationCollection;
+use App\Http\Resources\OperationResource;
 use App\Models\Operation;
 use App\Models\Farm;
 use Illuminate\Http\Request;
@@ -15,7 +15,8 @@ class OprationController extends Controller
      */
     public function index(Farm $farm)
     {
-        return new OperationCollection($farm->operations);
+        $operations = $farm->operations()->whereNull('parent_id')->get();
+        return OperationResource::collection($operations);
     }
 
     /**
@@ -24,12 +25,21 @@ class OprationController extends Controller
     public function store(Request $request, Farm $farm)
     {
         $request->validate([
+            'parent_id' => 'nullable|exists:operations,id', // 'nullable' means 'optional
             'name' => 'required|string|max:255',
         ]);
 
-        $operation = $farm->operations()->create($request->only('name'));
+        $operation = $farm->operations()->create($request->all());
 
-        return response()->json($operation, 201);
+        return new OperationResource($operation);
+    }
+
+    /**
+     * Display the specified resource.
+     */
+    public function show(Operation $operation)
+    {
+        return new OperationResource($operation->load('children'));
     }
 
     /**
@@ -38,14 +48,15 @@ class OprationController extends Controller
     public function update(Request $request, Operation $operation)
     {
         $request->validate([
+            'parent_id' => 'nullable|exists:operations,id', // 'nullable' means 'optional
             'name' => 'required|string|max:255',
         ]);
 
         $this->authorize('update', $operation);
 
-        $operation->update($request->only('name'));
+        $operation->update($request->only('name', 'parent_id'));
 
-        return response()->json([], 200);
+        return new OperationResource($operation);
     }
 
     /**

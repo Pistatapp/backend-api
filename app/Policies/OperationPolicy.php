@@ -16,7 +16,7 @@ class OperationPolicy
      */
     public function update(User $user, Operation $operation)
     {
-        return $operation->user->is($user);
+        return $operation->farm->user->is($user);
     }
 
     /**
@@ -28,6 +28,6 @@ class OperationPolicy
      */
     public function delete(User $user, Operation $operation)
     {
-        return $operation->user->is($user);
+        return $operation->farm->user->is($user);
     }
 }

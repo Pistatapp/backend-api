@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('operations', function (Blueprint $table) {
             $table->id();
             $table->foreignId('farm_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('parent_id')->nullable()->constrained('operations')->nullOnDelete();
             $table->string('name');
             $table->timestamps();
         });
