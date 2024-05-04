@@ -20,7 +20,7 @@ class ProfileController extends Controller
     {
         $profile = $request->user()->profile;
 
-        return new ProfileResource($profile);
+        return new ProfileResource($profile->load('user'));
     }
 
     /**
