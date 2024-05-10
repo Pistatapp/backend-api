@@ -123,6 +123,23 @@ class AuthController extends Controller
     }
 
     /**
+     * Refresh user token.
+     *
+     * @param \Illuminate\Http\Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function refresh_token(Request $request)
+    {
+        $user = $request->user();
+
+        $user->tokens()->delete();
+
+        return response()->json([
+            'token' => $user->createToken('mobile', expiresAt: now()->addHour())->plainTextToken,
+        ]);
+    }
+
+    /**
      * Logout user.
      *
      * @param \Illuminate\Http\Request $request
