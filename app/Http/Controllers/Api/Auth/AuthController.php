@@ -128,7 +128,7 @@ class AuthController extends Controller
      * @param \Illuminate\Http\Request $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function refresh_token(Request $request)
+    public function refreshToken(Request $request)
     {
         $user = $request->user();
 

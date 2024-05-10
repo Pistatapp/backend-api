@@ -45,7 +45,7 @@ Route::controller(AuthController::class)->prefix('auth')->group(function () {
         Route::post('verify', 'verifyToken');
     });
     Route::post('logout', 'logout')->middleware('auth:sanctum');
-    Route::post('refresh', 'refresh')->middleware('auth:sanctum');
+    Route::post('refresh', 'refreshToken')->middleware('auth:sanctum');
 });
 
 Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(function () {
