@@ -27,8 +27,7 @@ class GpsReportController extends Controller
      */
     public function store(Request $request)
     {
-
-        // try {
+        try {
             $data = $this->prepareData($request->getContent());
 
             $device = $this->getDevice($data[0]['imei']);
@@ -42,11 +41,11 @@ class GpsReportController extends Controller
             event(new ReportReceived($generatedReport, $device));
 
             event(new TrucktorStatus($device->trucktor, $lastReportStatus));
-        // } catch (\Exception $e) {
-        //     //
-        // } finally {
-        //     return new JsonResponse([], 200);
-        // }
+        } catch (\Exception $e) {
+            //
+        } finally {
+            return new JsonResponse([], 200);
+        }
     }
 
     /**
@@ -71,7 +70,8 @@ class GpsReportController extends Controller
     private function getDevice(string $imei)
     {
         return Cache::remember('gps_device_' . $imei, 3600, function () use ($imei) {
-            return GpsDevice::where('imei', $imei)->with('trucktor')->first();
+            return GpsDevice::where('imei', $imei)
+                ->whereHas('trucktor')->with('trucktor')->first();
         });
     }
 }
