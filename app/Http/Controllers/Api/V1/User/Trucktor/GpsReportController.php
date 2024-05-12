@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\User\Trucktor;
 use App\Events\ReportReceived;
 use App\Events\TrucktorStatus;
 use App\Http\Controllers\Controller;
+use App\Models\GPSData;
 use App\Services\FormatDataService;
 use App\Services\LiveReportService;
 use Illuminate\Http\JsonResponse;
@@ -28,6 +29,10 @@ class GpsReportController extends Controller
     public function store(Request $request)
     {
         try {
+            GPSData::create([
+                'data' => $request->getContent()
+            ]);
+
             $data = $this->prepareData($request->getContent());
 
             $device = $this->getDevice($data[0]['imei']);
