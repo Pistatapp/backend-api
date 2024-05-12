@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\V1\Admin\ProductTypeController;
 use App\Http\Controllers\Api\V1\User\Trucktor\ActiveTrucktorController;
 use App\Http\Controllers\Api\V1\User\Management\MaintenanceController;
 use App\Http\Controllers\Api\V1\User\MaintenanceReportController;
+use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -94,7 +95,6 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::apiResource('trucktors.trucktor_reports', TrucktorReportController::class)->shallow();
     Route::post('/trucktor_reports/filter', [TrucktorReportController::class, 'filter']);
 
-
     Route::apiResource('farms.maintenances', MaintenanceController::class)->except('show')->shallow();
     Route::post(('maintenance_reports/filter'), [MaintenanceReportController::class, 'filter']);
     Route::apiResource('maintenance_reports', MaintenanceReportController::class)->except('show')->shallow();
@@ -106,6 +106,8 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::apiResource('trucktors.trucktor_tasks', TrucktorTaskController::class)->shallow();
     Route::post('/fields/{field}/irrigations/reports', [IrrigationController::class, 'filterReports']);
     Route::apiResource('fields.irrigations', IrrigationController::class)->except('show')->shallow();
+
+    Broadcast::routes(['middleware' => ['auth:sanctum']]);
 });
 
 Route::post('/gps/reports', [GpsReportController::class, 'store']);

@@ -10,7 +10,13 @@ use Morilog\Jalali\Jalalian;
  */
 function jalali_to_carbon(string $jalaliDate): \Carbon\Carbon
 {
-    return Jalalian::fromFormat('Y/m/d', $jalaliDate)->toCarbon();
+    try {
+        $date = Jalalian::fromFormat('Y/m/d', $jalaliDate)->toCarbon();
+    } catch (\Exception $e) {
+        throw new \Exception('Invalid Jalali date format');
+    }
+
+    return $date;
 }
 
 /**

@@ -24,8 +24,7 @@ class ActiveTrucktorController extends Controller
             ->whereHas('driver')
             ->with(['gpsDevice', 'driver', 'gpsReports' => function ($query) {
                 $query->whereDate('date_time', today())->latest('date_time')->limit(1);
-            }])
-            ->get();
+            }])->get();
 
         return ActiveTrucktorResource::collection($trucktors);
     }
