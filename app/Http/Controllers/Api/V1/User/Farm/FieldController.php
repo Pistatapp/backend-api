@@ -18,7 +18,7 @@ class FieldController extends Controller
      */
     public function index(Farm $farm)
     {
-        return FieldResource::collection($farm->fileds);
+        return FieldResource::collection($farm->fields);
     }
 
     /**

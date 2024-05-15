@@ -155,4 +155,14 @@ class Farm extends Model
     {
         return $this->hasManyThrough(MaintenanceReport::class, Maintenance::class);
     }
+
+    /**
+     * Get the timars for the farm.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function timars()
+    {
+        return $this->hasMany(Timar::class);
+    }
 }

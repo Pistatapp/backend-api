@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\V1\Admin\ProductTypeController;
 use App\Http\Controllers\Api\V1\User\Trucktor\ActiveTrucktorController;
 use App\Http\Controllers\Api\V1\User\Management\MaintenanceController;
 use App\Http\Controllers\Api\V1\User\MaintenanceReportController;
+use App\Http\Controllers\Api\V1\User\Management\TimarController;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 
@@ -106,6 +107,8 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::apiResource('trucktors.trucktor_tasks', TrucktorTaskController::class)->shallow();
     Route::post('/fields/{field}/irrigations/reports', [IrrigationController::class, 'filterReports']);
     Route::apiResource('fields.irrigations', IrrigationController::class)->except('show')->shallow();
+
+    Route::apiResource('farms.timars', TimarController::class)->shallow();
 
     Broadcast::routes(['middleware' => ['auth:sanctum']]);
 });
