@@ -5,13 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class GPSData extends Model
+class GpsData extends Model
 {
     use HasFactory;
 
-    protected $table = 'g_p_s_data';
-
-    protected $fillable = [
-        'data'
-    ];
+    protected $fillable = ['data'];
 }
