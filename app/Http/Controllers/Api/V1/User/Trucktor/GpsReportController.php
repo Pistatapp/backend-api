@@ -28,7 +28,7 @@ class GpsReportController extends Controller
      */
     public function store(Request $request)
     {
-        // try {
+        try {
 
             $data = $this->prepareData($request->getContent());
 
@@ -43,11 +43,11 @@ class GpsReportController extends Controller
             event(new ReportReceived($generatedReport, $device));
 
             event(new TrucktorStatus($device->trucktor, $lastReportStatus));
-        // } catch (\Exception $e) {
-        //     //
-        // } finally {
+        } catch (\Exception $e) {
+            GpsData::create(['data' => $$request->getContent()]);
+        } finally {
             return new JsonResponse([], 200);
-        // }
+        }
     }
 
     /**
@@ -58,7 +58,6 @@ class GpsReportController extends Controller
      */
     private function prepareData(string $content)
     {
-        GpsData::create(['data' => $content]);
         $data = rtrim($content, ".");
         $data = json_decode($data, true);
         return $this->formatDataService->format($data);
