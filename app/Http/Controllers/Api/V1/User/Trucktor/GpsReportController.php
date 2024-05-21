@@ -47,7 +47,7 @@ class GpsReportController extends Controller
         // } catch (\Exception $e) {
         //     //
         // } finally {
-        //     return new JsonResponse([], 200);
+            return new JsonResponse([], 200);
         // }
     }
 
