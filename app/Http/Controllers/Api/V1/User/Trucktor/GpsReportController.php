@@ -58,9 +58,10 @@ class GpsReportController extends Controller
      */
     private function prepareData(string $content)
     {
-        GpsData::create(['data' => $content]);
+        // GpsData::create(['data' => $content]);
         $data = rtrim($content, ".");
         $data = json_decode($data, true);
+        GpsData::create(['data' => is_string($data) ? $data : $data[0]['data']]);
         return $this->formatDataService->format($data);
     }
 
