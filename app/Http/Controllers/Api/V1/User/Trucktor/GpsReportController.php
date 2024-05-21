@@ -12,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use App\Models\GpsDevice;
+use Illuminate\Support\Facades\Log;
 
 class GpsReportController extends Controller
 {
@@ -57,6 +58,7 @@ class GpsReportController extends Controller
      */
     private function prepareData(string $content)
     {
+        Log::info($content);
         $data = rtrim($content, ".");
         $data = json_decode($data, true);
         return $this->formatDataService->format($data);
