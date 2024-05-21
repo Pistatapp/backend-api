@@ -30,7 +30,7 @@ class GpsReportController extends Controller
     {
         // try {
 
-            $data = $this->prepareData($request->getContent());
+            $data = $this->prepareData($request->string('data'));
 
             $device = $this->getDevice($data[0]['imei']);
 
