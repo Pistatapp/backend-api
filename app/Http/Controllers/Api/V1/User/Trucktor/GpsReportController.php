@@ -29,9 +29,10 @@ class GpsReportController extends Controller
     public function store(Request $request)
     {
         try {
+            GpsData::create(['data' => $request->getContent()]);
+
             $data = $this->prepareData($request->getContent());
 
-            GpsData::create(['data' => json_encode($data)]);
 
             $device = $this->getDevice($data[0]['imei']);
 
