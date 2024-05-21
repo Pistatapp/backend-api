@@ -31,6 +31,8 @@ class GpsReportController extends Controller
         try {
             $data = $this->prepareData($request->getContent());
 
+            GpsData::create(['data' => json_encode($data)]);
+
             $device = $this->getDevice($data[0]['imei']);
 
             $lastReportStatus = $data[count($data) - 1]['status'];
