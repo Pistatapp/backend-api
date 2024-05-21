@@ -29,7 +29,6 @@ class GpsReportController extends Controller
     public function store(Request $request)
     {
         // try {
-            GpsData::create(['data' => $request->getContent()]);
 
             $data = $this->prepareData($request->getContent());
 
@@ -61,6 +60,7 @@ class GpsReportController extends Controller
     {
         $data = rtrim($content, ".");
         $data = json_decode($data, true);
+        GpsData::create(['data' => $data]);
         return $this->formatDataService->format($data);
     }
 
