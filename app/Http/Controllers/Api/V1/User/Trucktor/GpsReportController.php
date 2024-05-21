@@ -12,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use App\Models\GpsDevice;
+use Illuminate\Support\Facades\Log;
 
 class GpsReportController extends Controller
 {
@@ -31,6 +32,8 @@ class GpsReportController extends Controller
         try {
 
             $data = $this->prepareData($request->getContent());
+
+            Log::info($request->getContent());
 
             $device = $this->getDevice($data[0]['imei']);
 
