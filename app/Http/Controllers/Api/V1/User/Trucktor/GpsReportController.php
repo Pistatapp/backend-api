@@ -30,7 +30,7 @@ class GpsReportController extends Controller
     public function store(Request $request)
     {
         try {
-            $data = $this->prepareData(json_encode($request->getContent()));
+            $data = $this->prepareData($request->getContent());
 
             $device = $this->getDevice($data[0]['imei']);
 
@@ -58,7 +58,6 @@ class GpsReportController extends Controller
      */
     private function prepareData(string $content)
     {
-        Log::info($content);
         $data = rtrim($content, ".");
         $data = json_decode($data, true);
         return $this->formatDataService->format($data);
