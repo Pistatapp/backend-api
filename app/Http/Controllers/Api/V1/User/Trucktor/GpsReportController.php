@@ -30,7 +30,7 @@ class GpsReportController extends Controller
     public function store(Request $request)
     {
         try {
-            $data = $this->prepareData($request->getContent());
+            $data = $this->prepareData(json_encode($request->getContent()));
 
             $device = $this->getDevice($data[0]['imei']);
 
