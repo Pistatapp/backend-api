@@ -102,4 +102,14 @@ class Field extends Model
     {
         return $this->hasMany(Irrigation::class);
     }
+
+    /**
+     * Get the field's plans.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\MorphMany
+     */
+    public function timars()
+    {
+        return $this->morphMany(Timar::class, 'timarable');
+    }
 }

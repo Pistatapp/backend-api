@@ -165,4 +165,14 @@ class Farm extends Model
     {
         return $this->hasMany(Timar::class);
     }
+
+    /**
+     * Get the plans for the farm.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function plans()
+    {
+        return $this->hasMany(Plan::class);
+    }
 }

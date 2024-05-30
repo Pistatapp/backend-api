@@ -20,7 +20,7 @@ class TimarController extends Controller
      */
     public function index(Farm $farm)
     {
-        return TimarResource::collection($farm->timars()->simplePaginate());
+        return TimarResource::collection($farm->timars);
     }
 
     /**

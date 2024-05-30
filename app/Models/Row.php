@@ -37,4 +37,14 @@ class Row extends Model
     {
         return $this->hasMany(Tree::class);
     }
+
+    /**
+     * Get the timars for the row.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\MorphMany
+     */
+    public function timars()
+    {
+        return $this->morphMany(Timar::class, 'timarable');
+    }
 }

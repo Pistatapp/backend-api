@@ -20,7 +20,7 @@ class AuthenticatedUserResource extends JsonResource
             'mobile' => $this->mobile,
             'last_activity_at' => jdate($this->last_activity_at)->format('Y/m/d H:i:s'),
             'photo' => $this->getFirstMediaUrl('photo'),
-            'token' => $this->createToken('mobile', expiresAt: now()->addHour())->plainTextToken,
+            'token' => $this->createToken('mobile', expiresAt: now()->addDay())->plainTextToken,
             'new_user' => $this->wasChanged('mobile_verified_at'),
             'is_admin' => $this->is_admin,
         ];

@@ -43,4 +43,14 @@ class Tree extends Model implements HasMedia
     {
         return $this->morphMany(Attachment::class, 'attachable');
     }
+
+    /**
+     * Get the timars for the tree.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\MorphMany
+     */
+    public function timars()
+    {
+        return $this->morphMany(Timar::class, 'timarable');
+    }
 }

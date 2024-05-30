@@ -3,7 +3,7 @@
 use Morilog\Jalali\Jalalian;
 
 /**
- * Convert a Carbon date to Jalali date
+ * Convert a Jalali date to Carbon
  *
  * @param string $jalaliDate
  * @return \Carbon\Carbon

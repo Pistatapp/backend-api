@@ -5,5 +5,7 @@
     "Too many login attempts. Please try again in :seconds seconds.": "تعداد تلاش‌های ورود بیش از حد مجاز است. لطفا :seconds ثانیه دیگر مجددا تلاش کنید.",
     "A task already exists for the vehicle within the selected date range.": "یک وظیفه برای این خودرو در بازه زمانی انتخاب شده وجود دارد.",
     "An irrigation report has already been stored for these valves withing this time range.": "یک گزارش آبیاری برای این شیر فلکه ها در این بازه زمانی ذخیره شده است.",
-    "You must set a username before proceeding.": "شما باید یک نام کاربری تعیین کنید."
+    "You must set a username before proceeding.": "شما باید یک نام کاربری تعیین کنید.",
+    "The selected start date interferes with an existing plan.": "تاریخ شروع انتخاب شده با یک طرح موجود تداخل دارد.",
+    "The selected end date interferes with an existing plan.": "تاریخ پایان انتخاب شده با یک طرح موجود تداخل دارد."
 }
