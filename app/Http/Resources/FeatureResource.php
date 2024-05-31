@@ -17,8 +17,8 @@ class FeatureResource extends JsonResource
         return [
             'id' => $this->id,
             'plan_id' => $this->plan_id,
-            'timar_id' => $this->timar_id,
-            'coordinates' => $this->coordinates,
+            'timar' => new TimarResource($this->whenLoaded('timar')),
+            'coordinates' => $this->timarable->coordinates,
         ];
     }
 }

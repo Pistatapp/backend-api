@@ -23,7 +23,12 @@ class PlanController extends Controller
      */
     public function index(Farm $farm)
     {
-        $plans = $farm->plans()->with('creator:id,username')->get();
+        $plans = Plan::where('farm_id', $farm->id)
+            ->when(request('status'), function ($query) {
+                return $query->where('status', request('status'));
+            })
+            ->with('creator:id,username')
+            ->latest()->get();
         return PlanResource::collection($plans);
     }
 
