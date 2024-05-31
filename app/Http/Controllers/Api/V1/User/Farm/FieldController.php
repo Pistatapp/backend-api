@@ -10,6 +10,11 @@ use Illuminate\Http\Request;
 
 class FieldController extends Controller
 {
+    public function __construct()
+    {
+        $this->authorizeResource(Field::class);
+    }
+
     /**
      * Display a listing of the resource.
      *
@@ -39,8 +44,6 @@ class FieldController extends Controller
             'product_type_id' => 'nullable|exists:product_types,id',
         ]);
 
-        $this->authorize('create', Field::class);
-
         $field = $farm->fields()->create([
             'name' => $request->name,
             'coordinates' => $request->coordinates,
@@ -60,7 +63,10 @@ class FieldController extends Controller
      */
     public function show(Field $field)
     {
-        return new FieldResource($field->load('attachments', 'productType'));
+        $fields = $field->load('attachments', 'productType')
+            ->loadCount('rows', 'blocks');
+
+        return new FieldResource($fields);
     }
 
     /**
@@ -81,8 +87,6 @@ class FieldController extends Controller
             'product_type_id' => 'nullable|exists:product_types,id',
         ]);
 
-        $this->authorize('update', $field);
-
         $field->update([
             'name' => $request->name,
             'coordinates' => $request->coordinates,
@@ -102,8 +106,6 @@ class FieldController extends Controller
      */
     public function destroy(Field $field)
     {
-        $this->authorize('delete', $field);
-
         $field->delete();
 
         return response()->noContent();

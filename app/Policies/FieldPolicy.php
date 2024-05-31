@@ -8,6 +8,16 @@ use Illuminate\Auth\Access\Response;
 
 class FieldPolicy
 {
+    public function viewAny(User $user): bool
+    {
+        return $user->hasFarm();
+    }
+
+    public function view(User $user, Field $field): bool
+    {
+        return $field->farm->user()->is($user);
+    }
+
     /**
      * Determine whether the user can create models.
      */

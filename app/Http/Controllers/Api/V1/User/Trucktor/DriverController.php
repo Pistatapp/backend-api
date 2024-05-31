@@ -30,10 +30,11 @@ class DriverController extends Controller
 
         throw_if($trucktor->driver()->exists(), new \Exception('Driver already exists.'));
 
-        $driver = $trucktor->driver()->create($request->only([
-            'name',
-            'mobile',
-        ]));
+        $driver = $trucktor->driver()->create([
+            'name' => $request->name,
+            'mobile' => $request->mobile,
+            'employee_code' => random_int(1000000, 9999999)
+        ]);
 
         return new DriverResource($driver);
     }

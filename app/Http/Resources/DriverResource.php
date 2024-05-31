@@ -19,6 +19,7 @@ class DriverResource extends JsonResource
             'trucktor_id' => $this->trucktor_id,
             'name' => $this->name,
             'mobile' => $this->mobile,
+            'employee_code' => $this->employee_code,
             'created_at' => jdate($this->created_at)->format('Y-m-d H:i:s'),
         ];
     }

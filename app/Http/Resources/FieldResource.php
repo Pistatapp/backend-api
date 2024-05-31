@@ -27,6 +27,8 @@ class FieldResource extends JsonResource
                     'name' => $this->productType->name,
                 ];
             }),
+            'rows_count' => $this->whenCounted('rows'),
+            'blocks_count' => $this->whenCounted('blocks'),
             'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),
             'attachments' => AttachmentResource::collection($this->whenLoaded('attachments')),
         ];
