@@ -135,7 +135,7 @@ class AuthController extends Controller
         $user->tokens()->delete();
 
         return response()->json([
-            'token' => $user->createToken('mobile', expiresAt: now()->addHour())->plainTextToken,
+            'token' => $user->createToken('mobile', expiresAt: now()->addDay())->plainTextToken,
         ]);
     }
 
