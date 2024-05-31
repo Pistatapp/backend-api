@@ -11,6 +11,7 @@ class Row extends Model
 
     protected $fillable = [
         'field_id',
+        'name',
         'coordinates',
     ];
 

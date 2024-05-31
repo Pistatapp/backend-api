@@ -24,18 +24,19 @@ class RowController extends Controller
     public function store(Request $request, Field $field)
     {
         $request->validate([
-            'coordinates' => 'required|array|min:1',
-            'coordinates.*' => 'required|array|size:2',
-            'coordinates.*.*' => 'required|string',
+            'rows' => 'required|array|min:1',
+            'rows.*.name' => 'required|string|max:255',
+            'rows.*.coordinates' => 'required|array|size:2',
+            'rows.*.coordinates.*' => 'required|string',
         ]);
 
-        $rows = $request->input('coordinates');
         $rowsData = [];
 
-        foreach ($rows as $rowCoordinates) {
+        foreach ($request->input('rows') as $row) {
             $rowData = [
                 'field_id' => $field->id,
-                'coordinates' => json_encode([$rowCoordinates[0], $rowCoordinates[1]]),
+                'name' => $row['name'],
+                'coordinates' => json_encode([$row['coordinates'][0], $row['coordinates'][1]]),
             ];
             $rowsData[] = $rowData;
         }
