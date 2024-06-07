@@ -25,9 +25,10 @@ class ProductController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255|unique:products,name',
+            'cold_requirement' => 'nullable|integer|min:0',
         ]);
 
-        $product = Product::create($request->only('name'));
+        $product = Product::create($request->only('name', 'cold_requirement'));
 
         return new ProductResource($product);
     }
@@ -47,9 +48,10 @@ class ProductController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255|unique:products,name,' . $product->id . ',id',
+            'cold_requirement' => 'nullable|integer|min:0',
         ]);
 
-        $product->update($request->only('name'));
+        $product->update($request->only('name', 'cold_requirement'));
 
         return new ProductResource($product);
     }

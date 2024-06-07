@@ -13,7 +13,7 @@ class Team extends Model
 
     /**
      * Get the farm that owns the team.
-     * 
+     *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
     public function farm()
@@ -23,7 +23,7 @@ class Team extends Model
 
     /**
      * Get all of the labors for the Team
-     * 
+     *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function labors()

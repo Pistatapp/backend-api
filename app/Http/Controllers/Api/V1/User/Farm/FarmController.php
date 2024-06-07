@@ -65,7 +65,9 @@ class FarmController extends Controller
      */
     public function show(Farm $farm)
     {
-        return new FarmResource($farm->loadCount(['trees', 'fields'])->load('product'));
+        $farm = $farm->loadCount(['trees', 'fields', 'labors', 'trucktors', 'plans'])
+            ->load('product');
+        return new FarmResource($farm);
     }
 
 
@@ -127,7 +129,8 @@ class FarmController extends Controller
         ]);
 
         // Set other farms to false
-        Farm::where('id', '!=', $farm->id)
+        Farm::where('user_id', $farm->user_id)
+            ->where('id', '!=', $farm->id)
             ->update(['is_working_environment' => false]);
 
         return new FarmResource($farm);

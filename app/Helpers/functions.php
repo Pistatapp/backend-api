@@ -43,3 +43,28 @@ function get_active_farm()
 {
     return auth()->user()->active_farm;
 }
+
+/**
+ * Calculate the area of a polygon with any number of corners
+ *
+ * @param array $points
+ * @return float
+ */
+function calculate_polygon_area(array $points): float
+{
+    $numPoints = count($points);
+    if ($numPoints < 3) {
+        throw new \Exception('A polygon must have at least 3 points');
+    }
+
+    $area = 0;
+    for ($i = 0; $i < $numPoints; $i++) {
+        $x1 = $points[$i][0];
+        $y1 = $points[$i][1];
+        $x2 = $points[($i + 1) % $numPoints][0];
+        $y2 = $points[($i + 1) % $numPoints][1];
+        $area += ($x1 * $y2 - $x2 * $y1);
+    }
+
+    return abs($area / 2);
+}

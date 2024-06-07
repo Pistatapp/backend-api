@@ -175,4 +175,14 @@ class Farm extends Model
     {
         return $this->hasMany(Plan::class);
     }
+
+    /**
+     * Get the labors for the farm.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasManyThrough
+     */
+    public function labors()
+    {
+        return $this->through('teams')->has('labors');
+    }
 }

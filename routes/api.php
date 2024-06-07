@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\V1\Admin\UserController;
 use App\Http\Controllers\Api\V1\Admin\GpsDeviceController;
 use App\Http\Controllers\Api\V1\Admin\ProductController;
 use App\Http\Controllers\Api\V1\Admin\ProductTypeController;
+use App\Http\Controllers\Api\V1\User\Farm\ColdRequirementController;
 use App\Http\Controllers\Api\V1\User\Trucktor\ActiveTrucktorController;
 use App\Http\Controllers\Api\V1\User\Management\MaintenanceController;
 use App\Http\Controllers\Api\V1\User\MaintenanceReportController;
@@ -111,6 +112,9 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
 
     Route::apiResource('farms.timars', TimarController::class)->shallow();
     Route::apiResource('farms.plans', PlanController::class)->shallow();
+
+    Route::get('/farms/{farm}/product', [ColdRequirementController::class, 'getFarmProduct']);
+    Route::post('/farms/{farm}/cold-requirement', [ColdRequirementController::class, 'calculate']);
 
     Broadcast::routes(['middleware' => ['auth:sanctum']]);
 });

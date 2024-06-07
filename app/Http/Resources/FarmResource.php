@@ -30,6 +30,9 @@ class FarmResource extends JsonResource
             }),
             'fields_count' => $this->whenCounted('fields'),
             'trees_count' => $this->whenCounted('trees'),
+            'labors_count' => $this->whenCounted('labors'),
+            'trucktors_count' => $this->whenCounted('trucktors'),
+            'plans_count' => $this->whenCounted('plans'),
             'is_working_environment' => $this->is_working_environment,
             'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),
         ];

@@ -17,6 +17,7 @@ class ProductResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
+            'cold_requirement' => $this->cold_requirement,
             'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),
             'can_delete' => $this->farms()->doesntExist(),
             'product_types' => ProductTypeResource::collection($this->whenLoaded('productTypes')),
