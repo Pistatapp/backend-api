@@ -7,5 +7,6 @@
     "An irrigation report has already been stored for these valves withing this time range.": "یک گزارش آبیاری برای این شیر فلکه ها در این بازه زمانی ذخیره شده است.",
     "You must set a username before proceeding.": "شما باید یک نام کاربری تعیین کنید.",
     "The selected start date interferes with an existing plan.": "تاریخ شروع انتخاب شده با یک طرح موجود تداخل دارد.",
-    "The selected end date interferes with an existing plan.": "تاریخ پایان انتخاب شده با یک طرح موجود تداخل دارد."
+    "The selected end date interferes with an existing plan.": "تاریخ پایان انتخاب شده با یک طرح موجود تداخل دارد.",
+    "Cold requirement notification deleted successfully.": "اعلان نیاز به سرما با موفقیت حذف شد."
 }

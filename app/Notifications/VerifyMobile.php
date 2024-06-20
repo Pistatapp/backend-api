@@ -25,7 +25,6 @@ class VerifyMobile extends KavenegarBaseNotification implements ShouldQueue
      */
     public function toKavenegar($notifiable)
     {
-        return (new KavenegarMessage())
-            ->verifyLookup('verifyPistat', $this->token);
+        return (new KavenegarMessage)->verifyLookup('verifyPistat', $this->token);
     }
 }

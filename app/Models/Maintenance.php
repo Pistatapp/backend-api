@@ -23,4 +23,14 @@ class Maintenance extends Model
     {
         return $this->belongsTo(Farm::class);
     }
+
+    /**
+     * Get the maintenanceReports for the Maintenance
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function maintenanceReports()
+    {
+        return $this->hasMany(MaintenanceReport::class);
+    }
 }

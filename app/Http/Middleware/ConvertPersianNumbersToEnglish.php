@@ -6,7 +6,7 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-class ConvertPersianNumbersEnglish
+class ConvertPersianNumbersToEnglish
 {
     /**
      * Handle an incoming request.

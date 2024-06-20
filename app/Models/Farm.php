@@ -153,7 +153,7 @@ class Farm extends Model
      */
     public function maintenanceReports()
     {
-        return $this->hasManyThrough(MaintenanceReport::class, Maintenance::class);
+        return $this->through('maintenances')->has('maintenanceReports');
     }
 
     /**
@@ -184,5 +184,15 @@ class Farm extends Model
     public function labors()
     {
         return $this->through('teams')->has('labors');
+    }
+
+    /**
+     * Get the cold requirement notifications for the farm.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function coldRequirementNotifications()
+    {
+        return $this->hasMany(ColdRequirementNotification::class);
     }
 }
