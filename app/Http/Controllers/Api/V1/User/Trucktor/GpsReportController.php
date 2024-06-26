@@ -58,6 +58,7 @@ class GpsReportController extends Controller
      */
     private function prepareData(string $content)
     {
+        Log::info($content);
         $content = json_decode($content);
         $data = rtrim($content, ".");
         $data = json_decode($data, true);
