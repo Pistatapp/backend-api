@@ -63,6 +63,7 @@ class GpsReportController extends Controller
          * and needs to be decoded
          */
         if (app()->environment('production')) {
+            Log::info($content);
             $content = json_decode($content);
         }
 
