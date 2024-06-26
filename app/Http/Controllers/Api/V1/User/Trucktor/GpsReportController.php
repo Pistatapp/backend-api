@@ -58,8 +58,14 @@ class GpsReportController extends Controller
      */
     private function prepareData(string $content)
     {
-        Log::info($content);
-        $content = json_decode($content);
+        /**
+         * If the environment is production, the data is received in JSON format
+         * and needs to be decoded
+         */
+        if (app()->environment('production')) {
+            $content = json_decode($content);
+        }
+
         $data = rtrim($content, ".");
         $data = json_decode($data, true);
         return $this->formatDataService->format($data);
