@@ -46,7 +46,7 @@ class ActiveTrucktorController extends Controller
         $dailyReport = $trucktor->gpsDailyReports()->where('date', $date)->first();
 
         $reports = $trucktor->gpsReports()->whereDate('date_time', $date)->orderBy('date_time')->get();
-        $startWorkingTime = count($reports) > 0 ? $reports->where('is_start_point', 1)->first() : null;
+        $startWorkingTime = count($reports) > 0 ? $reports->where('is_starting_point', 1)->first() : null;
 
         return response()->json([
             'data' => [

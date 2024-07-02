@@ -356,7 +356,7 @@ class LiveReportService
         if (!Cache::has('start_working_time_' . $this->trucktor->id)) {
             if (!$report->is_stopped && $report->date_time->gte($this->trucktor->start_work_time)) {
                 $report->update(['is_starting_point' => true]);
-                Cache::put('start_working_time_' . $this->trucktor->id, $report->date_work_time, now()->endOfDay());
+                Cache::put('start_working_time_' . $this->trucktor->id, $report->date_time, now()->endOfDay());
             }
         }
     }
@@ -369,7 +369,7 @@ class LiveReportService
      */
     private function setEndWorkingTime($report): void
     {
-        if (!Cache::has('end_working_time_' . $this->trucktor->id)) {
+        if (!Cache::has('ending_time_' . $this->trucktor->id)) {
             if ($report->is_stopped && $report->date_time->gte($this->trucktor->end_work_time)) {
                 $report->update(['is_ending_point' => true]);
                 Cache::put('end_working_time_' . $this->trucktor->id, $report->date_work_time, now()->endOfDay());
