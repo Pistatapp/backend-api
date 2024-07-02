@@ -17,6 +17,7 @@ class GpsReport extends Model
         'is_stopped' => 'boolean',
         'is_starting_point' => 'boolean',
         'is_ending_point' => 'boolean',
+        'date_time' => 'datetime',
     ];
 
     /**
