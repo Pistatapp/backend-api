@@ -35,7 +35,7 @@ class FarmController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'name' => 'required|string|max:255|unique:farms,name',
+            'name' => 'required|string|max:255|unique:farms,name,NULL,id,user_id,' . $request->user()->id,
             'coordinates' => 'required|array|min:3',
             'coordinates.*' => 'required|string',
             'center' => 'required|string',
@@ -81,7 +81,7 @@ class FarmController extends Controller
     public function update(Request $request, Farm $farm)
     {
         $request->validate([
-            'name' => 'required|string|max:255|unique:farms,name,' . $farm->id,
+            'name' => 'required|string|max:255|unique:farms,name,' . $farm->id . ',id,user_id,' . auth()->id(),
             'coordinates' => 'required|array|min:3',
             'coordinates.*' => 'required|string',
             'center' => 'required|string',
