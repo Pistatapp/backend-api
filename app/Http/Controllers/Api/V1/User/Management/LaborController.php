@@ -19,8 +19,10 @@ class LaborController extends Controller
     {
         $labors = $farm->labors();
 
-        if (request()->boolean('without_pagination')) {
-            $labors = $labors->get();
+        if (request()->has('search')) {
+            $labors = $labors->where('fname', 'like', '%' . request()->search . '%')
+                ->orWhere('lname', 'like', '%' . request()->search . '%')
+                ->get();
         } else {
             $labors = $labors->simplePaginate(10);
         }

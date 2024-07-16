@@ -17,8 +17,9 @@ class TeamController extends Controller
     {
         $teams = $farm->teams()->withCount('labors');
 
-        if (request()->boolean('without_pagination') == 1) {
-            $teams = $teams->get();
+        if (request()->has('search')) {
+            $teams = $teams->where('name', 'like', '%' . request()->search . '%')
+                ->get();
         } else {
             $teams = $teams->simplePaginate(10);
         }
