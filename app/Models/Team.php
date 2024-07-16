@@ -9,7 +9,7 @@ class Team extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['farm_id', 'name'];
+    protected $fillable = ['farm_id', 'name', 'supervisor_id'];
 
     /**
      * Get the farm that owns the team.
@@ -29,5 +29,15 @@ class Team extends Model
     public function labors()
     {
         return $this->hasMany(Labor::class);
+    }
+
+    /**
+     * Get the supervisor associated with the Team
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasOne
+     */
+    public function supervisor()
+    {
+        return $this->belongsTo(Labor::class, 'supervisor_id', 'id');
     }
 }

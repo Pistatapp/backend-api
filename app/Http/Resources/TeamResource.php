@@ -18,6 +18,14 @@ class TeamResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'farm_id' => $this->farm_id,
+            'supervisor' => $this->whenLoaded('supervisor', function () {
+                return [
+                    'id' => $this->supervisor->id,
+                    'fname' => $this->supervisor->fname,
+                    'lname' => $this->supervisor->lname,
+                ];
+            }),
+            'labors_count' => $this->whenCounted('labors'),
             'labors' => LaborResource::collection($this->whenLoaded('labors')),
             'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s')
         ];

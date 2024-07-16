@@ -103,9 +103,9 @@ class TrucktorController extends Controller
     /**
      * Get devices of the user which are not assigned to any trucktor.
      */
-    public function getAvailableDevices(Trucktor $trucktor)
+    public function getAvailableDevices(Request $request, Trucktor $trucktor)
     {
-        $gpsDevices = request()->user()->gpsDevices()->whereDoesntHave('trucktor')->get();
+        $gpsDevices = $request->user()->gpsDevices()->whereDoesntHave('trucktor')->get();
 
         return response()->json([
             'data' => $gpsDevices->map(function ($device) {

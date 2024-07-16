@@ -15,7 +15,14 @@ class TeamController extends Controller
      */
     public function index(Farm $farm)
     {
-        return TeamResource::collection($farm->teams);
+        $teams = $farm->teams()->withCount('labors');
+
+        if (request()->boolean('without_pagination') == 1) {
+            $teams = $teams->get();
+        } else {
+            $teams = $teams->simplePaginate(10);
+        }
+        return TeamResource::collection($teams);
     }
 
     /**
@@ -24,10 +31,11 @@ class TeamController extends Controller
     public function store(Request $request, Farm $farm)
     {
         $request->validate([
-            'name' => 'required|string|max:255'
+            'name' => 'required|string|max:255',
+            'supervisor_id' => 'nullable|integer|exists:labors,id'
         ]);
 
-        $team = $farm->teams()->create($request->only('name'));
+        $team = $farm->teams()->create($request->all());
 
         return new TeamResource($team);
     }
@@ -37,7 +45,7 @@ class TeamController extends Controller
      */
     public function show(Team $team)
     {
-        return new TeamResource($team->load('labors'));
+        return new TeamResource($team->load('labors', 'supervisor'));
     }
 
     /**
@@ -46,10 +54,11 @@ class TeamController extends Controller
     public function update(Request $request, Team $team)
     {
         $request->validate([
-            'name' => 'required|string|max:255'
+            'name' => 'required|string|max:255',
+            'supervisor_id' => 'nullable|integer|exists:labors,id'
         ]);
 
-        $team->update($request->only('name'));
+        $team->update($request->only('name', 'supervisor_id'));
 
         return new TeamResource($team->fresh());
     }

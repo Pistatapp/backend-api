@@ -10,6 +10,7 @@ class Labor extends Model
     use HasFactory;
 
     protected $fillable = [
+        'farm_id',
         'team_id',
         'type',
         'fname',

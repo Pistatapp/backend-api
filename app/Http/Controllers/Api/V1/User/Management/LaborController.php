@@ -6,8 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreLaborRequest;
 use App\Http\Requests\UpdateLaborRequest;
 use App\Http\Resources\LaborResource;
+use App\Models\Farm;
 use App\Models\Labor;
-use App\Models\Team;
 use Illuminate\Http\Request;
 
 class LaborController extends Controller
@@ -15,17 +15,25 @@ class LaborController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(Team $team)
+    public function index(Farm $farm)
     {
-        return LaborResource::collection($team->labors);
+        $labors = $farm->labors();
+
+        if (request()->boolean('without_pagination')) {
+            $labors = $labors->get();
+        } else {
+            $labors = $labors->simplePaginate(10);
+        }
+
+        return LaborResource::collection($labors);
     }
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(StoreLaborRequest $request, Team $team)
+    public function store(StoreLaborRequest $request, Farm $farm)
     {
-        $labor = $team->labors()->create($request->validated());
+        $labor = $farm->labors()->create($request->validated());
 
         return new LaborResource($labor);
     }
