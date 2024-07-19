@@ -63,8 +63,12 @@ class FieldController extends Controller
      */
     public function show(Field $field)
     {
-        $fields = $field->load('attachments', 'productType')
-            ->loadCount('rows', 'blocks');
+        $fields = $field->load([
+            'attachments',
+            'productType',
+            'reports.operation',
+            'reports.labour'
+        ])->loadCount('rows', 'blocks');
 
         return new FieldResource($fields);
     }

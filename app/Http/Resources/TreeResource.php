@@ -24,6 +24,7 @@ class TreeResource extends JsonResource
             'qr_code' => $this->when($this->qr_code, $this->qr_code),
             'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),
             'attachments' => AttachmentResource::collection($this->whenLoaded('attachments')),
+            'reports' => FarmReportResource::collection($this->whenLoaded('reports')),
         ];
     }
 }

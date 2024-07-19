@@ -48,4 +48,14 @@ class Row extends Model
     {
         return $this->morphMany(Timar::class, 'timarable');
     }
+
+    /**
+     * Get the reports for the row.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\MorphMany
+     */
+    public function reports()
+    {
+        return $this->morphMany(FarmReport::class, 'reportable');
+    }
 }

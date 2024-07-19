@@ -47,6 +47,15 @@ class RowController extends Controller
     }
 
     /**
+     * Display the specified resource.
+     */
+    public function show(Row $row)
+    {
+        $row->load('reports.operation', 'reports.labour');
+        return new RowResource($row);
+    }
+
+    /**
      * Remove the specified resource from storage.
      */
     public function destroy(Row $row)

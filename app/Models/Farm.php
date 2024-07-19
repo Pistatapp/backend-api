@@ -177,23 +177,23 @@ class Farm extends Model
     }
 
     /**
-     * Get the labors for the farm.
+     * Get the labours for the farm.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasManyThrough
      */
-    public function laborsInTeams()
+    public function laboursInTeams()
     {
-        return $this->through('teams')->has('labors');
+        return $this->through('teams')->has('labours');
     }
 
     /**
-     * Get the labors for the farm.
+     * Get the labours for the farm.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
-    public function labors()
+    public function labours()
     {
-        return $this->hasMany(Labor::class);
+        return $this->hasMany(Labour::class);
     }
 
     /**
@@ -204,5 +204,15 @@ class Farm extends Model
     public function coldRequirementNotifications()
     {
         return $this->hasMany(ColdRequirementNotification::class);
+    }
+
+    /**
+     * Get the farm reports for the farm.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function reports()
+    {
+        return $this->hasMany(FarmReport::class);
     }
 }

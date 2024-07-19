@@ -18,6 +18,7 @@ class RowResource extends JsonResource
             'id' => $this->id,
             'field_id' => $this->field_id,
             'coordinates' => $this->coordinates,
+            'reports' => FarmReportResource::collection($this->whenLoaded('reports')),
         ];
     }
 }

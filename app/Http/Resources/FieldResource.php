@@ -31,6 +31,7 @@ class FieldResource extends JsonResource
             'blocks_count' => $this->whenCounted('blocks'),
             'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),
             'attachments' => AttachmentResource::collection($this->whenLoaded('attachments')),
+            'reports' => FarmReportResource::collection($this->whenLoaded('reports')),
         ];
     }
 }

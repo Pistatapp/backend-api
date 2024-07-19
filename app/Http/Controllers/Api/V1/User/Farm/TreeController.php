@@ -67,7 +67,8 @@ class TreeController extends Controller
      */
     public function show(Tree $tree)
     {
-        return new TreeResource($tree->load('attachments'));
+        $tree->load('attachments', 'reports.operation', 'reports.labour');
+        return new TreeResource($tree);
     }
 
     /**
@@ -114,8 +115,7 @@ class TreeController extends Controller
         $request->validate([
             'trees' => 'required|array|min:1',
             'trees.*.name' => 'required|string',
-            'trees.*.location' => 'required|array|min:2',
-            'trees.*.location.*' => 'required|numeric',
+            'trees.*.location' => 'required|string|regex:/\d+\.\d+,\d+\.\d+/',
         ]);
 
         $trees = $request->input('trees');

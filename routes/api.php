@@ -13,7 +13,7 @@ use App\Http\Controllers\Api\V1\User\Management\TeamController;
 use App\Http\Controllers\Api\V1\User\Trucktor\DriverController;
 use App\Http\Controllers\Api\V1\User\Trucktor\GpsReportController;
 use App\Http\Controllers\Api\V1\User\Trucktor\TrucktorController;
-use App\Http\Controllers\Api\V1\User\Management\LaborController;
+use App\Http\Controllers\Api\V1\User\Management\LabourController;
 use App\Http\Controllers\Api\V1\User\Farm\AttachmentController;
 use App\Http\Controllers\Api\V1\User\Management\OprationController;
 use App\Http\Controllers\Api\V1\User\Trucktor\TrucktorTaskController;
@@ -30,6 +30,7 @@ use App\Http\Controllers\Api\V1\User\Management\MaintenanceController;
 use App\Http\Controllers\Api\V1\User\MaintenanceReportController;
 use App\Http\Controllers\Api\V1\User\Management\TimarController;
 use App\Http\Controllers\Api\V1\User\Farm\PlanController;
+use App\Http\Controllers\Api\V1\User\Farm\FarmReportsController;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 
@@ -79,8 +80,9 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
 
     Route::get('/farms/{farm}/set_working_environment', [FarmController::class, 'setWorkingEnvironment']);
     Route::apiResource('farms', FarmController::class);
+    Route::apiResource('farms.farm-reports', FarmReportsController::class)->shallow();
     Route::apiResource('farms.fields', FieldController::class)->shallow();
-    Route::apiResource('fields.rows', RowController::class)->except('show', 'update')->shallow();
+    Route::apiResource('fields.rows', RowController::class)->except('update')->shallow();
     Route::post('rows/{row}/trees/batch_store', [TreeController::class, 'batchStore']);
     Route::apiResource('rows.trees', TreeController::class)->shallow();
     Route::apiResource('fields.blocks', BlockController::class)->shallow();
@@ -104,7 +106,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::apiResource('maintenance_reports', MaintenanceReportController::class)->except('show')->shallow();
 
     Route::apiResource('farms.teams', TeamController::class)->shallow();
-    Route::apiResource('farms.labors', LaborController::class)->shallow();
+    Route::apiResource('farms.labours', LabourController::class)->shallow();
     Route::apiResource('attachments', AttachmentController::class)->except('show', 'index');
     Route::apiResource('farms.operations', OprationController::class)->shallow();
     Route::apiResource('trucktors.trucktor_tasks', TrucktorTaskController::class)->shallow();

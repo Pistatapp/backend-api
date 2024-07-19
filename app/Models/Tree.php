@@ -20,9 +20,17 @@ class Tree extends Model implements HasMedia
         'qr_code',
     ];
 
-    protected $casts = [
-        'location' => 'array',
-    ];
+    /**
+     * The attributes that should be cast.
+     *
+     * @return array<string, mixed>
+     */
+    protected function casts(): array
+    {
+        return [
+            'location' => 'array',
+        ];
+    }
 
     /**
      * Get the row that owns the tree.
@@ -52,5 +60,15 @@ class Tree extends Model implements HasMedia
     public function timars()
     {
         return $this->morphMany(Timar::class, 'timarable');
+    }
+
+    /**
+     * Get the reports for the tree.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\MorphMany
+     */
+    public function reports()
+    {
+        return $this->morphMany(FarmReport::class, 'reportable');
     }
 }

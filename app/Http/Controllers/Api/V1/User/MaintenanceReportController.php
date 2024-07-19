@@ -33,7 +33,7 @@ class MaintenanceReportController extends Controller
             'maintenance_id' => 'required|integer|exists:maintenances,id',
             'maintainable_type' => 'required|string',
             'maintainable_id' => 'required|integer',
-            'maintained_by' => 'required|integer|exists:labors,id',
+            'maintained_by' => 'required|integer|exists:labours,id',
             'date' => 'required|shamsi_date',
             'description' => 'required|string|max:500',
         ]);
