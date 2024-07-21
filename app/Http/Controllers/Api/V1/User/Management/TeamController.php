@@ -15,7 +15,7 @@ class TeamController extends Controller
      */
     public function index(Farm $farm)
     {
-        $teams = $farm->teams()->withCount('labors');
+        $teams = $farm->teams()->withCount('labours');
 
         if (request()->has('search')) {
             $teams = $teams->where('name', 'like', '%' . request()->search . '%')
@@ -33,7 +33,7 @@ class TeamController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'supervisor_id' => 'nullable|integer|exists:labors,id'
+            'supervisor_id' => 'nullable|integer|exists:labour,id'
         ]);
 
         $team = $farm->teams()->create($request->all());
@@ -46,7 +46,7 @@ class TeamController extends Controller
      */
     public function show(Team $team)
     {
-        return new TeamResource($team->load('labors', 'supervisor'));
+        return new TeamResource($team->load('labour', 'supervisor'));
     }
 
     /**
@@ -56,7 +56,7 @@ class TeamController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'supervisor_id' => 'nullable|integer|exists:labors,id'
+            'supervisor_id' => 'nullable|integer|exists:labour,id'
         ]);
 
         $team->update($request->only('name', 'supervisor_id'));

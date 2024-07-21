@@ -22,13 +22,13 @@ class Team extends Model
     }
 
     /**
-     * Get all of the labors for the Team
+     * Get all of the labour for the Team
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
-    public function labors()
+    public function labour()
     {
-        return $this->hasMany(Labor::class);
+        return $this->hasMany(Labour::class);
     }
 
     /**
@@ -38,6 +38,6 @@ class Team extends Model
      */
     public function supervisor()
     {
-        return $this->belongsTo(Labor::class, 'supervisor_id', 'id');
+        return $this->belongsTo(Labour::class, 'supervisor_id', 'id');
     }
 }

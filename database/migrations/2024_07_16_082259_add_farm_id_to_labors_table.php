@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('labors', function (Blueprint $table) {
+        Schema::table('labour', function (Blueprint $table) {
             $table->integer('farm_id')->unsigned()->index()->nullable()->after('id');
             $table->dropForeign(['team_id']);
             $table->integer('team_id')->unsigned()->index()->nullable()->change();
@@ -23,7 +23,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('labors', function (Blueprint $table) {
+        Schema::table('labour', function (Blueprint $table) {
             $table->dropColumn('farm_id');
             $table->integer('team_id')->unsigned()->index()->change();
         });

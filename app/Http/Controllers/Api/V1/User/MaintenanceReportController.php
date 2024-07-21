@@ -66,7 +66,7 @@ class MaintenanceReportController extends Controller
     {
         $request->validate([
             'maintenance_id' => 'required|integer|exists:maintenances,id',
-            'maintained_by' => 'required|integer|exists:labors,id',
+            'maintained_by' => 'required|integer|exists:labours,id',
             'date' => 'required|shamsi_date',
             'description' => 'required|string|max:500',
         ]);
@@ -117,7 +117,7 @@ class MaintenanceReportController extends Controller
             'to' => 'required|shamsi_date',
             'maintainable_type' => 'required|string',
             'maintainable_id' => 'required|integer',
-            'maintained_by' => 'nullable|integer|exists:labors,id',
+            'maintained_by' => 'nullable|integer|exists:labour,id',
             'maintenance_id' => 'nullable|integer|exists:maintenances,id',
         ]);
 

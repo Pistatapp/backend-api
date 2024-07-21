@@ -65,7 +65,7 @@ class FarmController extends Controller
      */
     public function show(Farm $farm)
     {
-        $farm = $farm->loadCount(['trees', 'fields', 'labors', 'trucktors', 'plans'])
+        $farm = $farm->loadCount(['trees', 'fields', 'labours', 'trucktors', 'plans'])
             ->load('product');
         return new FarmResource($farm);
     }
