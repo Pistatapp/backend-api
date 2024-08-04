@@ -36,7 +36,7 @@ class TeamController extends Controller
             'supervisor_id' => 'nullable|integer|exists:labour,id'
         ]);
 
-        $team = $farm->teams()->create($request->all());
+        $team = $farm->teams()->create($request->only('name', 'supervisor_id'));
 
         return new TeamResource($team);
     }
@@ -46,7 +46,7 @@ class TeamController extends Controller
      */
     public function show(Team $team)
     {
-        return new TeamResource($team->load('labour', 'supervisor'));
+        return new TeamResource($team->load('labours', 'supervisor'));
     }
 
     /**

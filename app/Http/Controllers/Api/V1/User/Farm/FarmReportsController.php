@@ -32,7 +32,7 @@ class FarmReportsController extends Controller
     {
         $this->validateRequest($request);
 
-        $reportableModelClass = ucfirst('App\Models\\' . $request->reportable_type);
+        $reportableModelClass = 'App\Models\\' . ucfirst($request->reportable_type);
         $reportableModel = $reportableModelClass::findOrFail($request->reportable_id);
 
         $farmReport = $reportableModel->reports()->create([

@@ -22,11 +22,11 @@ class Team extends Model
     }
 
     /**
-     * Get all of the labour for the Team
+     * Get all of the labours for the Team
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
-    public function labour()
+    public function labours()
     {
         return $this->hasMany(Labour::class);
     }
