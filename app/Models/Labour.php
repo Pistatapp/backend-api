@@ -11,7 +11,6 @@ class Labour extends Model
 
     protected $fillable = [
         'farm_id',
-        'team_id',
         'type',
         'fname',
         'lname',
@@ -36,12 +35,12 @@ class Labour extends Model
     }
 
     /**
-     * Get the team that owns the Labor
+     * Get the teams that owns the Labor
      *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
      */
-    public function team()
+    public function teams()
     {
-        return $this->belongsTo(Team::class);
+        return $this->belongsToMany(Team::class);
     }
 }

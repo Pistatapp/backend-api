@@ -33,10 +33,16 @@ class TeamController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'supervisor_id' => 'nullable|integer|exists:labour,id'
+            'supervisor_id' => 'nullable|integer|exists:labours,id',
+            'labours' => 'nullable|array',
+            'labours.*' => 'integer|exists:labours,id'
         ]);
 
         $team = $farm->teams()->create($request->only('name', 'supervisor_id'));
+
+        if ($request->has('labours')) {
+            $team->labours()->sync($request->labours);
+        }
 
         return new TeamResource($team);
     }
@@ -56,10 +62,16 @@ class TeamController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'supervisor_id' => 'nullable|integer|exists:labour,id'
+            'supervisor_id' => 'nullable|integer|exists:labour,id',
+            'labours' => 'nullable|array',
+            'labours.*' => 'integer|exists:labour,id'
         ]);
 
         $team->update($request->only('name', 'supervisor_id'));
+
+        if ($request->has('labours')) {
+            $team->labours()->sync($request->labours);
+        }
 
         return new TeamResource($team->fresh());
     }

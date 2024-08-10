@@ -37,6 +37,10 @@ class LabourController extends Controller
     {
         $labour = $farm->labours()->create($request->validated());
 
+        if($request->has('team_id')) {
+            $labour->teams()->sync($request->team_id);
+        }
+
         return new LabourResource($labour);
     }
 
@@ -54,6 +58,10 @@ class LabourController extends Controller
     public function update(UpdateLabourRequest $request, Labour $labour)
     {
         $labour->update($request->validated());
+
+        if($request->has('team_id')) {
+            $labour->teams()->sync($request->team_id);
+        }
 
         return new LabourResource($labour->fresh());
     }
