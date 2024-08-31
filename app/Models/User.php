@@ -40,7 +40,7 @@ class User extends Authenticatable implements HasMedia
     /**
      * The attributes that should be hidden for arrays.
      *
-     * @return array<int, string>
+     * @return array<string, string>
      */
     protected function casts()
     {

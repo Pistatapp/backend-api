@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
 class LastActivity
@@ -17,7 +18,7 @@ class LastActivity
     {
         $response = $next($request);
 
-        if (auth()->check()) {
+        if (Auth::check()) {
             $request->user()->update(['last_activity_at' => now()]);
         }
 

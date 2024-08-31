@@ -52,7 +52,7 @@ class AuthController extends Controller
     }
 
     /**
-     * Verify user mobile.
+     * Verify user token.
      *
      * @param \Illuminate\Http\Request $request
      * @return \App\Http\Resources\AuthenticatedUserResource
@@ -81,8 +81,10 @@ class AuthController extends Controller
             ]);
         }
 
-        if (!Hash::check($request->token, $token->token) || $token->isExpired()) {
+        if (!Hash::check($request->token, $token->token) || $token->expired()) {
+
             $this->incrementLoginAttempts($request);
+
             throw ValidationException::withMessages([
                 'token' => __('The provided token is incorrect.'),
                 'retries_left' => $this->retriesLeft($request),
@@ -108,12 +110,14 @@ class AuthController extends Controller
             'mobile' => $request->mobile,
         ]);
 
-        if (is_null($user->mobile_verified_at)) {
-            $user->mobile_verified_at = now();
-            $user->save();
+        tap($user, function ($user) {
+            if (is_null($user->mobile_verified_at)) {
+                $user->mobile_verified_at = now();
+                $user->save();
 
-            $user->profile()->create();
-        }
+                $user->profile()->create();
+            }
+        });
 
         $this->guard()->login($user);
 

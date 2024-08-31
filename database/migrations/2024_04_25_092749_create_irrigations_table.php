@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('irrigations', function (Blueprint $table) {
             $table->id();
             $table->foreignId('field_id')->constrained();
-            $table->foreignId('labor_id')->constrained();
+            $table->foreignId('labour_id')->constrained();
             $table->date('date');
             $table->string('start_time');
             $table->string('end_time');
