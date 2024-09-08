@@ -3,14 +3,17 @@
 namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\StoreGpsDeviceRequest;
-use App\Http\Requests\UpdateGpsDeviceRequest;
 use App\Http\Resources\GpsDeviceResource;
 use App\Models\GpsDevice;
 use Illuminate\Http\Request;
 
 class GpsDeviceController extends Controller
 {
+    public function __construct()
+    {
+        $this->authorizeResource(GpsDevice::class);
+    }
+
     /**
      * Display a listing of the resource.
      */
@@ -23,9 +26,21 @@ class GpsDeviceController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(StoreGpsDeviceRequest $request)
+    public function store(Request $request)
     {
-        $device = GpsDevice::create($request->validated());
+        $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'name' => 'required|string|max:255',
+            'imei' => 'required|string|max:255|unique:gps_devices,imei',
+            'sim_number' => 'required|string|max:255|unique:gps_devices,sim_number',
+        ]);
+
+        $device = GpsDevice::create([
+            'user_id' => $request->user_id,
+            'name' => $request->name,
+            'imei' => $request->imei,
+            'sim_number' => $request->sim_number,
+        ]);
 
         return new GpsDeviceResource($device);
     }
@@ -33,11 +48,23 @@ class GpsDeviceController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(UpdateGpsDeviceRequest $request, GpsDevice $gpsDevice)
+    public function update(Request $request, GpsDevice $gpsDevice)
     {
-        $gpsDevice->update($request->validated());
+        $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'name' => 'required|string|max:255',
+            'imei' => 'required|string|max:255|unique:gps_devices,imei,' . $gpsDevice->id,
+            'sim_number' => 'required|string|max:255|unique:gps_devices,sim_number,' . $gpsDevice->id,
+        ]);
 
-        return new GpsDeviceResource($gpsDevice);
+        $gpsDevice->update([
+            'user_id' => $request->user_id,
+            'name' => $request->name,
+            'imei' => $request->imei,
+            'sim_number' => $request->sim_number,
+        ]);
+
+        return new GpsDeviceResource($gpsDevice->refresh());
     }
 
     /**
@@ -45,8 +72,6 @@ class GpsDeviceController extends Controller
      */
     public function destroy(GpsDevice $gpsDevice)
     {
-        $this->authorize('delete', $gpsDevice);
-
         $gpsDevice->delete();
 
         return response()->noContent();
