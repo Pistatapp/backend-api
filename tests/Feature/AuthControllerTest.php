@@ -29,11 +29,6 @@ class AuthControllerTest extends TestCase
             'mobile' => '09107529334',
         ]);
 
-        $response->assertStatus(200)
-            ->assertJson([
-                'message' => 'Verification token sent successfully.',
-            ]);
-
         // Use Notification::route to send an on-demand notification
         Notification::assertSentTo(
             new AnonymousNotifiable,
@@ -42,6 +37,12 @@ class AuthControllerTest extends TestCase
                 return $notifiable->routes['kavenegar'] === '09107529334';
             }
         );
+
+        $response->assertStatus(200)
+            ->assertJson([
+                'message' => 'Verification token sent successfully.',
+            ]);
+
     }
 
     /**
@@ -169,7 +170,7 @@ class AuthControllerTest extends TestCase
 
         $token = $user->createToken('token-name');
 
-        $response = $this->actingAs($user->first())
+        $response = $this->actingAs($user)
             ->postJson('/api/auth/refresh');
 
         $response->assertStatus(200)

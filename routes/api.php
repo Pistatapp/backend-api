@@ -120,8 +120,8 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::post('/farms/{farm}/cold-requirement', [ColdRequirementController::class, 'calculate']);
     Route::apiResource('farms.cold_requirement_notifications', ColdRequirementNotificationController::class)->shallow();
 
+    Broadcast::routes();
 });
 
-Broadcast::routes(['middleware' => ['auth:sanctum']]);
 
 Route::post('/gps/reports', [GpsReportController::class, 'store']);

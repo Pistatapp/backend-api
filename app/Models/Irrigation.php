@@ -15,7 +15,7 @@ class Irrigation extends Model
      * @var array<string>
      */
     protected $fillable = [
-        'labor_id',
+        'labour_id',
         'field_id',
         'date',
         'start_time',
@@ -43,8 +43,13 @@ class Irrigation extends Model
      *
      * @var array<string>
      */
-    protected $with = ['field', 'labor', 'creator'];
+    protected $with = ['field', 'labour', 'creator'];
 
+    /**
+     * Get the duration of the Irrigation
+     *
+     * @return string
+     */
     public function getDurationAttribute()
     {
         return $this->start_time->diff($this->end_time)->format('%H:%I');
@@ -61,13 +66,13 @@ class Irrigation extends Model
     }
 
     /**
-     * Get the labor that owns the Irrigation
+     * Get the labour that owns the Irrigation
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
-    public function labor()
+    public function labour()
     {
-        return $this->belongsTo(Labor::class);
+        return $this->belongsTo(Labour::class);
     }
 
     /**

@@ -33,12 +33,12 @@ class IrrigationController extends Controller
     public function store(StoreIrrigationRequest $request, Field $field)
     {
         $irrigation = $field->irrigations()->create([
-            'labor_id' => $request->labor_id,
+            'labour_id' => $request->labour_id,
             'date' => $request->date,
             'start_time' => $request->start_time,
             'end_time' => $request->end_time,
             'valves' => $request->valves,
-            'created_by' => auth()->id(),
+            'created_by' => $request->user()->id,
         ]);
 
         return new IrrigationResource($irrigation);
@@ -91,7 +91,7 @@ class IrrigationController extends Controller
             return [
                 'date' => jdate($irrigation->date)->format('Y/m/d'),
                 'field_name' => $field->name,
-                'labor_name' => $irrigation->labor->fname . ' ' . $irrigation->labor->lname,
+                'labour_name' => $irrigation->labour->fname . ' ' . $irrigation->labour->lname,
                 'valve_info' => $valve_info,
             ];
         });

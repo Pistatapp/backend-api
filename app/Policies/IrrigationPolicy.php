@@ -29,7 +29,7 @@ class IrrigationPolicy
      */
     public function update(User $user, Irrigation $irrigation): bool
     {
-        return $irrigation->creator->is($user);
+        return $irrigation->creator->is($user) && $irrigation->updated_at->diffInSeconds(now()->endOfDay()) > 0;
     }
 
     /**
