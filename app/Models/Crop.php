@@ -5,14 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Product extends Model
+class Crop extends Model
 {
     use HasFactory;
 
     protected $fillable = ['name', 'cold_requirement'];
 
     /**
-     * Get the farms for the product.
+     * Get the farms for the crop.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
@@ -22,12 +22,12 @@ class Product extends Model
     }
 
     /**
-     * Get the product types for the product.
+     * Get the crop types for the crop.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
-    public function productTypes()
+    public function cropTypes()
     {
-        return $this->hasMany(ProductType::class);
+        return $this->hasMany(CropType::class);
     }
 }

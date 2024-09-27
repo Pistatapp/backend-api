@@ -5,7 +5,7 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class ProductTypeResource extends JsonResource
+class CropResource extends JsonResource
 {
     /**
      * Transform the resource into an array.
@@ -17,8 +17,10 @@ class ProductTypeResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
+            'cold_requirement' => $this->cold_requirement,
             'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),
-            'can_delete' => $this->fields()->doesntExist(),
+            'crop_types' => CropTypeResource::collection($this->whenLoaded('cropTypes')),
+            'can_delete' => $this->farms()->doesntExist(),
         ];
     }
 }

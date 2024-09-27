@@ -12,7 +12,11 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('labours', function (Blueprint $table) {
-            $table->dropColumn('team_id');
+            if (Schema::getConnection()->getDriverName() === 'sqlite') {
+                $table->dropForeign(['team_id']);
+            } elseif (Schema::getConnection()->getDriverName() === 'mysql') {
+                $table->dropColumn('team_id');
+            }
         });
     }
 

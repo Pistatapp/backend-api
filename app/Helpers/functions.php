@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Support\Facades\Auth;
 use Morilog\Jalali\Jalalian;
 
 /**
@@ -11,12 +12,10 @@ use Morilog\Jalali\Jalalian;
 function jalali_to_carbon(string $jalaliDate): \Carbon\Carbon
 {
     try {
-        $date = Jalalian::fromFormat('Y/m/d', $jalaliDate)->toCarbon();
+        return Jalalian::fromFormat('Y/m/d', $jalaliDate)->toCarbon();
     } catch (\Exception $e) {
-        throw new \Exception('Invalid Jalali date format');
+        throw new \InvalidArgumentException('Invalid Jalali date format');
     }
-
-    return $date;
 }
 
 /**
@@ -27,11 +26,8 @@ function jalali_to_carbon(string $jalaliDate): \Carbon\Carbon
  */
 function time_to_hours(string $time): float
 {
-    $timeParts = explode(':', $time);
-    $hours = (int) $timeParts[0];
-    $minutes = (int) $timeParts[1];
-    $hours += $minutes / 60;
-    return $hours;
+    [$hours, $minutes] = array_map('intval', explode(':', $time));
+    return $hours + $minutes / 60;
 }
 
 /**
@@ -41,7 +37,7 @@ function time_to_hours(string $time): float
  */
 function get_active_farm()
 {
-    return auth()->user()->active_farm;
+    return Auth::user()->active_farm;
 }
 
 /**
@@ -53,18 +49,28 @@ function get_active_farm()
 function calculate_polygon_area(array $points): float
 {
     $numPoints = count($points);
+
     if ($numPoints < 3) {
-        throw new \Exception('A polygon must have at least 3 points');
+        throw new \InvalidArgumentException('A polygon must have at least 3 points');
     }
 
-    $area = 0;
-    for ($i = 0; $i < $numPoints; $i++) {
-        $x1 = $points[$i][0];
-        $y1 = $points[$i][1];
-        $x2 = $points[($i + 1) % $numPoints][0];
-        $y2 = $points[($i + 1) % $numPoints][1];
-        $area += ($x1 * $y2 - $x2 * $y1);
+    $area = 0.0;
+    for ($i = 0, $j = $numPoints - 1; $i < $numPoints; $j = $i++) {
+        $area += ($points[$j][0] * $points[$i][1]) - ($points[$i][0] * $points[$j][1]);
     }
 
-    return abs($area / 2);
+    return abs($area) / 2.0;
+}
+
+/**
+ * Convert hours to a time format
+ *
+ * @param float $hours
+ * @return string
+ */
+function to_time_format(int $minutes): string
+{
+    $hours = floor($minutes / 60);
+    $remainingMinutes = $minutes % 60;
+    return sprintf('%02d:%02d', $hours, $remainingMinutes);
 }

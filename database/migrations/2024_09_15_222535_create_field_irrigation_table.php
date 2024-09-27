@@ -11,12 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('valves', function (Blueprint $table) {
+        Schema::create('field_irrigation', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('pump_id')->constrained()->onDelete('cascade');
-            $table->string('name');
-            $table->string('location');
-            $table->tinyInteger('flow_rate')->default(0);
+            $table->foreignId('field_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('irrigation_id')->constrained()->cascadeOnDelete();
             $table->timestamps();
         });
     }
@@ -26,6 +24,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('valves');
+        Schema::dropIfExists('field_irrigation');
     }
 };

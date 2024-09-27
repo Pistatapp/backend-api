@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use Carbon\Carbon;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreIrrigationRequest extends FormRequest
@@ -22,21 +23,24 @@ class StoreIrrigationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'labor_id' => 'required|exists:labours,id',
+            'labour_id' => 'required|exists:labours,id',
             'date' => 'required|shamsi_date',
             'start_time' => [
                 'required',
-                'date_format:H:i',
                 new \App\Rules\ValveTimeOverLap(),
+                new \App\Rules\FieldIrrigationTimeOverLap(),
             ],
             'end_time' => [
                 'required',
-                'date_format:H:i',
                 'after:start_time',
                 new \App\Rules\ValveTimeOverLap(),
+                new \App\Rules\FieldIrrigationTimeOverLap(),
             ],
+            'fields' => 'required|array',
+            'fields.*' => 'required|integer|exists:fields,id',
             'valves' => 'required|array',
-            'valves.*' => 'exists:valves,id',
+            'valves.*' => 'required|integer|exists:valves,id',
+            'note' => 'nullable|string|max:500',
         ];
     }
 
@@ -48,7 +52,9 @@ class StoreIrrigationRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $this->merge([
-            'date' => jalali_to_carbon($this->date)->format('Y-m-d'),
+            'date' => jalali_to_carbon($this->date)->format('Y/m/d'),
+            'start_time' => Carbon::createFromFormat('H:i', $this->start_time),
+            'end_time' => Carbon::createFromFormat('H:i', $this->end_time),
         ]);
     }
 }

@@ -21,10 +21,10 @@ class FieldResource extends JsonResource
             'coordinates' => $this->coordinates,
             'center' => $this->center,
             'area' => $this->area,
-            'product_type' => $this->whenLoaded('productType', function () {
+            'crop_type' => $this->whenLoaded('cropType', function () {
                 return [
-                    'id' => $this->productType->id,
-                    'name' => $this->productType->name,
+                    'id' => $this->cropType->id,
+                    'name' => $this->cropType->name,
                 ];
             }),
             'rows_count' => $this->whenCounted('rows'),
@@ -32,6 +32,7 @@ class FieldResource extends JsonResource
             'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),
             'attachments' => AttachmentResource::collection($this->whenLoaded('attachments')),
             'reports' => FarmReportResource::collection($this->whenLoaded('reports')),
+            'irrigations' => IrrigationResource::collection($this->whenLoaded('irrigations')),
         ];
     }
 }

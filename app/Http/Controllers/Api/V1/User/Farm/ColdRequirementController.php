@@ -3,16 +3,16 @@
 namespace App\Http\Controllers\Api\V1\User\Farm;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\ProductResource;
+use App\Http\Resources\CropResource;
 use App\Models\Farm;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Request;
 
 class ColdRequirementController extends Controller
 {
-    public function getFarmProduct(Farm $farm)
+    public function getFarmCrop(Farm $farm)
     {
-        return new ProductResource($farm->product);
+        return new CropResource($farm->crop);
     }
 
     public function calculate(Request $request, Farm $farm)
@@ -21,7 +21,7 @@ class ColdRequirementController extends Controller
             'method' => 'required|string|in:method1,method2',
             'start_dt' => 'required|date',
             'end_dt' => 'required|date',
-            'product_id' => 'required|exists:products,id',
+            'crop_id' => 'required|exists:crops,id',
             'min_temp' => 'required|numeric',
             'max_temp' => 'required|numeric',
         ]));
@@ -60,7 +60,7 @@ class ColdRequirementController extends Controller
 
         return response()->json([
             'data' => [
-                'product' => new ProductResource($farm->product),
+                'crop' => new CropResource($farm->crop),
                 'min_temp' => $request->min_temp,
                 'max_temp' => $request->max_temp,
                 'start_dt' => $request->start_dt,

@@ -10,7 +10,7 @@ class Profile extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id', 
+        'user_id',
         'first_name',
         'last_name',
         'province',
@@ -20,7 +20,7 @@ class Profile extends Model
 
     /**
      * Get the user that owns the profile.
-     * 
+     *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
     public function user()

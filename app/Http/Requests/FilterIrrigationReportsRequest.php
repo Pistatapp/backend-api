@@ -1,0 +1,64 @@
+<?php
+
+namespace App\Http\Requests;
+
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+
+class FilterIrrigationReportsRequest extends FormRequest
+{
+    /**
+     * Determine if the user is authorized to make this request.
+     */
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    /**
+     * Get the validation rules that apply to the request.
+     *
+     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     */
+    public function rules(): array
+    {
+        return [
+            'field_id' => [
+                'nullable',
+                'integer',
+                'exists:fields,id',
+                Rule::prohibitedIf(fn() => $this->labour_id || $this->valve_id),
+            ],
+            'labour_id' => [
+                'nullable',
+                'integer',
+                'exists:labours,id',
+                Rule::prohibitedIf(fn() => $this->field_id || $this->valve_id),
+            ],
+            'valve_id' => [
+                'nullable',
+                'integer',
+                'exists:valves,id',
+                Rule::prohibitedIf(fn() => $this->field_id || $this->labour_id),
+            ],
+            'from_date' => 'required|shamsi_date',
+            'to_date' => 'required|shamsi_date|after_or_equal:from_date'
+        ];
+    }
+
+    /**
+     * Prepare the data for validation.
+     */
+    protected function prepareForValidation()
+    {
+        $dates = ['sepcific_date' => 'specific_date', 'from_date' => 'from_date', 'to_date' => 'to_date'];
+
+        foreach ($dates as $input => $output) {
+            if ($this->$input) {
+                $this->merge([
+                    $output => jalali_to_carbon($this->$input),
+                ]);
+            }
+        }
+    }
+}

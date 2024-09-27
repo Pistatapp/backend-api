@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Api\Auth\AuthController;
+use App\Http\Controllers\Api\V1\Admin\CropController;
+use App\Http\Controllers\Api\V1\Admin\CropTypeController;
 use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\User\Farm\FarmController;
 use App\Http\Controllers\Api\V1\User\Farm\FieldController;
@@ -21,8 +23,6 @@ use App\Http\Controllers\Api\V1\User\Farm\IrrigationController;
 use App\Http\Controllers\Api\V1\User\Trucktor\TrucktorReportController;
 use App\Http\Controllers\Api\V1\Admin\UserController;
 use App\Http\Controllers\Api\V1\Admin\GpsDeviceController;
-use App\Http\Controllers\Api\V1\Admin\ProductController;
-use App\Http\Controllers\Api\V1\Admin\ProductTypeController;
 use App\Http\Controllers\Api\V1\User\Farm\ColdRequirementController;
 use App\Http\Controllers\Api\V1\User\Farm\ColdRequirementNotificationController;
 use App\Http\Controllers\Api\V1\User\Trucktor\ActiveTrucktorController;
@@ -60,17 +60,17 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
         Route::apiResource('gps_devices', GpsDeviceController::class)->except('show');
         Route::apiResource('users', UserController::class);
 
-        Route::controller(ProductController::class)->prefix('products')->group(function () {
+        Route::controller(CropController::class)->prefix('crops')->group(function () {
             Route::withoutMiddleware('admin')->group(function () {
                 Route::get('/', 'index');
-                Route::get('/{product}', 'show');
+                Route::get('/{crop}', 'show');
             });
             Route::post('/', 'store');
-            Route::put('/{product}', 'update');
-            Route::delete('/{product}', 'destroy');
+            Route::put('/{crop}', 'update');
+            Route::delete('/{crop}', 'destroy');
         });
 
-        Route::apiResource('products.product_types', ProductTypeController::class)->except('index', 'show')->shallow();
+        Route::apiResource('crops.crop_types', CropTypeController::class)->except('index', 'show')->shallow();
     });
 
     Route::withoutMiddleware('ensure.username')->group(function () {
@@ -110,18 +110,20 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::apiResource('attachments', AttachmentController::class)->except('show', 'index');
     Route::apiResource('farms.operations', OprationController::class)->shallow();
     Route::apiResource('trucktors.trucktor_tasks', TrucktorTaskController::class)->shallow();
-    Route::post('/fields/{field}/irrigations/reports', [IrrigationController::class, 'filterReports']);
-    Route::apiResource('fields.irrigations', IrrigationController::class)->except('show')->shallow();
+
+    Route::post('/farms/{farm}/irrigations/reports', [IrrigationController::class, 'filterReports']);
+    Route::get('/fields/{field}/irrigations', [IrrigationController::class, 'getIrrigationsForField']);
+    Route::get('/fields/{field}/irrigations/report', [IrrigationController::class, 'getIrrigationReportForField']);
+    Route::apiResource('farms.irrigations', IrrigationController::class)->shallow();
 
     Route::apiResource('farms.timars', TimarController::class)->shallow();
     Route::apiResource('farms.plans', PlanController::class)->shallow();
 
-    Route::get('/farms/{farm}/product', [ColdRequirementController::class, 'getFarmProduct']);
+    Route::get('/farms/{farm}/crop', [ColdRequirementController::class, 'getFarmCrop']);
     Route::post('/farms/{farm}/cold-requirement', [ColdRequirementController::class, 'calculate']);
     Route::apiResource('farms.cold_requirement_notifications', ColdRequirementNotificationController::class)->shallow();
 
     Broadcast::routes();
 });
-
 
 Route::post('/gps/reports', [GpsReportController::class, 'store']);

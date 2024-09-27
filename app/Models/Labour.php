@@ -29,6 +29,11 @@ class Labour extends Model
         'monthly_salary',
     ];
 
+    /**
+     * Get full name of the Labour
+     *
+     * @return string
+     */
     public function getFullNameAttribute()
     {
         return $this->fname . ' ' . $this->lname;
@@ -42,5 +47,15 @@ class Labour extends Model
     public function teams()
     {
         return $this->belongsToMany(Team::class);
+    }
+
+    /**
+     * Get the farm that owns the Labour
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
+    public function farm()
+    {
+        return $this->belongsTo(Farm::class);
     }
 }

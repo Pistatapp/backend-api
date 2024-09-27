@@ -20,7 +20,7 @@ class Field extends Model
         'coordinates',
         'center',
         'area',
-        'product_type_id',
+        'crop_type_id',
     ];
 
     /**
@@ -34,13 +34,13 @@ class Field extends Model
     ];
 
     /**
-     * Get the product type that owns the field.
+     * Get the crop type that owns the field.
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
-    public function productType()
+    public function cropType()
     {
-        return $this->belongsTo(ProductType::class);
+        return $this->belongsTo(CropType::class);
     }
 
     /**
@@ -94,13 +94,12 @@ class Field extends Model
     }
 
     /**
-     * Get the irrigations for the field.
+     * Get the field's irrigations.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
-    public function irrigations()
-    {
-        return $this->hasMany(Irrigation::class);
+    public function irrigations() {
+        return $this->belongsToMany(Irrigation::class);
     }
 
     /**

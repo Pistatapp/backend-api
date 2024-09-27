@@ -5,24 +5,24 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class ProductType extends Model
+class CropType extends Model
 {
     use HasFactory;
 
     protected $fillable = ['name'];
 
     /**
-     * Get the product that owns the product type.
+     * Get the crop that owns the crop type.
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
-    public function product()
+    public function crop()
     {
-        return $this->belongsTo(Product::class);
+        return $this->belongsTo(Crop::class);
     }
 
     /**
-     * Get the fields for the product type.
+     * Get the fields for the crop type.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */

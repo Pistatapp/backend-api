@@ -10,11 +10,16 @@ class Farm extends Model
 {
     use HasFactory, HasRelationships;
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<string>
+     */
     protected $fillable = [
         'user_id',
         'name',
         'coordinates',
-        'product_id',
+        'crop_id',
         'center',
         'zoom',
         'area',
@@ -30,20 +35,19 @@ class Farm extends Model
     {
         return [
             'coordinates' => 'array',
-            'products' => 'array',
             'center' => 'array',
             'is_working_environment' => 'boolean',
         ];
     }
 
     /**
-     * Get the product that owns the farm.
+     * Get the crop that owns the farm.
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
-    public function product()
+    public function crop()
     {
-        return $this->belongsTo(Product::class);
+        return $this->belongsTo(Crop::class);
     }
 
     /**
@@ -214,5 +218,15 @@ class Farm extends Model
     public function reports()
     {
         return $this->hasMany(FarmReport::class);
+    }
+
+    /**
+     * Get the irrigations for the farm.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function irrigations()
+    {
+        return $this->hasMany(Irrigation::class);
     }
 }

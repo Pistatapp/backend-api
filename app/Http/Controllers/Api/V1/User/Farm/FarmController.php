@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\FarmResource;
 use App\Models\Farm;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class FarmController extends Controller
 {
@@ -41,7 +42,7 @@ class FarmController extends Controller
             'center' => 'required|string',
             'zoom' => 'required|numeric|min:1',
             'area' => 'required|numeric|min:0',
-            'product_id' => 'required|exists:products,id',
+            'crop_id' => 'required|exists:crops,id',
         ]);
 
         $farm = Farm::create([
@@ -51,7 +52,7 @@ class FarmController extends Controller
             'center' => $request->center,
             'zoom' => $request->zoom,
             'area' => $request->area,
-            'product_id' => $request->product_id,
+            'crop_id' => $request->crop_id,
             'is_working_environment' => Farm::count() === 0,
         ]);
 
@@ -66,7 +67,7 @@ class FarmController extends Controller
     public function show(Farm $farm)
     {
         $farm = $farm->loadCount(['trees', 'fields', 'labours', 'trucktors', 'plans'])
-            ->load('product');
+            ->load('crop');
         return new FarmResource($farm);
     }
 
@@ -81,13 +82,13 @@ class FarmController extends Controller
     public function update(Request $request, Farm $farm)
     {
         $request->validate([
-            'name' => 'required|string|max:255|unique:farms,name,' . $farm->id . ',id,user_id,' . auth()->id(),
+            'name' => 'required|string|max:255|unique:farms,name,' . $farm->id . ',id,user_id,' . Auth::id(),
             'coordinates' => 'required|array|min:3',
             'coordinates.*' => 'required|string',
             'center' => 'required|string',
             'zoom' => 'required|numeric|min:1',
             'area' => 'required|numeric|min:0',
-            'product_id' => 'required|exists:products,id',
+            'crop_id' => 'required|exists:crops,id',
         ]);
 
         $farm->update([
@@ -96,7 +97,7 @@ class FarmController extends Controller
             'center' => $request->center,
             'zoom' => $request->zoom,
             'area' => $request->area,
-            'product_id' => $request->product_id
+            'crop_id' => $request->crop_id
         ]);
 
         return new FarmResource($farm);

@@ -35,7 +35,7 @@ class TreeController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'product' => 'required|string|max:255',
+            'crop' => 'required|string|max:255',
             'image' => 'nullable|image|max:1024',
         ]);
 

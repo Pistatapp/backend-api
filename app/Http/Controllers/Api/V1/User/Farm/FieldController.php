@@ -41,7 +41,7 @@ class FieldController extends Controller
             'coordinates.*' => 'required|string',
             'center' => 'required|string',
             'area' => 'required|numeric|min:0',
-            'product_type_id' => 'nullable|exists:product_types,id',
+            'crop_type_id' => 'nullable|exists:crop_types,id',
         ]);
 
         $field = $farm->fields()->create([
@@ -49,7 +49,7 @@ class FieldController extends Controller
             'coordinates' => $request->coordinates,
             'center' => $request->center,
             'area' => $request->area,
-            'product_type_id' => $request->product_type_id,
+            'crop_type_id' => $request->crop_type_id,
         ]);
 
         return new FieldResource($field);
@@ -65,9 +65,10 @@ class FieldController extends Controller
     {
         $fields = $field->load([
             'attachments',
-            'productType',
+            'cropType',
             'reports.operation',
-            'reports.labour'
+            'reports.labour',
+            'irrigations',
         ])->loadCount('rows', 'blocks');
 
         return new FieldResource($fields);
@@ -88,7 +89,7 @@ class FieldController extends Controller
             'coordinates.*' => 'required|string',
             'center' => 'required|string',
             'area' => 'required|numeric|min:0',
-            'product_type_id' => 'nullable|exists:product_types,id',
+            'crop_type_id' => 'nullable|exists:crop_types,id',
         ]);
 
         $field->update([
@@ -96,7 +97,7 @@ class FieldController extends Controller
             'coordinates' => $request->coordinates,
             'center' => $request->center,
             'area' => $request->area,
-            'product_type_id' => $request->product_type_id,
+            'crop_type_id' => $request->crop_type_id,
         ]);
 
         return new FieldResource($field);

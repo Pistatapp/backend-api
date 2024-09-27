@@ -2,14 +2,13 @@
 
 namespace App\Rules;
 
-use App\Models\Irrigation;
 use Closure;
 use Illuminate\Contracts\Validation\DataAwareRule;
 use Illuminate\Contracts\Validation\ValidationRule;
+use App\Models\Irrigation;
 
-class ValveTimeOverLap implements ValidationRule, DataAwareRule
+class FieldIrrigationTimeOverLap implements ValidationRule, DataAwareRule
 {
-
     /**
      * The data the validation rule has access to.
      *
@@ -37,7 +36,7 @@ class ValveTimeOverLap implements ValidationRule, DataAwareRule
      */
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
-        $valves = $this->data['valves'];
+        $fields = $this->data['fields'];
         $start_time = $this->data['start_time'];
         $end_time = $this->data['end_time'];
         $irrigation = request()->route('irrigation');
@@ -45,8 +44,8 @@ class ValveTimeOverLap implements ValidationRule, DataAwareRule
         $irrigationExists = Irrigation::where('date', $this->data['date'])
             ->where('start_time', '<', $end_time)
             ->where('end_time', '>', $start_time)
-            ->whereHas('valves', function ($query) use ($valves) {
-                $query->whereIn('valves.id', $valves);
+            ->whereHas('fields', function ($query) use ($fields) {
+                $query->whereIn('fields.id', $fields);
             });
 
         if ($irrigation) {
@@ -56,7 +55,7 @@ class ValveTimeOverLap implements ValidationRule, DataAwareRule
         $irrigationExists = $irrigationExists->exists();
 
         if ($irrigationExists) {
-            $fail(__("An irrigation report has already been stored for these valves withing this time range."));
+            $fail(__("The selected field's irrigation time overlaps with another irrigation time."));
         }
     }
 }

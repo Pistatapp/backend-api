@@ -9,16 +9,16 @@ class Valve extends Model
 {
     use HasFactory;
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<string>
+     */
     protected $fillable = [
         'pump_id',
         'name',
         'location',
-        'is_open',
         'flow_rate',
-    ];
-
-    protected $attributes = [
-        'is_open' => false,
     ];
 
     /**
@@ -31,7 +31,6 @@ class Valve extends Model
         return  [
             'flow_rate' => 'float',
             'location' => 'array',
-            'is_open' => 'boolean',
         ];
     }
 
@@ -43,5 +42,15 @@ class Valve extends Model
     public function pump()
     {
         return $this->belongsTo(Pump::class);
+    }
+
+    /**
+     * The irrigations that belong to the valve.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
+     */
+    public function irrigations()
+    {
+        return $this->belongsToMany(Irrigation::class);
     }
 }

@@ -17,6 +17,14 @@ class IrrigationPolicy
     }
 
     /**
+     * Determine whether the user can view the model.
+     */
+    public function view(User $user, Irrigation $irrigation): bool
+    {
+        return $irrigation->creator->is($user);
+    }
+
+    /**
      * Determine whether the user can create models.
      */
     public function create(User $user): bool
@@ -29,7 +37,7 @@ class IrrigationPolicy
      */
     public function update(User $user, Irrigation $irrigation): bool
     {
-        return $irrigation->creator->is($user) && $irrigation->updated_at->diffInSeconds(now()->endOfDay()) > 0;
+        return $irrigation->creator->is($user) && $irrigation->updated_at->isToday();
     }
 
     /**

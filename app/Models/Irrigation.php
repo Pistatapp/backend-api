@@ -16,12 +16,22 @@ class Irrigation extends Model
      */
     protected $fillable = [
         'labour_id',
-        'field_id',
+        'farm_id',
         'date',
         'start_time',
         'end_time',
-        'valves',
-        'created_by'
+        'created_by',
+        'note',
+        'status',
+    ];
+
+    /**
+     * Get attributes with default values
+     *
+     * @var array<string, string>
+     */
+    protected $attributes = [
+        'status' => 'pending'
     ];
 
     /**
@@ -29,21 +39,14 @@ class Irrigation extends Model
      *
      * @return array<string, mixed>
      */
-    protected function casts() {
+    protected function casts()
+    {
         return [
-            'valves' => 'array',
             'date' => 'date',
-            'start_time' => 'datetime:H:i',
-            'end_time' => 'datetime:H:i',
+            'start_time' => 'datetime',
+            'end_time' => 'datetime',
         ];
     }
-
-    /**
-     * The relationships that should always be loaded.
-     *
-     * @var array<string>
-     */
-    protected $with = ['field', 'labour', 'creator'];
 
     /**
      * Get the duration of the Irrigation
@@ -53,16 +56,6 @@ class Irrigation extends Model
     public function getDurationAttribute()
     {
         return $this->start_time->diff($this->end_time)->format('%H:%I');
-    }
-
-    /**
-     * Get the field that owns the Irrigation
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
-     */
-    public function field()
-    {
-        return $this->belongsTo(Field::class);
     }
 
     /**
@@ -88,10 +81,44 @@ class Irrigation extends Model
     /**
      * Get all of the valves for the Irrigation
      *
-     * @return \Illuminate\Support\Collection
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
      */
     public function valves()
     {
-        return Valve::whereIn('id', $this->valves ?? [])->get();
+        return $this->belongsToMany(Valve::class)
+            ->using(IrrigationValve::class)
+            ->withPivot('status', 'opened_at', 'closed_at', 'duration');
+    }
+
+    /**
+     * Get the fields for the Irrigation
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
+     */
+    public function fields()
+    {
+        return $this->belongsToMany(Field::class);
+    }
+
+    /**
+     * Get the farm that owns the Irrigation
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
+    public function farm()
+    {
+        return $this->belongsTo(Farm::class);
+    }
+
+    /**
+     * Scope a query to only include irrigations of a given status
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param string $status
+     * @return void
+     */
+    public function scopeFilter($query, string $status): void
+    {
+        $query->where('status', $status);
     }
 }
