@@ -5,7 +5,7 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class ColdRequirementNotificationResource extends JsonResource
+class VolkOilSprayResource extends JsonResource
 {
     /**
      * Transform the resource into an array.
@@ -17,15 +17,11 @@ class ColdRequirementNotificationResource extends JsonResource
         return [
             'id' => $this->id,
             'farm_id' => $this->farm_id,
-            'start_dt' => $this->start_dt,
-            'end_dt' => $this->end_dt,
+            'start_dt' => jdate($this->start_dt)->format('Y/m/d'),
+            'end_dt' => jdate($this->end_dt)->format('Y/m/d'),
             'min_temp' => $this->min_temp,
             'max_temp' => $this->max_temp,
             'cold_requirement' => $this->cold_requirement,
-            'method' => $this->method,
-            'note' => $this->note,
-            'notified' => $this->notified,
-            'notified_at' => $this->whenNotNull($this->notified_at),
             'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),
         ];
     }

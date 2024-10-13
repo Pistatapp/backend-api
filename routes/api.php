@@ -24,7 +24,7 @@ use App\Http\Controllers\Api\V1\User\Trucktor\TrucktorReportController;
 use App\Http\Controllers\Api\V1\Admin\UserController;
 use App\Http\Controllers\Api\V1\Admin\GpsDeviceController;
 use App\Http\Controllers\Api\V1\User\Farm\ColdRequirementController;
-use App\Http\Controllers\Api\V1\User\Farm\ColdRequirementNotificationController;
+use App\Http\Controllers\Api\V1\User\Farm\VolkOilSprayController;
 use App\Http\Controllers\Api\V1\User\Trucktor\ActiveTrucktorController;
 use App\Http\Controllers\Api\V1\User\Management\MaintenanceController;
 use App\Http\Controllers\Api\V1\User\MaintenanceReportController;
@@ -119,9 +119,9 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::apiResource('farms.timars', TimarController::class)->shallow();
     Route::apiResource('farms.plans', PlanController::class)->shallow();
 
-    Route::get('/farms/{farm}/crop', [ColdRequirementController::class, 'getFarmCrop']);
+    Route::get('/farms/{farm}/crop-types', [ColdRequirementController::class, 'getFarmCropTypes']);
     Route::post('/farms/{farm}/cold-requirement', [ColdRequirementController::class, 'calculate']);
-    Route::apiResource('farms.cold_requirement_notifications', ColdRequirementNotificationController::class)->shallow();
+    Route::apiResource('farms.volk_oil_sprays', VolkOilSprayController::class)->shallow();
 
     Broadcast::routes();
 });

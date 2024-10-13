@@ -74,3 +74,13 @@ function to_time_format(int $minutes): string
     $remainingMinutes = $minutes % 60;
     return sprintf('%02d:%02d', $hours, $remainingMinutes);
 }
+
+/**
+ * Get the weather API service
+ *
+ * @return \App\Services\WeatherApiService
+ */
+function weather_api()
+{
+    return app('weather-api');
+}

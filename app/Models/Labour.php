@@ -9,6 +9,11 @@ class Labour extends Model
 {
     use HasFactory;
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<string>
+     */
     protected $fillable = [
         'farm_id',
         'type',
@@ -36,7 +41,7 @@ class Labour extends Model
      */
     public function getFullNameAttribute()
     {
-        return $this->fname . ' ' . $this->lname;
+        return "{$this->fname} {$this->lname}";
     }
 
     /**

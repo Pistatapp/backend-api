@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -23,5 +24,9 @@ class AppServiceProvider extends ServiceProvider
         Model::preventLazyLoading(! app()->isProduction());
 
         Model::preventSilentlyDiscardingAttributes(! app()->isProduction());
+
+        App::bind('weather-api', function () {
+            return new \App\Services\WeatherApiService();
+        });
     }
 }

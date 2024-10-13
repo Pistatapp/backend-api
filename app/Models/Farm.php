@@ -201,13 +201,13 @@ class Farm extends Model
     }
 
     /**
-     * Get the cold requirement notifications for the farm.
+     * Get the volk oil sprays for the farm.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
-    public function coldRequirementNotifications()
+    public function volkSprayNotfications()
     {
-        return $this->hasMany(ColdRequirementNotification::class);
+        return $this->hasMany(VolkOilSpray::class);
     }
 
     /**
@@ -228,5 +228,15 @@ class Farm extends Model
     public function irrigations()
     {
         return $this->hasMany(Irrigation::class);
+    }
+
+    /**
+     * Get the crop types of the farm.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasManyThrough
+     */
+    public function cropTypes()
+    {
+        return $this->hasManyThrough(CropType::class, Field::class, 'farm_id', 'id', 'id', 'crop_type_id')->distinct();
     }
 }

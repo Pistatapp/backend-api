@@ -40,7 +40,7 @@ class AttachmentController extends Controller
             'name' => $request->name,
             'description' => $request->description,
             'verified' => true,
-            'user_id' => auth()->id(),
+            'user_id' => $request->user()->id,
         ]);
 
         $attachment->addMedia($request->file)->toMediaCollection('attachments');

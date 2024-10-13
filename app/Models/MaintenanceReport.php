@@ -56,6 +56,6 @@ class MaintenanceReport extends Model
      */
     public function maintainedBy()
     {
-        return $this->belongsTo(Labor::class, 'maintained_by');
+        return $this->belongsTo(Labour::class, 'maintained_by');
     }
 }
