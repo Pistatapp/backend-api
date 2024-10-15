@@ -5,7 +5,7 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class CropTypeResource extends JsonResource
+class PhonologyGuideFileResource extends JsonResource
 {
     /**
      * Transform the resource into an array.
@@ -17,10 +17,9 @@ class CropTypeResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
-            'standard_day_degree' => $this->standard_day_degree,
-            'phonology_guide_files' => PhonologyGuideFileResource::collection($this->whenLoaded('phonologyGuideFiles')),
+            'created_by' => $this->user->username,
+            'file' => $this->getFirstMediaUrl('phonology_guide_files'),
             'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),
-            'can_delete' => $this->fields()->doesntExist(),
         ];
     }
 }

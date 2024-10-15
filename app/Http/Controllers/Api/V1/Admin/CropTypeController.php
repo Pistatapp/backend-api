@@ -17,6 +17,7 @@ class CropTypeController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255|unique:crop_types,name',
+            'standard_day_degree' => 'nullable|numeric',
         ]);
 
         $cropType = $crop->cropTypes()->create($request->only('name'));
@@ -31,6 +32,7 @@ class CropTypeController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255|unique:crop_types,name,' . $cropType->id . ',id',
+            'standard_day_degree' => 'nullable|numeric',
         ]);
 
         $cropType->update($request->only('name'));

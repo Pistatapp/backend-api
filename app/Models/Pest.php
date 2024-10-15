@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
-class CropType extends Model implements HasMedia
+class Pest extends Model implements HasMedia
 {
     use HasFactory, InteractsWithMedia;
 
@@ -16,7 +16,14 @@ class CropType extends Model implements HasMedia
      *
      * @var string[]
      */
-    protected $fillable = ['name', 'standard_day_degree'];
+    protected $fillable = [
+        'name',
+        'scientific_name',
+        'description',
+        'damage',
+        'management',
+        'standard_day_degree',
+    ];
 
     /**
      * The attributes with default values.
@@ -40,27 +47,7 @@ class CropType extends Model implements HasMedia
     }
 
     /**
-     * Get the crop that owns the crop type.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
-     */
-    public function crop()
-    {
-        return $this->belongsTo(Crop::class);
-    }
-
-    /**
-     * Get the fields for the crop type.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
-     */
-    public function fields()
-    {
-        return $this->hasMany(Field::class);
-    }
-
-    /**
-     * Get the phonology files for the crop type.
+     * Get the phonology guide files for the pest.
      *
      * @return \Illuminate\Database\Eloquent\Relations\MorphMany
      */

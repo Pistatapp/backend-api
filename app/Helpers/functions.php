@@ -19,6 +19,17 @@ function jalali_to_carbon(string $jalaliDate): \Carbon\Carbon
 }
 
 /**
+ * Check if a date is in Jalali format
+ *
+ * @param string $date
+ * @return bool
+ */
+function is_jalali_date(string $date): bool
+{
+    return preg_match('/^\d{4}\/\d{2}\/\d{2}$/', $date);
+}
+
+/**
  * Convert a time string to hours
  *
  * @param string $time
@@ -83,4 +94,30 @@ function to_time_format(int $minutes): string
 function weather_api()
 {
     return app('weather-api');
+}
+
+/**
+ * Get the fully qualified class name of a model based on the model type.
+ *
+ * @param string $model_type The type of the model (e.g., 'user', 'post').
+ * @return string The fully qualified class name of the model.
+ */
+function getModelClass(string $model_type)
+{
+    $model_type = ucfirst(str_replace(['_', ' '], '', $model_type));
+    return "App\\Models\\{$model_type}";
+}
+
+/**
+ * Retrieve an instance of a model by its type and ID.
+ *
+ * @param string $model_type The type of the model (e.g., 'user', 'post').
+ * @param string $model_id The ID of the model instance to retrieve.
+ * @return \Illuminate\Database\Eloquent\Model The model instance.
+ * @throws \Illuminate\Database\Eloquent\ModelNotFoundException If the model instance is not found.
+ */
+function getModel(string $model_type, string $model_id)
+{
+    $model_type = getModelClass($model_type);
+    return app($model_type)->findOrFail($model_id);
 }

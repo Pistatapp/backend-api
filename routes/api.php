@@ -23,6 +23,8 @@ use App\Http\Controllers\Api\V1\User\Farm\IrrigationController;
 use App\Http\Controllers\Api\V1\User\Trucktor\TrucktorReportController;
 use App\Http\Controllers\Api\V1\Admin\UserController;
 use App\Http\Controllers\Api\V1\Admin\GpsDeviceController;
+use App\Http\Controllers\Api\V1\Admin\PestController;
+use App\Http\Controllers\Api\V1\Admin\PhonologyGuideFileController;
 use App\Http\Controllers\Api\V1\User\Farm\ColdRequirementController;
 use App\Http\Controllers\Api\V1\User\Farm\VolkOilSprayController;
 use App\Http\Controllers\Api\V1\User\Trucktor\ActiveTrucktorController;
@@ -31,6 +33,7 @@ use App\Http\Controllers\Api\V1\User\MaintenanceReportController;
 use App\Http\Controllers\Api\V1\User\Management\TimarController;
 use App\Http\Controllers\Api\V1\User\Farm\PlanController;
 use App\Http\Controllers\Api\V1\User\Farm\FarmReportsController;
+use App\Http\Controllers\Api\V1\User\Phonology\DayDegreeCalculationController;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 
@@ -71,6 +74,25 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
         });
 
         Route::apiResource('crops.crop_types', CropTypeController::class)->except('index', 'show')->shallow();
+
+        Route::controller(PestController::class)->prefix('pests')->group(function () {
+            Route::withoutMiddleware('admin')->group(function () {
+                Route::get('/', 'index');
+                Route::get('/{pest}', 'show');
+            });
+            Route::post('/', 'store');
+            Route::put('/{pest}', 'update');
+            Route::delete('/{pest}', 'destroy');
+        });
+
+        Route::controller(PhonologyGuideFileController::class)
+            ->prefix('phonology/guide_files/{model_type}/{model_id}')->group(function () {
+                Route::withoutMiddleware('admin')->group(function () {
+                    Route::get('/', 'index');
+                });
+                Route::post('/', 'store');
+                Route::delete('/{id}', 'destroy');
+            });
     });
 
     Route::withoutMiddleware('ensure.username')->group(function () {
@@ -79,6 +101,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     });
 
     Route::get('/farms/{farm}/set_working_environment', [FarmController::class, 'setWorkingEnvironment']);
+
     Route::apiResource('farms', FarmController::class);
     Route::apiResource('farms.farm-reports', FarmReportsController::class)->shallow();
     Route::apiResource('farms.fields', FieldController::class)->shallow();
@@ -119,9 +142,11 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::apiResource('farms.timars', TimarController::class)->shallow();
     Route::apiResource('farms.plans', PlanController::class)->shallow();
 
-    Route::get('/farms/{farm}/crop-types', [ColdRequirementController::class, 'getFarmCropTypes']);
-    Route::post('/farms/{farm}/cold-requirement', [ColdRequirementController::class, 'calculate']);
+    Route::get('/farms/{farm}/crop_types', [ColdRequirementController::class, 'getFarmCropTypes']);
+    Route::post('/farms/{farm}/cold_requirement', [ColdRequirementController::class, 'calculate']);
     Route::apiResource('farms.volk_oil_sprays', VolkOilSprayController::class)->shallow();
+
+    Route::post('/farms/{farm}/phonology/day_degree/calculate', [DayDegreeCalculationController::class, 'calculate']);
 
     Broadcast::routes();
 });

@@ -28,6 +28,15 @@ class WeatherApiService
      */
     public function history(array $location, string $startDt, string $endDt = null): array
     {
+        // Check if the dates are in Jalali format and convert them to Gregorian
+        if (is_jalali_date($startDt)) {
+            $startDt = jalali_to_carbon($startDt)->format('Y-m-d');
+        }
+
+        if ($endDt && is_jalali_date($endDt)) {
+            $endDt = jalali_to_carbon($endDt)->format('Y-m-d');
+        }
+
         return $this->fetchWeatherData('history.json', [
             'q' => implode(',', $location),
             'dt' => $startDt,
