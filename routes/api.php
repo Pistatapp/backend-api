@@ -33,6 +33,7 @@ use App\Http\Controllers\Api\V1\User\MaintenanceReportController;
 use App\Http\Controllers\Api\V1\User\Management\TimarController;
 use App\Http\Controllers\Api\V1\User\Farm\PlanController;
 use App\Http\Controllers\Api\V1\User\Farm\FarmReportsController;
+use App\Http\Controllers\Api\V1\User\FrostbiteController;
 use App\Http\Controllers\Api\V1\User\Phonology\DayDegreeCalculationController;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
@@ -146,7 +147,10 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::post('/farms/{farm}/cold_requirement', [ColdRequirementController::class, 'calculate']);
     Route::apiResource('farms.volk_oil_sprays', VolkOilSprayController::class)->shallow();
 
-    Route::post('/farms/{farm}/phonology/day_degree/calculate', [DayDegreeCalculationController::class, 'calculate']);
+    Route::prefix('farms/{farm}')->group(function () {
+        Route::post('/phonology/day_degree/calculate', [DayDegreeCalculationController::class, 'calculate']);
+        Route::post('/frostbite/estimate', [FrostbiteController::class, 'estimate']);
+    });
 
     Broadcast::routes();
 });

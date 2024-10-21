@@ -26,6 +26,21 @@ class WeatherApiService
      * @param int $days
      * @return array
      */
+    public function forecast(array $location, int $days): array
+    {
+        return $this->fetchWeatherData('forecast.json', [
+            'q' => implode(',', $location),
+            'days' => $days,
+        ]);
+    }
+
+    /**
+     * Get the forecast weather for the location.
+     *
+     * @param array $location
+     * @param int $days
+     * @return array
+     */
     public function history(array $location, string $startDt, string $endDt = null): array
     {
         // Check if the dates are in Jalali format and convert them to Gregorian

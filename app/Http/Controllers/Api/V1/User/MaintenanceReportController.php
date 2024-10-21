@@ -38,11 +38,11 @@ class MaintenanceReportController extends Controller
             'description' => 'required|string|max:500',
         ]);
 
-        $maintable = $this->getMaintainableModel($request);
+        $maintable = getModel($request->maintainable_type, $request->maintainable_id);
 
         $maintenanceReport = $maintable->maintenanceReports()->create([
             'maintenance_id' => $request->maintenance_id,
-            'created_by' => auth()->id(),
+            'created_by' => $request->user()->id,
             'maintained_by' => $request->maintained_by,
             'date' => jalali_to_carbon($request->date),
             'description' => $request->description,
@@ -92,22 +92,6 @@ class MaintenanceReportController extends Controller
     }
 
     /**
-     * Get the maintainable model
-     */
-    private function getMaintainableModel(Request $request)
-    {
-        $model = 'App\Models\\' . Str::ucfirst($request->maintainable_type);
-
-        if (!class_exists($model)) {
-            abort(404, 'Model not found');
-        }
-
-        $maintable = $model::findOrFail($request->maintainable_id);
-
-        return $maintable;
-    }
-
-    /**
      * Filter maintenance reports by date
      */
     public function filter(Request $request)
@@ -121,7 +105,7 @@ class MaintenanceReportController extends Controller
             'maintenance_id' => 'nullable|integer|exists:maintenances,id',
         ]);
 
-        $maintainable = $this->getMaintainableModel($request);
+        $maintainable = getModel($request->maintainable_type, $request->maintainable_id);
 
         $maintenanceReports = get_active_farm()->maintenanceReports()
             ->whereBetween('date', [
