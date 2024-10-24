@@ -35,6 +35,7 @@ use App\Http\Controllers\Api\V1\User\Farm\PlanController;
 use App\Http\Controllers\Api\V1\User\Farm\FarmReportsController;
 use App\Http\Controllers\Api\V1\User\FrostbiteController;
 use App\Http\Controllers\Api\V1\User\Phonology\DayDegreeCalculationController;
+use App\Http\Controllers\Api\V1\Admin\LoadPredictionTableController;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 
@@ -94,6 +95,8 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
                 Route::post('/', 'store');
                 Route::delete('/{id}', 'destroy');
             });
+
+        Route::apiSingleton('crop_types.load_prediction_table', LoadPredictionTableController::class);
     });
 
     Route::withoutMiddleware('ensure.username')->group(function () {
@@ -151,6 +154,8 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
         Route::post('/phonology/day_degree/calculate', [DayDegreeCalculationController::class, 'calculate']);
         Route::post('/frostbite/estimate', [FrostbiteController::class, 'estimate']);
     });
+
+    Route::get('/crop_types/{crop_type}/load_prediction_table', [LoadPredictionTableController::class, 'show']);
 
     Broadcast::routes();
 });

@@ -68,4 +68,14 @@ class CropType extends Model implements HasMedia
     {
         return $this->morphMany(PhonologyGuideFile::class, 'phonologyable');
     }
+
+    /**
+     * Get the load prediction table for the crop type.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasOne
+     */
+    public function loadPredictionTable()
+    {
+        return $this->hasOne(LoadPredictionTable::class);
+    }
 }

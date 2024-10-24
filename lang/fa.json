@@ -8,5 +8,6 @@
     "You must set a username before proceeding.": "شما باید یک نام کاربری تعیین کنید.",
     "The selected start date interferes with an existing plan.": "تاریخ شروع انتخاب شده با یک طرح موجود تداخل دارد.",
     "The selected end date interferes with an existing plan.": "تاریخ پایان انتخاب شده با یک طرح موجود تداخل دارد.",
-    "Volk oil spray notification deleted successfully." : "اعلان روغن پاشی ولک با موفقیت حذف شد."
+    "Volk oil spray notification deleted successfully." : "اعلان روغن پاشی ولک با موفقیت حذف شد.",
+    "Load prediction table updated successfully": "جدول پیش بینی بار با موفقیت به روز شد"
 }
