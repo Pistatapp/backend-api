@@ -36,26 +36,28 @@ class FieldIrrigationTimeOverLap implements ValidationRule, DataAwareRule
      */
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
-        $fields = $this->data['fields'];
-        $start_time = $this->data['start_time'];
-        $end_time = $this->data['end_time'];
-        $irrigation = request()->route('irrigation');
+        try {
+            $fields = $this->data['fields'];
+            $start_time = $this->data['start_time'];
+            $end_time = $this->data['end_time'];
+            $irrigation = request()->route('irrigation');
 
-        $irrigationExists = Irrigation::where('date', $this->data['date'])
-            ->where('start_time', '<', $end_time)
-            ->where('end_time', '>', $start_time)
-            ->whereHas('fields', function ($query) use ($fields) {
-                $query->whereIn('fields.id', $fields);
-            });
+            $irrigationQuery = Irrigation::where('date', $this->data['date'])
+                ->where('start_time', '<', $end_time)
+                ->where('end_time', '>', $start_time)
+                ->whereHas('fields', function ($query) use ($fields) {
+                    $query->whereIn('fields.id', $fields);
+                });
 
-        if ($irrigation) {
-            $irrigationExists->where('id', '!=', $irrigation->id);
-        }
+            if ($irrigation) {
+                $irrigationQuery->where('id', '!=', $irrigation->id);
+            }
 
-        $irrigationExists = $irrigationExists->exists();
-
-        if ($irrigationExists) {
-            $fail(__("The selected field's irrigation time overlaps with another irrigation time."));
+            if ($irrigationQuery->exists()) {
+                $fail(__("The selected field's irrigation time overlaps with another irrigation time."));
+            }
+        } catch (\Exception $e) {
+            $fail(__("An error occurred while validating the irrigation time."));
         }
     }
 }

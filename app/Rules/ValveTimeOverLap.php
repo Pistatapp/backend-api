@@ -37,26 +37,28 @@ class ValveTimeOverLap implements ValidationRule, DataAwareRule
      */
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
-        $valves = $this->data['valves'];
-        $start_time = $this->data['start_time'];
-        $end_time = $this->data['end_time'];
-        $irrigation = request()->route('irrigation');
+        try {
+            $valves = $this->data['valves'];
+            $start_time = $this->data['start_time'];
+            $end_time = $this->data['end_time'];
+            $irrigation = request()->route('irrigation');
 
-        $irrigationExists = Irrigation::where('date', $this->data['date'])
-            ->where('start_time', '<', $end_time)
-            ->where('end_time', '>', $start_time)
-            ->whereHas('valves', function ($query) use ($valves) {
-                $query->whereIn('valves.id', $valves);
-            });
+            $irrigationExistsQuery = Irrigation::where('date', $this->data['date'])
+                ->where('start_time', '<', $end_time)
+                ->where('end_time', '>', $start_time)
+                ->whereHas('valves', function ($query) use ($valves) {
+                    $query->whereIn('valves.id', $valves);
+                });
 
-        if ($irrigation) {
-            $irrigationExists->where('id', '!=', $irrigation->id);
-        }
+            if ($irrigation) {
+                $irrigationExistsQuery->where('id', '!=', $irrigation->id);
+            }
 
-        $irrigationExists = $irrigationExists->exists();
-
-        if ($irrigationExists) {
-            $fail(__("An irrigation report has already been stored for these valves withing this time range."));
+            if ($irrigationExistsQuery->exists()) {
+                $fail(__("An irrigation report has already been stored for these valves within this time range."));
+            }
+        } catch (\Exception $e) {
+            $fail(__("An error occurred while validating the irrigation report: " . $e->getMessage()));
         }
     }
 }
