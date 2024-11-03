@@ -40,6 +40,7 @@ class IrrigationController extends Controller
             'start_time' => $request->start_time,
             'end_time' => $request->end_time,
             'created_by' => $request->user()->id,
+            'note' => $request->note,
         ]);
 
         $irrigation->fields()->attach($request->fields);

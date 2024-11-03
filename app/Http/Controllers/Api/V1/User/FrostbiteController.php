@@ -20,6 +20,7 @@ class FrostbiteController extends Controller
         $request->validate([
             'start_dt' => 'required|date',
             'end_dt' => 'required|date',
+            'automated' => 'nullable|boolean',
         ]);
 
         $startDt = jalali_to_carbon($request->start_dt);
@@ -28,10 +29,6 @@ class FrostbiteController extends Controller
         $days = $startDt->diffInDays($endDt);
 
         $data = weather_api()->forecast($farm->center, $days);
-
-        if (isset($data['error'])) {
-            return response()->json(['message' => $data['message']], $data['status']);
-        }
 
         $response = collect($data['forecast']['forecastday'])
             ->map(function ($day) {

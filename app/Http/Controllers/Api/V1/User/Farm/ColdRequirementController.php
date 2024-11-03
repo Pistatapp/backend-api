@@ -32,10 +32,6 @@ class ColdRequirementController extends Controller
     {
         $data = weather_api()->history($farm->center, $request->start_dt, $request->end_dt);
 
-        if (isset($data['error'])) {
-            return response()->json($data, $data['status']);
-        }
-
         $minTemp = $request->input('min_temp', 0);
         $maxTemp = $request->input('max_temp', 7);
         $method = $request->input('method', 'method1');

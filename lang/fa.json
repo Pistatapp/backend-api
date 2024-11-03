@@ -9,5 +9,7 @@
     "The selected start date interferes with an existing plan.": "تاریخ شروع انتخاب شده با یک طرح موجود تداخل دارد.",
     "The selected end date interferes with an existing plan.": "تاریخ پایان انتخاب شده با یک طرح موجود تداخل دارد.",
     "Volk oil spray notification deleted successfully." : "اعلان روغن پاشی ولک با موفقیت حذف شد.",
-    "Load prediction table updated successfully": "جدول پیش بینی بار با موفقیت به روز شد"
+    "Load prediction table updated successfully": "جدول پیش بینی بار با موفقیت به روز شد",
+    "Failed to fetch weather data.": "دریافت اطلاعات هواشناسی با شکست مواجه شد.",
+    "The selected field's irrigation time overlaps with another irrigation time.": "زمان آبیاری مزرعه انتخاب شده با زمان آبیاری دیگری همپوشانی دارد."
 }

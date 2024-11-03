@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Staudenmeir\EloquentHasManyDeep\HasRelationships;
 
 class Field extends Model
 {
-    use HasFactory;
+    use HasFactory, HasRelationships;
 
     /**
      * The attributes that are mass assignable.
@@ -98,7 +99,8 @@ class Field extends Model
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
-    public function irrigations() {
+    public function irrigations()
+    {
         return $this->belongsToMany(Irrigation::class);
     }
 

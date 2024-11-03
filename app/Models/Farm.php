@@ -239,4 +239,14 @@ class Farm extends Model
     {
         return $this->hasManyThrough(CropType::class, Field::class, 'farm_id', 'id', 'id', 'crop_type_id')->distinct();
     }
+
+    /**
+     * Get the valves of the farm through pumps.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasManyThrough
+     */
+    public function valves()
+    {
+        return $this->hasManyThrough(Valve::class, Pump::class);
+    }
 }

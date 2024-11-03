@@ -23,10 +23,6 @@ class DayDegreeCalculationController extends Controller
 
         $data = $this->fetchWeatherData($farm->center, $request->start_dt, $request->end_dt);
 
-        if (isset($data['error'])) {
-            return response()->json(['message' => $data['error']['message']], 400);
-        }
-
         $averageTemperatures = $this->calculateAverageTemperatures(
             $data['forecast']['forecastday'],
             $request->min_temp,

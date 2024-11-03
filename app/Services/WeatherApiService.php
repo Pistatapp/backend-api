@@ -43,20 +43,25 @@ class WeatherApiService
      */
     public function history(array $location, string $startDt, string $endDt = null): array
     {
-        // Check if the dates are in Jalali format and convert them to Gregorian
-        if (is_jalali_date($startDt)) {
-            $startDt = jalali_to_carbon($startDt)->format('Y-m-d');
-        }
-
-        if ($endDt && is_jalali_date($endDt)) {
-            $endDt = jalali_to_carbon($endDt)->format('Y-m-d');
-        }
+        $startDt = $this->convertToGregorian($startDt);
+        $endDt = $endDt ? $this->convertToGregorian($endDt) : null;
 
         return $this->fetchWeatherData('history.json', [
             'q' => implode(',', $location),
             'dt' => $startDt,
             'end_dt' => $endDt,
         ]);
+    }
+
+    /**
+     * Convert Jalali date to Gregorian if necessary.
+     *
+     * @param string $date
+     * @return string
+     */
+    private function convertToGregorian(string $date): string
+    {
+        return is_jalali_date($date) ? jalali_to_carbon($date)->format('Y-m-d') : $date;
     }
 
     /**
@@ -77,17 +82,10 @@ class WeatherApiService
                 return $response->json();
             }
 
-            return [
-                'error' => true,
-                'message' => $response->json()['error']['message'] ?? 'Unknown error',
-                'status' => $response->status(),
-            ];
+            abort_if($response->clientError(), 400, 'Bad Request');
+            abort_if($response->serverError(), 500, 'Internal Server Error');
         } catch (\Exception $e) {
-            return [
-                'error' => true,
-                'message' => $e->getMessage(),
-                'status' => 500,
-            ];
+            abort(500, __('Failed to fetch weather data.'));
         }
     }
 }

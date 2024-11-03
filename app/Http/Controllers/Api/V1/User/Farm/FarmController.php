@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\FarmResource;
 use App\Models\Farm;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
+use App\Http\Resources\ValveResource;
 
 class FarmController extends Controller
 {
@@ -66,8 +66,8 @@ class FarmController extends Controller
      */
     public function show(Farm $farm)
     {
-        $farm = $farm->loadCount(['trees', 'fields', 'labours', 'trucktors', 'plans'])
-            ->load('crop');
+        $farm = $farm->loadCount(['trees', 'fields', 'labours', 'trucktors', 'plans'])->load('crop');
+
         return new FarmResource($farm);
     }
 
@@ -82,7 +82,7 @@ class FarmController extends Controller
     public function update(Request $request, Farm $farm)
     {
         $request->validate([
-            'name' => 'required|string|max:255|unique:farms,name,' . $farm->id . ',id,user_id,' . Auth::id(),
+            'name' => 'required|string|max:255|unique:farms,name,' . $farm->id . ',id,user_id,' . $request->user()->id,
             'coordinates' => 'required|array|min:3',
             'coordinates.*' => 'required|string',
             'center' => 'required|string',
@@ -135,5 +135,16 @@ class FarmController extends Controller
             ->update(['is_working_environment' => false]);
 
         return new FarmResource($farm);
+    }
+
+    /**
+     * Get the valves for the farm.
+     *
+     * @param \App\Models\Farm $farm
+     * @return \Illuminate\Http\Resources\ValveResource
+     */
+    public function getValves(Farm $farm)
+    {
+        return ValveResource::collection($farm->valves);
     }
 }

@@ -35,6 +35,14 @@ class ValveController extends Controller
     }
 
     /**
+     * Display the specified resource.
+     */
+    public function show(Valve $valve)
+    {
+        return new ValveResource($valve);
+    }
+
+    /**
      * Update the specified resource in storage.
      */
     public function update(Request $request, Valve $valve)
