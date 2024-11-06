@@ -41,8 +41,16 @@ class FieldIrrigationTimeOverLap implements ValidationRule, DataAwareRule
             $start_time = $this->data['start_time'];
             $end_time = $this->data['end_time'];
             $irrigation = request()->route('irrigation');
+            $date = $this->data['date'];
+            $farm_id = $irrigation->farm_id ?? null;
 
-            $irrigationQuery = Irrigation::where('date', $this->data['date'])
+            if (!$farm_id) {
+                $fail(__("Invalid farm ID."));
+                return;
+            }
+
+            $irrigationQuery = Irrigation::where('date', $date)
+                ->where('farm_id', $farm_id)
                 ->where('start_time', '<', $end_time)
                 ->where('end_time', '>', $start_time)
                 ->whereHas('fields', function ($query) use ($fields) {

@@ -44,11 +44,10 @@ class ValveTimeOverLap implements ValidationRule, DataAwareRule
             $irrigation = request()->route('irrigation');
 
             $irrigationExistsQuery = Irrigation::where('date', $this->data['date'])
+                ->where('farm_id', $irrigation->farm_id)
                 ->where('start_time', '<', $end_time)
                 ->where('end_time', '>', $start_time)
-                ->whereHas('valves', function ($query) use ($valves) {
-                    $query->whereIn('valves.id', $valves);
-                });
+                ->whereHas('valves', fn($query) => $query->whereIn('valves.id', $valves));
 
             if ($irrigation) {
                 $irrigationExistsQuery->where('id', '!=', $irrigation->id);

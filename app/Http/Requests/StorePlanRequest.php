@@ -37,10 +37,11 @@ class StorePlanRequest extends FormRequest
                 'required',
                 'date',
                 function ($attribute, $value, $fail) {
-                    $existingPlan = Plan::where('start_date', '<=', $value)
+                    $planExists = Plan::where('farm_id', $this->route('farm')->id)
+                        ->where('start_date', '<=', $value)
                         ->where('end_date', '>=', $value)
-                        ->first();
-                    if ($existingPlan) {
+                        ->exists();
+                    if ($planExists) {
                         $fail(__('The selected start date interferes with an existing plan.'));
                     }
                 },
@@ -49,10 +50,11 @@ class StorePlanRequest extends FormRequest
                 'required',
                 'date',
                 function ($attribute, $value, $fail) {
-                    $existingPlan = Plan::where('start_date', '<=', $value)
+                    $planExists = Plan::where('farm_id', $this->route('farm')->id)
+                        ->where('start_date', '<=', $value)
                         ->where('end_date', '>=', $value)
-                        ->first();
-                    if ($existingPlan) {
+                        ->exists();
+                    if ($planExists) {
                         $fail(__('The selected end date interferes with an existing plan.'));
                     }
                 },

@@ -37,11 +37,12 @@ class UpdatePlanRequest extends FormRequest
                 'required',
                 'date',
                 function ($attribute, $value, $fail) {
-                    $existingPlan = Plan::where('id', '!=', $this->route('plan')->id)
+                    $planExists = Plan::where('farm_id', $this->route('plan')->farm_id)
+                        ->where('id', '!=', $this->route('plan')->id)
                         ->where('start_date', '<=', $value)
                         ->where('end_date', '>=', $value)
-                        ->first();
-                    if ($existingPlan) {
+                        ->exists();
+                    if ($planExists) {
                         $fail('The selected start date interferes with an existing plan.');
                     }
                 },
@@ -50,11 +51,12 @@ class UpdatePlanRequest extends FormRequest
                 'required',
                 'date',
                 function ($attribute, $value, $fail) {
-                    $existingPlan = Plan::where('id', '!=', $this->route('plan')->id)
+                    $planExists = Plan::where('farm_id', $this->route('plan')->farm_id)
+                        ->where('id', '!=', $this->route('plan')->id)
                         ->where('start_date', '<=', $value)
                         ->where('end_date', '>=', $value)
-                        ->first();
-                    if ($existingPlan) {
+                        ->exists();
+                    if ($planExists) {
                         $fail('The selected end date interferes with an existing plan.');
                     }
                 },

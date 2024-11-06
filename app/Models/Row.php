@@ -9,15 +9,28 @@ class Row extends Model
 {
     use HasFactory;
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array
+     */
     protected $fillable = [
         'field_id',
         'name',
         'coordinates',
     ];
 
-    protected $casts = [
-        'coordinates' => 'array',
-    ];
+    /**
+     * The attributes that should be cast to native types.
+     *
+     * @return array
+     */
+    protected function casts()
+    {
+        return [
+            'coordinates' => 'array',
+        ];
+    }
 
     /**
      * Get the field that owns the row.
