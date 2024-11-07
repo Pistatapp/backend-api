@@ -249,4 +249,14 @@ class Farm extends Model
     {
         return $this->hasManyThrough(Valve::class, Pump::class);
     }
+
+    /**
+     * Get frostbit risks of the farm.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function frostbitRisks()
+    {
+        return $this->hasMany(FrostbitRisk::class);
+    }
 }

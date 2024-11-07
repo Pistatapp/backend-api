@@ -115,7 +115,7 @@ class ColdRequirementController extends Controller
 
         foreach ($data['forecast']['forecastday'] as $day) {
             foreach ($day['hour'] as $hour) {
-                $tempc[] = $hour['temp_c'];
+                $tempC[] = $hour['temp_c'];
             }
         }
 

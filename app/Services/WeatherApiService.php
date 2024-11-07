@@ -9,27 +9,27 @@ class WeatherApiService
     /**
      * Get the current weather for the location.
      *
-     * @param array $location
+     * @param string $location
      * @return array
      */
-    public function current(array $location): array
+    public function current(string $location): array
     {
         return $this->fetchWeatherData('current.json', [
-            'q' => implode(',', $location),
+            'q' => $location,
         ]);
     }
 
     /**
      * Get the forecast weather for the location.
      *
-     * @param array $location
+     * @param string $location
      * @param int $days
      * @return array
      */
-    public function forecast(array $location, int $days): array
+    public function forecast(string $location, int $days): array
     {
         return $this->fetchWeatherData('forecast.json', [
-            'q' => implode(',', $location),
+            'q' => $location,
             'days' => $days,
         ]);
     }
@@ -37,31 +37,32 @@ class WeatherApiService
     /**
      * Get the forecast weather for the location.
      *
-     * @param array $location
+     * @param string $location
      * @param int $days
      * @return array
      */
-    public function history(array $location, string $startDt, string $endDt = null): array
+    public function future(string $location, string $date): array
     {
-        $startDt = $this->convertToGregorian($startDt);
-        $endDt = $endDt ? $this->convertToGregorian($endDt) : null;
-
-        return $this->fetchWeatherData('history.json', [
-            'q' => implode(',', $location),
-            'dt' => $startDt,
-            'end_dt' => $endDt,
+        return $this->fetchWeatherData('future.json', [
+            'q' => $location,
+            'dt' => $date,
         ]);
     }
 
     /**
-     * Convert Jalali date to Gregorian if necessary.
+     * Get the forecast weather for the location.
      *
-     * @param string $date
-     * @return string
+     * @param string $location
+     * @param int $days
+     * @return array
      */
-    private function convertToGregorian(string $date): string
+    public function history(string $location, string $startDt, string $endDt = null): array
     {
-        return is_jalali_date($date) ? jalali_to_carbon($date)->format('Y-m-d') : $date;
+        return $this->fetchWeatherData('history.json', [
+            'q' => $location,
+            'dt' => $startDt,
+            'end_dt' => $endDt,
+        ]);
     }
 
     /**

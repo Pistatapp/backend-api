@@ -33,8 +33,8 @@ use App\Http\Controllers\Api\V1\User\MaintenanceReportController;
 use App\Http\Controllers\Api\V1\User\Management\TimarController;
 use App\Http\Controllers\Api\V1\User\Farm\PlanController;
 use App\Http\Controllers\Api\V1\User\Farm\FarmReportsController;
-use App\Http\Controllers\Api\V1\User\FrostbiteController;
-use App\Http\Controllers\Api\V1\User\Phonology\DayDegreeCalculationController;
+use App\Http\Controllers\Api\V1\User\Farm\FrostbiteCalculationController;
+use App\Http\Controllers\Api\V1\User\Farm\Phonology\DayDegreeCalculationController;
 use App\Http\Controllers\Api\V1\Admin\LoadPredictionTableController;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
@@ -148,13 +148,17 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::apiResource('farms.timars', TimarController::class)->shallow();
     Route::apiResource('farms.plans', PlanController::class)->shallow();
 
-    Route::get('/farms/{farm}/crop_types', [ColdRequirementController::class, 'getFarmCropTypes']);
-    Route::post('/farms/{farm}/cold_requirement', [ColdRequirementController::class, 'calculate']);
+    Route::controller(ColdRequirementController::class)->prefix('farms/{farm}')->group(function () {
+        Route::get('/crop_types', 'getFarmCropTypes');
+        Route::post('/cold_requirement', 'calculate');
+    });
+
     Route::apiResource('farms.volk_oil_sprays', VolkOilSprayController::class)->shallow();
 
     Route::prefix('farms/{farm}')->group(function () {
         Route::post('/phonology/day_degree/calculate', [DayDegreeCalculationController::class, 'calculate']);
-        Route::post('/frostbite/estimate', [FrostbiteController::class, 'estimate']);
+        Route::post('/frostbite/estimate', [FrostbiteCalculationController::class, 'estimate']);
+        Route::post('/frostbite/notification', [FrostbiteCalculationController::class, 'sendNotification']);
     });
 
     Route::get('/crop_types/{crop_type}/load_prediction_table', [LoadPredictionTableController::class, 'show']);
