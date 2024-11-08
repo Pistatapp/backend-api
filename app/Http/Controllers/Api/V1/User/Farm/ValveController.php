@@ -27,6 +27,7 @@ class ValveController extends Controller
             'name' => 'required|string|max:255',
             'location' => 'required|string',
             'flow_rate' => 'required|integer|min:0|max:100',
+            'field_id' => 'required|exists:fields,id',
         ]);
 
         $valve = $pump->valves()->create($request->all());
@@ -51,6 +52,7 @@ class ValveController extends Controller
             'name' => 'required|string|max:255',
             'location' => 'required|string',
             'flow_rate' => 'required|integer|min:0|max:100',
+            'field_id' => 'required|exists:fields,id',
         ]);
 
         $valve->update($request->all());

@@ -19,6 +19,7 @@ class Valve extends Model
         'name',
         'location',
         'flow_rate',
+        'field_id',
     ];
 
     /**
@@ -52,5 +53,15 @@ class Valve extends Model
     public function irrigations()
     {
         return $this->belongsToMany(Irrigation::class);
+    }
+
+    /**
+     * Get the field that owns the valve.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
+    public function field()
+    {
+        return $this->belongsTo(Field::class);
     }
 }

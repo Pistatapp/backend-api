@@ -33,6 +33,7 @@ class FieldResource extends JsonResource
             'attachments' => AttachmentResource::collection($this->whenLoaded('attachments')),
             'reports' => FarmReportResource::collection($this->whenLoaded('reports')),
             'irrigations' => IrrigationResource::collection($this->whenLoaded('irrigations')),
+            'valves' => ValveResource::collection($this->whenLoaded('valves')),
         ];
     }
 }

@@ -69,6 +69,7 @@ class FieldController extends Controller
             'reports.operation',
             'reports.labour',
             'irrigations',
+            'valves',
         ])->loadCount('rows', 'blocks');
 
         return new FieldResource($fields);

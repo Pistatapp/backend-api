@@ -123,4 +123,14 @@ class Field extends Model
     {
         return $this->morphMany(FarmReport::class, 'reportable');
     }
+
+    /**
+     * Get the field's valves.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function valves()
+    {
+        return $this->hasMany(Valve::class);
+    }
 }
