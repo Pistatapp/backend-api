@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api\V1\User\Farm;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\FrostbitePredictionRequest;
 use App\Models\Farm;
 use Illuminate\Http\Request;
 
@@ -16,14 +15,15 @@ class FrostbiteCalculationController extends Controller
      * @param \App\Models\Farm $farm
      * @return \Illuminate\Http\JsonResponse
      */
-    public function estimate(FrostbitePredictionRequest $request, Farm $farm)
+    public function estimate(Request $request, Farm $farm)
     {
-        if($request->type === 'normal') {
-            $days = $request->end_dt->diffInDays($request->start_dt);
-            $data = weather_api()->forecast($farm->center, $days);
+        $request->validate(['type' => ['required', 'in:normal,radiational']]);
+
+        if ($request->type === 'normal') {
+            $data = weather_api()->forecast($farm->center, 14);
             $response = $this->estimateFrostbiteRisk($data);
         } else {
-            $data = weather_api()->forecast($farm->center, 1);
+            $data = weather_api()->forecast($farm->center, 2);
             $response = $this->estimateRadiationalFrostbiteRisk($data);
         }
 
@@ -60,20 +60,40 @@ class FrostbiteCalculationController extends Controller
      */
     private function estimateRadiationalFrostbiteRisk($data)
     {
-        return collect($data['forecast']['forecastday'])
-            ->map(function ($day) {
-                $averageDewPoint = collect($day['hour'])->avg('dewpoint_c');
-                $avgTemp = $day['day']['avgtemp_c'];
+        $day = $data['forecast']['forecastday'][1];
+        $maxDewPoint = collect($day['hour'])->max('dewpoint_c');
+        $maxCloudiness = collect($day['hour'])->max('cloud');
+        $avgTemp = $day['day']['avgtemp_c'];
 
-                $temp1 = (0.18 * $avgTemp) + (0.083 * $averageDewPoint) - 2.33;
-                $temp2 = (0.21 * $avgTemp) + 2.3;
+        $temp1 = (0.18 * $avgTemp) + (0.083 * $maxDewPoint) - 2.33;
+        $temp2 = (0.21 * $avgTemp) + 2.3;
 
-                return [
-                    'date' => jdate($day['date'])->format('Y/m/d'),
-                    'temperature' => intval($avgTemp),
-                    'warning' => $temp1 < 0 || $temp2 < 0,
-                ];
-            });
+        return [
+            'date' => jdate($day['date'])->format('Y/m/d'),
+            'maxwind_kph' => $day['day']['maxwind_kph'],
+            'dewpoint_c' => intval($maxDewPoint),
+            'cloud' => intval($maxCloudiness),
+            'avgtemp_c' => intval($avgTemp),
+            'warning' => $temp1 < 0 || $temp2 < 0,
+        ];
+    }
+
+    /**
+     * Get the frostbite notification settings for the farm.
+     *
+     * @param \App\Models\Farm $farm
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getNotification(Farm $farm)
+    {
+        request()->validate(['type' => ['required', 'in:normal,radiational']]);
+
+        $notification = $farm->frostbitRisks()->where('type', request('type'))->first();
+
+        return response()->json(['data' => [
+            'type' => request('type'),
+            'notify' => $notification ? $notification->notify : false,
+        ]]);
     }
 
     /**

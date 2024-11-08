@@ -16,47 +16,29 @@ class DayDegreeCalculationController extends Controller
      * @param \App\Models\Farm $farm
      * @return \Illuminate\Http\JsonResponse
      */
-    public function calculate(DayDegreeCalculationRequest $request, Farm $farm)
+    public function __invoke(DayDegreeCalculationRequest $request, Farm $farm)
     {
         $model = getModel($request->model_type, $request->model_id);
 
         $data = weather_api()->history($farm->center, $request->start_dt, $request->end_dt);
 
-        $averageTemperatures = $this->calculateAverageTemperatures(
-            $data['forecast']['forecastday'],
-            $request->min_temp,
-        );
-
-        $developementTotal = $request->developement_total ?? $model->standard_day_degree;
-
-        $adjustedTemperaturesSum = array_sum($averageTemperatures);
-
         return response()->json([
-            'satisfied_day_temperature' => number_format($adjustedTemperaturesSum, 2),
-            'remaining_day_temperature' => number_format($adjustedTemperaturesSum - $developementTotal, 2),
+            'data' => collect($data['forecast']['forecastday'])
+                ->map(function ($day) use ($model, $request) {
+                    $avgTemp = $day['day']['avgtemp_c'];
+                    $minTemp = $request->min_temp;
+                    $satisfiedDayDegree = max(0, $avgTemp - $minTemp);
+
+                    return [
+                        'model_id' => $model->id,
+                        'model_type' => $request->model_type,
+                        'mintemp_c' => $minTemp,
+                        'maxtemp_c' => $request->max_temp,
+                        'avgtemp_c' => number_format($avgTemp, 2),
+                        'satisfied_day_degree' => number_format($satisfiedDayDegree, 2),
+                        'date' => jdate($day['date'])->format('Y/m/d'),
+                    ];
+                }),
         ]);
-    }
-
-    /**
-     * Calculate the average temperatures from the forecast data.
-     *
-     * @param array $forecastDays
-     * @param float $minTemp
-     * @param float $maxTemp
-     * @return array
-     */
-    private function calculateAverageTemperatures(array $forecastDays, $minTemp)
-    {
-        $averageTemperatures = [];
-
-        foreach ($forecastDays as $day) {
-            $temp = $day['day']['avgtemp_c'] - $minTemp;
-
-            if ($temp < 0) continue;
-
-            $averageTemperatures[] = $temp;
-        }
-
-        return $averageTemperatures;
     }
 }

@@ -36,6 +36,7 @@ use App\Http\Controllers\Api\V1\User\Farm\FarmReportsController;
 use App\Http\Controllers\Api\V1\User\Farm\FrostbiteCalculationController;
 use App\Http\Controllers\Api\V1\User\Farm\Phonology\DayDegreeCalculationController;
 use App\Http\Controllers\Api\V1\Admin\LoadPredictionTableController;
+use App\Http\Controllers\Api\V1\User\Farm\BlightCalculationController;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 
@@ -149,16 +150,17 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::apiResource('farms.plans', PlanController::class)->shallow();
 
     Route::controller(ColdRequirementController::class)->prefix('farms/{farm}')->group(function () {
-        Route::get('/crop_types', 'getFarmCropTypes');
         Route::post('/cold_requirement', 'calculate');
     });
 
     Route::apiResource('farms.volk_oil_sprays', VolkOilSprayController::class)->shallow();
 
     Route::prefix('farms/{farm}')->group(function () {
-        Route::post('/phonology/day_degree/calculate', [DayDegreeCalculationController::class, 'calculate']);
+        Route::post('/phonology/day_degree/calculate', DayDegreeCalculationController::class);
         Route::post('/frostbite/estimate', [FrostbiteCalculationController::class, 'estimate']);
+        Route::get('/frostbite/notification', [FrostbiteCalculationController::class, 'getNotification']);
         Route::post('/frostbite/notification', [FrostbiteCalculationController::class, 'sendNotification']);
+        Route::post('/blight/calculate', BlightCalculationController::class);
     });
 
     Route::get('/crop_types/{crop_type}/load_prediction_table', [LoadPredictionTableController::class, 'show']);

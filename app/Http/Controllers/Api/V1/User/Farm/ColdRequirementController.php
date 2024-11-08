@@ -4,23 +4,11 @@ namespace App\Http\Controllers\Api\V1\User\Farm;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CalculateColdRequirementRequest;
-use App\Http\Resources\CropTypeResource;
 use App\Models\Farm;
 use Illuminate\Http\Request;
 
 class ColdRequirementController extends Controller
 {
-    /**
-     * Get the crop types used in the farm.
-     *
-     * @param \App\Models\Farm $farm
-     * @return \App\Http\Resources\CropTypeResource
-     */
-    public function getFarmCropTypes(Farm $farm)
-    {
-        return CropTypeResource::collection($farm->cropTypes);
-    }
-
     /**
      * Calculate the cold requirement for the farm.
      *

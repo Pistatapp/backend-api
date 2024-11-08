@@ -3,9 +3,8 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
-class FrostbitePredictionRequest extends FormRequest
+class BlightCalculationRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -23,19 +22,12 @@ class FrostbitePredictionRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'type' => ['required', Rule::in(['normal', 'radiational'])],
-            'start_dt' => [
-                'nullable',
-                Rule::requiredIf($this->type === 'normal'),
-                Rule::prohibitedIf($this->type === 'radiational'),
-                'date',
-            ],
-            'end_dt' => [
-                'nullable',
-                Rule::requiredIf($this->type === 'normal'),
-                Rule::prohibitedIf($this->type === 'radiational'),
-                'date',
-            ],
+            'pest_id' => 'required|exists:pests,id',
+            'start_dt' => 'required|date',
+            'end_dt' => 'required|date',
+            'min_temp' => 'required|integer|required_with:max_temp',
+            'max_temp' => 'required|integer|gte:min_temp|required_with:min_temp',
+            'developement_total' => 'required|numeric',
         ];
     }
 
