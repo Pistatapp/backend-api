@@ -42,7 +42,7 @@ class FieldIrrigationTimeOverLap implements ValidationRule, DataAwareRule
             $end_time = $this->data['end_time'];
             $irrigation = request()->route('irrigation');
             $date = $this->data['date'];
-            $farm_id = request()->route('farm')->id;
+            $farm_id = request()->route('farm')->id ?? $irrigation->farm_id;
 
             if (!$farm_id) {
                 $fail(__("Invalid farm ID."));
