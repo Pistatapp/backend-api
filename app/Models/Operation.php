@@ -9,6 +9,11 @@ class Operation extends Model
 {
     use HasFactory;
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<string>
+     */
     protected $fillable = [
         'farm_id',
         'parent_id',

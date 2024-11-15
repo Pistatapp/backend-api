@@ -9,6 +9,11 @@ class Driver extends Model
 {
     use HasFactory;
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<string>
+     */
     protected $fillable = [
         'trucktor_id',
         'name',
@@ -16,6 +21,12 @@ class Driver extends Model
         'employee_code',
     ];
 
+    /**
+     * Set the employee code for the Driver
+     *
+     * @param string $value
+     * @return void
+     */
     public function setEmployeeCodeAttribute($value)
     {
         $existingCode = Driver::where('employee_code', $value)->exists();

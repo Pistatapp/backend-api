@@ -51,7 +51,7 @@ class PlanController extends Controller
             'description' => $request->description,
             'start_date' => $request->start_date,
             'end_date' => $request->end_date,
-            'created_by' => auth()->id(),
+            'created_by' => $request->user()->id,
             'status' => 'pending'
         ]);
 

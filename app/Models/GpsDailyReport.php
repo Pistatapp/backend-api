@@ -9,10 +9,25 @@ class GpsDailyReport extends Model
 {
     use HasFactory;
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<string>
+     */
     protected $guarded = [];
 
+    /**
+     * The timestamps are disabled.
+     *
+     * @var bool
+     */
     public $timestamps = false;
 
+    /**
+     * The attributes with default values.
+     *
+     * @var array<string, mixed>
+     */
     protected $attributes = [
         'traveled_distance' => 0,
         'work_duration' => 0,
@@ -23,6 +38,11 @@ class GpsDailyReport extends Model
         'efficiency' => 0,
     ];
 
+    /**
+     * Get the trucktor that owns the GpsDailyReport
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
     public function trucktor()
     {
         return $this->belongsTo(Trucktor::class);

@@ -11,6 +11,14 @@ use Illuminate\Http\Request;
 class CropTypeController extends Controller
 {
     /**
+     * Display a listing of the resource.
+     */
+    public function index(Crop $crop)
+    {
+        return CropTypeResource::collection($crop->cropTypes);
+    }
+
+    /**
      * Store a newly created resource in storage.
      */
     public function store(Request $request, Crop $crop)

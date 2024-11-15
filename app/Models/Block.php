@@ -11,15 +11,28 @@ class Block extends Model implements HasMedia
 {
     use HasFactory, InteractsWithMedia;
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<string>
+     */
     protected $fillable = [
         'field_id',
         'name',
         'coordinates',
     ];
 
-    protected $casts = [
-        'coordinates' => 'array',
-    ];
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'coordinates' => 'array',
+        ];
+    }
 
     /**
      * Get the field that owns the block.

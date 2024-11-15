@@ -9,6 +9,11 @@ class Timar extends Model
 {
     use HasFactory;
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<string>
+     */
     protected $fillable = ['name', 'color', 'description', 'farm_id'];
 
     /**

@@ -76,7 +76,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
             Route::delete('/{crop}', 'destroy');
         });
 
-        Route::apiResource('crops.crop_types', CropTypeController::class)->except('index', 'show')->shallow();
+        Route::apiResource('crops.crop_types', CropTypeController::class)->except('show')->shallow();
 
         Route::controller(PestController::class)->prefix('pests')->group(function () {
             Route::withoutMiddleware('admin')->group(function () {

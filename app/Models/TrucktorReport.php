@@ -9,6 +9,11 @@ class TrucktorReport extends Model
 {
     use HasFactory;
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<string>
+     */
     protected $fillable = [
         'trucktor_id',
         'date',
@@ -20,6 +25,11 @@ class TrucktorReport extends Model
         'created_by',
     ];
 
+    /**
+     * The relationships that should always be loaded.
+     *
+     * @var array<string>
+     */
     protected $with = ['operation', 'field', 'user'];
 
     /**

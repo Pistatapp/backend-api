@@ -9,6 +9,11 @@ class MaintenanceReport extends Model
 {
     use HasFactory;
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<string>
+     */
     protected $fillable = [
         'maintenance_id',
         'created_by',
@@ -17,6 +22,11 @@ class MaintenanceReport extends Model
         'description',
     ];
 
+    /**
+     * The relationships that should always be loaded.
+     *
+     * @var array<string>
+     */
     protected $with = ['createdBy', 'maintainedBy:id,fname,lname', 'maintainable', 'maintenance:id,name'];
 
     /**

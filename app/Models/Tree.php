@@ -11,6 +11,11 @@ class Tree extends Model implements HasMedia
 {
     use HasFactory, InteractsWithMedia;
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<string>
+     */
     protected $fillable = [
         'row_id',
         'name',

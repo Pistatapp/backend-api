@@ -37,6 +37,7 @@ class TreeController extends Controller
             'name' => 'required|string|max:255',
             'crop' => 'required|string|max:255',
             'image' => 'nullable|image|max:1024',
+            'location' => 'required|string|regex:/\d+\.\d+,\d+\.\d+/',
         ]);
 
         $tree = $row->trees()->create($request->only([
@@ -82,8 +83,7 @@ class TreeController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'location' => 'required|array|min:2',
-            'location.*' => 'required|numeric',
+            'location' => 'required|string|regex:/\d+\.\d+,\d+\.\d+/',
             'image' => 'nullable|image|max:1024',
         ]);
 

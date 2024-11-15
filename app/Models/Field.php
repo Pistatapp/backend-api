@@ -29,10 +29,13 @@ class Field extends Model
      *
      * @var array<string, mixed>
      */
-    protected $casts = [
-        'coordinates' => 'array',
-        'center' => 'array',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'coordinates' => 'array',
+            'center' => 'array',
+        ];
+    }
 
     /**
      * Get the crop type that owns the field.

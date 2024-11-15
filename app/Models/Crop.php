@@ -9,6 +9,11 @@ class Crop extends Model
 {
     use HasFactory;
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<string>
+     */
     protected $fillable = ['name', 'cold_requirement'];
 
     /**

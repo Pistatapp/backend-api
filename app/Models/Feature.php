@@ -9,6 +9,11 @@ class Feature extends Model
 {
     use HasFactory;
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<string>
+     */
     protected $fillable = [
         'plan_id',
         'timar_id',

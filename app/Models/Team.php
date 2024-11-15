@@ -9,6 +9,11 @@ class Team extends Model
 {
     use HasFactory;
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<string>
+     */
     protected $fillable = ['farm_id', 'name', 'supervisor_id'];
 
     /**
