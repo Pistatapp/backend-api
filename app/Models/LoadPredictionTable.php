@@ -13,7 +13,6 @@ class LoadPredictionTable extends Model
      */
     protected $fillable = ['crop_type_id', 'headers', 'rows'];
 
-
     /**
      * The attributes that should be cast to native types.
      *

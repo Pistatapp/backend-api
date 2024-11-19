@@ -6,6 +6,7 @@ use App\Models\Field;
 use App\Http\Controllers\Controller;
 use App\Models\Farm;
 use App\Http\Resources\FieldResource;
+use App\Http\Resources\ValveResource;
 use Illuminate\Http\Request;
 
 class FieldController extends Controller
@@ -115,5 +116,16 @@ class FieldController extends Controller
         $field->delete();
 
         return response()->noContent();
+    }
+
+    /**
+     * Get the valves for the field.
+     *
+     * @param \App\Models\Field $field
+     * @return \Illuminate\Http\Resources\ValveResource
+     */
+    public function getValvesForField(Field $field)
+    {
+        return ValveResource::collection($field->valves);
     }
 }

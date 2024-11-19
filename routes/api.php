@@ -117,6 +117,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::apiResource('farms.pumps', PumpController::class)->shallow();
 
     Route::get('/farms/{farm}/valves', [FarmController::class, 'getValves']);
+    Route::get('/fields/{field}/valves', [FieldController::class, 'getValvesForField']);
 
     Route::get('/valves/{valve}/toggle', [ValveController::class, 'toggle']);
     Route::apiResource('pumps.valves', ValveController::class)->shallow();

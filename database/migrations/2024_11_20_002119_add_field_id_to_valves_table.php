@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('valves', function (Blueprint $table) {
-            $table->unsignedBigInteger('field_id')->after('pump_id');
+            $table->foreignId('field_id')->after('pump_id')->constrained()->onDelete('cascade');
         });
     }
 
@@ -22,6 +22,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('valves', function (Blueprint $table) {
+            $table->dropForeign(['field_id']);
             $table->dropColumn('field_id');
         });
     }

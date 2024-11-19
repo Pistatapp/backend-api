@@ -5,14 +5,12 @@ namespace App\Http\Controllers\Api\V1\User\Trucktor;
 use App\Events\ReportReceived;
 use App\Events\TrucktorStatus;
 use App\Http\Controllers\Controller;
-use App\Models\GpsData;
 use App\Services\FormatDataService;
 use App\Services\LiveReportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use App\Models\GpsDevice;
-use Illuminate\Support\Facades\Log;
 
 class GpsReportController extends Controller
 {
@@ -44,7 +42,7 @@ class GpsReportController extends Controller
 
             event(new TrucktorStatus($device->trucktor, $lastReportStatus));
         } catch (\Exception $e) {
-            GpsData::create(['data' => $e->getMessage()]);
+            //
         } finally {
             return new JsonResponse([], 200);
         }

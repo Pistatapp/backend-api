@@ -8,11 +8,17 @@ use Illuminate\Auth\Access\Response;
 
 class FieldPolicy
 {
+    /**
+     * Determine whether the user can view any models.
+     */
     public function viewAny(User $user): bool
     {
         return $user->hasFarm();
     }
 
+    /**
+     * Determine whether the user can view the model.
+     */
     public function view(User $user, Field $field): bool
     {
         return $field->farm->user()->is($user);
