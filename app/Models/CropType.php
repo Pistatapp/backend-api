@@ -70,12 +70,12 @@ class CropType extends Model implements HasMedia
     }
 
     /**
-     * Get the load prediction table for the crop type.
+     * Get the load estimation table for the crop type.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasOne
      */
-    public function loadPredictionTable()
+    public function loadEstimationTable()
     {
-        return $this->hasOne(LoadPredictionTable::class);
+        return $this->hasOne(LoadEstimationTable::class);
     }
 }

@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class LoadPredictionTable extends Model
+class LoadEstimationTable extends Model
 {
     /**
      * The attributes that are mass assignable.
@@ -44,14 +44,15 @@ class LoadPredictionTable extends Model
             "وزن کل بار باغ (کیلوگرم)"
             ]',
         'rows' => '[
-            ["عالی", "67", "0.89", "0.92", "0", "0", "0", "0", "0"],
-            ["خوب", "57", "0.89", "0.92", "0", "0", "0", "0", "0"],
-            ["متوسط", "51", "0.89", "0.92", "0", "0", "0", "0", "0"],
-            ["بد", "39.3", "0.89", "0.92", "0", "0", "0", "0", "0"]]',
+            {"condition": "excellent", "fruit_cluster_weight": "0", "average_bud_count": "0", "bud_to_fruit_conversion": "0", "tree_yield_weight_grams": "0", "estimated_to_actual_yield_ratio": "0", "tree_weight_kg": "0", "tree_count": "0", "total_garden_yield_kg": "0"},
+            {"condition": "good", "fruit_cluster_weight": "0", "average_bud_count": "0", "bud_to_fruit_conversion": "0", "tree_yield_weight_grams": "0", "estimated_to_actual_yield_ratio": "0", "tree_weight_kg": "0", "tree_count": "0", "total_garden_yield_kg": "0"},
+            {"condition": "normal", "fruit_cluster_weight": "0", "average_bud_count": "0", "bud_to_fruit_conversion": "0", "tree_yield_weight_grams": "0", "estimated_to_actual_yield_ratio": "0", "tree_weight_kg": "0", "tree_count": "0", "total_garden_yield_kg": "0"},
+            {"condition": "bad", "fruit_cluster_weight": "0", "average_bud_count": "0", "bud_to_fruit_conversion": "0", "tree_yield_weight_grams": "0", "estimated_to_actual_yield_ratio": "0", "tree_weight_kg": "0", "tree_count": "0", "total_garden_yield_kg": "0"}
+            ]',
     ];
 
     /**
-     * Get the crop type that owns the load prediction table.
+     * Get the crop type that owns the load estimation table.
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */

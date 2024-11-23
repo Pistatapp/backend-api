@@ -35,7 +35,7 @@ use App\Http\Controllers\Api\V1\User\Farm\PlanController;
 use App\Http\Controllers\Api\V1\User\Farm\FarmReportsController;
 use App\Http\Controllers\Api\V1\User\Farm\FrostbiteCalculationController;
 use App\Http\Controllers\Api\V1\User\Farm\Phonology\DayDegreeCalculationController;
-use App\Http\Controllers\Api\V1\Admin\LoadPredictionTableController;
+use App\Http\Controllers\Api\V1\Admin\LoadEstimationController;
 use App\Http\Controllers\Api\V1\User\Farm\BlightCalculationController;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
@@ -97,7 +97,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
                 Route::delete('/{id}', 'destroy');
             });
 
-        Route::apiSingleton('crop_types.load_prediction_table', LoadPredictionTableController::class);
+        Route::apiSingleton('crop_types.load_estimation', LoadEstimationController::class);
     });
 
     Route::withoutMiddleware('ensure.username')->group(function () {
@@ -118,7 +118,6 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
 
     Route::get('/fields/{field}/valves', [FieldController::class, 'getValvesForField']);
 
-    Route::get('/valves/{valve}/toggle', [ValveController::class, 'toggle']);
     Route::apiResource('pumps.valves', ValveController::class)->shallow();
 
     Route::get('/farms/{farm}/trucktors/active', [ActiveTrucktorController::class, 'index']);
@@ -163,7 +162,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
         Route::post('/blight/calculate', BlightCalculationController::class);
     });
 
-    Route::get('/crop_types/{crop_type}/load_prediction_table', [LoadPredictionTableController::class, 'show']);
+    Route::post('/farms/{farm}/load_estimation', [LoadEstimationController::class, 'estimate']);
 
     Broadcast::routes();
 });

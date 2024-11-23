@@ -11,5 +11,6 @@
     "Volk oil spray notification deleted successfully." : "اعلان روغن پاشی ولک با موفقیت حذف شد.",
     "Load prediction table updated successfully": "جدول پیش بینی بار با موفقیت به روز شد",
     "Failed to fetch weather data.": "دریافت اطلاعات هواشناسی با شکست مواجه شد.",
-    "The selected field's irrigation time overlaps with another irrigation time.": "زمان آبیاری مزرعه انتخاب شده با زمان آبیاری دیگری همپوشانی دارد."
+    "The selected field's irrigation time overlaps with another irrigation time.": "زمان آبیاری مزرعه انتخاب شده با زمان آبیاری دیگری همپوشانی دارد.",
+    "Load estimation table updated successfully.": "جدول تخمین بار با موفقیت به روز شد."
 }
