@@ -84,9 +84,9 @@ class WeatherApiService
             }
 
             abort_if($response->clientError(), 400, 'Bad Request');
-            abort_if($response->serverError(), 500, 'Internal Server Error');
+            abort_if($response->serverError(), $response->status(), $response->json());
         } catch (\Exception $e) {
-            abort(500, __('Failed to fetch weather data.'));
+            abort($response->status(), $response->json());
         }
     }
 }
