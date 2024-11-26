@@ -83,8 +83,8 @@ class WeatherApiService
                 return $response->json();
             }
 
-            abort_if($response->clientError(), 400, 'Bad Request');
-            abort_if($response->serverError(), $response->status(), $response->json());
+            abort_if($response->clientError(), $response->status(), json_encode($response->json()));
+            abort_if($response->serverError(), $response->status(), json_encode($response->json()));
         } catch (\Exception $e) {
             abort($response->status(), $response->json());
         }
