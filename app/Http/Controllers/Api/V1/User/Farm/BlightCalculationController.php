@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\BlightCalculationRequest;
 use App\Models\Farm;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 
 class BlightCalculationController extends Controller
 {
@@ -16,12 +15,6 @@ class BlightCalculationController extends Controller
     public function __invoke(BlightCalculationRequest $request, Farm $farm)
     {
         $data = weather_api()->history($farm->center, $request->start_dt, $request->end_dt);
-
-        Log::info('Weather data received', [
-            'avgtemp_c' => collect($data['forecast']['forecastday'])->map(function ($day) {
-                return $day['day']['avgtemp_c'];
-            }),
-        ]);
 
         $baseTemps = collect($data['forecast']['forecastday'])
             ->map(function ($day) use ($request) {
