@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\FarmResource;
 use App\Models\Farm;
 use Illuminate\Http\Request;
-use App\Http\Resources\ValveResource;
 
 class FarmController extends Controller
 {
@@ -71,7 +70,6 @@ class FarmController extends Controller
         return new FarmResource($farm);
     }
 
-
     /**
      * Update a farm
      *
@@ -135,16 +133,5 @@ class FarmController extends Controller
             ->update(['is_working_environment' => false]);
 
         return new FarmResource($farm);
-    }
-
-    /**
-     * Get the valves for the farm.
-     *
-     * @param \App\Models\Farm $farm
-     * @return \Illuminate\Http\Resources\ValveResource
-     */
-    public function getValves(Farm $farm)
-    {
-        return ValveResource::collection($farm->valves);
     }
 }

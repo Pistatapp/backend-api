@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\CalculateColdRequirementRequest;
 use App\Models\Farm;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 
 class ColdRequirementController extends Controller
 {

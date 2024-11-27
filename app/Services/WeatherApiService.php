@@ -83,8 +83,8 @@ class WeatherApiService
                 return $response->json();
             }
 
-            abort_if($response->clientError(), $response->status(), json_encode($response->json()));
-            abort_if($response->serverError(), $response->status(), json_encode($response->json()));
+            $errorData = $response->json();
+            abort($response->status(), json_encode($errorData));
         } catch (\Exception $e) {
             abort(500, $e->getMessage());
         }
