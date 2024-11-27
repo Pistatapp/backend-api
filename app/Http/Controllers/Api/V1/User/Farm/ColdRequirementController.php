@@ -65,17 +65,6 @@ class ColdRequirementController extends Controller
      */
     private function calculateColdRequirementMethod1(array $data, int $minTemp, int $maxTemp): int
     {
-        $filePath = storage_path('app/public/temperature_data.txt');
-        file_put_contents($filePath, '');
-
-        foreach ($data['forecast']['forecastday'] as $day) {
-            $dayData = collect($day['hour'])->map(function ($hour) {
-                return $hour['time'] . ': ' . $hour['temp_c'] . '°C';
-            })->implode("\n");
-
-            file_put_contents($filePath, $dayData . "\n\n", FILE_APPEND);
-        }
-
         return collect($data['forecast']['forecastday'])->sum(function ($day) use ($minTemp, $maxTemp) {
             return collect($day['hour'])->filter(function ($hour) use ($minTemp, $maxTemp) {
                 $temp = $hour['temp_c'];

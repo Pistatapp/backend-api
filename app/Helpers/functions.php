@@ -104,7 +104,7 @@ function weather_api()
  */
 function getModelClass(string $model_type)
 {
-    $model_type = ucfirst(str_replace(['_', ' '], '', $model_type));
+    $model_type = str_replace(' ', '', ucwords(str_replace('_', ' ', $model_type)));
     $class = "App\\Models\\{$model_type}";
 
     if (!class_exists($class)) {
