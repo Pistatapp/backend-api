@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Plan extends Model
+class FarmPlan extends Model
 {
     use HasFactory;
 
@@ -31,6 +31,13 @@ class Plan extends Model
         'created_by',
         'farm_id',
     ];
+
+    /**
+     * The relationships that should always be loaded.
+     *
+     * @var array<string>
+     */
+    protected $with = ['creator:id,username'];
 
     /**
      * The attributes that should be cast.
@@ -66,13 +73,13 @@ class Plan extends Model
     }
 
     /**
-     * Get the features of the plan.
+     * Get the details of the plan.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
-    public function features()
+    public function details()
     {
-        return $this->hasMany(Feature::class);
+        return $this->hasMany(FarmPlanDetail::class);
     }
 
     /**

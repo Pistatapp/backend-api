@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Timar extends Model
+class Treatment extends Model
 {
     use HasFactory;
 
@@ -17,7 +17,7 @@ class Timar extends Model
     protected $fillable = ['name', 'color', 'description', 'farm_id'];
 
     /**
-     * Get the farm that owns the timar.
+     * Get the farm that owns the treatment.
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */

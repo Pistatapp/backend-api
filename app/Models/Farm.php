@@ -161,23 +161,23 @@ class Farm extends Model
     }
 
     /**
-     * Get the timars for the farm.
+     * Get the treatments for the farm.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
-    public function timars()
+    public function treatments()
     {
-        return $this->hasMany(Timar::class);
+        return $this->hasMany(Treatment::class);
     }
 
     /**
-     * Get the plans for the farm.
+     * Get the farm plans for the farm.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
-    public function plans()
+    public function farmPlans()
     {
-        return $this->hasMany(Plan::class);
+        return $this->hasMany(FarmPlan::class);
     }
 
     /**

@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Feature extends Model
+class FarmPlanDetail extends Model
 {
     use HasFactory;
 
@@ -14,40 +14,35 @@ class Feature extends Model
      *
      * @var array<string>
      */
-    protected $fillable = [
-        'plan_id',
-        'timar_id',
-        'timarable_id',
-        'timarable_type',
-    ];
+    protected $guarded = [];
 
     /**
-     * Get all of the owning timarable models.
+     * Get all of the owning treatable models.
      *
      * @return \Illuminate\Database\Eloquent\Relations\MorphTo
      */
-    public function timarable()
+    public function treatable()
     {
         return $this->morphTo();
     }
 
     /**
-     * Get the plan that owns the Feature
+     * Get the farm plan that owns the Feature
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
     public function plan()
     {
-        return $this->belongsTo(Plan::class);
+        return $this->belongsTo(FarmPlan::class);
     }
 
     /**
-     * Get the timar that owns the Feature
+     * Get the treatment that owns the Feature
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
-    public function timar()
+    public function treatment()
     {
-        return $this->belongsTo(Timar::class);
+        return $this->belongsTo(Treatment::class);
     }
 }

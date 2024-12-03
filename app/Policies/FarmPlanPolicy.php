@@ -2,11 +2,11 @@
 
 namespace App\Policies;
 
-use App\Models\Timar;
+use App\Models\FarmPlan;
 use App\Models\User;
 use Illuminate\Auth\Access\Response;
 
-class TimarPolicy
+class FarmPlanPolicy
 {
     /**
      * Determine whether the user can view any models.
@@ -19,9 +19,9 @@ class TimarPolicy
     /**
      * Determine whether the user can view the model.
      */
-    public function view(User $user, Timar $timar): bool
+    public function view(User $user, FarmPlan $farmPlan): bool
     {
-        return $timar->farm->user->is($user);
+        return $farmPlan->creator->is($user);
     }
 
     /**
@@ -35,16 +35,16 @@ class TimarPolicy
     /**
      * Determine whether the user can update the model.
      */
-    public function update(User $user, Timar $timar): bool
+    public function update(User $user, FarmPlan $farmPlan): bool
     {
-        return $timar->farm->user->is($user);
+        return $farmPlan->creator->is($user);
     }
 
     /**
      * Determine whether the user can delete the model.
      */
-    public function delete(User $user, Timar $timar): bool
+    public function delete(User $user, FarmPlan $farmPlan): bool
     {
-        return $timar->farm->user->is($user);
+        return $farmPlan->creator->is($user);
     }
 }

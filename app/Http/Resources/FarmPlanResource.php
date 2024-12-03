@@ -3,10 +3,9 @@
 namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
-use App\Http\Resources\FeatureResource;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class PlanResource extends JsonResource
+class FarmPlanResource extends JsonResource
 {
     /**
      * Transform the resource into an array.
@@ -30,8 +29,10 @@ class PlanResource extends JsonResource
             'start_date' => jdate($this->start_date)->format('Y/m/d'),
             'end_date' => jdate($this->end_date)->format('Y/m/d'),
             'status' => $this->status,
-            'created_by' => $this->creator->username,
-            'features' => FeatureResource::collection($this->whenLoaded('features')),
+            'created_by' => $this->whenLoaded('creator', function () {
+                return $this->creator->username;
+            }),
+            'details' => FarmPlanDetailResource::collection($this->whenLoaded('details')),
         ];
     }
 }

@@ -3,16 +3,16 @@
 namespace App\Http\Controllers\Api\V1\User\Management;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\TimarResource;
+use App\Http\Resources\TreatmentResource;
 use App\Models\Farm;
-use App\Models\Timar;
+use App\Models\Treatment;
 use Illuminate\Http\Request;
 
-class TimarController extends Controller
+class TreatmentController extends Controller
 {
     public function __construct()
     {
-        $this->authorizeResource(Timar::class);
+        $this->authorizeResource(Treatment::class);
     }
 
     /**
@@ -20,7 +20,7 @@ class TimarController extends Controller
      */
     public function index(Farm $farm)
     {
-        return TimarResource::collection($farm->timars);
+        return TreatmentResource::collection($farm->treatments);
     }
 
     /**
@@ -29,46 +29,46 @@ class TimarController extends Controller
     public function store(Request $request, Farm $farm)
     {
         $request->validate([
-            'name' => 'required|string|max:255|unique:timars,name',
+            'name' => 'required|string|max:255|unique:treatments,name',
             'color' => 'required|string|max:255',
             'description' => 'nullable|string|max:2000',
         ]);
 
-        $timar = $farm->timars()->create($request->all());
+        $treatment = $farm->treatments()->create($request->all());
 
-        return new TimarResource($timar);
+        return new TreatmentResource($treatment);
     }
 
     /**
      * Display the specified resource.
      */
-    public function show(Timar $timar)
+    public function show(Treatment $treatment)
     {
-        return new TimarResource($timar);
+        return new TreatmentResource($treatment);
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Timar $timar)
+    public function update(Request $request, Treatment $treatment)
     {
         $request->validate([
-            'name' => 'required|string|max:255|unique:timars,name,' . $timar->id . ',id',
+            'name' => 'required|string|max:255|unique:treatments,name,' . $treatment->id . ',id',
             'color' => 'required|string|max:255',
             'description' => 'nullable|string|max:2000',
         ]);
 
-        $timar->update($request->all());
+        $treatment->update($request->only('name', 'color', 'description'));
 
-        return new TimarResource($timar);
+        return new TreatmentResource($treatment);
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Timar $timar)
+    public function destroy(Treatment $treatment)
     {
-        $timar->delete();
+        $treatment->delete();
 
         return response()->noContent();
     }

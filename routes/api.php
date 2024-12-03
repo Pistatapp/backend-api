@@ -30,13 +30,13 @@ use App\Http\Controllers\Api\V1\User\Farm\VolkOilSprayController;
 use App\Http\Controllers\Api\V1\User\Trucktor\ActiveTrucktorController;
 use App\Http\Controllers\Api\V1\User\Management\MaintenanceController;
 use App\Http\Controllers\Api\V1\User\MaintenanceReportController;
-use App\Http\Controllers\Api\V1\User\Management\TimarController;
-use App\Http\Controllers\Api\V1\User\Farm\PlanController;
 use App\Http\Controllers\Api\V1\User\Farm\FarmReportsController;
 use App\Http\Controllers\Api\V1\User\Farm\FrostbiteCalculationController;
 use App\Http\Controllers\Api\V1\User\Farm\Phonology\DayDegreeCalculationController;
 use App\Http\Controllers\Api\V1\Admin\LoadEstimationController;
 use App\Http\Controllers\Api\V1\User\Farm\BlightCalculationController;
+use App\Http\Controllers\Api\V1\User\Farm\FarmPlanController;
+use App\Http\Controllers\Api\V1\User\Management\TreatmentController;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 
@@ -145,8 +145,8 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::get('/fields/{field}/irrigations/report', [IrrigationController::class, 'getIrrigationReportForField']);
     Route::apiResource('farms.irrigations', IrrigationController::class)->shallow();
 
-    Route::apiResource('farms.timars', TimarController::class)->shallow();
-    Route::apiResource('farms.plans', PlanController::class)->shallow();
+    Route::apiResource('farms.treatments', TreatmentController::class)->shallow();
+    Route::apiResource('farms.farm_plans', FarmPlanController::class)->shallow();
 
     Route::controller(ColdRequirementController::class)->prefix('farms/{farm}')->group(function () {
         Route::post('/cold_requirement', 'calculate');

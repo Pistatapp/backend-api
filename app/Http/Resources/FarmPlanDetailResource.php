@@ -5,7 +5,7 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class FeatureResource extends JsonResource
+class FarmPlanDetailResource extends JsonResource
 {
     /**
      * Transform the resource into an array.
@@ -16,9 +16,9 @@ class FeatureResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'plan_id' => $this->plan_id,
-            'timar' => new TimarResource($this->whenLoaded('timar')),
-            'coordinates' => $this->timarable->coordinates,
+            'farm_plan_id' => $this->farm_plan_id,
+            'treatment' => new TreatmentResource($this->whenLoaded('treatment')),
+            'coordinates' => $this->treatable->coordinates,
         ];
     }
 }

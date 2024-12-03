@@ -2,11 +2,11 @@
 
 namespace App\Policies;
 
-use App\Models\Plan;
+use App\Models\Treatment;
 use App\Models\User;
 use Illuminate\Auth\Access\Response;
 
-class PlanPolicy
+class TreatmentPolicy
 {
     /**
      * Determine whether the user can view any models.
@@ -19,9 +19,9 @@ class PlanPolicy
     /**
      * Determine whether the user can view the model.
      */
-    public function view(User $user, Plan $plan): bool
+    public function view(User $user, Treatment $treatment): bool
     {
-        return $plan->creator->is($user);
+        return $treatment->farm->user->is($user);
     }
 
     /**
@@ -35,16 +35,16 @@ class PlanPolicy
     /**
      * Determine whether the user can update the model.
      */
-    public function update(User $user, Plan $plan): bool
+    public function update(User $user, Treatment $treatment): bool
     {
-        return $plan->creator->is($user);
+        return $treatment->farm->user->is($user);
     }
 
     /**
      * Determine whether the user can delete the model.
      */
-    public function delete(User $user, Plan $plan): bool
+    public function delete(User $user, Treatment $treatment): bool
     {
-        return $plan->creator->is($user);
+        return $treatment->farm->user->is($user);
     }
 }

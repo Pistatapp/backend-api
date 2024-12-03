@@ -3,9 +3,9 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-use App\Models\Plan;
+use App\Models\FarmPlan as Plan;
 
-class StorePlanRequest extends FormRequest
+class StoreFarmPlanRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -59,11 +59,11 @@ class StorePlanRequest extends FormRequest
                     }
                 },
             ],
-            'features' => 'required|array|min:1',
-            'features.*.timar_id' => 'required|integer|exists:timars,id',
-            'features.*.timarables' => 'required|array|min:1',
-            'features.*.timarables.*.timarable_id' => 'required|integer',
-            'features.*.timarables.*.timarable_type' => 'required|string|in:field,row,tree',
+            'details' => 'required|array|min:1',
+            'details.*.treatment_id' => 'required|integer|exists:treatments,id',
+            'details.*.treatables' => 'required|array|min:1',
+            'details.*.treatables.*.treatable_id' => 'required|integer',
+            'details.*.treatables.*.treatable_type' => 'required|string|in:field,row,tree',
         ];
     }
 
