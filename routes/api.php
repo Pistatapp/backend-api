@@ -105,64 +105,54 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
         Route::apiSingleton('profile', ProfileController::class);
     });
 
-    Route::get('/farms/{farm}/set_working_environment', [FarmController::class, 'setWorkingEnvironment']);
-
-    Route::apiResource('farms', FarmController::class);
-    Route::apiResource('farms.farm-reports', FarmReportsController::class)->shallow();
-    Route::apiResource('farms.fields', FieldController::class)->shallow();
-    Route::apiResource('fields.rows', RowController::class)->except('update')->shallow();
-    Route::post('rows/{row}/trees/batch_store', [TreeController::class, 'batchStore']);
-    Route::apiResource('rows.trees', TreeController::class)->shallow();
-    Route::apiResource('fields.blocks', BlockController::class)->shallow();
-    Route::apiResource('farms.pumps', PumpController::class)->shallow();
-
-    Route::get('/fields/{field}/valves', [FieldController::class, 'getValvesForField']);
-
-    Route::apiResource('pumps.valves', ValveController::class)->shallow();
-
-    Route::get('/farms/{farm}/trucktors/active', [ActiveTrucktorController::class, 'index']);
-    Route::apiResource('farms.trucktors', TrucktorController::class)->shallow();
-    Route::get('/trucktors/{trucktor}/devices', [TrucktorController::class, 'getAvailableDevices']);
-    Route::post('/trucktors/{trucktor}/assign_device/{gps_device}', [TrucktorController::class, 'assignDevice']);
-    Route::post('/trucktors/{trucktor}/unassign_device/{gps_device}', [TrucktorController::class, 'unassignDevice']);
-    Route::get('/trucktors/{trucktor}/reports', [ActiveTrucktorController::class, 'reports']);
-    Route::apiSingleton('trucktors.driver', DriverController::class)->creatable();
-    Route::apiResource('trucktors.trucktor_reports', TrucktorReportController::class)->shallow();
-    Route::post('/trucktor_reports/filter', [TrucktorReportController::class, 'filter']);
-
-    Route::apiResource('farms.maintenances', MaintenanceController::class)->except('show')->shallow();
-    Route::post(('maintenance_reports/filter'), [MaintenanceReportController::class, 'filter']);
-    Route::apiResource('maintenance_reports', MaintenanceReportController::class)->except('show')->shallow();
-
-    Route::apiResource('farms.teams', TeamController::class)->shallow();
-    Route::apiResource('farms.labours', LabourController::class)->shallow();
-    Route::apiResource('attachments', AttachmentController::class)->except('show', 'index');
-    Route::apiResource('farms.operations', OprationController::class)->shallow();
-    Route::apiResource('trucktors.trucktor_tasks', TrucktorTaskController::class)->shallow();
-
-    Route::post('/farms/{farm}/irrigations/reports', [IrrigationController::class, 'filterReports']);
-    Route::get('/fields/{field}/irrigations', [IrrigationController::class, 'getIrrigationsForField']);
-    Route::get('/fields/{field}/irrigations/report', [IrrigationController::class, 'getIrrigationReportForField']);
-    Route::apiResource('farms.irrigations', IrrigationController::class)->shallow();
-
-    Route::apiResource('farms.treatments', TreatmentController::class)->shallow();
-    Route::apiResource('farms.farm_plans', FarmPlanController::class)->shallow();
-
-    Route::controller(ColdRequirementController::class)->prefix('farms/{farm}')->group(function () {
-        Route::post('/cold_requirement', 'calculate');
+    Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username', 'can:view,farm'])->group(function () {
+        Route::get('/farms/{farm}/set_working_environment', [FarmController::class, 'setWorkingEnvironment']);
+        Route::apiResource('farms', FarmController::class);
+        Route::apiResource('farms.farm-reports', FarmReportsController::class)->shallow();
+        Route::apiResource('farms.fields', FieldController::class)->shallow();
+        Route::apiResource('fields.rows', RowController::class)->except('update')->shallow();
+        Route::post('rows/{row}/trees/batch_store', [TreeController::class, 'batchStore']);
+        Route::apiResource('rows.trees', TreeController::class)->shallow();
+        Route::apiResource('fields.blocks', BlockController::class)->shallow();
+        Route::apiResource('farms.pumps', PumpController::class)->shallow();
+        Route::get('/fields/{field}/valves', [FieldController::class, 'getValvesForField']);
+        Route::apiResource('pumps.valves', ValveController::class)->shallow();
+        Route::get('/farms/{farm}/trucktors/active', [ActiveTrucktorController::class, 'index']);
+        Route::apiResource('farms.trucktors', TrucktorController::class)->shallow();
+        Route::get('/trucktors/{trucktor}/devices', [TrucktorController::class, 'getAvailableDevices']);
+        Route::post('/trucktors/{trucktor}/assign_device/{gps_device}', [TrucktorController::class, 'assignDevice']);
+        Route::post('/trucktors/{trucktor}/unassign_device/{gps_device}', [TrucktorController::class, 'unassignDevice']);
+        Route::get('/trucktors/{trucktor}/reports', [ActiveTrucktorController::class, 'reports']);
+        Route::apiSingleton('trucktors.driver', DriverController::class)->creatable();
+        Route::apiResource('trucktors.trucktor_reports', TrucktorReportController::class)->shallow();
+        Route::post('/trucktor_reports/filter', [TrucktorReportController::class, 'filter']);
+        Route::apiResource('farms.maintenances', MaintenanceController::class)->except('show')->shallow();
+        Route::post(('maintenance_reports/filter'), [MaintenanceReportController::class, 'filter']);
+        Route::apiResource('maintenance_reports', MaintenanceReportController::class)->except('show')->shallow();
+        Route::apiResource('farms.teams', TeamController::class)->shallow();
+        Route::apiResource('farms.labours', LabourController::class)->shallow();
+        Route::apiResource('attachments', AttachmentController::class)->except('show', 'index');
+        Route::apiResource('farms.operations', OprationController::class)->shallow();
+        Route::apiResource('trucktors.trucktor_tasks', TrucktorTaskController::class)->shallow();
+        Route::post('/farms/{farm}/irrigations/reports', [IrrigationController::class, 'filterReports']);
+        Route::get('/fields/{field}/irrigations', [IrrigationController::class, 'getIrrigationsForField']);
+        Route::get('/fields/{field}/irrigations/report', [IrrigationController::class, 'getIrrigationReportForField']);
+        Route::apiResource('farms.irrigations', IrrigationController::class)->shallow();
+        Route::apiResource('farms.treatments', TreatmentController::class)->shallow();
+        Route::apiResource('farms.farm_plans', FarmPlanController::class)->shallow();
+        Route::controller(ColdRequirementController::class)->prefix('farms/{farm}')->group(function () {
+            Route::post('/cold_requirement', 'calculate');
+        });
+        Route::apiResource('farms.volk_oil_sprays', VolkOilSprayController::class)->shallow();
+        Route::prefix('farms/{farm}')->group(function () {
+            Route::post('/phonology/day_degree/calculate', DayDegreeCalculationController::class);
+            Route::post('/frostbite/estimate', [FrostbiteCalculationController::class, 'estimate']);
+            Route::get('/frostbite/notification', [FrostbiteCalculationController::class, 'getNotification']);
+            Route::post('/frostbite/notification', [FrostbiteCalculationController::class, 'sendNotification']);
+            Route::post('/blight/calculate', BlightCalculationController::class);
+        });
+        Route::post('/farms/{farm}/load_estimation', [LoadEstimationController::class, 'estimate']);
     });
-
-    Route::apiResource('farms.volk_oil_sprays', VolkOilSprayController::class)->shallow();
-
-    Route::prefix('farms/{farm}')->group(function () {
-        Route::post('/phonology/day_degree/calculate', DayDegreeCalculationController::class);
-        Route::post('/frostbite/estimate', [FrostbiteCalculationController::class, 'estimate']);
-        Route::get('/frostbite/notification', [FrostbiteCalculationController::class, 'getNotification']);
-        Route::post('/frostbite/notification', [FrostbiteCalculationController::class, 'sendNotification']);
-        Route::post('/blight/calculate', BlightCalculationController::class);
-    });
-
-    Route::post('/farms/{farm}/load_estimation', [LoadEstimationController::class, 'estimate']);
 
     Broadcast::routes();
 });

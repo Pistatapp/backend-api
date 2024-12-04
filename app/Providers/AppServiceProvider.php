@@ -25,8 +25,6 @@ class AppServiceProvider extends ServiceProvider
 
         Model::preventSilentlyDiscardingAttributes(! app()->isProduction());
 
-        App::bind('weather-api', function () {
-            return new \App\Services\WeatherApiService();
-        });
+        $this->app->singleton('weather-api', fn($app) => $app->make('App\Services\WeatherApi'));
     }
 }

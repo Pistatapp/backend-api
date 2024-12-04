@@ -21,7 +21,7 @@ class FarmPolicy
      */
     public function view(User $user, Farm $farm): bool
     {
-        return $farm->user()->is($user);
+        return $farm->user->is($user);
     }
 
     /**
@@ -44,14 +44,6 @@ class FarmPolicy
      * Determine whether the user can delete the model.
      */
     public function delete(User $user, Farm $farm): bool
-    {
-        return $farm->user->is($user);
-    }
-
-    /**
-     * Determine whether the user can set farm as the working environment.
-     */
-    public function setWorkingEnvironment(User $user, Farm $farm): bool
     {
         return $farm->user->is($user);
     }

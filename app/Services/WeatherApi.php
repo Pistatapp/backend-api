@@ -4,7 +4,7 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
 
-class WeatherApiService
+class WeatherApi
 {
     /**
      * Get the current weather for the location.
@@ -76,17 +76,10 @@ class WeatherApiService
     {
         $queryParams['key'] = config('services.weatherapi.key');
 
-        try {
-            $response = Http::get("https://api.weatherapi.com/v1/{$endpoint}", $queryParams);
+        $response = Http::get("https://api.weatherapi.com/v1/{$endpoint}", $queryParams);
 
-            if ($response->successful()) {
-                return $response->json();
-            }
+        abort_if($response->failed(), $response->status(), $response->body());
 
-            $errorData = $response->json();
-            abort($response->status(), json_encode($errorData));
-        } catch (\Exception $e) {
-            abort(500, $e->getMessage());
-        }
+        return $response->json();
     }
 }

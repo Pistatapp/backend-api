@@ -52,7 +52,7 @@ class FarmController extends Controller
             'zoom' => $request->zoom,
             'area' => $request->area,
             'crop_id' => $request->crop_id,
-            'is_working_environment' => Farm::count() === 0,
+            'is_working_environment' => Farm::where('user_id', $request->user()->id)->count() === 0,
         ]);
 
         return new FarmResource($farm);
@@ -83,7 +83,7 @@ class FarmController extends Controller
             'name' => 'required|string|max:255|unique:farms,name,' . $farm->id . ',id,user_id,' . $request->user()->id,
             'coordinates' => 'required|array|min:3',
             'coordinates.*' => 'required|string',
-            'center' => 'required|string|regex:/^(\-?\d+(\.\d+)?),\s*(\-?\d+(\.\d+)?)$/',
+            'center' => 'required|regex:/^(\-?\d+(\.\d+)?),\s*(\-?\d+(\.\d+)?)$/',
             'zoom' => 'required|numeric|min:1',
             'area' => 'required|numeric|min:0',
             'crop_id' => 'required|exists:crops,id',
@@ -121,11 +121,7 @@ class FarmController extends Controller
      */
     public function setWorkingEnvironment(Farm $farm)
     {
-        $this->authorize('setWorkingEnvironment', $farm);
-
-        $farm->update([
-            'is_working_environment' => true
-        ]);
+        $farm->setAsWorkingEnvironment();
 
         // Set other farms to false
         Farm::where('user_id', $farm->user_id)

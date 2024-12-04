@@ -175,7 +175,7 @@ class Farm extends Model
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
-    public function farmPlans()
+    public function plans()
     {
         return $this->hasMany(FarmPlan::class);
     }
@@ -248,5 +248,17 @@ class Farm extends Model
     public function frostbitRisks()
     {
         return $this->hasMany(FrostbitRisk::class);
+    }
+
+    /**
+     * Set the farm as working environment.
+     *
+     * @return void
+     */
+    public function setAsWorkingEnvironment()
+    {
+        $this->update([
+            'is_working_environment' => true,
+        ]);
     }
 }
