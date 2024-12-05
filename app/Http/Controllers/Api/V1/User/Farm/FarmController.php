@@ -121,13 +121,8 @@ class FarmController extends Controller
      */
     public function setWorkingEnvironment(Farm $farm)
     {
-        $farm->setAsWorkingEnvironment();
+        $farm->changeWorkingEnvironment($farm);
 
-        // Set other farms to false
-        Farm::where('user_id', $farm->user_id)
-            ->where('id', '!=', $farm->id)
-            ->update(['is_working_environment' => false]);
-
-        return new FarmResource($farm);
+        return response()->noContent();
     }
 }

@@ -251,14 +251,18 @@ class Farm extends Model
     }
 
     /**
-     * Set the farm as working environment.
+     * Change the working environment of the farm.
      *
+     * @param Farm $farm
      * @return void
      */
-    public function setAsWorkingEnvironment()
+    public function changeWorkingEnvironment($farm)
     {
-        $this->update([
-            'is_working_environment' => true,
-        ]);
+        $farm->setAsWorkingEnvironment();
+
+        // Set other farms to false
+        Farm::where('user_id', $farm->user_id)
+            ->where('id', '!=', $farm->id)
+            ->update(['is_working_environment' => false]);
     }
 }

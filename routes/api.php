@@ -105,7 +105,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
         Route::apiSingleton('profile', ProfileController::class);
     });
 
-    Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username', 'can:view,farm'])->group(function () {
+    Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(function () {
         Route::get('/farms/{farm}/set_working_environment', [FarmController::class, 'setWorkingEnvironment']);
         Route::apiResource('farms', FarmController::class);
         Route::apiResource('farms.farm-reports', FarmReportsController::class)->shallow();
