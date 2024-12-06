@@ -123,6 +123,6 @@ class FarmController extends Controller
     {
         $farm->changeWorkingEnvironment($farm);
 
-        return response()->noContent();
+        return new FarmResource($farm);
     }
 }
