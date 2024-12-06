@@ -33,6 +33,10 @@ return [
 
     'weatherapi' => [
         'key' => env('WEATHER_API_KEY'),
-    ]
+    ],
+
+    'firebase' => [
+        'project_id' => env('FIREBASE_PROJECT_ID'),
+    ],
 
 ];

@@ -140,6 +140,7 @@ class AuthController extends Controller
 
         return response()->json([
             'token' => $user->createToken('mobile', expiresAt: now()->addDay())->plainTextToken,
+            'fcm_token' => $user->fcm_token,
         ]);
     }
 

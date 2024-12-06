@@ -29,8 +29,8 @@ class BlightCalculationController extends Controller
 
         return response()->json([
             'data' => [
-                'satisfied_day_degree' => number_format($totalBaseTemp, 2),
-                'remaining_day_degree' => number_format($totalBaseTemp - $request->developement_total, 2),
+                'satisfied_day_degree' => (int)$totalBaseTemp,
+                'remaining_day_degree' => (int)($totalBaseTemp - $request->developement_total),
             ],
         ]);
     }
