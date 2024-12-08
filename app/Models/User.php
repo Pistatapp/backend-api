@@ -26,6 +26,7 @@ class User extends Authenticatable implements HasMedia
         'last_activity_at',
         'avatar',
         'is_admin',
+        'fcm_token',
     ];
 
     /**

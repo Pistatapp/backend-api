@@ -2,35 +2,41 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Http;
-use Google\Client as GoogleClient;
-use Illuminate\Support\Facades\Storage;
+use GuzzleHttp\Client;
 
 class Firebase
 {
-    /**
-     * Send notification to the user.
-     *
-     * @param string $title
-     * @param string $body
-     * @param string $token
-     * @param array $data
-     * @return array
-     */
-    public function send($title, $body, $token, $data = [])
+    protected $serverKey;
+    protected $apiUrl;
+
+    public function __construct()
     {
-        $response = Http::withHeaders([
-            'Authorization' => 'key=' . config('services.firebase.server_key'),
-            'Content-Type' => 'application/json',
-        ])->post('https://fcm.googleapis.com/fcm/send', [
+        $this->serverKey = env('FIREBASE_SERVER_KEY');
+        $this->apiUrl = 'https://fcm.googleapis.com/fcm/send';
+    }
+
+    public function sendNotification($deviceTokens, $title, $body, $data = [])
+    {
+        $client = new Client();
+
+        $payload = [
+            'registration_ids' => $deviceTokens, // Use 'to' for single device token
             'notification' => [
                 'title' => $title,
                 'body' => $body,
+                'sound' => 'default',
             ],
-            'data' => $data,
-            'to' => $token,
+            'data' => $data, // Optional custom data
+        ];
+
+        $response = $client->post($this->apiUrl, [
+            'headers' => [
+                'Authorization' => 'key=' . $this->serverKey,
+                'Content-Type' => 'application/json',
+            ],
+            'json' => $payload,
         ]);
 
-        return $response->json();
+        return json_decode($response->getBody(), true);
     }
 }
