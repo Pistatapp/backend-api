@@ -7,6 +7,7 @@ use App\Http\Resources\CropTypeResource;
 use App\Models\Crop;
 use App\Models\CropType;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 
 class CropTypeController extends Controller
 {
@@ -28,9 +29,9 @@ class CropTypeController extends Controller
             'standard_day_degree' => 'nullable|numeric',
         ]);
 
-        $cropType = $crop->cropTypes()->create($request->only('name'));
+        $crop->cropTypes()->create($request->only('name'));
 
-        return new CropTypeResource($cropType);
+        return response()->json([], JsonResponse::HTTP_CREATED);
     }
 
     /**
@@ -45,7 +46,7 @@ class CropTypeController extends Controller
 
         $cropType->update($request->only('name'));
 
-        return new CropTypeResource($cropType);
+        return response()->json([], JsonResponse::HTTP_OK);
     }
 
     /**
@@ -57,6 +58,6 @@ class CropTypeController extends Controller
 
         $cropType->delete();
 
-        return response()->noContent();
+        return response()->json([], JsonResponse::HTTP_GONE);
     }
 }

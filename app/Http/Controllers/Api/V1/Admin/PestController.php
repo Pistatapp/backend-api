@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\PestResource;
 use Illuminate\Http\Request;
 use App\Models\Pest;
-use Illuminate\Http\Response;
+use Illuminate\Http\JsonResponse;
 
 class PestController extends Controller
 {
@@ -52,7 +52,7 @@ class PestController extends Controller
             $pest->addMedia($image)->toMediaCollection('images');
         }
 
-        return new PestResource($pest);
+        return response()->json([], JsonResponse::HTTP_CREATED);
     }
 
     /**
@@ -63,7 +63,7 @@ class PestController extends Controller
      */
     public function show(Pest $pest)
     {
-        return response()->json($pest, Response::HTTP_OK);
+        return new PestResource($pest);
     }
 
     /**
@@ -98,7 +98,7 @@ class PestController extends Controller
             $pest->addMedia($image)->toMediaCollection('images');
         }
 
-        return new PestResource($pest->fresh());
+        return response()->json([], JsonResponse::HTTP_OK);
     }
 
     /**
@@ -110,6 +110,18 @@ class PestController extends Controller
     public function destroy(Pest $pest)
     {
         $pest->delete();
-        return response()->json(null, Response::HTTP_NO_CONTENT);
+        return response()->json([], JsonResponse::HTTP_GONE);
+    }
+
+    /**
+     * Remove the specified image from storage.
+     *
+     * @param  \App\Models\Pest  $pest
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function deleteImage(Pest $pest)
+    {
+        $pest->clearMediaCollection('images');
+        return response()->json([], JsonResponse::HTTP_GONE);
     }
 }

@@ -7,6 +7,7 @@ use App\Http\Resources\ValveResource;
 use App\Models\Pump;
 use App\Models\Valve;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 
 class ValveController extends Controller
 {
@@ -32,7 +33,7 @@ class ValveController extends Controller
 
         $valve = $pump->valves()->create($request->all());
 
-        return new ValveResource($valve);
+        return response()->json([], JsonResponse::HTTP_CREATED);
     }
 
     /**
@@ -57,7 +58,7 @@ class ValveController extends Controller
 
         $valve->update($request->all());
 
-        return new ValveResource($valve);
+        return response()->json([], JsonResponse::HTTP_OK);
     }
 
     /**
@@ -67,7 +68,7 @@ class ValveController extends Controller
     {
         $valve->delete();
 
-        return response()->noContent();
+        return response()->json([], JsonResponse::HTTP_GONE);
     }
 
     /**

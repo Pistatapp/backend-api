@@ -37,8 +37,8 @@ class UpdateFarmPlanRequest extends FormRequest
                 'required',
                 'date',
                 function ($attribute, $value, $fail) {
-                    $planExists = Plan::where('farm_id', $this->route('plan')->farm_id)
-                        ->where('id', '!=', $this->route('plan')->id)
+                    $planExists = Plan::where('farm_id', $this->route('farm_plan')->farm_id)
+                        ->where('id', '!=', $this->route('farm_plan')->id)
                         ->where('start_date', '<=', $value)
                         ->where('end_date', '>=', $value)
                         ->exists();
@@ -51,8 +51,8 @@ class UpdateFarmPlanRequest extends FormRequest
                 'required',
                 'date',
                 function ($attribute, $value, $fail) {
-                    $planExists = Plan::where('farm_id', $this->route('plan')->farm_id)
-                        ->where('id', '!=', $this->route('plan')->id)
+                    $planExists = Plan::where('farm_id', $this->route('farm_plan')->farm_id)
+                        ->where('id', '!=', $this->route('farm_plan')->id)
                         ->where('start_date', '<=', $value)
                         ->where('end_date', '>=', $value)
                         ->exists();

@@ -22,10 +22,10 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Schedule::call(function () {
-    $volkOilSprays = VolkOilSpray::where('end_date', '<', Carbon::today())->get();
+// Schedule::call(function () {
+//     $volkOilSprays = VolkOilSpray::where('end_date', '<', Carbon::today())->get();
 
-    foreach ($volkOilSprays as $spray) {
-        VolkOilSprayNotifier::dispatch($spray);
-    }
-})->everyMinute();
+//     foreach ($volkOilSprays as $spray) {
+//         VolkOilSprayNotifier::dispatch($spray);
+//     }
+// })->everyMinute();

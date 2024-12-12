@@ -9,6 +9,7 @@ use App\Models\Tree;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
+use Illuminate\Http\JsonResponse;
 
 class TreeController extends Controller
 {
@@ -29,7 +30,7 @@ class TreeController extends Controller
      *
      * @param \Illuminate\Http\Request $request
      * @param \App\Models\Row $row
-     * @return \App\Http\Resources\TreeResource
+     * @return \Illuminate\Http\JsonResponse
      */
     public function store(Request $request, Row $row)
     {
@@ -57,7 +58,7 @@ class TreeController extends Controller
 
         $tree->save();
 
-        return new TreeResource($tree);
+        return response()->json([], JsonResponse::HTTP_CREATED);
     }
 
     /**
@@ -77,7 +78,7 @@ class TreeController extends Controller
      *
      * @param \Illuminate\Http\Request $request
      * @param \App\Models\Tree $tree
-     * @return \App\Http\Resources\TreeResource
+     * @return \Illuminate\Http\JsonResponse
      */
     public function update(Request $request, Tree $tree)
     {
@@ -100,7 +101,7 @@ class TreeController extends Controller
 
         $tree->save();
 
-        return new TreeResource($tree->refresh());
+        return response()->json([], JsonResponse::HTTP_OK);
     }
 
     /**
@@ -142,12 +143,12 @@ class TreeController extends Controller
      * Remove the specified resource from storage.
      *
      * @param \App\Models\Tree $tree
-     * @return \Illuminate\Http\Response
+     * @return \Illuminate\Http\JsonResponse
      */
     public function destroy(Tree $tree)
     {
         $tree->delete();
 
-        return response()->noContent();
+        return response()->json([], JsonResponse::HTTP_GONE);
     }
 }

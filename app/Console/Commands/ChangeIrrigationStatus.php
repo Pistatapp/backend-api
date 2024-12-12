@@ -59,6 +59,9 @@ class ChangeIrrigationStatus extends Command
                         }
 
                         $irrigation->valves()->updateExistingPivot($valve->id, $pivotData);
+
+                        $valve->is_open = $valveStatus === 'opened';
+                        $valve->save();
                     }
                 }
             });

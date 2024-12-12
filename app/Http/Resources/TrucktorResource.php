@@ -23,8 +23,16 @@ class TrucktorResource extends JsonResource
             'expected_daily_work_time' => $this->expected_daily_work_time,
             'expected_monthly_work_time' => $this->expected_monthly_work_time,
             'expected_yearly_work_time' => $this->expected_yearly_work_time,
-            'driver' => $this->whenLoaded('driver'),
-            'gps_device' => $this->whenLoaded('gpsDevice'),
+            'driver' => new DriverResource($this->whenLoaded('driver')),
+            'gps_device' => new GpsDeviceResource($this->whenLoaded('gpsDevice')),
+            'one_week_efficiency_chart_data' => $this->whenLoaded('gpsDailyReports', function () {
+                return $this->gpsDailyReports->map(function ($report) {
+                    return [
+                        'date' => jdate($report->date)->format('Y-m-d'),
+                        'efficiency' => number_format($report->efficiency, 2),
+                    ];
+                });
+            }),
             'created_at' => jdate($this->created_at)->format('Y-m-d H:i:s'),
             'can' => [
                 'add_driver' => $this->driver()->doesntExist(),

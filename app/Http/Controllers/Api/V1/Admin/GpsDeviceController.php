@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\GpsDeviceResource;
 use App\Models\GpsDevice;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 
 class GpsDeviceController extends Controller
 {
@@ -42,7 +43,7 @@ class GpsDeviceController extends Controller
             'sim_number' => $request->sim_number,
         ]);
 
-        return new GpsDeviceResource($device);
+        return response()->json([], JsonResponse::HTTP_CREATED);
     }
 
     /**
@@ -64,7 +65,7 @@ class GpsDeviceController extends Controller
             'sim_number' => $request->sim_number,
         ]);
 
-        return new GpsDeviceResource($gpsDevice->refresh());
+        return response()->json([], JsonResponse::HTTP_OK);
     }
 
     /**
@@ -74,6 +75,6 @@ class GpsDeviceController extends Controller
     {
         $gpsDevice->delete();
 
-        return response()->noContent();
+        return response()->json([], JsonResponse::HTTP_GONE);
     }
 }

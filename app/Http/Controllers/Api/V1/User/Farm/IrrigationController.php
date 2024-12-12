@@ -11,6 +11,7 @@ use App\Models\Farm;
 use App\Models\Field;
 use App\Models\Irrigation;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 
 class IrrigationController extends Controller
 {
@@ -46,7 +47,7 @@ class IrrigationController extends Controller
         $irrigation->fields()->attach($request->fields);
         $irrigation->valves()->attach($request->valves);
 
-        return new IrrigationResource($irrigation);
+        return response()->json([], JsonResponse::HTTP_CREATED);
     }
 
     /**
@@ -75,7 +76,7 @@ class IrrigationController extends Controller
         $irrigation->fields()->sync($request->fields);
         $irrigation->valves()->sync($request->valves);
 
-        return new IrrigationResource($irrigation->fresh());
+        return response()->json([], JsonResponse::HTTP_OK);
     }
 
     /**
@@ -85,7 +86,7 @@ class IrrigationController extends Controller
     {
         $irrigation->delete();
 
-        return response()->noContent();
+        return response()->json([], JsonResponse::HTTP_GONE);
     }
 
     /**

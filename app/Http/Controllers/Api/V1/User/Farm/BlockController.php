@@ -7,6 +7,7 @@ use App\Http\Resources\BlockResource;
 use App\Models\Block;
 use App\Models\Field;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 
 class BlockController extends Controller
 {
@@ -34,7 +35,7 @@ class BlockController extends Controller
             'coordinates',
         ]));
 
-        return new BlockResource($block);
+        return response()->json([], JsonResponse::HTTP_CREATED);
     }
 
     /**
@@ -61,7 +62,7 @@ class BlockController extends Controller
             'coordinates',
         ]));
 
-        return new BlockResource($block);
+        return response()->json([], JsonResponse::HTTP_OK);
     }
 
     /**
@@ -71,6 +72,6 @@ class BlockController extends Controller
     {
         $block->delete();
 
-        return response()->noContent();
+        return response()->json([], JsonResponse::HTTP_GONE);
     }
 }

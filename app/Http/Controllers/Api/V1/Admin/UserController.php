@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 
 class UserController extends Controller
 {
@@ -43,7 +44,7 @@ class UserController extends Controller
 
         $user->profile()->create($request->only('first_name', 'last_name'));
 
-        return new UserResource($user->load('profile'));
+        return response()->json([], JsonResponse::HTTP_CREATED);
     }
 
     /**
@@ -69,7 +70,7 @@ class UserController extends Controller
 
         $user->profile->update($request->only('first_name', 'last_name'));
 
-        return new UserResource($user->load('profile'));
+        return response()->json([], JsonResponse::HTTP_OK);
     }
 
     /**
@@ -79,6 +80,6 @@ class UserController extends Controller
     {
         $user->delete();
 
-        return response()->noContent();
+        return response()->json([], JsonResponse::HTTP_GONE);
     }
 }

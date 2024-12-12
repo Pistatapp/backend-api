@@ -9,6 +9,7 @@ use App\Http\Resources\LabourResource;
 use App\Models\Farm;
 use App\Models\Labour;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 
 class LabourController extends Controller
 {
@@ -41,7 +42,7 @@ class LabourController extends Controller
             $labour->teams()->sync($request->team_id);
         }
 
-        return new LabourResource($labour);
+        return response()->json([], JsonResponse::HTTP_CREATED);
     }
 
     /**
@@ -63,7 +64,7 @@ class LabourController extends Controller
             $labour->teams()->sync($request->team_id);
         }
 
-        return new LabourResource($labour->fresh());
+        return response()->json([], JsonResponse::HTTP_OK);
     }
 
     /**
@@ -73,6 +74,6 @@ class LabourController extends Controller
     {
         $labour->delete();
 
-        return response()->noContent();
+        return response()->json([], JsonResponse::HTTP_GONE);
     }
 }

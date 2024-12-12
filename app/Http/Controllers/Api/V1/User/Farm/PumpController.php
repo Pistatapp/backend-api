@@ -8,6 +8,7 @@ use App\Http\Requests\UpdatePumpRequest;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PumpResource;
 use App\Models\Farm;
+use Illuminate\Http\JsonResponse;
 
 class PumpController extends Controller
 {
@@ -26,7 +27,7 @@ class PumpController extends Controller
     {
         $pump = $farm->pumps()->create($request->validated());
 
-        return new PumpResource($pump);
+        return response()->json([], JsonResponse::HTTP_CREATED);
     }
 
     /**
@@ -44,7 +45,7 @@ class PumpController extends Controller
     {
         $pump->update($request->validated());
 
-        return new PumpResource($pump);
+        return response()->json([], JsonResponse::HTTP_OK);
     }
 
     /**
@@ -54,6 +55,6 @@ class PumpController extends Controller
     {
         $pump->delete();
 
-        return response()->noContent();
+        return response()->json([], JsonResponse::HTTP_GONE);
     }
 }

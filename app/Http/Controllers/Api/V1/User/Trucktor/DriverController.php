@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\DriverResource;
 use App\Models\Trucktor;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 
 class DriverController extends Controller
 {
@@ -36,7 +37,7 @@ class DriverController extends Controller
             'employee_code' => random_int(1000000, 9999999)
         ]);
 
-        return new DriverResource($driver);
+        return response()->json([], JsonResponse::HTTP_CREATED);
     }
 
     /**
@@ -58,7 +59,7 @@ class DriverController extends Controller
             'mobile',
         ]));
 
-        return new DriverResource($driver);
+        return response()->json([], JsonResponse::HTTP_OK);
     }
 
     /**
@@ -66,10 +67,10 @@ class DriverController extends Controller
      */
     public function destroy(Trucktor $trucktor)
     {
-        throw_unless($trucktor->driver()->exists(), new \Exception('Driver not found.'));
+        throw_unless($trucktor->driver()->exists(), JsonResponse::HTTP_FORBIDDEN);
 
         $trucktor->driver()->delete();
 
-        return response()->noContent();
+        return response()->json([], JsonResponse::HTTP_GONE);
     }
 }

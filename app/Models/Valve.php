@@ -20,6 +20,7 @@ class Valve extends Model
         'location',
         'flow_rate',
         'field_id',
+        'is_open',
     ];
 
     /**

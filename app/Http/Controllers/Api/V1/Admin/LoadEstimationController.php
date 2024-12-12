@@ -7,6 +7,7 @@ use App\Models\CropType;
 use App\Models\Farm;
 use App\Models\Field;
 use App\Models\LoadEstimationTable;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class LoadEstimationController extends Controller
@@ -75,10 +76,7 @@ class LoadEstimationController extends Controller
      */
     private function successResponse()
     {
-        return response()->json([
-            'success' => __('Load estimation table updated successfully'),
-            'status' => 200
-        ]);
+        return response()->json([], JsonResponse::HTTP_OK);
     }
 
     /**

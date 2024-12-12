@@ -8,6 +8,7 @@ use App\Models\Farm;
 use App\Models\FarmReport;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Http\JsonResponse;
 
 class FarmReportsController extends Controller
 {
@@ -44,7 +45,7 @@ class FarmReportsController extends Controller
             'value' => $request->value,
         ]);
 
-        return new FarmReportResource($farmReport);
+        return response()->json([], JsonResponse::HTTP_CREATED);
     }
 
     /**
@@ -71,7 +72,7 @@ class FarmReportsController extends Controller
             'value' => $request->value,
         ]);
 
-        return new FarmReportResource($farmReport);
+        return response()->json([], JsonResponse::HTTP_OK);
     }
 
     /**
@@ -80,7 +81,7 @@ class FarmReportsController extends Controller
     public function destroy(FarmReport $farmReport)
     {
         $farmReport->delete();
-        return response()->noContent();
+        return response()->json([], JsonResponse::HTTP_GONE);
     }
 
     /**

@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Api\V1\User;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\MaintenanceReportResource;
 use App\Models\MaintenanceReport;
-use Illuminate\Support\Str;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 
 class MaintenanceReportController extends Controller
 {
@@ -48,7 +48,7 @@ class MaintenanceReportController extends Controller
             'description' => $request->description,
         ]);
 
-        return new MaintenanceReportResource($maintenanceReport);
+        return response()->json([], JsonResponse::HTTP_CREATED);
     }
 
     /**
@@ -78,7 +78,7 @@ class MaintenanceReportController extends Controller
             'description' => $request->description,
         ]);
 
-        return new MaintenanceReportResource($maintenanceReport);
+        return response()->json([], JsonResponse::HTTP_OK);
     }
 
     /**
@@ -88,7 +88,7 @@ class MaintenanceReportController extends Controller
     {
         $maintenanceReport->delete();
 
-        return response()->noContent();
+        return response()->json([], JsonResponse::HTTP_GONE);
     }
 
     /**

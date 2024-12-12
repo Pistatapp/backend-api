@@ -8,6 +8,7 @@ use App\Http\Resources\VolkOilSprayResource;
 use App\Models\Farm;
 use App\Models\VolkOilSpray;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 
 class VolkOilSprayController extends Controller
 {
@@ -36,7 +37,7 @@ class VolkOilSprayController extends Controller
 
         $notification = VolkOilSpray::create($request->all());
 
-        return new VolkOilSprayResource($notification);
+        return response()->json([], JsonResponse::HTTP_CREATED);
     }
 
     /**
@@ -54,7 +55,7 @@ class VolkOilSprayController extends Controller
     {
         $volkOilSpray->update($request->all());
 
-        return new VolkOilSprayResource($volkOilSpray->fresh());
+        return response()->json([], JsonResponse::HTTP_OK);
     }
 
     /**
@@ -64,8 +65,6 @@ class VolkOilSprayController extends Controller
     {
         $volkOilSpray->delete();
 
-        return response()->json([
-            'message' => __('Volk oil spray notification deleted successfully.'),
-        ]);
+        return response()->json([], JsonResponse::HTTP_GONE);
     }
 }

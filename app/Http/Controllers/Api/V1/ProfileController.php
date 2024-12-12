@@ -46,7 +46,7 @@ class ProfileController extends Controller
             $request->user()->addMediaFromRequest('photo')->toMediaCollection('photo');
         }
 
-        return new ProfileResource($profile->refresh());
+        return response()->json([], JsonResponse::HTTP_OK);
     }
 
     /**
@@ -63,6 +63,6 @@ class ProfileController extends Controller
 
         $request->user()->update(['username' => str_replace(' ', '_', $request->username)]);
 
-        return new JsonResponse([], 204);
+        return response()->json([], JsonResponse::HTTP_OK);
     }
 }

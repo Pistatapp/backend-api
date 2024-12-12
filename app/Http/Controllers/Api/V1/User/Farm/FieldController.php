@@ -7,7 +7,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Farm;
 use App\Http\Resources\FieldResource;
 use App\Http\Resources\ValveResource;
+use App\Models\Valve;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 class FieldController extends Controller
 {
@@ -53,7 +56,7 @@ class FieldController extends Controller
             'crop_type_id' => $request->crop_type_id,
         ]);
 
-        return new FieldResource($field);
+        return response()->json([], JsonResponse::HTTP_CREATED);
     }
 
     /**
@@ -101,7 +104,7 @@ class FieldController extends Controller
             'crop_type_id' => $request->crop_type_id,
         ]);
 
-        return new FieldResource($field);
+        return response()->json([], JsonResponse::HTTP_OK);
     }
 
     /**
@@ -114,7 +117,7 @@ class FieldController extends Controller
     {
         $field->delete();
 
-        return response()->noContent();
+        return response()->json([], JsonResponse::HTTP_GONE);
     }
 
     /**
@@ -125,6 +128,8 @@ class FieldController extends Controller
      */
     public function getValvesForField(Field $field)
     {
-        return ValveResource::collection($field->valves);
+        $valves = Valve::where('field_id', $field->id)->with('field')->get();
+
+        return ValveResource::collection($valves);
     }
 }

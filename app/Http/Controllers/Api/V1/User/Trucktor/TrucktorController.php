@@ -8,6 +8,8 @@ use App\Models\Farm;
 use App\Models\GpsDevice;
 use App\Models\Trucktor;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 class TrucktorController extends Controller
 {
@@ -16,12 +18,8 @@ class TrucktorController extends Controller
      */
     public function index(Farm $farm)
     {
-        return TrucktorResource::collection(
-            $farm->trucktors()->with(
-                'driver:id,trucktor_id,name,mobile',
-                'gpsDevice:id,trucktor_id,imei'
-            )->simplePaginate(25)
-        );
+        $trucktors = $farm->trucktors()->with('driver','gpsDevice')->simplePaginate(25);
+        return TrucktorResource::collection($trucktors);
     }
 
     /**
@@ -49,7 +47,7 @@ class TrucktorController extends Controller
             'expected_yearly_work_time',
         ]));
 
-        return new TrucktorResource($trucktor);
+        return response()->json([], JsonResponse::HTTP_CREATED);
     }
 
     /**
@@ -57,6 +55,12 @@ class TrucktorController extends Controller
      */
     public function show(Trucktor $trucktor)
     {
+        $trucktor->load(['driver', 'gpsDevice',
+            'gpsDailyReports' => function ($query) {
+                $query->latest('date')->limit(7);
+            },
+        ]);
+
         return new TrucktorResource($trucktor);
     }
 
@@ -85,7 +89,7 @@ class TrucktorController extends Controller
             'expected_yearly_work_time',
         ]));
 
-        return new TrucktorResource($trucktor);
+        return response()->json([], JsonResponse::HTTP_OK);
     }
 
     /**
@@ -97,7 +101,7 @@ class TrucktorController extends Controller
 
         $trucktor->delete();
 
-        return response()->noContent();
+        return response()->json([], JsonResponse::HTTP_GONE);
     }
 
     /**

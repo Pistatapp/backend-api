@@ -7,6 +7,7 @@ use App\Http\Resources\TreatmentResource;
 use App\Models\Farm;
 use App\Models\Treatment;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\JsonResponse;
 
 class TreatmentController extends Controller
 {
@@ -36,7 +37,7 @@ class TreatmentController extends Controller
 
         $treatment = $farm->treatments()->create($request->all());
 
-        return new TreatmentResource($treatment);
+        return response()->json([], JsonResponse::HTTP_CREATED);
     }
 
     /**
@@ -60,7 +61,7 @@ class TreatmentController extends Controller
 
         $treatment->update($request->only('name', 'color', 'description'));
 
-        return new TreatmentResource($treatment);
+        return response()->json([], JsonResponse::HTTP_OK);
     }
 
     /**
@@ -70,6 +71,6 @@ class TreatmentController extends Controller
     {
         $treatment->delete();
 
-        return response()->noContent();
+        return response()->json([], JsonResponse::HTTP_GONE);
     }
 }

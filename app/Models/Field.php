@@ -108,13 +108,13 @@ class Field extends Model
     }
 
     /**
-     * Get the field's plans.
+     * Get the field's treatments.
      *
      * @return \Illuminate\Database\Eloquent\Relations\MorphMany
      */
-    public function timars()
+    public function treatments()
     {
-        return $this->morphMany(Timar::class, 'timarable');
+        return $this->morphMany(Treatment::class, 'treatable');
     }
 
     /**

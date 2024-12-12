@@ -87,6 +87,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
             Route::post('/', 'store');
             Route::put('/{pest}', 'update');
             Route::delete('/{pest}', 'destroy');
+            Route::delete('{pest}/image', 'deleteImage');
         });
 
         Route::controller(PhonologyGuideFileController::class)

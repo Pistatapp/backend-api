@@ -10,6 +10,7 @@ use App\Models\Farm;
 use App\Models\FarmPlan;
 use App\Models\FarmPlanDetail;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 
 class FarmPlanController extends Controller
 {
@@ -70,7 +71,7 @@ class FarmPlanController extends Controller
 
         FarmPlanDetail::insert($plan_details_data);
 
-        return new FarmPlanResource($plan);
+        return response()->json([], JsonResponse::HTTP_CREATED);
     }
 
     /**
@@ -119,7 +120,7 @@ class FarmPlanController extends Controller
 
         FarmPlanDetail::insert($plan_details_data);
 
-        return new FarmPlanResource($farmPlan);
+        return response()->json([], JsonResponse::HTTP_OK);
     }
 
     /**
@@ -129,6 +130,6 @@ class FarmPlanController extends Controller
     {
         $farmPlan->delete();
 
-        return response()->noContent();
+        return response()->json([], JsonResponse::HTTP_GONE);
     }
 }

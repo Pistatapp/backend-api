@@ -7,6 +7,7 @@ use App\Http\Resources\TrucktorReportResource;
 use App\Models\Trucktor;
 use App\Models\TrucktorReport;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 
 class TrucktorReportController extends Controller
 {
@@ -46,10 +47,10 @@ class TrucktorReportController extends Controller
             'operation_id' => $request->operation_id,
             'field_id' => $request->field_id,
             'description' => $request->description,
-            'created_by' => auth()->id(),
+            'created_by' => $request->user()->id,
         ]);
 
-        return new TrucktorReportResource($trucktorReport);
+        return response()->json([], JsonResponse::HTTP_CREATED);
     }
 
     /**
@@ -83,7 +84,7 @@ class TrucktorReportController extends Controller
             'description' => $request->description,
         ]);
 
-        return new TrucktorReportResource($trucktorReport);
+        return response()->json([], JsonResponse::HTTP_OK);
     }
 
     /**
@@ -93,7 +94,7 @@ class TrucktorReportController extends Controller
     {
         $trucktorReport->delete();
 
-        return response()->noContent();
+        return response()->json([], JsonResponse::HTTP_GONE);
     }
 
     /**

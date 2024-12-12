@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\Api\V1\User\Farm;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\AttachmentResource;
 use App\Models\Attachment;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Http\JsonResponse;
 
 class AttachmentController extends Controller
 {
@@ -45,7 +45,7 @@ class AttachmentController extends Controller
 
         $attachment->addMedia($request->file)->toMediaCollection('attachments');
 
-        return new AttachmentResource($attachment);
+        return response()->json([], JsonResponse::HTTP_CREATED);
     }
 
     /**
@@ -66,7 +66,7 @@ class AttachmentController extends Controller
             $attachment->addMedia($request->file)->toMediaCollection('attachments');
         }
 
-        return new AttachmentResource($attachment);
+        return response()->json([], JsonResponse::HTTP_OK);
     }
 
     /**
@@ -76,6 +76,6 @@ class AttachmentController extends Controller
     {
         $attachment->clearMediaCollection('attachments');
         $attachment->delete();
-        return response()->noContent();
+        return response()->json([], JsonResponse::HTTP_GONE);
     }
 }

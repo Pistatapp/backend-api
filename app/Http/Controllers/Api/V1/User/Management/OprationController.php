@@ -7,6 +7,7 @@ use App\Http\Resources\OperationResource;
 use App\Models\Operation;
 use App\Models\Farm;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\JsonResponse;
 
 class OprationController extends Controller
 {
@@ -31,7 +32,7 @@ class OprationController extends Controller
 
         $operation = $farm->operations()->create($request->all());
 
-        return new OperationResource($operation);
+        return response()->json([], JsonResponse::HTTP_CREATED);
     }
 
     /**
@@ -56,7 +57,7 @@ class OprationController extends Controller
 
         $operation->update($request->only('name', 'parent_id'));
 
-        return new OperationResource($operation);
+        return response()->json([], JsonResponse::HTTP_OK);
     }
 
     /**
@@ -68,6 +69,6 @@ class OprationController extends Controller
 
         $operation->delete();
 
-        return response()->json(null, 204);
+        return response()->json([], JsonResponse::HTTP_GONE);
     }
 }

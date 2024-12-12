@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\FarmResource;
 use App\Models\Farm;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\JsonResponse;
 
 class FarmController extends Controller
 {
@@ -21,7 +23,9 @@ class FarmController extends Controller
      */
     public function index()
     {
-        $farms = request()->user()->farms;
+        $farms = Farm::where('user_id', Auth::id())
+            ->withCount(['trees', 'fields', 'labours', 'trucktors', 'plans'])
+            ->get();
 
         return FarmResource::collection($farms);
     }
@@ -55,7 +59,7 @@ class FarmController extends Controller
             'is_working_environment' => Farm::where('user_id', $request->user()->id)->count() === 0,
         ]);
 
-        return new FarmResource($farm);
+        return response()->json([], JsonResponse::HTTP_CREATED);
     }
 
     /**
@@ -98,7 +102,7 @@ class FarmController extends Controller
             'crop_id' => $request->crop_id
         ]);
 
-        return new FarmResource($farm);
+        return response()->json([], JsonResponse::HTTP_OK);
     }
 
     /**
@@ -110,7 +114,7 @@ class FarmController extends Controller
     {
         $farm->delete();
 
-        return response()->noContent();
+        return response()->json([], JsonResponse::HTTP_GONE);
     }
 
     /**

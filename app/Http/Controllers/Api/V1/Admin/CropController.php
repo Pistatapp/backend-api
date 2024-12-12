@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Crop;
 use App\Http\Resources\CropResource;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 
 class CropController extends Controller
 {
@@ -30,7 +31,7 @@ class CropController extends Controller
 
         $crop = Crop::create($request->only('name', 'cold_requirement'));
 
-        return new CropResource($crop);
+        return response()->json([], JsonResponse::HTTP_CREATED);
     }
 
     /**
@@ -53,7 +54,7 @@ class CropController extends Controller
 
         $crop->update($request->only('name', 'cold_requirement'));
 
-        return new CropResource($crop);
+        return response()->json([], JsonResponse::HTTP_OK);
     }
 
     /**
@@ -65,6 +66,6 @@ class CropController extends Controller
 
         $crop->delete();
 
-        return response()->json(null, 204);
+        return response()->json([], JsonResponse::HTTP_GONE);
     }
 }

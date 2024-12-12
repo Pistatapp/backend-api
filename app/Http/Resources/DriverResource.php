@@ -21,6 +21,9 @@ class DriverResource extends JsonResource
             'mobile' => $this->mobile,
             'employee_code' => $this->employee_code,
             'created_at' => jdate($this->created_at)->format('Y-m-d H:i:s'),
+            'can' => [
+                'delete' => $this->trucktor()->doesntExist(),
+            ],
         ];
     }
 }

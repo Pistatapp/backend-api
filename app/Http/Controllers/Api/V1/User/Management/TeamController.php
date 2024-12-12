@@ -7,6 +7,7 @@ use App\Http\Resources\TeamResource;
 use App\Models\Farm;
 use App\Models\Team;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\JsonResponse;
 
 class TeamController extends Controller
 {
@@ -44,7 +45,7 @@ class TeamController extends Controller
             $team->labours()->sync($request->labours);
         }
 
-        return new TeamResource($team);
+        return response()->json([], JsonResponse::HTTP_CREATED);
     }
 
     /**
@@ -73,7 +74,7 @@ class TeamController extends Controller
             $team->labours()->sync($request->labours);
         }
 
-        return new TeamResource($team->fresh());
+        return response()->json([], JsonResponse::HTTP_OK);
     }
 
     /**
@@ -82,6 +83,6 @@ class TeamController extends Controller
     public function destroy(Team $team)
     {
         $team->delete();
-        return response()->noContent();
+        return response()->json([], JsonResponse::HTTP_GONE);
     }
 }

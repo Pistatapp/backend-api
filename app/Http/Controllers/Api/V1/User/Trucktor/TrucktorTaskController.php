@@ -10,6 +10,7 @@ use App\Models\Trucktor;
 use App\Models\TrucktorTask;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Http\JsonResponse;
 
 class TrucktorTaskController extends Controller
 {
@@ -39,12 +40,12 @@ class TrucktorTaskController extends Controller
             'start_date' => $request->start_date,
             'end_date' => $request->end_date,
             'description' => $request->description,
-            'created_by' => auth()->id(),
+            'created_by' => $request->user()->id(),
         ]);
 
         Cache::forget('tasks');
 
-        return new TrucktorTaskResource($task);
+        return response()->json([], JsonResponse::HTTP_CREATED);
     }
 
     /**
@@ -69,7 +70,7 @@ class TrucktorTaskController extends Controller
 
         Cache::forget('tasks');
 
-        return new TrucktorTaskResource($trucktorTask);
+        return response()->json([], JsonResponse::HTTP_OK);
     }
 
     /**
@@ -81,6 +82,6 @@ class TrucktorTaskController extends Controller
 
         Cache::forget('tasks');
 
-        return response()->noContent();
+        return response()->json([], JsonResponse::HTTP_GONE);
     }
 }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\User\Farm;
 use App\Http\Controllers\Controller;
 use App\Models\Farm;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 
 class FrostbiteCalculationController extends Controller
 {
@@ -45,7 +46,7 @@ class FrostbiteCalculationController extends Controller
 
                 return [
                     'date' => jdate($day['date'])->format('Y/m/d'),
-                    'temperature' => intval($minTemp),
+                    'temperature' => number_format($minTemp, 2),
                     'warning' => $minTemp <= 0,
                 ];
             });
@@ -71,9 +72,10 @@ class FrostbiteCalculationController extends Controller
         return [
             'date' => jdate($day['date'])->format('Y/m/d'),
             'maxwind_kph' => $day['day']['maxwind_kph'],
-            'dewpoint_c' => intval($maxDewPoint),
-            'cloud' => intval($maxCloudiness),
-            'avgtemp_c' => intval($avgTemp),
+            'dewpoint_c' => number_format($maxDewPoint, 2),
+            'cloud' => number_format($maxCloudiness, 2),
+            'avgtemp_c' => number_format($avgTemp, 2),
+            'mintemp_c' => $day['day']['mintemp_c'],
             'warning' => $temp1 < 0 || $temp2 < 0,
         ];
     }
@@ -115,6 +117,6 @@ class FrostbiteCalculationController extends Controller
             ['notify' => $request->notify]
         );
 
-        return response()->noContent();
+        return response()->json([], JsonResponse::HTTP_CREATED);
     }
 }

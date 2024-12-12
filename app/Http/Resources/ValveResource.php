@@ -20,6 +20,8 @@ class ValveResource extends JsonResource
             'name' => $this->name,
             'location' => $this->location,
             'flow_rate' => $this->flow_rate,
+            'is_open' => $this->is_open,
+            'field' => new FieldResource($this->whenLoaded('field')),
         ];
     }
 }
