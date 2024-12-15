@@ -63,6 +63,7 @@ class AuthController extends Controller
         $request->validate([
             'mobile' => 'required|ir_mobile:zero',
             'token' => 'required|numeric|digits:6',
+            'fcm_token' => 'required|string',
         ]);
 
         if ($this->hasTooManyLoginAttempts($request)) {
@@ -111,6 +112,11 @@ class AuthController extends Controller
         ]);
 
         tap($user, function ($user) {
+
+            $user->update([
+                'fcm_token' => request('fcm_token'),
+            ]);
+
             if (is_null($user->mobile_verified_at)) {
                 $user->mobile_verified_at = now();
                 $user->save();
@@ -134,7 +140,15 @@ class AuthController extends Controller
      */
     public function refreshToken(Request $request)
     {
+        $request->validate([
+            'fcm_token' => 'required|string',
+        ]);
+
         $user = $request->user();
+
+        $user->update([
+            'fcm_token' => $request->fcm_token,
+        ]);
 
         $user->tokens()->delete();
 

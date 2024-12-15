@@ -15,6 +15,7 @@
         "laravel/tinker": "^2.8",
         "morilog/jalali": "3.*",
         "nunomaduro/collision": "^8.1",
+        "phpoffice/phpspreadsheet": "^3.6",
         "predis/predis": "^2.2",
         "sadegh19b/laravel-persian-validation": "^1.4",
         "simplesoftwareio/simple-qrcode": "~4",
