@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use App\Models\Irrigation;
+use App\Notifications\IrrigationNotification;
 
 class ChangeIrrigationStatus extends Command
 {
@@ -48,6 +49,9 @@ class ChangeIrrigationStatus extends Command
             ->chunk(100, function ($irrigations) use ($newStatus, $valveStatus) {
                 foreach ($irrigations as $irrigation) {
                     $irrigation->update(['status' => $newStatus]);
+
+                    $irrigation->creator->notify(new IrrigationNotification($newStatus));
+
                     foreach ($irrigation->valves as $valve) {
                         $pivotData = [
                             'status' => $valveStatus,

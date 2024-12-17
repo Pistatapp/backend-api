@@ -37,7 +37,6 @@ use App\Http\Controllers\Api\V1\Admin\LoadEstimationController;
 use App\Http\Controllers\Api\V1\User\Farm\BlightCalculationController;
 use App\Http\Controllers\Api\V1\User\Farm\FarmPlanController;
 use App\Http\Controllers\Api\V1\User\Management\TreatmentController;
-use App\Http\Controllers\Api\V1\FcmController;
 use App\Http\Controllers\Api\V1\User\Farm\WeatherForecastController;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
@@ -157,11 +156,6 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::post('/farms/{farm}/load_estimation', [LoadEstimationController::class, 'estimate']);
 
     Route::get('/farms/{farm}/weather_forecast', WeatherForecastController::class);
-
-    Route::group(['prefix' => 'fcm'], function () {
-        Route::put('update_token', [FcmController::class, 'updateFcmToken']);
-        Route::post('send_notification', [FcmController::class, 'sendNotification']);
-    });
 
     Broadcast::routes();
 });

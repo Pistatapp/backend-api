@@ -23,7 +23,6 @@ class AuthenticatedUserResource extends JsonResource
             'token' => $this->createToken('mobile', expiresAt: now()->addDay())->plainTextToken,
             'new_user' => $this->wasChanged('mobile_verified_at'),
             'is_admin' => $this->is_admin,
-            'fcm_token' => $this->fcm_token,
         ];
     }
 }

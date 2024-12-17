@@ -35,9 +35,9 @@ return [
         'key' => env('WEATHER_API_KEY'),
     ],
 
-    'firebase' => [
-        'project_id' => env('FIREBASE_PROJECT_ID'),
-        'server_key' => env('FIREBASE_SERVER_KEY'),
+    'fcm' => [
+        'project_id' => env('FCM_PROJECT_ID'),
+        'key' => env('FCM_SERVER_KEY'),
     ],
 
 ];
