@@ -38,8 +38,10 @@ use App\Http\Controllers\Api\V1\User\Farm\BlightCalculationController;
 use App\Http\Controllers\Api\V1\User\Farm\FarmPlanController;
 use App\Http\Controllers\Api\V1\User\Management\TreatmentController;
 use App\Http\Controllers\Api\V1\User\Farm\WeatherForecastController;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
+use App\Notifications\TestNotification;
 
 /*
 |--------------------------------------------------------------------------
@@ -156,6 +158,11 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::post('/farms/{farm}/load_estimation', [LoadEstimationController::class, 'estimate']);
 
     Route::get('/farms/{farm}/weather_forecast', WeatherForecastController::class);
+
+    Route::get('/fcm/test', function (Request $request) {
+        $request->user()->notify(new TestNotification());
+        return response()->json(['message' => 'Notification sent']);
+    });
 
     Broadcast::routes();
 });
