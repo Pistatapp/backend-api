@@ -61,7 +61,9 @@ class IrrigationNotification extends Notification implements ShouldQueue
         return array_merge($data, [
             'data' => [
                 'type' => 'irrigation',
-                'priority' => 'high'
+                'priority' => 'high',
+                'title' => $data['title'],
+                'body' => $data['body'],
             ]
         ]);
     }

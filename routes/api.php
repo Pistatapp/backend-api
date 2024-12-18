@@ -41,6 +41,7 @@ use App\Http\Controllers\Api\V1\User\Farm\WeatherForecastController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
+use App\Events\TestEvent;
 use App\Notifications\TestNotification;
 
 /*
@@ -162,6 +163,11 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::get('/fcm/test', function (Request $request) {
         $request->user()->notify(new TestNotification());
         return response()->json(['message' => 'Notification sent']);
+    });
+
+    Route::get('/fcm/test_event', function (Request $request) {
+        event(new TestEvent());
+        return response()->json(['message' => 'Event sent']);
     });
 
     Broadcast::routes();
