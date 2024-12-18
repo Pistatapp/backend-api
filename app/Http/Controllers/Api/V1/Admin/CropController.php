@@ -31,7 +31,7 @@ class CropController extends Controller
 
         $crop = Crop::create($request->only('name', 'cold_requirement'));
 
-        return response()->json([], JsonResponse::HTTP_CREATED);
+        return new CropResource($crop);
     }
 
     /**
@@ -48,13 +48,13 @@ class CropController extends Controller
     public function update(Request $request, Crop $crop)
     {
         $request->validate([
-            'name' => 'required|string|max:255|unique:crop$crops,name,' . $crop->id . ',id',
+            'name' => 'required|string|max:255|unique:crops,name,' . $crop->id . ',id',
             'cold_requirement' => 'nullable|integer|min:0',
         ]);
 
         $crop->update($request->only('name', 'cold_requirement'));
 
-        return response()->json([], JsonResponse::HTTP_OK);
+        return new CropResource($crop->fresh());
     }
 
     /**

@@ -45,7 +45,7 @@ class FarmReportsController extends Controller
             'value' => $request->value,
         ]);
 
-        return response()->json([], JsonResponse::HTTP_CREATED);
+        return new FarmReportResource($farmReport);
     }
 
     /**
@@ -72,7 +72,7 @@ class FarmReportsController extends Controller
             'value' => $request->value,
         ]);
 
-        return response()->json([], JsonResponse::HTTP_OK);
+        return new FarmReportResource($farmReport->fresh());
     }
 
     /**

@@ -52,7 +52,7 @@ class PestController extends Controller
             $pest->addMedia($image)->toMediaCollection('images');
         }
 
-        return response()->json([], JsonResponse::HTTP_CREATED);
+        return new PestResource($pest);
     }
 
     /**
@@ -98,7 +98,7 @@ class PestController extends Controller
             $pest->addMedia($image)->toMediaCollection('images');
         }
 
-        return response()->json([], JsonResponse::HTTP_OK);
+        return new PestResource($pest->fresh());
     }
 
     /**

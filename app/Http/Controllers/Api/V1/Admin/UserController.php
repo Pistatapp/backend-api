@@ -44,7 +44,7 @@ class UserController extends Controller
 
         $user->profile()->create($request->only('first_name', 'last_name'));
 
-        return response()->json([], JsonResponse::HTTP_CREATED);
+        return new UserResource($user);
     }
 
     /**
@@ -70,7 +70,7 @@ class UserController extends Controller
 
         $user->profile->update($request->only('first_name', 'last_name'));
 
-        return response()->json([], JsonResponse::HTTP_OK);
+        return new UserResource($user->fresh());
     }
 
     /**

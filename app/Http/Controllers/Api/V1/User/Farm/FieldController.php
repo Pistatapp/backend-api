@@ -56,7 +56,7 @@ class FieldController extends Controller
             'crop_type_id' => $request->crop_type_id,
         ]);
 
-        return response()->json([], JsonResponse::HTTP_CREATED);
+        return new FieldResource($field);
     }
 
     /**
@@ -104,7 +104,7 @@ class FieldController extends Controller
             'crop_type_id' => $request->crop_type_id,
         ]);
 
-        return response()->json([], JsonResponse::HTTP_OK);
+        return new FieldResource($field->fresh());
     }
 
     /**

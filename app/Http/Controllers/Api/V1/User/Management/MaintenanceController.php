@@ -36,7 +36,7 @@ class MaintenanceController extends Controller
             'name' => $request->name,
         ]);
 
-        return response()->json([], JsonResponse::HTTP_CREATED);
+        return new MaintenanceResource($maintenance);
     }
 
     /**
@@ -52,7 +52,7 @@ class MaintenanceController extends Controller
             'name' => $request->name,
         ]);
 
-        return response()->json([], JsonResponse::HTTP_OK);
+        return new MaintenanceResource($maintenance->fresh());
     }
 
     /**

@@ -37,7 +37,7 @@ class DriverController extends Controller
             'employee_code' => random_int(1000000, 9999999)
         ]);
 
-        return response()->json([], JsonResponse::HTTP_CREATED);
+        return new DriverResource($driver);
     }
 
     /**
@@ -59,7 +59,7 @@ class DriverController extends Controller
             'mobile',
         ]));
 
-        return response()->json([], JsonResponse::HTTP_OK);
+        return new DriverResource($driver->fresh());
     }
 
     /**

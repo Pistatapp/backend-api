@@ -33,7 +33,7 @@ class ValveController extends Controller
 
         $valve = $pump->valves()->create($request->all());
 
-        return response()->json([], JsonResponse::HTTP_CREATED);
+        return new ValveResource($valve);
     }
 
     /**
@@ -58,7 +58,7 @@ class ValveController extends Controller
 
         $valve->update($request->all());
 
-        return response()->json([], JsonResponse::HTTP_OK);
+        return new ValveResource($valve->fresh());
     }
 
     /**

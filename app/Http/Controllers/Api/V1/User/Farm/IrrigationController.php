@@ -47,7 +47,7 @@ class IrrigationController extends Controller
         $irrigation->fields()->attach($request->fields);
         $irrigation->valves()->attach($request->valves);
 
-        return response()->json([], JsonResponse::HTTP_CREATED);
+        return new IrrigationResource($irrigation);
     }
 
     /**
@@ -76,7 +76,7 @@ class IrrigationController extends Controller
         $irrigation->fields()->sync($request->fields);
         $irrigation->valves()->sync($request->valves);
 
-        return response()->json([], JsonResponse::HTTP_OK);
+        return new IrrigationResource($irrigation->fresh());
     }
 
     /**

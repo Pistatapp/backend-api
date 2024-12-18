@@ -45,7 +45,7 @@ class TrucktorTaskController extends Controller
 
         Cache::forget('tasks');
 
-        return response()->json([], JsonResponse::HTTP_CREATED);
+        return new TrucktorTaskResource($task);
     }
 
     /**
@@ -70,7 +70,7 @@ class TrucktorTaskController extends Controller
 
         Cache::forget('tasks');
 
-        return response()->json([], JsonResponse::HTTP_OK);
+        return new TrucktorTaskResource($trucktorTask->fresh());
     }
 
     /**

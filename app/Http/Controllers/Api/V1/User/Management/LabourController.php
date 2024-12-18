@@ -42,7 +42,7 @@ class LabourController extends Controller
             $labour->teams()->sync($request->team_id);
         }
 
-        return response()->json([], JsonResponse::HTTP_CREATED);
+        return new LabourResource($labour);
     }
 
     /**
@@ -64,7 +64,7 @@ class LabourController extends Controller
             $labour->teams()->sync($request->team_id);
         }
 
-        return response()->json([], JsonResponse::HTTP_OK);
+        return new LabourResource($labour->fresh());
     }
 
     /**

@@ -48,7 +48,7 @@ class MaintenanceReportController extends Controller
             'description' => $request->description,
         ]);
 
-        return response()->json([], JsonResponse::HTTP_CREATED);
+        return new MaintenanceReportResource($maintenanceReport);
     }
 
     /**
@@ -78,7 +78,7 @@ class MaintenanceReportController extends Controller
             'description' => $request->description,
         ]);
 
-        return response()->json([], JsonResponse::HTTP_OK);
+        return new MaintenanceReportResource($maintenanceReport->fresh());
     }
 
     /**

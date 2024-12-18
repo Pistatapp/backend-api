@@ -35,7 +35,7 @@ class BlockController extends Controller
             'coordinates',
         ]));
 
-        return response()->json([], JsonResponse::HTTP_CREATED);
+        return new BlockResource($block);
     }
 
     /**
@@ -62,7 +62,7 @@ class BlockController extends Controller
             'coordinates',
         ]));
 
-        return response()->json([], JsonResponse::HTTP_OK);
+        return new BlockResource($block->fresh());
     }
 
     /**

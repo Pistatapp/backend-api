@@ -27,7 +27,7 @@ class PumpController extends Controller
     {
         $pump = $farm->pumps()->create($request->validated());
 
-        return response()->json([], JsonResponse::HTTP_CREATED);
+        return new PumpResource($pump);
     }
 
     /**
@@ -45,7 +45,7 @@ class PumpController extends Controller
     {
         $pump->update($request->validated());
 
-        return response()->json([], JsonResponse::HTTP_OK);
+        return new PumpResource($pump->fresh());
     }
 
     /**

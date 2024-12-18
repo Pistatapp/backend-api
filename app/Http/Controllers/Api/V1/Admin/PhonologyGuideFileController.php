@@ -50,7 +50,7 @@ class PhonologyGuideFileController extends Controller
 
         $phonologyGuideFile->addMediaFromRequest('file')->toMediaCollection('phonology_guide_files');
 
-        return response()->json([], JsonResponse::HTTP_CREATED);
+        return new PhonologyGuideFileResource($phonologyGuideFile);
     }
 
     /**

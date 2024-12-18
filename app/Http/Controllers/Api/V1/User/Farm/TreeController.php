@@ -58,7 +58,7 @@ class TreeController extends Controller
 
         $tree->save();
 
-        return response()->json([], JsonResponse::HTTP_CREATED);
+        return new TreeResource($tree);
     }
 
     /**
@@ -101,7 +101,7 @@ class TreeController extends Controller
 
         $tree->save();
 
-        return response()->json([], JsonResponse::HTTP_OK);
+        return new TreeResource($tree->fresh());
     }
 
     /**

@@ -37,7 +37,7 @@ class TreatmentController extends Controller
 
         $treatment = $farm->treatments()->create($request->all());
 
-        return response()->json([], JsonResponse::HTTP_CREATED);
+        return new TreatmentResource($treatment);
     }
 
     /**
@@ -61,7 +61,7 @@ class TreatmentController extends Controller
 
         $treatment->update($request->only('name', 'color', 'description'));
 
-        return response()->json([], JsonResponse::HTTP_OK);
+        return new TreatmentResource($treatment->fresh());
     }
 
     /**

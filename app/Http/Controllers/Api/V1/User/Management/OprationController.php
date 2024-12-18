@@ -32,7 +32,7 @@ class OprationController extends Controller
 
         $operation = $farm->operations()->create($request->all());
 
-        return response()->json([], JsonResponse::HTTP_CREATED);
+        return new OperationResource($operation);
     }
 
     /**
@@ -57,7 +57,7 @@ class OprationController extends Controller
 
         $operation->update($request->only('name', 'parent_id'));
 
-        return response()->json([], JsonResponse::HTTP_OK);
+        return new OperationResource($operation->fresh());
     }
 
     /**

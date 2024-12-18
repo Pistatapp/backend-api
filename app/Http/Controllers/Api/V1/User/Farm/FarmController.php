@@ -59,7 +59,7 @@ class FarmController extends Controller
             'is_working_environment' => Farm::where('user_id', $request->user()->id)->count() === 0,
         ]);
 
-        return response()->json([], JsonResponse::HTTP_CREATED);
+        return new FarmResource($farm);
     }
 
     /**
@@ -102,7 +102,7 @@ class FarmController extends Controller
             'crop_id' => $request->crop_id
         ]);
 
-        return response()->json([], JsonResponse::HTTP_OK);
+        return new FarmResource($farm->fresh());
     }
 
     /**

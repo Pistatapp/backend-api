@@ -117,6 +117,8 @@ class FrostbiteCalculationController extends Controller
             ['notify' => $request->notify]
         );
 
-        return response()->json([], JsonResponse::HTTP_CREATED);
+        $notification = $farm->frostbitRisks()->where('type', $request->type)->first();
+
+        return response()->json(['data' => $notification], JsonResponse::HTTP_CREATED);
     }
 }

@@ -45,7 +45,7 @@ class TeamController extends Controller
             $team->labours()->sync($request->labours);
         }
 
-        return response()->json([], JsonResponse::HTTP_CREATED);
+        return new TeamResource($team);
     }
 
     /**
@@ -74,7 +74,7 @@ class TeamController extends Controller
             $team->labours()->sync($request->labours);
         }
 
-        return response()->json([], JsonResponse::HTTP_OK);
+        return new TeamResource($team->fresh());
     }
 
     /**

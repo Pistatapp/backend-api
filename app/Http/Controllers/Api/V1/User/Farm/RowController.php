@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\User\Farm;
 use App\Models\Row;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\FieldResource;
 use App\Http\Resources\RowResource;
 use App\Models\Field;
 use Illuminate\Http\JsonResponse;
@@ -44,7 +45,7 @@ class RowController extends Controller
 
         Row::insert($rowsData);
 
-        return response()->json([], JsonResponse::HTTP_CREATED);
+        return new FieldResource($field->load('rows'));
     }
 
     /**
@@ -53,6 +54,7 @@ class RowController extends Controller
     public function show(Row $row)
     {
         $row->load('reports.operation', 'reports.labour');
+
         return new RowResource($row);
     }
 

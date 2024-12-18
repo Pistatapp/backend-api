@@ -71,7 +71,7 @@ class FarmPlanController extends Controller
 
         FarmPlanDetail::insert($plan_details_data);
 
-        return response()->json([], JsonResponse::HTTP_CREATED);
+        return new FarmPlanResource($plan);
     }
 
     /**
@@ -120,7 +120,7 @@ class FarmPlanController extends Controller
 
         FarmPlanDetail::insert($plan_details_data);
 
-        return response()->json([], JsonResponse::HTTP_OK);
+        return new FarmPlanResource($farmPlan->fresh());
     }
 
     /**

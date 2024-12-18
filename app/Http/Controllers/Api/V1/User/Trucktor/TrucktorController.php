@@ -47,7 +47,7 @@ class TrucktorController extends Controller
             'expected_yearly_work_time',
         ]));
 
-        return response()->json([], JsonResponse::HTTP_CREATED);
+        return new TrucktorResource($trucktor);
     }
 
     /**
@@ -89,7 +89,7 @@ class TrucktorController extends Controller
             'expected_yearly_work_time',
         ]));
 
-        return response()->json([], JsonResponse::HTTP_OK);
+        return new TrucktorResource($trucktor->fresh());
     }
 
     /**

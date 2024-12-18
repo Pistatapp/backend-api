@@ -50,7 +50,7 @@ class TrucktorReportController extends Controller
             'created_by' => $request->user()->id,
         ]);
 
-        return response()->json([], JsonResponse::HTTP_CREATED);
+        return new TrucktorReportResource($trucktorReport);
     }
 
     /**
@@ -84,7 +84,7 @@ class TrucktorReportController extends Controller
             'description' => $request->description,
         ]);
 
-        return response()->json([], JsonResponse::HTTP_OK);
+        return new TrucktorReportResource($trucktorReport->fresh());
     }
 
     /**

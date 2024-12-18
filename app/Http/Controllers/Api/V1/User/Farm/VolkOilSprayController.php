@@ -37,7 +37,7 @@ class VolkOilSprayController extends Controller
 
         $notification = VolkOilSpray::create($request->all());
 
-        return response()->json([], JsonResponse::HTTP_CREATED);
+        return new VolkOilSprayResource($notification);
     }
 
     /**
@@ -55,7 +55,7 @@ class VolkOilSprayController extends Controller
     {
         $volkOilSpray->update($request->all());
 
-        return response()->json([], JsonResponse::HTTP_OK);
+        return new VolkOilSprayResource($volkOilSpray->fresh());
     }
 
     /**

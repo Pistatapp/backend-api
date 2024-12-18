@@ -43,7 +43,7 @@ class GpsDeviceController extends Controller
             'sim_number' => $request->sim_number,
         ]);
 
-        return response()->json([], JsonResponse::HTTP_CREATED);
+        return new GpsDeviceResource($device);
     }
 
     /**
@@ -65,7 +65,7 @@ class GpsDeviceController extends Controller
             'sim_number' => $request->sim_number,
         ]);
 
-        return response()->json([], JsonResponse::HTTP_OK);
+        return new GpsDeviceResource($gpsDevice->fresh());
     }
 
     /**

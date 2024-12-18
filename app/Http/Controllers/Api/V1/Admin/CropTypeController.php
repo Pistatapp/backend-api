@@ -29,9 +29,9 @@ class CropTypeController extends Controller
             'standard_day_degree' => 'nullable|numeric',
         ]);
 
-        $crop->cropTypes()->create($request->only('name'));
+        $cropType = $crop->cropTypes()->create($request->only('name'));
 
-        return response()->json([], JsonResponse::HTTP_CREATED);
+        return new CropTypeResource($cropType);
     }
 
     /**
@@ -46,7 +46,7 @@ class CropTypeController extends Controller
 
         $cropType->update($request->only('name'));
 
-        return response()->json([], JsonResponse::HTTP_OK);
+        return new CropTypeResource($cropType->fresh());
     }
 
     /**

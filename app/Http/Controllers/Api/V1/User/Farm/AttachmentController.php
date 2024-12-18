@@ -7,6 +7,7 @@ use App\Models\Attachment;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Http\JsonResponse;
+use App\Http\Resources\AttachmentResource;
 
 class AttachmentController extends Controller
 {
@@ -45,7 +46,7 @@ class AttachmentController extends Controller
 
         $attachment->addMedia($request->file)->toMediaCollection('attachments');
 
-        return response()->json([], JsonResponse::HTTP_CREATED);
+        return new AttachmentResource($attachment->fresh());
     }
 
     /**
@@ -66,7 +67,7 @@ class AttachmentController extends Controller
             $attachment->addMedia($request->file)->toMediaCollection('attachments');
         }
 
-        return response()->json([], JsonResponse::HTTP_OK);
+        return new AttachmentResource($attachment->fresh());
     }
 
     /**
