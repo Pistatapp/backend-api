@@ -40,6 +40,9 @@ class TestNotification extends Notification
         return [
             'title' => 'Test Notification',
             'body' => 'This is a test notification.',
+            'data' => [
+                'priority' => 'high',
+            ],
         ];
     }
 }
