@@ -22,6 +22,16 @@ class Trucktor extends Model
         'expected_daily_work_time',
         'expected_monthly_work_time',
         'expected_yearly_work_time',
+        'is_working',
+    ];
+
+    /**
+     * The attributes with default values.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'is_working' => false,
     ];
 
     /**

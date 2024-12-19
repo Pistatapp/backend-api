@@ -38,6 +38,7 @@ use App\Http\Controllers\Api\V1\User\Farm\BlightCalculationController;
 use App\Http\Controllers\Api\V1\User\Farm\FarmPlanController;
 use App\Http\Controllers\Api\V1\User\Management\TreatmentController;
 use App\Http\Controllers\Api\V1\User\Farm\WeatherForecastController;
+use App\Http\Controllers\Api\V1\Admin\SliderController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
@@ -103,6 +104,15 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
             });
 
         Route::apiSingleton('crop_types.load_estimation', LoadEstimationController::class);
+
+        Route::controller(SliderController::class)->prefix('sliders')->group(function () {
+            Route::withoutMiddleware('admin')->group(function () {
+                Route::get('/', 'index');
+            });
+            Route::post('/', 'store');
+            Route::put('/{slider}', 'update');
+            Route::delete('/{slider}', 'destroy');
+        });
     });
 
     Route::withoutMiddleware('ensure.username')->group(function () {

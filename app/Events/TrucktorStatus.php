@@ -22,7 +22,7 @@ class TrucktorStatus implements ShouldBroadcast
         private Trucktor $trucktor,
         private int $status
     ) {
-        //
+        $trucktor->update(['is_working' => $status]);
     }
 
     /**

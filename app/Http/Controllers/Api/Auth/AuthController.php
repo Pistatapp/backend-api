@@ -18,8 +18,18 @@ class AuthController extends Controller
 {
     use ThrottlesLogins;
 
+    /**
+     * The maximum number of attempts to allow.
+     *
+     * @var int
+     */
     protected $maxAttempts = 3;
 
+    /**
+     * The number of minutes to throttle for.
+     *
+     * @var int
+     */
     protected $decayMinutes = 2;
 
     /**
@@ -63,7 +73,7 @@ class AuthController extends Controller
         $request->validate([
             'mobile' => 'required|ir_mobile:zero',
             'token' => 'required|numeric|digits:6',
-            'fcm_token' => 'required|string',
+            'fcm_token' => 'nullable|string',
         ]);
 
         if ($this->hasTooManyLoginAttempts($request)) {
@@ -141,7 +151,7 @@ class AuthController extends Controller
     public function refreshToken(Request $request)
     {
         $request->validate([
-            'fcm_token' => 'required|string',
+            'fcm_token' => 'nullable|string',
         ]);
 
         $user = $request->user();
