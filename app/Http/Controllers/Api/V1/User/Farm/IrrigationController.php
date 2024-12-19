@@ -55,7 +55,7 @@ class IrrigationController extends Controller
      */
     public function show(Irrigation $irrigation)
     {
-        $irrigation->load(['labour', 'valves', 'creator']);
+        $irrigation->load(['labour', 'valves', 'creator', 'fields']);
 
         return new IrrigationResource($irrigation);
     }

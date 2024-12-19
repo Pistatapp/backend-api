@@ -2,9 +2,10 @@
 
 namespace App\Console\Commands;
 
+use App\Events\IrrigationCompleted;
+use App\Events\IrrigationStarted;
 use Illuminate\Console\Command;
 use App\Models\Irrigation;
-use App\Notifications\IrrigationNotification;
 
 class ChangeIrrigationStatus extends Command
 {
@@ -27,45 +28,29 @@ class ChangeIrrigationStatus extends Command
      */
     public function handle()
     {
-        $this->updateIrrigationStatus('pending', 'in-progress', 'opened');
-        $this->updateIrrigationStatus('in-progress', 'completed', 'closed');
+        $this->updateIrrigationStatus('pending', 'in-progress');
+        $this->updateIrrigationStatus('in-progress', 'completed');
 
         return Command::SUCCESS;
     }
 
     /**
-     * Update the irrigation status
+     * Update the irrigation status.
      *
      * @param string $currentStatus
      * @param string $newStatus
-     * @param string $valveStatus
      */
-    private function updateIrrigationStatus($currentStatus, $newStatus, $valveStatus)
+    private function updateIrrigationStatus($currentStatus, $newStatus)
     {
         Irrigation::where('status', $currentStatus)
             ->whereDate('date', today())
             ->where($currentStatus === 'pending' ? 'start_time' : 'end_time', '<=', now())
-            ->with('valves')
-            ->chunk(100, function ($irrigations) use ($newStatus, $valveStatus) {
+            ->chunk(100, function ($irrigations) use ($newStatus) {
                 foreach ($irrigations as $irrigation) {
-                    $irrigation->update(['status' => $newStatus]);
-
-                    $irrigation->creator->notify(new IrrigationNotification($newStatus));
-
-                    foreach ($irrigation->valves as $valve) {
-                        $pivotData = [
-                            'status' => $valveStatus,
-                            $valveStatus === 'opened' ? 'opened_at' : 'closed_at' => now(),
-                        ];
-
-                        if ($valveStatus === 'closed') {
-                            $pivotData['duration'] = $irrigation->start_time->diffInMinutes(now());
-                        }
-
-                        $irrigation->valves()->updateExistingPivot($valve->id, $pivotData);
-
-                        $valve->is_open = $valveStatus === 'opened';
-                        $valve->save();
+                    if ($newStatus === 'in-progress') {
+                        IrrigationStarted::dispatch($irrigation, $newStatus);
+                    } else {
+                        IrrigationCompleted::dispatch($irrigation, $newStatus);
                     }
                 }
             });
