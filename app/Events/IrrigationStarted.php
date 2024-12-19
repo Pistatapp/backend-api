@@ -23,7 +23,7 @@ class IrrigationStarted implements ShouldBroadcast
         private string $status
     )
     {
-        $this->irrigation->load(['valves', 'creator', 'fields']);
+        $this->irrigation->load(['valves.pump', 'creator', 'fields']);
     }
 
     /**
