@@ -154,9 +154,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::apiResource('farms.irrigations', IrrigationController::class)->shallow();
     Route::apiResource('farms.treatments', TreatmentController::class)->shallow();
     Route::apiResource('farms.farm_plans', FarmPlanController::class)->shallow();
-    Route::controller(ColdRequirementController::class)->prefix('farms/{farm}')->group(function () {
-        Route::post('/cold_requirement', 'calculate');
-    });
+    Route::post('farms/{farm}/cold_requirement', ColdRequirementController::class);
     Route::apiResource('farms.volk_oil_sprays', VolkOilSprayController::class)->shallow();
     Route::prefix('farms/{farm}')->group(function () {
         Route::post('/phonology/day_degree/calculate', DayDegreeCalculationController::class);

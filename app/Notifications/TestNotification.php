@@ -2,10 +2,8 @@
 
 namespace App\Notifications;
 
-use App\Services\FirebaseChannel;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 class TestNotification extends Notification
@@ -27,22 +25,23 @@ class TestNotification extends Notification
      */
     public function via(object $notifiable): array
     {
-        return [FirebaseChannel::class];
+        return ['firebase'];
     }
 
     /**
      * Get the array representation of the notification.
      *
-     * @return array<string, string>
+     * @return FirebaseMessage
      */
-    public function toFirebase(object $notifiable): array
+    public function toFirebase(object $notifiable): FirebaseMessage
     {
-        return [
-            'title' => 'Test Notification',
-            'body' => 'This is a test notification.',
-            'data' => [
+        return (new FirebaseMessage)
+            ->title('Test Notification')
+            ->body('This is a test notification')
+            ->data([
                 'priority' => 'high',
-            ],
-        ];
+                'title' => 'Test Notification',
+                'body' => 'This is a test notification',
+            ]);
     }
 }

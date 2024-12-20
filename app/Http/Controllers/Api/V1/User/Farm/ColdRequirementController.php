@@ -6,8 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\CalculateColdRequirementRequest;
 use App\Models\Farm;
 use Illuminate\Http\Request;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class ColdRequirementController extends Controller
 {
@@ -18,7 +16,7 @@ class ColdRequirementController extends Controller
      * @param \App\Models\Farm $farm
      * @return \Illuminate\Http\JsonResponse
      */
-    public function calculate(CalculateColdRequirementRequest $request, Farm $farm)
+    public function __invoke(CalculateColdRequirementRequest $request, Farm $farm)
     {
         $data = weather_api()->history($farm->center, $request->start_dt, $request->end_dt);
 
@@ -128,47 +126,6 @@ class ColdRequirementController extends Controller
             }
         }
 
-        // $this->outputToExcel($data, $tempK, $xi, $xs, $ak1, $InterS, $InterE, $delt, $Portions);
-
         return max($Portions);
-    }
-
-    private function outputToExcel($data, $tempK, $xi, $xs, $ak1, $InterS, $InterE, $delt, $Portions)
-    {
-        $spreadsheet = new Spreadsheet();
-        $sheet = $spreadsheet->getActiveSheet();
-        $sheet->setCellValue('A1', 'Date');
-        $sheet->setCellValue('B1', 'Time');
-        $sheet->setCellValue('C1', 'Temp(C)');
-        $sheet->setCellValue('D1', 'Temp(K)');
-        $sheet->setCellValue('E1', 'xi');
-        $sheet->setCellValue('F1', 'xs');
-        $sheet->setCellValue('G1', 'ak1');
-        $sheet->setCellValue('H1', 'Inter-S');
-        $sheet->setCellValue('I1', 'Inter-E');
-        $sheet->setCellValue('J1', 'delt');
-        $sheet->setCellValue('K1', 'Portions');
-
-        $row = 2;
-        foreach ($data['forecast']['forecastday'] as $day) {
-            foreach ($day['hour'] as $hour) {
-                $sheet->setCellValue('A' . $row, $day['date']);
-                $sheet->setCellValue('B' . $row, $hour['time']);
-                $sheet->setCellValue('C' . $row, $hour['temp_c']);
-                $sheet->setCellValue('D' . $row, $tempK[$row - 2]);
-                $sheet->setCellValue('E' . $row, $xi[$row - 2]);
-                $sheet->setCellValue('F' . $row, $xs[$row - 2]);
-                $sheet->setCellValue('G' . $row, $ak1[$row - 2]);
-                $sheet->setCellValue('H' . $row, $InterS[$row - 2]);
-                $sheet->setCellValue('I' . $row, $InterE[$row - 2]);
-                $sheet->setCellValue('J' . $row, $delt[$row - 2]);
-                $sheet->setCellValue('K' . $row, $Portions[$row - 2]);
-                $row++;
-            }
-        }
-
-        $writer = new Xlsx($spreadsheet);
-        $fileName = 'cold_requirement_data_' . rand(1000, 9999) . '.xlsx';
-        $writer->save($fileName);
     }
 }

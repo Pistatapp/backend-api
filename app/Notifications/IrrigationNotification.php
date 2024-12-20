@@ -4,7 +4,6 @@ namespace App\Notifications;
 
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
-use App\Services\FirebaseChannel;
 use Illuminate\Contracts\Queue\ShouldQueue;
 
 class IrrigationNotification extends Notification implements ShouldQueue
@@ -23,7 +22,25 @@ class IrrigationNotification extends Notification implements ShouldQueue
      */
     public function via($notifiable)
     {
-        return [FirebaseChannel::class, 'database'];
+        return ['firebase', 'database'];
+    }
+
+    /**
+     * Get the Firebase representation of the notification.
+     *
+     * @param object $notifiable
+     * @return FirebaseMessage
+     */
+    public function toFirebase($notifiable): FirebaseMessage
+    {
+        return (new FirebaseMessage)
+            ->title(__('Irrigation Notification'))
+            ->body(__('The irrigation has been ') . $this->status)
+            ->data([
+                'priority' => 'high',
+                'title' => __('Irrigation Notification'),
+                'body' => __('The irrigation has been ') . $this->status,
+            ]);
     }
 
     /**
@@ -32,50 +49,10 @@ class IrrigationNotification extends Notification implements ShouldQueue
      * @param mixed $notifiable
      * @return array
      */
-    /**
-     * Prepare the notification data.
-     *
-     * @return array
-     */
-    private function prepareNotificationData()
+    public function toArray($notifiable)
     {
-        $title = __("Irrigation {$this->status}");
-        $body = __("The irrigation has been {$this->status}.");
-
         return [
-            'title' => $title,
-            'body' => $body,
+            'message' => 'The irrigation has been ' . $this->status,
         ];
-    }
-
-    /**
-     * Get the Firebase representation of the notification.
-     *
-     * @param object $notifiable
-     * @return array
-     */
-    public function toFirebase($notifiable): array
-    {
-        $data = $this->prepareNotificationData();
-
-        return array_merge($data, [
-            'data' => [
-                'type' => 'irrigation',
-                'priority' => 'high',
-                'title' => $data['title'],
-                'body' => $data['body'],
-            ]
-        ]);
-    }
-
-    /**
-     * Get the array representation of the notification.
-     *
-     * @param object $notifiable
-     * @return array
-     */
-    public function toArray($notifiable): array
-    {
-        return $this->prepareNotificationData();
     }
 }

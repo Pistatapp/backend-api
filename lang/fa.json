@@ -31,6 +31,8 @@
     "Load estimation table updated successfully.": "جدول تخمین بار با موفقیت به روز شد.",
     "Irrigation :status": "آبیاری :status",
     "The irrigation has been :status.": "آبیاری :status شد.",
+    "Volk Oil Spray Notification": "اعلان روغن پاشی ولک",
+    "Cold requirement not met for Volk Oil Spray. Calculated: ": "نیاز سرمایی برای روغن پاشی ولک برآورده نشده است. محاسبه شده: ",
     "permissions": {
         "register_in_software": "ثبت نام در نرم افزار",
         "login": "ورود",

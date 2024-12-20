@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services;
+namespace App\Notifications;
 
 use Illuminate\Notifications\Notification;
 use Google\Client as GoogleClient;
@@ -37,12 +37,12 @@ class FirebaseChannel
      */
     public function send(object $notifiable, Notification $notification): void
     {
-        $data = $notification->toFirebase($notifiable);
+        $firebaseMessage = $notification->toFirebase($notifiable);
 
         $fcmToken = $notifiable->fcm_token;
-        $title = $data['title'];
-        $body = $data['body'];
-        $additionalData = $data['data'];
+        $title = $firebaseMessage->title;
+        $body = $firebaseMessage->body;
+        $additionalData = $firebaseMessage->data;
 
         $this->sendNotification($fcmToken, $title, $body, $additionalData);
     }
