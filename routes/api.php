@@ -163,7 +163,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
 
     Route::post('/farms/{farm}/load_estimation', [LoadEstimationController::class, 'estimate']);
 
-    Route::get('/farms/{farm}/weather_forecast', WeatherForecastController::class);
+    Route::post('/farms/{farm}/weather_forecast', WeatherForecastController::class);
 
     Broadcast::routes();
 });

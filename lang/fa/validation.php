@@ -201,5 +201,11 @@ return [
         "daily_salary" => "حقوق روزانه",
         "monthly_salary" => "حقوق ماهانه",
         "image" => "تصویر",
+        "history" => "تاریخچه",
+        "start_date" => "تاریخ شروع",
+        "end_date" => "تاریخ پایان",
+        "crop" => "محصول",
+        "future" => "آینده",
+        "forecast" => "پیش بینی",
     ],
 ];
