@@ -35,6 +35,17 @@ class Trucktor extends Model
     ];
 
     /**
+     * Scope a query to only include working trucktors.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeWorking($query)
+    {
+        return $query->where('is_working', true);
+    }
+
+    /**
      * Get the farm that owns the Trucktor
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo

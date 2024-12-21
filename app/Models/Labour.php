@@ -32,7 +32,40 @@ class Labour extends Model
         'salary',
         'daily_salary',
         'monthly_salary',
+        'is_working',
     ];
+
+    /**
+     * The attributes that should be cast.
+     *
+     * @return array<string, string|mixed>
+     */
+    protected function casts(): array
+    {
+        return [
+            'is_working' => 'boolean',
+        ];
+    }
+
+    /**
+     * The attributes with default values.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'is_working' => false,
+    ];
+
+    /**
+     * Scope a query to only include working labours.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeWorking($query)
+    {
+        return $query->where('is_working', true);
+    }
 
     /**
      * Get full name of the Labour
