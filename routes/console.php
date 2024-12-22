@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 use App\Models\VolkOilSpray;
 use App\Jobs\CalculateColdRequirementJob;
+use App\Jobs\CalculateFrostbiteRiskJob;
 
 /*
 |--------------------------------------------------------------------------
@@ -28,3 +29,7 @@ Schedule::call(function () {
         CalculateColdRequirementJob::dispatch($spray);
     }
 })->everyMinute();
+
+Schedule::call(function () {
+    CalculateFrostbiteRiskJob::dispatch();
+})->daily();

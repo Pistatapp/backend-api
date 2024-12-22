@@ -4,21 +4,19 @@ namespace App\Notifications;
 
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Notifications\Messages\BroadcastMessage;
-use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use App\Notifications\FirebaseMessage;
 
-class FrostbiteRiskNotification extends Notification
+class FrostbiteRiskNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 
     /**
      * Create a new notification instance.
      */
-    public function __construct()
-    {
-        //
-    }
+    public function __construct(
+        private array $daysWithRisk
+    ) {}
 
     /**
      * Get the notification's delivery channels.
@@ -27,7 +25,7 @@ class FrostbiteRiskNotification extends Notification
      */
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['database', 'firebase'];
     }
 
     /**
@@ -38,21 +36,25 @@ class FrostbiteRiskNotification extends Notification
     public function toArray(object $notifiable): array
     {
         return [
-            //
+            'days_with_risk' => $this->daysWithRisk,
+            'message' => __('Frostbite risk detected on the following days: ' . implode(', ', array_map(function ($day) {
+                return $day['day'] . ' (' . $day['date'] . ')';
+            }, $this->daysWithRisk))),
         ];
     }
 
     /**
-     * Get the broadcastable representation of the notification.
+     * Get the firebase representation of the notification.
      *
-     * @return \Illuminate\Notifications\Messages\BroadcastMessage
+     * @return FirebaseMessage
      */
-    public function toBroadcast(object $notifiable): BroadcastMessage
+    public function toFirebase(object $notifiable): FirebaseMessage
     {
-        return new BroadcastMessage([
-            'data' => [
-                //
-            ],
-        ]);
+        return (new FirebaseMessage)
+            ->title('Frostbite Risk Alert')
+            ->body(__('Frostbite risk detected on the following days: ' . implode(', ', array_map(function ($day) {
+                return $day['day'] . ' (' . $day['date'] . ')';
+            }, $this->daysWithRisk))))
+            ->data(['days_with_risk' => $this->daysWithRisk]);
     }
 }
