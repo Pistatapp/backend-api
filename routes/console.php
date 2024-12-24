@@ -23,7 +23,7 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::call(function () {
-    $volkOilSprays = VolkOilSpray::where('end_date', '<', today())->get();
+    $volkOilSprays = VolkOilSpray::where('end_dt', '<', today())->get();
 
     foreach ($volkOilSprays as $spray) {
         CalculateColdRequirementJob::dispatch($spray);
