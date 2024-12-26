@@ -71,7 +71,7 @@ class CalculateFrostbiteRiskJob implements ShouldQueue
             });
 
         if ($daysWithRisk->isNotEmpty()) {
-            $farm->notify(new FrostbiteRiskNotification($daysWithRisk->toArray()));
+            $farm->user->notify(new FrostbiteRiskNotification($daysWithRisk->toArray()));
         }
     }
 
@@ -92,7 +92,7 @@ class CalculateFrostbiteRiskJob implements ShouldQueue
         $temp2 = (0.21 * $avgTemp) + 2.3;
 
         if ($temp1 <= 0 || $temp2 <= 0) {
-            $farm->notify(new FrostbiteRiskNotification([
+            $farm->user->notify(new FrostbiteRiskNotification([
                 'temperature' => number_format($avgTemp, 2),
                 'day' => jdate($day['date'])->format('l'),
                 'date' => jdate($day['date'])->format('Y/m/d'),

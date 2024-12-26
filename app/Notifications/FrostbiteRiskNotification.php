@@ -51,7 +51,7 @@ class FrostbiteRiskNotification extends Notification implements ShouldQueue
     public function toFirebase(object $notifiable): FirebaseMessage
     {
         return (new FirebaseMessage)
-            ->title('Frostbite Risk Alert')
+            ->title(__('Frostbite Risk Alert'))
             ->body(__('Frostbite risk detected on the following days: ' . implode(', ', array_map(function ($day) {
                 return $day['day'] . ' (' . $day['date'] . ')';
             }, $this->daysWithRisk))))
