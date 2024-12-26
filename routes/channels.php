@@ -1,5 +1,8 @@
 <?php
 
+use App\Models\GpsDevice;
+use App\Models\Irrigation;
+use App\Models\User;
 use Illuminate\Support\Facades\Broadcast;
 
 /*
@@ -13,6 +16,10 @@ use Illuminate\Support\Facades\Broadcast;
 |
 */
 
-Broadcast::channel('App.Models.User.{id}', function ($user, $id) {
-    return (int) $user->id === (int) $id;
+Broadcast::channel('gps_devices.{gps_device}', function (User $user, GpsDevice $gps_device) {
+    return $gps_device->user->is($user);
+});
+
+Broadcast::channel('irrigations.{irrigation}', function (User $user, Irrigation $irrigation) {
+    return $irrigation->creator->is($user);
 });
