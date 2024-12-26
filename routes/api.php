@@ -167,8 +167,10 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::post('/farms/{farm}/weather_forecast', WeatherForecastController::class);
 
     Route::get('/farms/{farm}/dashboard/widgets', [DashboardController::class, 'dashboardWidgets']);
-
-    Broadcast::routes();
 });
+
+Broadcast::routes([
+    'middleware' => 'auth:sanctum',
+]);
 
 Route::post('/gps/reports', [GpsReportController::class, 'store']);
