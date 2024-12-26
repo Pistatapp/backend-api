@@ -45,12 +45,13 @@ class ChangeIrrigationStatus extends Command
         Irrigation::where('status', $currentStatus)
             ->whereDate('date', today())
             ->where($currentStatus === 'pending' ? 'start_time' : 'end_time', '<=', now())
+            ->with(['valves.pump', 'creator', 'fields'])
             ->chunk(100, function ($irrigations) use ($newStatus) {
                 foreach ($irrigations as $irrigation) {
                     if ($newStatus === 'in-progress') {
-                        IrrigationStarted::dispatch($irrigation, $newStatus);
+                        IrrigationStarted::dispatch($irrigation);
                     } else {
-                        IrrigationCompleted::dispatch($irrigation, $newStatus);
+                        IrrigationCompleted::dispatch($irrigation);
                     }
                 }
             });

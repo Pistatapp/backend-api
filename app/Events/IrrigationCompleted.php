@@ -2,6 +2,7 @@
 
 namespace App\Events;
 
+use App\Http\Resources\IrrigationResource;
 use App\Models\Irrigation;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
@@ -20,11 +21,7 @@ class IrrigationCompleted implements ShouldBroadcast
      */
     public function __construct(
         public Irrigation $irrigation,
-        private string $status
-    )
-    {
-        $this->irrigation->load(['valves.pump', 'creator', 'fields']);
-    }
+    ) {}
 
     /**
      * Get the event name.
@@ -44,7 +41,7 @@ class IrrigationCompleted implements ShouldBroadcast
     public function broadcastWith(): array
     {
         return [
-            'status' => $this->status,
+            'irrigation' => new IrrigationResource($this->irrigation),
         ];
     }
 
