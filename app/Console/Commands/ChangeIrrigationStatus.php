@@ -49,9 +49,9 @@ class ChangeIrrigationStatus extends Command
             ->chunk(100, function ($irrigations) use ($newStatus) {
                 foreach ($irrigations as $irrigation) {
                     if ($newStatus === 'in-progress') {
-                        IrrigationStarted::dispatch($irrigation);
+                        IrrigationStarted::dispatch($irrigation, $newStatus);
                     } else {
-                        IrrigationCompleted::dispatch($irrigation);
+                        IrrigationCompleted::dispatch($irrigation, $newStatus);
                     }
                 }
             });

@@ -21,6 +21,7 @@ class IrrigationStarted implements ShouldBroadcast
      */
     public function __construct(
         public Irrigation $irrigation,
+        private string $status,
     ) {}
 
     /**
