@@ -41,8 +41,7 @@ class IrrigationCompleted implements ShouldBroadcast
     public function broadcastWith(): array
     {
         return [
-            // 'data' => new IrrigationResource($this->irrigation),
-            'status' => 'completed',
+            'data' => new IrrigationResource($this->irrigation),
         ];
     }
 

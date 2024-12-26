@@ -11,7 +11,7 @@ class IrrigationNotification extends Notification implements ShouldQueue
     use Queueable;
 
     public function __construct(
-        private string $status
+        private object $irrigation,
     ) {}
 
     /**
@@ -22,7 +22,7 @@ class IrrigationNotification extends Notification implements ShouldQueue
      */
     public function via($notifiable)
     {
-        return ['firebase', 'database'];
+        return ['firebase'];
     }
 
     /**
@@ -35,24 +35,25 @@ class IrrigationNotification extends Notification implements ShouldQueue
     {
         return (new FirebaseMessage)
             ->title(__('Irrigation Notification'))
-            ->body(__('The irrigation has been ') . $this->status)
+            ->body($this->getBodyMessage())
             ->data([
                 'priority' => 'high',
                 'title' => __('Irrigation Notification'),
-                'body' => __('The irrigation has been ') . $this->status,
+                'body' => $this->getBodyMessage(),
             ]);
     }
 
+
     /**
-     * Get the array representation of the notification.
+     * Get the body message for the notification.
      *
-     * @param mixed $notifiable
-     * @return array
+     * @return string
      */
-    public function toArray($notifiable)
+    private function getBodyMessage(): string
     {
-        return [
-            'message' => 'The irrigation has been ' . $this->status,
-        ];
+        return __('Irrigation :irrigation has been :status.', [
+            'irrigation' => $this->irrigation->name,
+            'status' => $this->irrigation->status,
+        ]);
     }
 }

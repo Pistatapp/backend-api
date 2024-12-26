@@ -4,7 +4,6 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Support\Facades\Auth;
 
 class IrrigationResource extends JsonResource
 {
@@ -56,7 +55,7 @@ class IrrigationResource extends JsonResource
             'duration' => $this->when($this->status === 'completed', function () {
                 return $this->duration;
             }),
-            $this->mergeWhen(Auth::check(), [
+            $this->mergeWhen($request->user() != null, [
                 'can' => [
                     'delete' => $request->user()->can('delete', $this->resource),
                     'update' => $request->user()->can('update', $this->resource),

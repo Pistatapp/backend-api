@@ -38,7 +38,7 @@ class IrrigationEventSubscriber
     {
         $irrigation->update(['status' => $newStatus]);
 
-        $irrigation->creator->notify(new IrrigationNotification($newStatus));
+        $irrigation->creator->notify(new IrrigationNotification($$irrigation));
 
         foreach ($irrigation->valves as $valve) {
             $pivotData = [
