@@ -52,7 +52,7 @@ class IrrigationNotification extends Notification implements ShouldQueue
     private function getBodyMessage(): string
     {
         return __('Irrigation :irrigation has been :status.', [
-            'irrigation' => $this->irrigation->name,
+            'irrigation' => $this->irrigation->fields->pluck('name')->join(', '),
             'status' => $this->irrigation->status,
         ]);
     }
