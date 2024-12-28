@@ -28,7 +28,7 @@ Schedule::call(function () {
     foreach ($volkOilSprays as $spray) {
         CalculateColdRequirementJob::dispatch($spray);
     }
-})->everyMinute();
+})->daily();
 
 Schedule::call(function () {
     CalculateFrostbiteRiskJob::dispatch();
