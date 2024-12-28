@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Listeners\IrrigationEventSubscriber;
+use App\Services\WeatherApi;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Event;
@@ -27,7 +28,7 @@ class AppServiceProvider extends ServiceProvider
 
         Model::preventSilentlyDiscardingAttributes(! app()->isProduction());
 
-        $this->app->singleton('weather-api', fn($app) => $app->make('App\Services\WeatherApi'));
+        $this->app->singleton('weather-api', fn($app) => $app->make(WeatherApi::class));
 
         Event::subscribe(IrrigationEventSubscriber::class);
     }

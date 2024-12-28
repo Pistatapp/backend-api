@@ -14,24 +14,46 @@ class BlightCalculationController extends Controller
      */
     public function __invoke(BlightCalculationRequest $request, Farm $farm)
     {
-        $data = weather_api()->history($farm->center, $request->start_dt, $request->end_dt);
-
-        $baseTemps = collect($data['forecast']['forecastday'])
-            ->map(function ($day) use ($request) {
-                $avgTemp = $day['day']['avgtemp_c'];
-                $minTemp = $request->min_temp;
-                $baseTemp = ($avgTemp - $minTemp) < 0 ? 0 : $avgTemp - $minTemp;
-
-                return $baseTemp;
-            });
-
-        $totalBaseTemp = $baseTemps->sum();
+        $location = $farm->center;
+        $data = $this->fetchWeatherData($location, $request->start_dt, $request->end_dt);
+        $totalBaseTemp = $this->calculateTotalBaseTemp($data, $request->min_temp);
 
         return response()->json([
             'data' => [
-                'satisfied_day_degree' => (int)$totalBaseTemp,
-                'remaining_day_degree' => (int)($request->developement_total - $totalBaseTemp),
+                'satisfied_day_degree' => number_format($totalBaseTemp, 2),
+                'remaining_day_degree' => number_format($request->development_total - $totalBaseTemp, 2),
             ],
         ]);
+    }
+
+    /**
+     * Fetch weather data from the weather API.
+     *
+     * @param string $location
+     * @param string $startDt
+     * @param string $endDt
+     * @return array
+     */
+    private function fetchWeatherData($location, $startDt, $endDt)
+    {
+        return weather_api()->history($location, $startDt, $endDt);
+    }
+
+    /**
+     * Calculate the total base temperature.
+     *
+     * @param array $data
+     * @param int $minTemp
+     * @return float
+     */
+    private function calculateTotalBaseTemp($data, $minTemp)
+    {
+        return collect($data['forecast']['forecastday'])
+            ->map(function ($day) use ($minTemp) {
+                $avgTemp = $day['day']['avgtemp_c'];
+                $baseTemp = $avgTemp - $minTemp;
+
+                return $baseTemp > 0 ? $baseTemp : 0;
+            })->sum();
     }
 }

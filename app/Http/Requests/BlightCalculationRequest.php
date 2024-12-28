@@ -27,7 +27,7 @@ class BlightCalculationRequest extends FormRequest
             'end_dt' => 'required|date',
             'min_temp' => 'required|integer|required_with:max_temp',
             'max_temp' => 'required|integer|gte:min_temp|required_with:min_temp',
-            'developement_total' => 'required|numeric',
+            'development_total' => 'required|numeric|min:0',
         ];
     }
 
