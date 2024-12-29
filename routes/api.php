@@ -40,6 +40,8 @@ use App\Http\Controllers\Api\V1\User\Management\TreatmentController;
 use App\Http\Controllers\Api\V1\User\Farm\WeatherForecastController;
 use App\Http\Controllers\Api\V1\Admin\SliderController;
 use App\Http\Controllers\Api\V1\User\DashboardController;
+use App\Http\Controllers\Api\V1\Root\RoleController;
+use App\Http\Controllers\Api\V1\Root\PermissionController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -65,6 +67,10 @@ Route::controller(AuthController::class)->prefix('auth')->group(function () {
 Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(function () {
 
     Route::middleware('admin')->prefix('admin')->group(function () {
+
+        Route::apiResource('roles', RoleController::class);
+        Route::apiResource('permissions', PermissionController::class);
+
         Route::apiResource('gps_devices', GpsDeviceController::class)->except('show');
         Route::apiResource('users', UserController::class);
 
