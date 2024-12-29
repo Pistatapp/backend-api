@@ -12,6 +12,11 @@ use Illuminate\Http\JsonResponse;
 
 class RowController extends Controller
 {
+    public function __construct()
+    {
+        $this->authorizeResource(Row::class);
+    }
+
     /**
      * Display a listing of the resource.
      */

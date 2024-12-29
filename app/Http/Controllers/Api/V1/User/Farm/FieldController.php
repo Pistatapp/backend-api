@@ -128,6 +128,8 @@ class FieldController extends Controller
      */
     public function getValvesForField(Field $field)
     {
+        $this->authorize('view', $field);
+
         $valves = Valve::where('field_id', $field->id)->with('field')->get();
 
         return ValveResource::collection($valves);

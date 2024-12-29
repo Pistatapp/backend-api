@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\V1\User\Farm;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreFarmRequest;
+use App\Http\Requests\UpdateFarmRequest;
 use App\Http\Resources\FarmResource;
 use App\Models\Farm;
 use Illuminate\Http\Request;
@@ -33,21 +35,11 @@ class FarmController extends Controller
     /**
      * Create a new farm
      *
-     * @param Request $request
+     * @param StoreFarmRequest $request
      * @return \App\Http\Resources\FarmResource
      */
-    public function store(Request $request)
+    public function store(StoreFarmRequest $request)
     {
-        $request->validate([
-            'name' => 'required|string|max:255|unique:farms,name,NULL,id,user_id,' . $request->user()->id,
-            'coordinates' => 'required|array|min:3',
-            'coordinates.*' => 'required|string',
-            'center' => 'required|string|regex:/^(\-?\d+(\.\d+)?),\s*(\-?\d+(\.\d+)?)$/',
-            'zoom' => 'required|numeric|min:1',
-            'area' => 'required|numeric|min:0',
-            'crop_id' => 'required|exists:crops,id',
-        ]);
-
         $farm = Farm::create([
             'user_id' => $request->user()->id,
             'name' => $request->name,
@@ -77,22 +69,12 @@ class FarmController extends Controller
     /**
      * Update a farm
      *
-     * @param Request $request
+     * @param UpdateFarmRequest $request
      * @param \App\Models\Farm $farm
      * @return \App\Http\Resources\FarmResource
      */
-    public function update(Request $request, Farm $farm)
+    public function update(UpdateFarmRequest $request, Farm $farm)
     {
-        $request->validate([
-            'name' => 'required|string|max:255|unique:farms,name,' . $farm->id . ',id,user_id,' . $request->user()->id,
-            'coordinates' => 'required|array|min:3',
-            'coordinates.*' => 'required|string',
-            'center' => 'required|regex:/^(\-?\d+(\.\d+)?),\s*(\-?\d+(\.\d+)?)$/',
-            'zoom' => 'required|numeric|min:1',
-            'area' => 'required|numeric|min:0',
-            'crop_id' => 'required|exists:crops,id',
-        ]);
-
         $farm->update([
             'name' => $request->name,
             'coordinates' => $request->coordinates,

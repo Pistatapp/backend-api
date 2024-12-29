@@ -2,26 +2,26 @@
 
 namespace App\Policies;
 
-use App\Models\Field;
+use App\Models\Row;
 use App\Models\User;
 use Illuminate\Auth\Access\Response;
 
-class FieldPolicy
+class RowPolicy
 {
     /**
      * Determine whether the user can view any models.
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasFarm();
+        return true;
     }
 
     /**
      * Determine whether the user can view the model.
      */
-    public function view(User $user, Field $field): bool
+    public function view(User $user, Row $row): bool
     {
-        return $field->farm->user->is($user);
+        return $row->field->farm->user->is($user);
     }
 
     /**
@@ -33,18 +33,10 @@ class FieldPolicy
     }
 
     /**
-     * Determine whether the user can update the model.
-     */
-    public function update(User $user, Field $field): bool
-    {
-        return $field->farm->user->is($user);
-    }
-
-    /**
      * Determine whether the user can delete the model.
      */
-    public function delete(User $user, Field $field): bool
+    public function delete(User $user, Row $row): bool
     {
-        return $field->farm->user->is($user);
+        return $row->field->farm->user->is($user);
     }
 }
