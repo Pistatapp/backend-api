@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
+use Carbon\Carbon;
 
 class WeatherApi
 {
@@ -50,19 +51,39 @@ class WeatherApi
     }
 
     /**
-     * Get the forecast weather for the location.
+     * Get the historical weather for the location.
      *
      * @param string $location
-     * @param int $days
+     * @param string $startDt
+     * @param string|null $endDt
      * @return array
      */
     public function history(string $location, string $startDt, string $endDt = null): array
     {
-        return $this->fetchWeatherData('history.json', [
+        $start = Carbon::parse($startDt);
+        $end = $endDt ? Carbon::parse($endDt) : Carbon::now();
+        $allData = [];
+
+        while ($start->diffInDays($end) > 31) {
+            $nextEnd = $start->copy()->addDays(31);
+            $data = $this->fetchWeatherData('history.json', [
+                'q' => $location,
+                'dt' => $start->format('Y-m-d'),
+                'end_dt' => $nextEnd->format('Y-m-d'),
+            ]);
+            $allData = array_merge_recursive($allData, $data);
+            $start = $nextEnd->copy()->addDay();
+        }
+
+        $data = $this->fetchWeatherData('history.json', [
             'q' => $location,
-            'dt' => $startDt,
-            'end_dt' => $endDt,
+            'dt' => $start->format('Y-m-d'),
+            'end_dt' => $end->format('Y-m-d'),
         ]);
+
+        $allData = array_merge_recursive($allData, $data);
+
+        return $allData;
     }
 
     /**

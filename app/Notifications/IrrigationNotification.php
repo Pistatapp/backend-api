@@ -22,7 +22,7 @@ class IrrigationNotification extends Notification implements ShouldQueue
      */
     public function via($notifiable)
     {
-        return ['firebase'];
+        return ['firebase', 'database'];
     }
 
     /**
@@ -41,6 +41,20 @@ class IrrigationNotification extends Notification implements ShouldQueue
                 'title' => __('Irrigation Notification'),
                 'body' => $this->getBodyMessage(),
             ]);
+    }
+
+    /**
+     * Get the database representation of the notification.
+     *
+     * @param object $notifiable
+     * @return array
+     */
+    public function toDatabase($notifiable): array
+    {
+        return [
+            'title' => __('Irrigation Notification'),
+            'body' => $this->getBodyMessage(),
+        ];
     }
 
 

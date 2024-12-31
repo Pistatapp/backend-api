@@ -42,6 +42,7 @@ use App\Http\Controllers\Api\V1\Admin\SliderController;
 use App\Http\Controllers\Api\V1\User\DashboardController;
 use App\Http\Controllers\Api\V1\Root\RoleController;
 use App\Http\Controllers\Api\V1\Root\PermissionController;
+use App\Http\Controllers\Api\V1\User\NotificationController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -172,6 +173,12 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::post('/farms/{farm}/weather_forecast', WeatherForecastController::class);
 
     Route::get('/farms/{farm}/dashboard/widgets', [DashboardController::class, 'dashboardWidgets']);
+
+    Route::controller(NotificationController::class)->prefix('notifications')->group(function () {
+        Route::get('/', 'index');
+        Route::post('/{id}/mark_as_read', 'markAsRead');
+        Route::post('/mark_all_as_read', 'markAllAsRead');
+    });
 });
 
 Route::post('/gps/reports', [GpsReportController::class, 'store']);

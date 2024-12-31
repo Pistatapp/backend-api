@@ -38,7 +38,7 @@ class VolkOilSprayNotification extends Notification implements ShouldQueue
     public function toArray(object $notifiable): array
     {
         return [
-            'message' => 'Cold requirement not met for Volk Oil Spray. Calculated: ' . $this->calculatedColdRequirement,
+            'message' => __('Cold requirement not met for Volk Oil Spray. Calculated: ' . $this->calculatedColdRequirement),
             'volk_oil_spray_id' => $this->volkOilSpray->id,
         ];
     }
