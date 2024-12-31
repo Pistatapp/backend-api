@@ -103,5 +103,7 @@
         "admin": "ادمین",
         "user": "کاربر",
         "advisor": "مشاور"
-    }
+    },
+    "Notification marked as read.": "اعلان به عنوان خوانده شده علامت گذاری شد.",
+    "All notifications marked as read.": "همه اعلان‌ها به عنوان خوانده شده علامت گذاری شدند."
 }

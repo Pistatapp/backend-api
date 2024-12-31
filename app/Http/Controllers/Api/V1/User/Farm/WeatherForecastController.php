@@ -63,6 +63,7 @@ class WeatherForecastController extends Controller
             return [
                 'date' => jdate($day['date'])->format('Y/m/d'),
                 'mintemp_c' => number_format($day['day']['mintemp_c'], 2),
+                'avgtemp_c' => number_format($day['day']['avgtemp_c'], 2),
                 'maxtemp_c' => number_format($day['day']['maxtemp_c'], 2),
                 'condition' => $day['day']['condition']['text'],
                 'icon' => $day['day']['condition']['icon'],
@@ -86,7 +87,7 @@ class WeatherForecastController extends Controller
 
         return [
             'last_updated' => jdate($weatherData['current']['last_updated'])->format('Y/m/d H:i:s'),
-            'tempc' => number_format($weatherData['current']['temp_c'], 2),
+            'temp_c' => number_format($weatherData['current']['temp_c'], 2),
             'condition' => $weatherData['current']['condition']['text'],
             'icon' => $weatherData['current']['condition']['icon'],
             'wind_kph' => number_format($weatherData['current']['wind_kph'], 2),
@@ -113,6 +114,7 @@ class WeatherForecastController extends Controller
             return [
                 'date' => jdate($day['date'])->format('Y/m/d'),
                 'mintemp_c' => number_format($day['day']['mintemp_c'], 2),
+                'avgtemp_c' => number_format($day['day']['avgtemp_c'], 2),
                 'maxtemp_c' => number_format($day['day']['maxtemp_c'], 2),
                 'condition' => $day['day']['condition']['text'],
                 'icon' => $day['day']['condition']['icon'],

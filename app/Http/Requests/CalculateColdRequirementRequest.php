@@ -23,8 +23,17 @@ class CalculateColdRequirementRequest extends FormRequest
     {
         return [
             'method' => 'required|string|in:method1,method2',
-            'start_dt' => 'required|date',
-            'end_dt' => 'required|date',
+            'start_dt' => [
+                'required',
+                'date',
+                'before:now',
+                'after_or_equal:' . now()->subDays(300)->format('Y-m-d')
+            ],
+            'end_dt' => [
+                'required',
+                'date',
+                'before:now'
+            ],
             'crop_type_id' => 'required|exists:crop_types,id',
             'min_temp' => 'nullable|integer|required_with:max_temp',
             'max_temp' => 'nullable|integer|gte:min_temp|required_with:min_temp',
@@ -37,8 +46,8 @@ class CalculateColdRequirementRequest extends FormRequest
     protected function prepareForValidation()
     {
         $this->merge([
-            'start_dt' => jalali_to_carbon($this->start_dt)->format('Y-m-d'),
-            'end_dt' => jalali_to_carbon($this->end_dt)->format('Y-m-d'),
+            'start_dt' => $this->start_dt ? jalali_to_carbon($this->start_dt)->format('Y-m-d') : null,
+            'end_dt' => $this->end_dt ? jalali_to_carbon($this->end_dt)->format('Y-m-d') : null,
         ]);
     }
 }
