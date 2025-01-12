@@ -13,6 +13,7 @@
         "laravel/reverb": "@beta",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.8",
+        "laravelcm/laravel-subscriptions": "^1.4",
         "morilog/jalali": "3.*",
         "nunomaduro/collision": "^8.1",
         "phpoffice/phpspreadsheet": "^3.6",

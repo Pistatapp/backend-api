@@ -15,7 +15,9 @@ class PermissionSeeder extends Seeder
     {
         $permissions = file_get_contents(storage_path('app/json/permissions.json'));
 
-        $permissions = json_decode($permissions, true);
+        $permissions = json_decode($permissions, true)['permissions'];
+
+        $permissions = array_keys($permissions);
 
         foreach ($permissions as $permission) {
             Permission::firstOrCreate(['name' => $permission]);
