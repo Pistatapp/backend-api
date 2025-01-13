@@ -127,3 +127,13 @@ function getModel(string $model_type, string $model_id)
     $model_type = getModelClass($model_type);
     return app($model_type)->findOrFail($model_id);
 }
+
+/**
+ * Get the Zarinpal service
+ *
+ * @return \App\Services\Zarinpal\Zarinpal
+ */
+function zarinpal()
+{
+    return app('zarinpal');
+}

@@ -40,4 +40,8 @@ return [
         'key' => env('FCM_SERVER_KEY'),
     ],
 
+    'zarinpal' => [
+        'merchant_id' => env('ZARINPAL_MERCHANT_ID'),
+    ],
+
 ];
