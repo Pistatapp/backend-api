@@ -2435,16 +2435,16 @@
         },
         {
             "name": "laravelcm/laravel-subscriptions",
-            "version": "v1.4",
+            "version": "v1.4.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/laravelcm/laravel-subscriptions.git",
-                "reference": "e536a3e934f3d3b43b8de4d6cd75fc284f2b086e"
+                "reference": "542dfe773fe7d6d5ba61c936316ea0f9d18ce417"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/laravelcm/laravel-subscriptions/zipball/e536a3e934f3d3b43b8de4d6cd75fc284f2b086e",
-                "reference": "e536a3e934f3d3b43b8de4d6cd75fc284f2b086e",
+                "url": "https://api.github.com/repos/laravelcm/laravel-subscriptions/zipball/542dfe773fe7d6d5ba61c936316ea0f9d18ce417",
+                "reference": "542dfe773fe7d6d5ba61c936316ea0f9d18ce417",
                 "shasum": ""
             },
             "require": {
@@ -2516,7 +2516,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2024-12-03T05:54:57+00:00"
+            "time": "2025-01-07T12:40:57+00:00"
         },
         {
             "name": "league/commonmark",

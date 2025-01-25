@@ -6,14 +6,13 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
-use Laravelcm\Subscriptions\Traits\HasPlanSubscriptions;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use Spatie\Permission\Traits\HasPermissions;
 
 class User extends Authenticatable implements HasMedia
 {
-    use HasApiTokens, HasFactory, Notifiable, InteractsWithMedia, HasPermissions, HasPlanSubscriptions;
+    use HasApiTokens, HasFactory, Notifiable, InteractsWithMedia, HasPermissions;
 
     /**
      * The attributes that are mass assignable.
@@ -28,6 +27,7 @@ class User extends Authenticatable implements HasMedia
         'avatar',
         'is_admin',
         'fcm_token',
+        'created_by',
     ];
 
     /**
@@ -50,6 +50,7 @@ class User extends Authenticatable implements HasMedia
             'mobile_verified_at' => 'datetime',
             'last_activity_at' => 'datetime',
             'is_admin' => 'boolean',
+            'created_by' => 'integer',
         ];
     }
 
@@ -61,6 +62,16 @@ class User extends Authenticatable implements HasMedia
     public function routeNotificationForKavenegar($driver, $notification = null)
     {
         return $this->mobile;
+    }
+
+    /**
+     * Get the user that created the user.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
+    public function createdBy()
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     /**
@@ -76,11 +87,14 @@ class User extends Authenticatable implements HasMedia
     /**
      * Get the user's farms.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
      */
     public function farms()
     {
-        return $this->hasMany(Farm::class);
+        return $this->belongsToMany(Farm::class)
+            ->using(FarmUser::class)
+            ->withPivot('is_owner', 'role')
+            ->withTimestamps();
     }
 
     /**

@@ -41,6 +41,15 @@ class Farm extends Model
     }
 
     /**
+     * The attributes that should have default values.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'is_working_environment' => false,
+    ];
+
+    /**
      * Get the crop that owns the farm.
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
@@ -58,6 +67,19 @@ class Farm extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * The users that belong to the farm.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
+     */
+    public function users()
+    {
+        return $this->belongsToMany(User::class)
+            ->using(FarmUser::class)
+            ->withPivot('is_owner', 'role')
+            ->withTimestamps();
     }
 
     /**
@@ -251,18 +273,17 @@ class Farm extends Model
     }
 
     /**
-     * Change the working environment of the farm.
+     * Set this farm as working environment
      *
-     * @param Farm $farm
      * @return void
      */
-    public function changeWorkingEnvironment($farm)
+    public function setAsWorkingEnvironment()
     {
-        $farm->update(['is_working_environment' => true]);
+        $this->update(['is_working_environment' => true]);
 
         // Set other farms to false
-        Farm::where('user_id', $farm->user_id)
-            ->where('id', '!=', $farm->id)
+        Farm::where('user_id', $this->user_id)
+            ->where('id', '!=', $this->id)
             ->update(['is_working_environment' => false]);
     }
 }

@@ -8,7 +8,6 @@ use App\Http\Requests\UpdateFarmRequest;
 use App\Http\Resources\FarmResource;
 use App\Models\Farm;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\JsonResponse;
 
 class FarmController extends Controller
@@ -23,9 +22,9 @@ class FarmController extends Controller
      * Get all farms for the user
      * @return \Illuminate\Http\JsonResponse
      */
-    public function index()
+    public function index(Request $request)
     {
-        $farms = Farm::where('user_id', Auth::id())
+        $farms = $request->user()->farms()
             ->withCount(['trees', 'fields', 'labours', 'trucktors', 'plans'])
             ->get();
 
@@ -48,7 +47,11 @@ class FarmController extends Controller
             'zoom' => $request->zoom,
             'area' => $request->area,
             'crop_id' => $request->crop_id,
-            'is_working_environment' => Farm::where('user_id', $request->user()->id)->count() === 0,
+        ]);
+
+        $request->user()->farms()->attach($farm, [
+            'is_owner' => !$request->user()->created_by,
+            'role' => 'admin'
         ]);
 
         return new FarmResource($farm);
@@ -107,7 +110,7 @@ class FarmController extends Controller
      */
     public function setWorkingEnvironment(Farm $farm)
     {
-        $farm->changeWorkingEnvironment($farm);
+        $farm->setAsWorkingEnvironment();
 
         return new FarmResource($farm);
     }

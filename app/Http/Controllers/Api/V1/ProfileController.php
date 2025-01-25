@@ -46,7 +46,7 @@ class ProfileController extends Controller
             $request->user()->addMediaFromRequest('photo')->toMediaCollection('photo');
         }
 
-        return response()->json([], JsonResponse::HTTP_OK);
+        return new ProfileResource($profile->load('user'));
     }
 
     /**
