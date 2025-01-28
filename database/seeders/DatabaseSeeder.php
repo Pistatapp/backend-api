@@ -40,7 +40,7 @@ class DatabaseSeeder extends Seeder
 
         $this->call([
             RolePermissionSeeder::class,
-            PlanFeatureSeeder::class,
+            // PlanFeatureSeeder::class,
         ]);
     }
 }

@@ -139,8 +139,6 @@ class AuthController extends Controller
 
         $request->session()->regenerate();
 
-        $user->load('permissions');
-
         return new AuthenticatedUserResource($user);
     }
 
@@ -158,8 +156,6 @@ class AuthController extends Controller
 
         $user = $request->user();
 
-        $user->load('permissions');
-
         $user->update([
             'fcm_token' => $request->fcm_token,
         ]);
@@ -168,7 +164,7 @@ class AuthController extends Controller
 
         return response()->json([
             'token' => $user->createToken('mobile', expiresAt: now()->addDay())->plainTextToken,
-            'permissions' => $user->permissions,
+            'permissions' => $user->getAllPermissions()->pluck('name'),
         ]);
     }
 
