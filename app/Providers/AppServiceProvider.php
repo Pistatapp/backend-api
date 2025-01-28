@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\Gate;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -34,5 +35,9 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind('zarinpal', fn($app) => $app->make(Zarinpal::class));
 
         Event::subscribe(IrrigationEventSubscriber::class);
+
+        Gate::before(function ($user, $ability) {
+            return $user->hasRole('root') ? true : null;
+        });
     }
 }

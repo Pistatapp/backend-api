@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api\V1\Admin;
+namespace App\Http\Controllers\Api\V1\Root;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\UserResource;
@@ -20,7 +20,7 @@ class UserController extends Controller
      */
     public function index()
     {
-        $users = User::notAdmin()->withCount('gpsDevices');
+        $users = User::role('admin')->withCount('gpsDevices');
 
         if (request()->query('without_pagination')) {
             return UserResource::collection($users->get());
@@ -41,6 +41,8 @@ class UserController extends Controller
         ]);
 
         $user = User::create($request->only('mobile'));
+
+        $user->assignRole('admin');
 
         $user->profile()->create($request->only('first_name', 'last_name'));
 

@@ -13,7 +13,7 @@ class FarmPolicy
      */
     public function viewAny(User $user): bool
     {
-        return true;
+        return $user->can('view-farms');
     }
 
     /**
@@ -21,7 +21,7 @@ class FarmPolicy
      */
     public function view(User $user, Farm $farm): bool
     {
-        return $farm->user->is($user);
+        return $farm->users->contains($user) && $user->can('view-farm-details');
     }
 
     /**
@@ -29,7 +29,7 @@ class FarmPolicy
      */
     public function create(User $user): bool
     {
-        return true;
+        return $user->can('create-farm');
     }
 
     /**
@@ -37,7 +37,7 @@ class FarmPolicy
      */
     public function update(User $user, Farm $farm): bool
     {
-        return $farm->user->is($user);
+        return $farm->users->contains($user) && $user->can('edit-farm');
     }
 
     /**
@@ -45,6 +45,14 @@ class FarmPolicy
      */
     public function delete(User $user, Farm $farm): bool
     {
-        return $farm->user->is($user);
+        return $farm->users->contains($user) && $user->can('delete-farm');
+    }
+
+    /**
+     * Determine whether the user can set the farm as working environment.
+     */
+    public function setWorkingEnvironment(User $user, Farm $farm): bool
+    {
+        return $farm->users->contains($user);
     }
 }

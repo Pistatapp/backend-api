@@ -139,6 +139,8 @@ class AuthController extends Controller
 
         $request->session()->regenerate();
 
+        $user->load('permissions');
+
         return new AuthenticatedUserResource($user);
     }
 

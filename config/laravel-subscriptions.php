@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use Laravelcm\Subscriptions\Models\Feature;
-use Laravelcm\Subscriptions\Models\Plan;
+use App\Models\Feature;
+use App\Models\Plan;
 use Laravelcm\Subscriptions\Models\Subscription;
 use Laravelcm\Subscriptions\Models\SubscriptionUsage;
 

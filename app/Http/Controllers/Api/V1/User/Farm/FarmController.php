@@ -110,6 +110,8 @@ class FarmController extends Controller
      */
     public function setWorkingEnvironment(Farm $farm)
     {
+        $this->authorize('setWorkingEnvironment', $farm);
+
         $farm->setAsWorkingEnvironment();
 
         return new FarmResource($farm);

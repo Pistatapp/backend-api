@@ -69,5 +69,8 @@ class Kernel extends HttpKernel
         'last.activity' => \App\Http\Middleware\LastActivity::class,
         'admin' => \App\Http\Middleware\Admin::class,
         'ensure.username' => \App\Http\Middleware\EnsureUserHasUsername::class,
+        'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
+        'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
+        'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
     ];
 }

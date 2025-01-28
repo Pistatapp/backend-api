@@ -1,8 +1,8 @@
 <?php
 
 use App\Http\Controllers\Api\Auth\AuthController;
-use App\Http\Controllers\Api\V1\Admin\CropController;
-use App\Http\Controllers\Api\V1\Admin\CropTypeController;
+use App\Http\Controllers\Api\V1\Root\CropController;
+use App\Http\Controllers\Api\V1\Root\CropTypeController;
 use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\User\Farm\FarmController;
 use App\Http\Controllers\Api\V1\User\Farm\FieldController;
@@ -21,10 +21,10 @@ use App\Http\Controllers\Api\V1\User\Management\OprationController;
 use App\Http\Controllers\Api\V1\User\Trucktor\TrucktorTaskController;
 use App\Http\Controllers\Api\V1\User\Farm\IrrigationController;
 use App\Http\Controllers\Api\V1\User\Trucktor\TrucktorReportController;
-use App\Http\Controllers\Api\V1\Admin\UserController;
-use App\Http\Controllers\Api\V1\Admin\GpsDeviceController;
-use App\Http\Controllers\Api\V1\Admin\PestController;
-use App\Http\Controllers\Api\V1\Admin\PhonologyGuideFileController;
+use App\Http\Controllers\Api\V1\Root\UserController;
+use App\Http\Controllers\Api\V1\Root\GpsDeviceController;
+use App\Http\Controllers\Api\V1\Root\PestController;
+use App\Http\Controllers\Api\V1\Root\PhonologyGuideFileController;
 use App\Http\Controllers\Api\V1\User\Farm\ColdRequirementController;
 use App\Http\Controllers\Api\V1\User\Farm\VolkOilSprayController;
 use App\Http\Controllers\Api\V1\User\Trucktor\ActiveTrucktorController;
@@ -33,16 +33,16 @@ use App\Http\Controllers\Api\V1\User\MaintenanceReportController;
 use App\Http\Controllers\Api\V1\User\Farm\FarmReportsController;
 use App\Http\Controllers\Api\V1\User\Farm\FrostbiteCalculationController;
 use App\Http\Controllers\Api\V1\User\Farm\Phonology\DayDegreeCalculationController;
-use App\Http\Controllers\Api\V1\Admin\LoadEstimationController;
+use App\Http\Controllers\Api\V1\Root\LoadEstimationController;
 use App\Http\Controllers\Api\V1\User\Farm\BlightCalculationController;
 use App\Http\Controllers\Api\V1\User\Farm\FarmPlanController;
 use App\Http\Controllers\Api\V1\User\Management\TreatmentController;
 use App\Http\Controllers\Api\V1\User\Farm\WeatherForecastController;
-use App\Http\Controllers\Api\V1\Admin\SliderController;
+use App\Http\Controllers\Api\V1\Root\SliderController;
 use App\Http\Controllers\Api\V1\User\DashboardController;
-use App\Http\Controllers\Api\V1\Root\RoleController;
-use App\Http\Controllers\Api\V1\Root\PermissionController;
 use App\Http\Controllers\Api\V1\User\NotificationController;
+use App\Http\Controllers\Api\V1\Root\PlanController;
+use App\Http\Controllers\Api\V1\Root\FeatureController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -67,16 +67,13 @@ Route::controller(AuthController::class)->prefix('auth')->group(function () {
 
 Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(function () {
 
-    Route::middleware('admin')->prefix('admin')->group(function () {
-
-        Route::apiResource('roles', RoleController::class);
-        Route::apiResource('permissions', PermissionController::class);
+    Route::middleware('role:root')->group(function () {
 
         Route::apiResource('gps_devices', GpsDeviceController::class)->except('show');
         Route::apiResource('users', UserController::class);
 
         Route::controller(CropController::class)->prefix('crops')->group(function () {
-            Route::withoutMiddleware('admin')->group(function () {
+            Route::withoutMiddleware('role:root')->group(function () {
                 Route::get('/', 'index');
                 Route::get('/{crop}', 'show');
             });
@@ -100,7 +97,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
 
         Route::controller(PhonologyGuideFileController::class)
             ->prefix('phonology/guide_files/{model_type}/{model_id}')->group(function () {
-                Route::withoutMiddleware('admin')->group(function () {
+                Route::withoutMiddleware('role:root')->group(function () {
                     Route::get('/', 'index');
                 });
                 Route::post('/', 'store');
@@ -110,13 +107,25 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
         Route::apiSingleton('crop_types.load_estimation', LoadEstimationController::class);
 
         Route::controller(SliderController::class)->prefix('sliders')->group(function () {
-            Route::withoutMiddleware('admin')->group(function () {
+            Route::withoutMiddleware('role:root')->group(function () {
                 Route::get('/', 'index');
             });
             Route::post('/', 'store');
             Route::put('/{slider}', 'update');
             Route::delete('/{slider}', 'destroy');
         });
+
+        Route::controller(PlanController::class)->prefix('plans')->group(function () {
+            Route::withoutMiddleware('role:root')->middleware('can:upgrade-user-level')->group(function () {
+                Route::get('/', 'index');
+                Route::get('/{plan}', 'show');
+            });
+            Route::post('/', 'store');
+            Route::put('/{plan}', 'update');
+            Route::delete('/{plan}', 'destroy');
+        });
+
+        Route::apiResource('plans.features', FeatureController::class)->shallow();
     });
 
     Route::withoutMiddleware('ensure.username')->group(function () {

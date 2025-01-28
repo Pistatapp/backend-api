@@ -8,11 +8,11 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
-use Spatie\Permission\Traits\HasPermissions;
+use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable implements HasMedia
 {
-    use HasApiTokens, HasFactory, Notifiable, InteractsWithMedia, HasPermissions;
+    use HasApiTokens, HasFactory, Notifiable, InteractsWithMedia, HasRoles;
 
     /**
      * The attributes that are mass assignable.
@@ -93,8 +93,7 @@ class User extends Authenticatable implements HasMedia
     {
         return $this->belongsToMany(Farm::class)
             ->using(FarmUser::class)
-            ->withPivot('is_owner', 'role')
-            ->withTimestamps();
+            ->withPivot('is_owner', 'role');
     }
 
     /**

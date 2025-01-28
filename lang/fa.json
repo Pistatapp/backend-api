@@ -105,5 +105,8 @@
     "user": "کاربر",
     "advisor": "مشاور",
     "inspector": "بازرس",
-    "viewer": "مشاهده‌گر"
+    "viewer": "مشاهده‌گر",
+    "basic": "پایه",
+    "professional": "پیشرفته",
+    "enterprise": "سازمانی"
 }
