@@ -20,7 +20,7 @@ class UserController extends Controller
      */
     public function index()
     {
-        $users = User::role('admin')->withCount('gpsDevices');
+        $users = User::role(['super-admin', 'admin'])->withCount('gpsDevices');
 
         if (request()->query('without_pagination')) {
             return UserResource::collection($users->get());

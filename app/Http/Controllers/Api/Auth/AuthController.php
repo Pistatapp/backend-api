@@ -158,6 +158,8 @@ class AuthController extends Controller
 
         $user = $request->user();
 
+        $user->load('permissions');
+
         $user->update([
             'fcm_token' => $request->fcm_token,
         ]);
@@ -166,7 +168,7 @@ class AuthController extends Controller
 
         return response()->json([
             'token' => $user->createToken('mobile', expiresAt: now()->addDay())->plainTextToken,
-            'fcm_token' => $user->fcm_token,
+            'permissions' => $user->permissions,
         ]);
     }
 
