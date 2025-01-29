@@ -133,6 +133,8 @@ class AuthController extends Controller
 
                 $user->profile()->create();
             }
+
+            $user->assignRole('admin');
         });
 
         $this->guard()->login($user);

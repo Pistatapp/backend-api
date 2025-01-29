@@ -22,7 +22,7 @@ class AuthenticatedUserResource extends JsonResource
             'photo' => $this->getFirstMediaUrl('photo'),
             'token' => $this->createToken('mobile', expiresAt: now()->addDay())->plainTextToken,
             'new_user' => $this->wasChanged('mobile_verified_at'),
-            'role' => $this->getRoleNames(),
+            'role' => $this->roles->pluck('name')->first(),
             'permissions' => $this->getAllPermissions()->pluck('name'),
         ];
     }

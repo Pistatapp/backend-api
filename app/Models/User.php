@@ -69,7 +69,7 @@ class User extends Authenticatable implements HasMedia
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
-    public function createdBy()
+    public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
     }

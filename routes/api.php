@@ -1,48 +1,49 @@
 <?php
 
 use App\Http\Controllers\Api\Auth\AuthController;
-use App\Http\Controllers\Api\V1\Root\CropController;
-use App\Http\Controllers\Api\V1\Root\CropTypeController;
+use App\Http\Controllers\Api\V1\CropController;
+use App\Http\Controllers\Api\V1\CropTypeController;
 use App\Http\Controllers\Api\V1\ProfileController;
-use App\Http\Controllers\Api\V1\User\Farm\FarmController;
-use App\Http\Controllers\Api\V1\User\Farm\FieldController;
-use App\Http\Controllers\Api\V1\User\Farm\RowController;
-use App\Http\Controllers\Api\V1\User\Farm\TreeController;
-use App\Http\Controllers\Api\V1\User\Farm\BlockController;
-use App\Http\Controllers\Api\V1\User\Farm\PumpController;
-use App\Http\Controllers\Api\V1\User\Farm\ValveController;
-use App\Http\Controllers\Api\V1\User\Management\TeamController;
-use App\Http\Controllers\Api\V1\User\Trucktor\DriverController;
-use App\Http\Controllers\Api\V1\User\Trucktor\GpsReportController;
-use App\Http\Controllers\Api\V1\User\Trucktor\TrucktorController;
-use App\Http\Controllers\Api\V1\User\Management\LabourController;
-use App\Http\Controllers\Api\V1\User\Farm\AttachmentController;
-use App\Http\Controllers\Api\V1\User\Management\OprationController;
-use App\Http\Controllers\Api\V1\User\Trucktor\TrucktorTaskController;
-use App\Http\Controllers\Api\V1\User\Farm\IrrigationController;
-use App\Http\Controllers\Api\V1\User\Trucktor\TrucktorReportController;
-use App\Http\Controllers\Api\V1\Root\UserController;
-use App\Http\Controllers\Api\V1\Root\GpsDeviceController;
-use App\Http\Controllers\Api\V1\Root\PestController;
-use App\Http\Controllers\Api\V1\Root\PhonologyGuideFileController;
-use App\Http\Controllers\Api\V1\User\Farm\ColdRequirementController;
-use App\Http\Controllers\Api\V1\User\Farm\VolkOilSprayController;
-use App\Http\Controllers\Api\V1\User\Trucktor\ActiveTrucktorController;
-use App\Http\Controllers\Api\V1\User\Management\MaintenanceController;
-use App\Http\Controllers\Api\V1\User\MaintenanceReportController;
-use App\Http\Controllers\Api\V1\User\Farm\FarmReportsController;
-use App\Http\Controllers\Api\V1\User\Farm\FrostbiteCalculationController;
-use App\Http\Controllers\Api\V1\User\Farm\Phonology\DayDegreeCalculationController;
-use App\Http\Controllers\Api\V1\Root\LoadEstimationController;
-use App\Http\Controllers\Api\V1\User\Farm\BlightCalculationController;
-use App\Http\Controllers\Api\V1\User\Farm\FarmPlanController;
-use App\Http\Controllers\Api\V1\User\Management\TreatmentController;
-use App\Http\Controllers\Api\V1\User\Farm\WeatherForecastController;
-use App\Http\Controllers\Api\V1\Root\SliderController;
-use App\Http\Controllers\Api\V1\User\DashboardController;
-use App\Http\Controllers\Api\V1\User\NotificationController;
-use App\Http\Controllers\Api\V1\Root\PlanController;
-use App\Http\Controllers\Api\V1\Root\FeatureController;
+use App\Http\Controllers\Api\V1\Farm\FarmController;
+use App\Http\Controllers\Api\V1\Farm\FieldController;
+use App\Http\Controllers\Api\V1\Farm\RowController;
+use App\Http\Controllers\Api\V1\Farm\TreeController;
+use App\Http\Controllers\Api\V1\Farm\BlockController;
+use App\Http\Controllers\Api\V1\Farm\PumpController;
+use App\Http\Controllers\Api\V1\Farm\ValveController;
+use App\Http\Controllers\Api\V1\Management\TeamController;
+use App\Http\Controllers\Api\V1\Trucktor\DriverController;
+use App\Http\Controllers\Api\V1\Trucktor\GpsReportController;
+use App\Http\Controllers\Api\V1\Trucktor\TrucktorController;
+use App\Http\Controllers\Api\V1\Management\LabourController;
+use App\Http\Controllers\Api\V1\Farm\AttachmentController;
+use App\Http\Controllers\Api\V1\Management\OprationController;
+use App\Http\Controllers\Api\V1\Trucktor\TrucktorTaskController;
+use App\Http\Controllers\Api\V1\Farm\IrrigationController;
+use App\Http\Controllers\Api\V1\Trucktor\TrucktorReportController;
+use App\Http\Controllers\Api\V1\UserController;
+use App\Http\Controllers\Api\V1\GpsDeviceController;
+use App\Http\Controllers\Api\V1\PestController;
+use App\Http\Controllers\Api\V1\PhonologyGuideFileController;
+use App\Http\Controllers\Api\V1\Farm\ColdRequirementController;
+use App\Http\Controllers\Api\V1\Farm\VolkOilSprayController;
+use App\Http\Controllers\Api\V1\Trucktor\ActiveTrucktorController;
+use App\Http\Controllers\Api\V1\Management\MaintenanceController;
+use App\Http\Controllers\Api\V1\MaintenanceReportController;
+use App\Http\Controllers\Api\V1\Farm\FarmReportsController;
+use App\Http\Controllers\Api\V1\Farm\FrostbiteCalculationController;
+use App\Http\Controllers\Api\V1\Farm\DayDegreeCalculationController;
+use App\Http\Controllers\Api\V1\LoadEstimationController;
+use App\Http\Controllers\Api\V1\Farm\BlightCalculationController;
+use App\Http\Controllers\Api\V1\Farm\FarmPlanController;
+use App\Http\Controllers\Api\V1\Management\TreatmentController;
+use App\Http\Controllers\Api\V1\Farm\WeatherForecastController;
+use App\Http\Controllers\Api\V1\SliderController;
+use App\Http\Controllers\Api\V1\DashboardController;
+use App\Http\Controllers\Api\V1\NotificationController;
+use App\Http\Controllers\Api\V1\PlanController;
+use App\Http\Controllers\Api\V1\FeatureController;
+use App\Http\Controllers\Api\V1\SubsetUserController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -128,10 +129,13 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
         Route::apiResource('plans.features', FeatureController::class)->shallow();
     });
 
+
     Route::withoutMiddleware('ensure.username')->group(function () {
         Route::patch('username', [ProfileController::class, 'setUsername']);
         Route::apiSingleton('profile', ProfileController::class);
     });
+
+    Route::apiResource('subset_users', SubsetUserController::class);
 
     Route::get('/farms/{farm}/set_working_environment', [FarmController::class, 'setWorkingEnvironment']);
     Route::apiResource('farms', FarmController::class);

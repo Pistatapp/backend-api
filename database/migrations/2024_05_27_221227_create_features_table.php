@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('features', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('plan_id')->constrained()->cascadeOnDelete();
+            $table->unsignedInteger('plan_id');
             $table->foreignId('timar_id')->constrained()->cascadeOnDelete();
             $table->morphs('timarable');
             $table->timestamps();
