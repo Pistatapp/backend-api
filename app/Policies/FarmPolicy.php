@@ -29,7 +29,7 @@ class FarmPolicy
      */
     public function create(User $user): bool
     {
-        return $user->can('create-farm');
+        return $user->can('draw-new-farm');
     }
 
     /**
