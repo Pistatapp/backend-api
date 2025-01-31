@@ -36,7 +36,7 @@ class DatabaseSeeder extends Seeder
         // $pump = \App\Models\Pump::factory()->for($farm)->create();
         // \App\Models\Valve::factory(5)->for($pump)->create();
 
-        \App\Models\Pest::factory(5)->create();
+        // \App\Models\Pest::factory(5)->create();
 
         $this->call([
             RolePermissionSeeder::class,
