@@ -20,12 +20,6 @@ class DatabaseSeeder extends Seeder
         //     ->has(\App\Models\CropType::factory()->count(3))
         //     ->create();
 
-        // $user = \App\Models\User::factory()
-        //     ->has(\App\Models\Profile::factory())
-        //     ->create([
-        //         'mobile' => '09369238614'
-        //     ]);
-
         // $farm = Farm::factory()->for($user)->create([
         //     'crop_id' => $crop->id,
         // ]);
@@ -38,9 +32,9 @@ class DatabaseSeeder extends Seeder
 
         // \App\Models\Pest::factory(5)->create();
 
-        $this->call([
-            RolePermissionSeeder::class,
-            // PlanFeatureSeeder::class,
-        ]);
+        // $this->call([
+        //     RolePermissionSeeder::class,
+        //     PlanFeatureSeeder::class,
+        // ]);
     }
 }

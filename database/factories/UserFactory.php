@@ -19,9 +19,20 @@ class UserFactory extends Factory
         return [
             'username' => $this->faker->unique()->userName,
             'mobile' => $this->faker->unique()->phoneNumber,
-            'mobile_verified_at' => now(),
             'last_activity_at' => now(),
             'is_admin' => false,
         ];
+    }
+
+    /**
+     * Indicate that the user's mobile number is unverified.
+     *
+     * @return \Database\Factories\UserFactory
+     */
+    public function unverified(): self
+    {
+        return $this->state(fn (array $attributes) => [
+            'mobile_verified_at' => null,
+        ]);
     }
 }

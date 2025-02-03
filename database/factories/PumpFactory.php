@@ -32,8 +32,8 @@ class PumpFactory extends Factory
             'is_active' => $this->faker->boolean,
             'is_healthy' => $this->faker->boolean,
             'location' => [
-                'latitude' => $this->faker->latitude,
-                'longitude' => $this->faker->longitude,
+                $this->faker->latitude,
+                $this->faker->longitude,
             ],
             'tempurature' => $this->faker->randomFloat(2, 0, 100),
         ];

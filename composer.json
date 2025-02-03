@@ -6,7 +6,6 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
-        "algolia/scout-extended": "^3.1",
         "google/apiclient": "^2.18",
         "guzzlehttp/guzzle": "^7.2",
         "kavenegar/laravel": "^1.3",
