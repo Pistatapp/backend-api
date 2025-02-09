@@ -49,6 +49,28 @@ class WeatherForecastController extends Controller
     }
 
     /**
+     * Get the weather details.
+     *
+     * @param array $weatherData
+     * @return array
+     */
+    private function formatWeatherData(array $weatherData)
+    {
+        return [
+            'date' => jdate($weatherData['date'])->format('Y/m/d'),
+            'mintemp_c' => number_format($weatherData['day']['mintemp_c'], 2),
+            'avgtemp_c' => number_format($weatherData['day']['avgtemp_c'], 2),
+            'maxtemp_c' => number_format($weatherData['day']['maxtemp_c'], 2),
+            'condition' => $weatherData['day']['condition']['text'],
+            'icon' => $weatherData['day']['condition']['icon'],
+            'maxwind_kph' => number_format($weatherData['day']['maxwind_kph'], 2),
+            'humidity' => number_format($weatherData['day']['avghumidity'], 2),
+            'dewpoint_c' => number_format(collect($weatherData['hour'])->avg('dewpoint_c'), 2),
+            'cloud' => number_format(collect($weatherData['hour'])->avg('cloud'), 2),
+        ];
+    }
+
+    /**
      * Get the seven day forecast.
      *
      * @param string $location
@@ -59,20 +81,7 @@ class WeatherForecastController extends Controller
         $weatherData = weather_api()->forecast($location, 14);
         $forecastDays = $weatherData['forecast']['forecastday'];
 
-        return array_map(function ($day) {
-            return [
-                'date' => jdate($day['date'])->format('Y/m/d'),
-                'mintemp_c' => number_format($day['day']['mintemp_c'], 2),
-                'avgtemp_c' => number_format($day['day']['avgtemp_c'], 2),
-                'maxtemp_c' => number_format($day['day']['maxtemp_c'], 2),
-                'condition' => $day['day']['condition']['text'],
-                'icon' => $day['day']['condition']['icon'],
-                'maxwind_kph' => number_format($day['day']['maxwind_kph'], 2),
-                'humidity' => number_format($day['day']['avghumidity'], 2),
-                'dewpoint_c' => number_format(collect($day['hour'])->avg('dewpoint_c'), 2),
-                'cloud' => number_format(collect($day['hour'])->avg('cloud'), 2),
-            ];
-        }, $forecastDays);
+        return array_map([$this, 'formatWeatherData'], $forecastDays);
     }
 
     /**
@@ -105,24 +114,11 @@ class WeatherForecastController extends Controller
      * @param string $endDt
      * @return array
      */
-    public function getHistoricalWeather(string $location, string $startDt, string $endDt)
+    private function getHistoricalWeather($location, $startDt, $endDt)
     {
         $weatherData = weather_api()->history($location, $startDt, $endDt);
         $forecastDays = $weatherData['forecast']['forecastday'];
 
-        return array_map(function ($day) {
-            return [
-                'date' => jdate($day['date'])->format('Y/m/d'),
-                'mintemp_c' => number_format($day['day']['mintemp_c'], 2),
-                'avgtemp_c' => number_format($day['day']['avgtemp_c'], 2),
-                'maxtemp_c' => number_format($day['day']['maxtemp_c'], 2),
-                'condition' => $day['day']['condition']['text'],
-                'icon' => $day['day']['condition']['icon'],
-                'maxwind_kph' => number_format($day['day']['maxwind_kph'], 2),
-                'humidity' => number_format($day['day']['avghumidity'], 2),
-                'dewpoint_c' => number_format(collect($day['hour'])->avg('dewpoint_c'), 2),
-                'cloud' => number_format(collect($day['hour'])->avg('cloud'), 2),
-            ];
-        }, $forecastDays);
+        return array_map([$this, 'formatWeatherData'], $forecastDays);
     }
 }
