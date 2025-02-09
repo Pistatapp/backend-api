@@ -50,6 +50,17 @@ class Pump extends Model implements HasMedia
     }
 
     /**
+     * Scope a query to only include active pumps.
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
+    /**
      * Get the farm that owns the pump.
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo

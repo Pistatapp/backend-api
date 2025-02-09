@@ -32,9 +32,10 @@ class DatabaseSeeder extends Seeder
 
         // \App\Models\Pest::factory(5)->create();
 
-        // $this->call([
-        //     RolePermissionSeeder::class,
-        //     PlanFeatureSeeder::class,
-        // ]);
+        $this->call([
+            RolePermissionSeeder::class,
+            FixFarmOwnerSeeder::class,
+            // PlanFeatureSeeder::class,
+        ]);
     }
 }

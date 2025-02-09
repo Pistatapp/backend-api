@@ -16,19 +16,22 @@ class DashboardController extends Controller
      */
     public function dashboardWidgets(Farm $farm)
     {
-        $weatherData = $this->getWeatherData($farm->center);
-        $workingTrucktors = $farm->trucktors()->working()->count();
-        $workingLabours = $farm->labours()->working()->count();
-        $activePumps = $farm->pumps()->where('is_active', true)->count();
+        $dashboardData = [
+            'weather_forecast' => $this->getWeatherData($farm->center),
+            'working_trucktors' => $farm->trucktors()->working()->count(),
+            'working_labours' => $farm->labours()->working()->count(),
+            'active_pumps' => $farm->pumps()->active()->count(),
+        ];
 
-        return response()->json(['date' => [
-            'weather_forecast' => $weatherData,
-            'working_trucktors' => $workingTrucktors,
-            'working_labours' => $workingLabours,
-            'active_pumps' => $activePumps,
-        ]]);
+        return response()->json(['data' => $dashboardData]);
     }
 
+    /**
+     * Get the weather data.
+     *
+     * @param string $location
+     * @return array
+     */
     private function getWeatherData($location)
     {
         $weatherData = weather_api()->current($location);
