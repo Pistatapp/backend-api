@@ -108,5 +108,6 @@
     "viewer": "مشاهده‌گر",
     "basic": "پایه",
     "professional": "پیشرفته",
-    "enterprise": "سازمانی"
+    "enterprise": "سازمانی",
+    "You do not have permission to assign this role.": "شما اجازه تخصیص این نقش را ندارید."
 }

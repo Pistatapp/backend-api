@@ -68,10 +68,11 @@ Route::controller(AuthController::class)->prefix('auth')->group(function () {
 
 Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(function () {
 
+    Route::apiResource('users', UserController::class);
+
     Route::middleware('role:root')->group(function () {
 
         Route::apiResource('gps_devices', GpsDeviceController::class)->except('show');
-        Route::apiResource('users', UserController::class);
 
         Route::controller(CropController::class)->prefix('crops')->group(function () {
             Route::withoutMiddleware('role:root')->group(function () {
@@ -86,7 +87,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
         Route::apiResource('crops.crop_types', CropTypeController::class)->except('show')->shallow();
 
         Route::controller(PestController::class)->prefix('pests')->group(function () {
-            Route::withoutMiddleware('admin')->group(function () {
+            Route::withoutMiddleware('role:root')->group(function () {
                 Route::get('/', 'index');
                 Route::get('/{pest}', 'show');
             });

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Traits\Searchable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -13,6 +14,7 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable implements HasMedia
 {
     use HasApiTokens, HasFactory, Notifiable, InteractsWithMedia, HasRoles;
+    use Searchable;
 
     /**
      * The attributes that are mass assignable.
@@ -53,6 +55,13 @@ class User extends Authenticatable implements HasMedia
             'created_by' => 'integer',
         ];
     }
+
+    /**
+     * The relationships that should always be loaded.
+     *
+     * @var array<string>
+     */
+    protected $with = ['roles'];
 
     /**
      * Get the user's mobile number.

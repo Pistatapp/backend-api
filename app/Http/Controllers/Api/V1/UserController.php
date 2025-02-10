@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreUserRequest;
+use App\Http\Requests\UpdateUserRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -18,31 +20,31 @@ class UserController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $users = User::role(['super-admin', 'admin'])->withCount('gpsDevices');
+        $query = User::query()->withoutRole('root');
 
-        if (request()->query('without_pagination')) {
-            return UserResource::collection($users->get());
+        if ($search = $request->input('search')) {
+            $query->search($search, ['mobile']);
         }
 
-        return UserResource::collection($users->simplePaginate());
+        if ($request->user()->hasAnyRole(['super-admin', 'admin'])) {
+            $query->where('created_by', $request->user()->id);
+        }
+
+        $users = $search ? $query->get() : $query->simplePaginate();
+
+        return UserResource::collection($users);
     }
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(StoreUserRequest $request)
     {
-        $request->validate([
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'mobile' => 'required|ir_mobile:zero|unique:users,mobile',
-        ]);
-
         $user = User::create($request->only('mobile'));
 
-        $user->assignRole('admin');
+        $user->assignRole($request->role);
 
         $user->profile()->create($request->only('first_name', 'last_name'));
 
@@ -60,17 +62,13 @@ class UserController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, User $user)
+    public function update(UpdateUserRequest $request, User $user)
     {
-        $request->validate([
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'mobile' => 'required|ir_mobile:zero|unique:users,mobile,' . $user->id,
-        ]);
-
         $user->update($request->only('mobile'));
 
         $user->profile->update($request->only('first_name', 'last_name'));
+
+        $user->syncRoles($request->role);
 
         return new UserResource($user->fresh());
     }

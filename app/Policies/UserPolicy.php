@@ -12,7 +12,7 @@ class UserPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->can('manage-subset-users');
+        return $user->can('manage-users');
     }
 
     /**
@@ -20,7 +20,7 @@ class UserPolicy
      */
     public function view(User $user, User $model): bool
     {
-        return $user->can('manage-subset-users') && $model->creator->is($user);
+        return $model->creator && $model->creator->is($user);
     }
 
     /**
@@ -28,7 +28,7 @@ class UserPolicy
      */
     public function create(User $user): bool
     {
-        return $user->can('manage-subset-users');
+        return $user->can('manage-users');
     }
 
     /**
@@ -36,7 +36,7 @@ class UserPolicy
      */
     public function update(User $user, User $model): bool
     {
-        return $user->can('manage-subset-users') && $model->creator->is($user);
+        return $model->creator && $model->creator->is($user);
     }
 
     /**
@@ -44,6 +44,6 @@ class UserPolicy
      */
     public function delete(User $user, User $model): bool
     {
-        return $user->can('manage-subset-users') && $model->creator->is($user);
+        return $model->creator && $model->creator->is($user);
     }
 }
