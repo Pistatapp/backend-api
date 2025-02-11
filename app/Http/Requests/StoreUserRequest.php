@@ -45,6 +45,19 @@ class StoreUserRequest extends FormRequest
                     }
                 },
             ],
+            'farms' => 'required|array|min:1',
+            'farms.*' => [
+                'required',
+                'exists:farms,id',
+                function ($attribute, $value, $fail) {
+                    $user = $this->user();
+                    $farm = \App\Models\Farm::find($value);
+
+                    if (!$farm || !$farm->users->contains($user)) {
+                        $fail(__('You do not have permission to assign access to this farm.'));
+                    }
+                },
+            ],
         ];
     }
 }

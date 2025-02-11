@@ -43,7 +43,6 @@ use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\PlanController;
 use App\Http\Controllers\Api\V1\FeatureController;
-use App\Http\Controllers\Api\V1\SubsetUserController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -67,8 +66,6 @@ Route::controller(AuthController::class)->prefix('auth')->group(function () {
 });
 
 Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(function () {
-
-    Route::apiResource('users', UserController::class);
 
     Route::middleware('role:root')->group(function () {
 
@@ -136,7 +133,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
         Route::apiSingleton('profile', ProfileController::class);
     });
 
-    Route::apiResource('subset_users', SubsetUserController::class);
+    Route::apiResource('users', UserController::class);
 
     Route::get('/farms/{farm}/set_working_environment', [FarmController::class, 'setWorkingEnvironment']);
     Route::apiResource('farms', FarmController::class);

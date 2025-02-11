@@ -42,11 +42,18 @@ class UserController extends Controller
      */
     public function store(StoreUserRequest $request)
     {
-        $user = User::create($request->only('mobile'));
+        $creator = $request->user();
+
+        $user = User::create($request->only('mobile') + ['created_by' => $creator->id]);
 
         $user->assignRole($request->role);
 
         $user->profile()->create($request->only('first_name', 'last_name'));
+
+        $user->farms()->attach($request->farms, [
+            'role' => $request->role,
+            'is_owner' => false,
+        ]);
 
         return new UserResource($user);
     }
@@ -69,6 +76,11 @@ class UserController extends Controller
         $user->profile->update($request->only('first_name', 'last_name'));
 
         $user->syncRoles($request->role);
+
+        $user->farms()->sync($request->farms, [
+            'role' => $request->role,
+            'is_owner' => false,
+        ]);
 
         return new UserResource($user->fresh());
     }
