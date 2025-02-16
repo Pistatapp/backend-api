@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Api\V1\Trucktor;
 use App\Events\ReportReceived;
 use App\Events\TrucktorStatus;
 use App\Http\Controllers\Controller;
-use App\Services\FormatDataService;
+use App\Services\ParseDataService;
 use App\Services\LiveReportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,7 +15,8 @@ use App\Models\GpsDevice;
 class GpsReportController extends Controller
 {
     public function __construct(
-        private FormatDataService $formatDataService
+        private ParseDataService $parseDataService,
+        private LiveReportService $liveReportService
     ) {
         //
     }
@@ -25,40 +26,25 @@ class GpsReportController extends Controller
      *
      * @param  \Illuminate\Http\Request  $request
      */
-    public function store(Request $request)
+    public function __invoke(Request $request)
     {
         try {
-            $data = $this->prepareData($request->getContent());
+            $data = $this->parseDataService->parse($request->getContent());
 
             $device = $this->getDevice($data[0]['imei']);
 
-            $lastReportStatus = $data[count($data) - 1]['status'];
+            $lastReportStatus = end($data)['status'];
 
             $reportService = new LiveReportService($device, $data);
-
             $generatedReport = $reportService->generate();
 
             event(new ReportReceived($generatedReport, $device));
-
             event(new TrucktorStatus($device->trucktor, $lastReportStatus));
         } catch (\Exception $e) {
             //
         } finally {
-            return new JsonResponse([], 200);
+            return new JsonResponse([]);
         }
-    }
-
-    /**
-     * Prepare the data received from the GPS device
-     *
-     * @param string $content
-     * @return array
-     */
-    private function prepareData(string $content)
-    {
-        $data = rtrim($content, ".");
-        $data = json_decode($data, true);
-        return $this->formatDataService->format($data);
     }
 
     /**
@@ -67,11 +53,13 @@ class GpsReportController extends Controller
      * @param string $imei
      * @return GPSDevice
      */
-    private function getDevice(string $imei)
+    private function getDevice(string $imei): ?GpsDevice
     {
         return Cache::remember('gps_device_' . $imei, 3600, function () use ($imei) {
-            return GpsDevice::where('imei', $imei)
-                ->whereHas('trucktor')->with('trucktor')->first();
+            return GpsDevice::with('trucktor')
+                ->where('imei', $imei)
+                ->whereHas('trucktor')
+                ->first();
         });
     }
 }

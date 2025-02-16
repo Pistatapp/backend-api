@@ -37,6 +37,11 @@ class LiveReportService
         $this->taskAreas = isset($this->currentTask) ? $this->getTaskAreas() : [];
     }
 
+    /**
+     * Generate the live report.
+     *
+     * @return array
+     */
     public function generate(): array
     {
         $this->calculateTimingAndTraveledDistance();
@@ -204,21 +209,19 @@ class LiveReportService
      */
     private function getTaskAreas()
     {
-        $fields = Cache::remember('task_fields_' . $this->currentTask->id, 60 * 60, function () {
-            return Field::whereIn('id', $this->currentTask->field_ids)->get();
+        return Cache::remember('task_fields_' . $this->currentTask->id, 60 * 60, function () {
+            return Field::whereIn('id', $this->currentTask->field_ids)
+                ->get()
+                ->map(function ($field) {
+                    return collect($field->coordinates)
+                        ->map(function ($coordinate) {
+                            [$lat, $lng] = explode(',', $coordinate);
+                            return ['lat' => $lat, 'lng' => $lng];
+                        })
+                        ->toArray();
+                })
+                ->toArray();
         });
-
-        $coordinates = [];
-
-        foreach ($fields as $field) {
-            array_push($coordinates, array_map(function ($item) {
-                $item = explode(',', $item);
-
-                return ['lat' => $item[0], 'lng' => $item[1]];
-            }, $field->coordinates));
-        }
-
-        return $coordinates;
     }
 
     /**
@@ -230,24 +233,23 @@ class LiveReportService
      */
     protected function calculateDistance($point1, $point2)
     {
-        $lat1 = $point1['latitude'];
-        $lng1 = $point1['longitude'];
+        $earthRadiusKm = 6371;
 
-        $lat2 = $point2['latitude'];
-        $lng2 = $point2['longitude'];
+        $lat1 = deg2rad($point1['latitude']);
+        $lng1 = deg2rad($point1['longitude']);
+        $lat2 = deg2rad($point2['latitude']);
+        $lng2 = deg2rad($point2['longitude']);
 
-        $deltaLat = deg2rad($lat2 - $lat1);
-        $deltaLng = deg2rad($lng2 - $lng1);
+        $deltaLat = $lat2 - $lat1;
+        $deltaLng = $lng2 - $lng1;
 
         $a = sin($deltaLat / 2) * sin($deltaLat / 2) +
-            cos(deg2rad($lat1)) * cos(deg2rad($lat2)) *
+            cos($lat1) * cos($lat2) *
             sin($deltaLng / 2) * sin($deltaLng / 2);
 
         $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
 
-        $distance = 6371 * $c; // Radius of the earth in km
-
-        return $distance;
+        return $earthRadiusKm * $c;
     }
 
     /**
@@ -260,7 +262,7 @@ class LiveReportService
     {
         $report =  $this->device->reports()->create($data);
         $this->latestStoredReport = $report;
-        Cache::put('lastest_stored_report_id_' . $this->device->id, $report->id, now()->endOfDay());
+        Cache::put('latest_stored_report_id' . $this->device->id, $report->id, now()->endOfDay());
         $this->setStartWorkingTime($report);
         $this->setEndWorkingTime($report);
     }
@@ -297,7 +299,7 @@ class LiveReportService
      */
     private function getLatestStoredReport()
     {
-        $latestStoredReportId = Cache::get('lastest_stored_report_id_' . $this->device->id);
+        $latestStoredReportId = Cache::get('latest_stored_report_id' . $this->device->id);
         return GpsReport::find($latestStoredReportId);
     }
 

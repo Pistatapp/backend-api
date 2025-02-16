@@ -4,16 +4,18 @@ namespace App\Services;
 
 use Carbon\Carbon;
 
-class FormatDataService
+class ParseDataService
 {
     /**
-     * Format the data received from the GPS device
+     * Parse the data received from the GPS device
      *
-     * @param array $data
+     * @param string $data
      * @return array
      */
-    public function format(array $data)
+    public function parse(string $data)
     {
+        $data = $this->decodeAndPrepareData($data);
+
         $formatedData = [];
 
         foreach ($data as $item) {
@@ -103,5 +105,18 @@ class FormatDataService
         $pattern = '/^\+Hooshnic:V\d+\.\d+,\d+\.\d+,\d+\.\d+,\d+,\d+,\d+,\d+,\d+,\d+,\d+$/';
 
         return preg_match($pattern, $data);
+    }
+
+    /**
+     * Decode and prepare the data received from the GPS device
+     *
+     * @param string $content
+     * @return array
+     */
+    private function decodeAndPrepareData(string $content)
+    {
+        $data = rtrim($content, ".");
+        $data = json_decode($data, true);
+        return $data;
     }
 }
