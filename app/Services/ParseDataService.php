@@ -12,41 +12,51 @@ class ParseDataService
      * @param string $data
      * @return array
      */
-    public function parse(string $data)
+    public function parse(string $data): array
     {
-        $data = $this->decodeAndPrepareData($data);
-
-        $formatedData = [];
-
-        foreach ($data as $item) {
-            if ($this->checkFormat($item['data'])) {
-                $item = explode(',', $item['data']);
-                $coordinates = $this->convertCoordinates($item[1], $item[2]);
-                $dateTime = $this->convertDateTime($item[4], $item[5]);
-
-                if (!$dateTime->isToday()) continue;
-
-                $formatedData[] = [
-                    'latitude' => $coordinates['latitude'],
-                    'longitude' => $coordinates['longitude'],
-                    'speed' => (int)$item[6],
-                    'status' => (int)$item[8],
-                    'date_time' => $dateTime,
-                    'imei' => $item[9],
-                    'is_stopped' => (int)$item[6] == 0 || (int)$item[8] == 0,
-                    'stoppage_time' => 0,
-                    'is_starting_point' => false,
-                    'is_ending_point' => false,
-                ];
-            }
-        }
+        $decodedData = $this->decodeJsonData($data);
+        $processedData = array_filter(array_map([$this, 'processDataItem'], $decodedData));
 
         // Order the data by date time
-        usort($formatedData, function ($a, $b) {
+        usort($processedData, function ($a, $b) {
             return $a['date_time'] <=> $b['date_time'];
         });
 
-        return $formatedData;
+        return $processedData;
+    }
+
+    /**
+     * Process a single item of data
+     *
+     * @param array $dataItem
+     * @return array|null
+     */
+    private function processDataItem(array $dataItem)
+    {
+        if (!$this->isValidFormat($dataItem['data'])) {
+            return null;
+        }
+
+        $dataFields = explode(',', $dataItem['data']);
+        $coordinates = $this->parseCoordinates($dataFields[1], $dataFields[2]);
+        $dateTime = $this->parseDateTime($dataFields[4], $dataFields[5]);
+
+        if (!$dateTime->isToday()) {
+            return null;
+        }
+
+        return [
+            'latitude' => $coordinates['latitude'],
+            'longitude' => $coordinates['longitude'],
+            'speed' => (int)$dataFields[6],
+            'status' => (int)$dataFields[8],
+            'date_time' => $dateTime,
+            'imei' => $dataFields[9],
+            'is_stopped' => (int)$dataFields[6] == 0 || (int)$dataFields[8] == 0,
+            'stoppage_time' => 0,
+            'is_starting_point' => false,
+            'is_ending_point' => false,
+        ];
     }
 
     /**
@@ -56,28 +66,35 @@ class ParseDataService
      * @param string $longitude
      * @return array
      */
-    private function convertCoordinates($latitude, $longitude)
+    private function parseCoordinates($latitude, $longitude)
     {
         // Convert latitude and longitude to double
         $latitude = doubleval($latitude);
         $longitude = doubleval($longitude);
 
-        // Calculate latitude degrees and minutes
-        $latitudeDegrees = floor($latitude / 100);
-        $latitudeMinutes = $latitude - ($latitudeDegrees * 100);
+        // Convert latitude to decimal degrees
+        $latitudeDecimalDegrees = $this->toDecimalDegrees($latitude);
 
-        // Calculate longitude degrees and minutes
-        $longitudeDegrees = floor($longitude / 100);
-        $longitudeMinutes = $longitude - ($longitudeDegrees * 100);
-
-        // Convert latitude and longitude decimal minutes to decimal degrees
-        $latitudeDecimalDegrees = $latitudeDegrees + ($latitudeMinutes / 60);
-        $longitudeDecimalDegrees = $longitudeDegrees + ($longitudeMinutes / 60);
+        // Convert longitude to decimal degrees
+        $longitudeDecimalDegrees = $this->toDecimalDegrees($longitude);
 
         return [
-            'latitude' => number_format($latitudeDecimalDegrees, 5),
-            'longitude' => number_format($longitudeDecimalDegrees, 5)
+            'latitude' => $latitudeDecimalDegrees,
+            'longitude' => $longitudeDecimalDegrees
         ];
+    }
+
+    /**
+     * Convert coordinates to decimal degrees
+     *
+     * @param float $coordinate
+     * @return float
+     */
+    private function toDecimalDegrees(float $coordinate): float
+    {
+        $degrees = floor($coordinate / 100);
+        $minutes = $coordinate - ($degrees * 100);
+        return $degrees + ($minutes / 60);
     }
 
     /**
@@ -87,7 +104,7 @@ class ParseDataService
      * @param string $time
      * @return Carbon
      */
-    private function convertDateTime(string $date, string $time)
+    private function parseDateTime(string $date, string $time)
     {
         return Carbon::createFromFormat('ymdHis', $date . $time)
             ->addHours(3)
@@ -100,7 +117,7 @@ class ParseDataService
      * @param string $data
      * @return int
      */
-    private function checkFormat(string $data)
+    private function isValidFormat(string $data)
     {
         $pattern = '/^\+Hooshnic:V\d+\.\d+,\d+\.\d+,\d+\.\d+,\d+,\d+,\d+,\d+,\d+,\d+,\d+$/';
 
@@ -110,13 +127,12 @@ class ParseDataService
     /**
      * Decode and prepare the data received from the GPS device
      *
-     * @param string $content
+     * @param string $jsonData
      * @return array
      */
-    private function decodeAndPrepareData(string $content)
+    private function decodeJsonData(string $jsonData)
     {
-        $data = rtrim($content, ".");
-        $data = json_decode($data, true);
-        return $data;
+        $trimmedData = rtrim($jsonData, ".");
+        return json_decode($trimmedData, true);
     }
 }
