@@ -4,7 +4,6 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use App\Models\TrucktorTask;
-use Morilog\Jalali\Jalalian;
 
 class StoreTrucktorTaskRequest extends FormRequest
 {
@@ -51,8 +50,8 @@ class StoreTrucktorTaskRequest extends FormRequest
     {
         try {
             $this->merge([
-                'start_date' => Jalalian::fromFormat('Y/m/d', $this->start_date)->toCarbon(),
-                'end_date' => Jalalian::fromFormat('Y/m/d', $this->end_date)->toCarbon(),
+                'start_date' => jalali_to_carbon($this->start_date),
+                'end_date' => jalali_to_carbon($this->end_date),
             ]);
         } catch (\Exception $e) {
             throw new \Exception('Error: ' . $e->getMessage());

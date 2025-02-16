@@ -32,16 +32,11 @@ class UniqueTrucktorTask implements ValidationRule, DataAwareRule
      */
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
-        $trucktor = request()->route('trucktor');
-        $task = request()->route('trucktor_task');
+        $trucktor = request()->route('trucktor') ?? request()->route('trucktor_task')->trucktor;
         $startDate = $this->data['start_date'];
         $endDate = $this->data['end_date'];
 
-        if($trucktor === null) {
-            $trucktor = $task->trucktor;
-        }
-
-        $existingTask = TrucktorTask::whereBelongsTo($trucktor)
+        $existingTaskQuery = TrucktorTask::whereBelongsTo($trucktor)
             ->where(function ($query) use ($startDate, $endDate) {
                 $query->whereBetween('start_date', [$startDate, $endDate])
                     ->orWhereBetween('end_date', [$startDate, $endDate])
@@ -51,13 +46,11 @@ class UniqueTrucktorTask implements ValidationRule, DataAwareRule
                     });
             });
 
-        if ($task !== null) {
-            $existingTask->where('id', '!=', $task->id);
+        if ($task = request()->route('trucktor_task')) {
+            $existingTaskQuery->where('id', '!=', $task->id);
         }
 
-        $existingTask = $existingTask->exists();
-
-        if ($existingTask) {
+        if ($existingTaskQuery->exists()) {
             $fail(__('A task already exists for the vehicle within the selected date range.'));
         }
     }

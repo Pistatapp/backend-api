@@ -23,7 +23,7 @@ class TrucktorTaskController extends Controller
      */
     public function index(Trucktor $trucktor)
     {
-        $tasks = $trucktor->tasks()->latest()->get();
+        $tasks = $trucktor->tasks()->latest()->simplePaginate();
 
         return TrucktorTaskResource::collection($tasks);
     }
@@ -40,7 +40,7 @@ class TrucktorTaskController extends Controller
             'start_date' => $request->start_date,
             'end_date' => $request->end_date,
             'description' => $request->description,
-            'created_by' => $request->user()->id(),
+            'created_by' => $request->user()->id,
         ]);
 
         Cache::forget('tasks');
