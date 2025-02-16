@@ -64,6 +64,18 @@ class User extends Authenticatable implements HasMedia
     protected $with = ['roles'];
 
     /**
+     * Mark the user's mobile as verified.
+     *
+     * @return void
+     */
+    public function markMobileAsVerified()
+    {
+        $this->forceFill([
+            'mobile_verified_at' => $this->freshTimestamp(),
+        ])->save();
+    }
+
+    /**
      * Get the user's mobile number.
      *
      * @return string

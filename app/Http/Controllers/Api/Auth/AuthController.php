@@ -128,13 +128,13 @@ class AuthController extends Controller
             ]);
 
             if (is_null($user->mobile_verified_at)) {
-                $user->mobile_verified_at = now();
-                $user->save();
+                $user->markMobileAsVerified();
 
                 $user->profile()->create();
+
+                $user->assignRole('admin');
             }
 
-            $user->assignRole('admin');
         });
 
         $this->guard()->login($user);
