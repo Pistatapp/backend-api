@@ -27,7 +27,8 @@ class DayDegreeCalculationController extends Controller
                 ->map(function ($day) use ($model, $request) {
                     $avgTemp = $day['day']['avgtemp_c'];
                     $minTemp = $request->min_temp;
-                    $satisfiedDayDegree = max(0, $avgTemp - $minTemp);
+                    $result = $avgTemp - $minTemp;
+                    $satisfiedDayDegree = max(0, $result);
 
                     return [
                         'model_id' => $model->id,

@@ -21,18 +21,13 @@ class FarmResource extends JsonResource
             'center' => $this->center,
             'zoom' => $this->zoom,
             'area' => number_format($this->area, 2),
-            'crop' => $this->whenLoaded('crop', function () {
-                return [
-                    'id' => $this->crop->id,
-                    'name' => $this->crop->name,
-                ];
-            }),
+            'crop' => new CropResource($this->whenLoaded('crop')),
             'fields_count' => $this->whenCounted('fields'),
             'trees_count' => $this->whenCounted('trees'),
             'labours_count' => $this->whenCounted('labours'),
             'trucktors_count' => $this->whenCounted('trucktors'),
             'plans_count' => $this->whenCounted('plans'),
-            'is_working_environment' => $this->is_working_environment,
+            'is_working_environment' => $this->users()->wherePivot('is_working_environment', true)->exists(),
             'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),
         ];
     }

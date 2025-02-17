@@ -64,7 +64,7 @@ class FarmController extends Controller
      */
     public function show(Farm $farm)
     {
-        $farm = $farm->loadCount(['trees', 'fields', 'labours', 'trucktors', 'plans'])->load('crop');
+        $farm = $farm->loadCount(['trees', 'fields', 'labours', 'trucktors', 'plans']);
 
         return new FarmResource($farm);
     }
@@ -105,14 +105,19 @@ class FarmController extends Controller
     /**
      * Set working environment for the farm
      *
+     * @param Request $request
      * @param Farm $farm
      * @return \Illuminate\Http\JsonResponse
      */
-    public function setWorkingEnvironment(Farm $farm)
+    public function setWorkingEnvironment(Request $request, Farm $farm)
     {
         $this->authorize('setWorkingEnvironment', $farm);
 
-        $farm->setAsWorkingEnvironment();
+        $user = $request->user();
+        $user->farms()->updateExistingPivot($farm->id, ['is_working_environment' => true]);
+
+        // Reset other farms' working environment status
+        $user->farms()->where('farm_id', '!=', $farm->id)->update(['is_working_environment' => false]);
 
         return new FarmResource($farm);
     }

@@ -113,8 +113,7 @@ class User extends Authenticatable implements HasMedia
     public function farms()
     {
         return $this->belongsToMany(Farm::class)
-            ->using(FarmUser::class)
-            ->withPivot('is_owner', 'role');
+            ->withPivot('is_owner', 'role', 'is_working_environment');
     }
 
     /**

@@ -50,6 +50,13 @@ class Farm extends Model
     ];
 
     /**
+     * The relationships that should always be loaded
+     *
+     * @var array<string>
+     */
+    protected $with = ['crop'];
+
+    /**
      * Get the crop that owns the farm.
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
@@ -77,9 +84,7 @@ class Farm extends Model
     public function users()
     {
         return $this->belongsToMany(User::class)
-            ->using(FarmUser::class)
-            ->withPivot('is_owner', 'role')
-            ->withTimestamps();
+            ->withPivot('is_owner', 'role', 'is_working_environment');
     }
 
     /**
@@ -270,20 +275,5 @@ class Farm extends Model
     public function frostbitRisks()
     {
         return $this->hasMany(FrostbitRisk::class);
-    }
-
-    /**
-     * Set this farm as working environment
-     *
-     * @return void
-     */
-    public function setAsWorkingEnvironment()
-    {
-        $this->update(['is_working_environment' => true]);
-
-        // Set other farms to false
-        Farm::where('user_id', $this->user_id)
-            ->where('id', '!=', $this->id)
-            ->update(['is_working_environment' => false]);
     }
 }
