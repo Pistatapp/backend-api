@@ -138,13 +138,13 @@ class Farm extends Model
     }
 
     /**
-     * Get trucktors of the farm.
+     * Get tractors of the farm.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
-    public function trucktors()
+    public function tractors()
     {
-        return $this->hasMany(Trucktor::class);
+        return $this->hasMany(Tractor::class);
     }
 
     /**

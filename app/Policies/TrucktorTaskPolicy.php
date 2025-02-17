@@ -2,11 +2,11 @@
 
 namespace App\Policies;
 
-use App\Models\TrucktorTask;
+use App\Models\tractorTask;
 use App\Models\User;
 use Illuminate\Auth\Access\Response;
 
-class TrucktorTaskPolicy
+class tractorTaskPolicy
 {
     /**
      * Determine whether the user can view any models.
@@ -19,9 +19,9 @@ class TrucktorTaskPolicy
     /**
      * Determine whether the user can view the model.
      */
-    public function view(User $user, TrucktorTask $trucktorTask): bool
+    public function view(User $user, tractorTask $tractorTask): bool
     {
-        return $trucktorTask->creator->is($user);
+        return $tractorTask->creator->is($user);
     }
 
     /**
@@ -35,16 +35,16 @@ class TrucktorTaskPolicy
     /**
      * Determine whether the user can update the model.
      */
-    public function update(User $user, TrucktorTask $trucktorTask): bool
+    public function update(User $user, tractorTask $tractorTask): bool
     {
-        return $trucktorTask->creator->is($user);
+        return $tractorTask->creator->is($user);
     }
 
     /**
      * Determine whether the user can delete the model.
      */
-    public function delete(User $user, TrucktorTask $trucktorTask): bool
+    public function delete(User $user, tractorTask $tractorTask): bool
     {
-        return $trucktorTask->creator->is($user) && $trucktorTask->status === 'pending';
+        return $tractorTask->creator->is($user) && $tractorTask->status === 'pending';
     }
 }

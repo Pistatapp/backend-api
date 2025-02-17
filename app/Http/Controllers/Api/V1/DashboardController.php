@@ -18,7 +18,7 @@ class DashboardController extends Controller
     {
         $dashboardData = [
             'weather_forecast' => $this->getWeatherData($farm->center),
-            'working_trucktors' => $farm->trucktors()->working()->count(),
+            'working_tractors' => $farm->tractors()->working()->count(),
             'working_labours' => $farm->labours()->working()->count(),
             'active_pumps' => $farm->pumps()->active()->count(),
         ];
@@ -38,7 +38,7 @@ class DashboardController extends Controller
 
         return [
             'last_updated' => jdate($weatherData['current']['last_updated'])->format('Y/m/d H:i:s'),
-            'tempc' => number_format($weatherData['current']['temp_c'], 2),
+            'temp_c' => number_format($weatherData['current']['temp_c'], 2),
             'condition' => $weatherData['current']['condition']['text'],
             'icon' => $weatherData['current']['condition']['icon'],
             'wind_kph' => number_format($weatherData['current']['wind_kph'], 2),

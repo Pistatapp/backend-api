@@ -9,33 +9,22 @@ use Illuminate\Auth\Access\Response;
 
 class TractorPolicy
 {
-    /**
-     * Determine whether the user can create models.
-     */
-    public function create(User $user): bool
-    {
-        return true;
-    }
+    // ...existing code...
 
-    /**
-     * Determine whether the user can update the model.
-     */
     public function update(User $user, Tractor $tractor): bool
     {
         return $tractor->farm->user->is($user);
     }
 
-    /**
-     * Determine whether the user can delete the model.
-     */
+    // ...existing code...
+
     public function delete(User $user, Tractor $tractor): bool
     {
         return $tractor->farm->user->is($user);
     }
 
-    /**
-     * Detemine whether the user can assign device to the tractor.
-     */
+    // ...existing code...
+
     public function assignDevice(User $user, Tractor $tractor, GpsDevice $gpsDevice): bool
     {
         return $gpsDevice->user->is($user) && $tractor->gpsDevice()->doesntExist();

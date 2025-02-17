@@ -2,11 +2,11 @@
 
 namespace App\Policies;
 
-use App\Models\TrucktorReport;
+use App\Models\tractorReport;
 use App\Models\User;
 use Illuminate\Auth\Access\Response;
 
-class TrucktorReportPolicy
+class tractorReportPolicy
 {
     /**
      * Determine whether the user can view any models.
@@ -19,9 +19,9 @@ class TrucktorReportPolicy
     /**
      * Determine whether the user can view the model.
      */
-    public function view(User $user, TrucktorReport $trucktorReport): bool
+    public function view(User $user, tractorReport $tractorReport): bool
     {
-        return $trucktorReport->user->is($user);
+        return $tractorReport->user->is($user);
     }
 
     /**
@@ -35,16 +35,16 @@ class TrucktorReportPolicy
     /**
      * Determine whether the user can update the model.
      */
-    public function update(User $user, TrucktorReport $trucktorReport): bool
+    public function update(User $user, tractorReport $tractorReport): bool
     {
-        return $trucktorReport->user->is($user);
+        return $tractorReport->user->is($user);
     }
 
     /**
      * Determine whether the user can delete the model.
      */
-    public function delete(User $user, TrucktorReport $trucktorReport): bool
+    public function delete(User $user, tractorReport $tractorReport): bool
     {
-        return $trucktorReport->user->is($user);
+        return $tractorReport->user->is($user);
     }
 }

@@ -3,16 +3,16 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-use App\Models\TrucktorTask;
+use App\Models\TractorTask;
 
-class StoreTrucktorTaskRequest extends FormRequest
+class StoreTractorTaskRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
      */
     public function authorize(): bool
     {
-        return $this->user()->can('create', TrucktorTask::class);
+        return $this->user()->can('create', TractorTask::class);
     }
 
     /**
@@ -31,13 +31,13 @@ class StoreTrucktorTaskRequest extends FormRequest
                 'required',
                 'date',
                 'after_or_equal:' . now()->toDateString(),
-                new \App\Rules\UniqueTrucktorTask(),
+                new \App\Rules\UniquetractorTask(),
             ],
             'end_date' => [
                 'required',
                 'date',
                 'after_or_equal:start_date',
-                new \App\Rules\UniqueTrucktorTask(),
+                new \App\Rules\UniquetractorTask(),
             ],
             'description' => 'nullable|string|max:5000',
         ];

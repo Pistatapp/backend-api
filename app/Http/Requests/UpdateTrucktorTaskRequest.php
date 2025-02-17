@@ -4,14 +4,14 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class UpdateTrucktorTaskRequest extends FormRequest
+class UpdateTractorTaskRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
      */
     public function authorize(): bool
     {
-        return $this->user()->can('update', $this->route('trucktor_task'));
+        return $this->user()->can('update', $this->route('tractor_task'));
     }
 
     /**
@@ -27,13 +27,13 @@ class UpdateTrucktorTaskRequest extends FormRequest
                 'required',
                 'date',
                 'after_or_equal:' . now()->toDateString(),
-                new \App\Rules\UniqueTrucktorTask(),
+                new \App\Rules\UniquetractorTask(),
             ],
             'end_date' => [
                 'required',
                 'date',
                 'after_or_equal:start_date',
-                new \App\Rules\UniqueTrucktorTask(),
+                new \App\Rules\UniquetractorTask(),
             ],
             'description' => 'nullable|string|max:5000',
         ];

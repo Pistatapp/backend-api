@@ -1,24 +1,24 @@
 <?php
 
-namespace App\Http\Controllers\Api\V1\Trucktor;
+namespace App\Http\Controllers\Api\V1\tractor;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\TrucktorResource;
+use App\Http\Resources\tractorResource;
 use App\Models\Farm;
 use App\Models\GpsDevice;
-use App\Models\Trucktor;
+use App\Models\tractor;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
-class TrucktorController extends Controller
+class TractorController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
     public function index(Farm $farm)
     {
-        $trucktors = $farm->trucktors()->with('driver','gpsDevice')->simplePaginate(25);
-        return TrucktorResource::collection($trucktors);
+        $tractors = $farm->tractors()->with('driver','gpsDevice')->simplePaginate(25);
+        return TractorResource::collection($tractors);
     }
 
     /**
@@ -35,9 +35,9 @@ class TrucktorController extends Controller
             'expected_yearly_work_time' => 'required|integer:0,8760',
         ]);
 
-        $this->authorize('create', [Trucktor::class, $farm]);
+        $this->authorize('create', [Tractor::class, $farm]);
 
-        $trucktor = $farm->trucktors()->create($request->only([
+        $tractor = $farm->tractors()->create($request->only([
             'name',
             'start_work_time',
             'end_work_time',
@@ -46,27 +46,27 @@ class TrucktorController extends Controller
             'expected_yearly_work_time',
         ]));
 
-        return new TrucktorResource($trucktor);
+        return new TractorResource($tractor);
     }
 
     /**
      * Display the specified resource.
      */
-    public function show(Trucktor $trucktor)
+    public function show(Tractor $tractor)
     {
-        $trucktor->load(['driver', 'gpsDevice',
+        $tractor->load(['driver', 'gpsDevice',
             'gpsDailyReports' => function ($query) {
                 $query->latest('date')->limit(7);
             },
         ]);
 
-        return new TrucktorResource($trucktor);
+        return new TractorResource($tractor);
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Trucktor $trucktor)
+    public function update(Request $request, Tractor $tractor)
     {
         $request->validate([
             'name' => 'required|string|max:255',
@@ -77,9 +77,9 @@ class TrucktorController extends Controller
             'expected_yearly_work_time' => 'required|integer',
         ]);
 
-        $this->authorize('update', $trucktor);
+        $this->authorize('update', $tractor);
 
-        $trucktor->update($request->only([
+        $tractor->update($request->only([
             'name',
             'start_work_time',
             'end_work_time',
@@ -88,27 +88,27 @@ class TrucktorController extends Controller
             'expected_yearly_work_time',
         ]));
 
-        return new TrucktorResource($trucktor->fresh());
+        return new TractorResource($tractor->fresh());
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Trucktor $trucktor)
+    public function destroy(Tractor $tractor)
     {
-        $this->authorize('delete', $trucktor);
+        $this->authorize('delete', $tractor);
 
-        $trucktor->delete();
+        $tractor->delete();
 
         return response()->json([], JsonResponse::HTTP_GONE);
     }
 
     /**
-     * Get devices of the user which are not assigned to any trucktor.
+     * Get devices of the user which are not assigned to any tractor.
      */
-    public function getAvailableDevices(Request $request, Trucktor $trucktor)
+    public function getAvailableDevices(Request $request, Tractor $tractor)
     {
-        $gpsDevices = $request->user()->gpsDevices()->whereDoesntHave('trucktor')->get();
+        $gpsDevices = $request->user()->gpsDevices()->whereDoesntHave('tractor')->get();
 
         return response()->json([
             'data' => $gpsDevices->map(function ($device) {
@@ -122,25 +122,25 @@ class TrucktorController extends Controller
     }
 
     /**
-     * Assign a device to a trucktor.
+     * Assign a device to a tractor.
      */
-    public function assignDevice(Request $request, Trucktor $trucktor, GpsDevice $gpsDevice)
+    public function assignDevice(Request $request, Tractor $tractor, GpsDevice $gpsDevice)
     {
-        $this->authorize('assignDevice', [$trucktor, $gpsDevice]);
+        $this->authorize('assignDevice', [$tractor, $gpsDevice]);
 
-        $gpsDevice->trucktor()->associate($trucktor)->save();
+        $gpsDevice->tractor()->associate($tractor)->save();
 
         return response()->noContent();
     }
 
     /**
-     * Unassign a device from a trucktor.
+     * Unassign a device from a tractor.
      */
-    public function unassignDevice(Request $request, Trucktor $trucktor, GpsDevice $gpsDevice)
+    public function unassignDevice(Request $request, Tractor $tractor, GpsDevice $gpsDevice)
     {
-        $this->authorize('update', $trucktor);
+        $this->authorize('update', $tractor);
 
-        $gpsDevice->trucktor()->disassociate()->save();
+        $gpsDevice->tractor()->disassociate()->save();
 
         return response()->noContent();
     }

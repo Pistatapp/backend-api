@@ -6,7 +6,7 @@ use App\Models\Field;
 use App\Models\GpsDailyReport;
 use App\Models\GpsDevice;
 use App\Models\GpsReport;
-use App\Models\TrucktorTask;
+use App\Models\TractorTask;
 use Illuminate\Support\Facades\Cache;
 
 class LiveReportService
@@ -19,7 +19,7 @@ class LiveReportService
         $totalMovingTime,
         $totalStoppedTime,
         $stoppageCount,
-        $trucktor,
+        $tractor,
         $points = [],
         $maxSpeed,
         $taskAreas = [];
@@ -28,12 +28,12 @@ class LiveReportService
         private GpsDevice $device,
         private array $reports,
     ) {
-        $this->trucktor = $device->trucktor;
+        $this->tractor = $device->tractor;
         $this->tasks = $this->getTasks();
         $this->dailyReport = $this->getDailyReport();
         $this->latestStoredReport = $this->getLatestStoredReport();
         $this->maxSpeed = $this->dailyReport->max_speed;
-        $this->currentTask = $this->tasks->where('trucktor_id', $this->trucktor->id)->first();
+        $this->currentTask = $this->tasks->where('tractor_id', $this->tractor->id)->first();
         $this->taskAreas = isset($this->currentTask) ? $this->getTaskAreas() : [];
     }
 
@@ -45,7 +45,7 @@ class LiveReportService
 
         return [
             'id' => $this->dailyReport->id,
-            'trucktor_id' => $this->trucktor->id,
+            'tractor_id' => $this->tractor->id,
             'traveled_distance' => $data['traveled_distance'],
             'work_duration' => $data['work_duration'],
             'stoppage_duration' => $data['stoppage_duration'],
@@ -70,7 +70,7 @@ class LiveReportService
                 $this->save($report);
                 $this->points[] = $report;
                 $this->maxSpeed = $report['speed'];
-                if ($report['is_stopped'] && $this->isIntrucktorTime($report)) {
+                if ($report['is_stopped'] && $this->isIntractorTime($report)) {
                     $this->stoppageCount += 1;
                 }
             } else {
@@ -127,7 +127,7 @@ class LiveReportService
         $stopped = $parameters[3] ?? false;
         $incrementStoppage = $parameters[4] ?? false;
 
-        if (isset($this->currentTask) && $this->isInTrucktorTime($report)) {
+        if (isset($this->currentTask) && $this->isIntractorTime($report)) {
             foreach ($this->taskAreas as $area) {
                 if ($this->isReportInTaskArea($report, $area)) {
                     if ($incrementStoppage) {
@@ -138,7 +138,7 @@ class LiveReportService
                     $this->totalTraveledDistance += ($stopped ? 0 : $distanceDiff);
                 }
             }
-        } elseif ($this->isInTrucktorTime($report)) {
+        } elseif ($this->isIntractorTime($report)) {
             if ($incrementStoppage) {
                 $this->stoppageCount += 1;
             }
@@ -186,15 +186,15 @@ class LiveReportService
     }
 
     /**
-     * Check if the report is in trucktor time.
+     * Check if the report is in tractor time.
      *
      * @param  array  $report
      * @return bool
      */
-    private function isInTrucktorTime(array $report)
+    private function isIntractorTime(array $report)
     {
-        return $report['date_time']->gte($this->trucktor->start_work_time)
-            && $report['date_time']->lte($this->trucktor->end_work_time);
+        return $report['date_time']->gte($this->tractor->start_work_time)
+            && $report['date_time']->lte($this->tractor->end_work_time);
     }
 
     /**
@@ -273,19 +273,19 @@ class LiveReportService
     private function getTasks()
     {
         return Cache::remember('tasks', now()->endOfDay(), function () {
-            return TrucktorTask::forDate(today())->get();
+            return TractorTask::forDate(today())->get();
         });
     }
 
     /**
-     * Get daily reports for the trucktor
+     * Get daily reports for the tractor
      *
      * @return GPSDailyReport
      */
     private function getDailyReport()
     {
         return GpsDailyReport::firstOrCreate([
-            'trucktor_id' => $this->trucktor->id,
+            'tractor_id' => $this->tractor->id,
             'date' => today()
         ]);
     }
@@ -326,17 +326,17 @@ class LiveReportService
     }
 
     /**
-     * Calculate the efficiency of the trucktor.
+     * Calculate the efficiency of the tractor.
      *
      * @return float
      */
     public function calculateEfficiency()
     {
-        return $this->totalMovingTime / ($this->trucktor->expected_daily_work_time * 3600) * 100;
+        return $this->totalMovingTime / ($this->tractor->expected_daily_work_time * 3600) * 100;
     }
 
     /**
-     * Calculate the average speed of the trucktor.
+     * Calculate the average speed of the tractor.
      *
      * @return float
      */
@@ -353,10 +353,10 @@ class LiveReportService
      */
     private function setStartWorkingTime($report): void
     {
-        if (!Cache::has('start_working_time_' . $this->trucktor->id)) {
-            if (!$report->is_stopped && $report->date_time->gte($this->trucktor->start_work_time)) {
+        if (!Cache::has('start_working_time_' . $this->tractor->id)) {
+            if (!$report->is_stopped && $report->date_time->gte($this->tractor->start_work_time)) {
                 $report->update(['is_starting_point' => true]);
-                Cache::put('start_working_time_' . $this->trucktor->id, $report->date_time, now()->endOfDay());
+                Cache::put('start_working_time_' . $this->tractor->id, $report->date_time, now()->endOfDay());
             }
         }
     }
@@ -369,10 +369,10 @@ class LiveReportService
      */
     private function setEndWorkingTime($report): void
     {
-        if (!Cache::has('ending_time_' . $this->trucktor->id)) {
-            if ($report->is_stopped && $report->date_time->gte($this->trucktor->end_work_time)) {
+        if (!Cache::has('ending_time_' . $this->tractor->id)) {
+            if ($report->is_stopped && $report->date_time->gte($this->tractor->end_work_time)) {
                 $report->update(['is_ending_point' => true]);
-                Cache::put('end_working_time_' . $this->trucktor->id, $report->date_work_time, now()->endOfDay());
+                Cache::put('end_working_time_' . $this->tractor->id, $report->date_work_time, now()->endOfDay());
             }
         }
     }

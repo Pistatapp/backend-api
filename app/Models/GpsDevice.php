@@ -16,7 +16,7 @@ class GpsDevice extends Model
      */
     protected $fillable = [
         'user_id',
-        'trucktor_id',
+        'tractor_id',
         'name',
         'imei',
         'sim_number',
@@ -33,13 +33,13 @@ class GpsDevice extends Model
     }
 
     /**
-     * Get the trucktor that owns the GpsDevice
+     * Get the tractor that owns the GpsDevice
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
-    public function trucktor()
+    public function tractor()
     {
-        return $this->belongsTo(Trucktor::class);
+        return $this->belongsTo(Tractor::class);
     }
 
     /**

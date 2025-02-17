@@ -25,7 +25,7 @@ class FarmResource extends JsonResource
             'fields_count' => $this->whenCounted('fields'),
             'trees_count' => $this->whenCounted('trees'),
             'labours_count' => $this->whenCounted('labours'),
-            'trucktors_count' => $this->whenCounted('trucktors'),
+            'tractors_count' => $this->whenCounted('tractors'),
             'plans_count' => $this->whenCounted('plans'),
             'is_working_environment' => $this->users()->wherePivot('is_working_environment', true)->exists(),
             'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),

@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class TrucktorTask extends Model
+class TractorTask extends Model
 {
     use HasFactory;
 
@@ -15,7 +15,7 @@ class TrucktorTask extends Model
      * @var array<string>
      */
     protected $fillable = [
-        'trucktor_id',
+        'tractor_id',
         'operation_id',
         'field_ids',
         'name',
@@ -58,17 +58,17 @@ class TrucktorTask extends Model
     }
 
     /**
-     * Get the trucktor that owns the TrucktorTask
+     * Get the tractor that owns the TractorTask
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
-    public function trucktor()
+    public function tractor()
     {
-        return $this->belongsTo(Trucktor::class);
+        return $this->belongsTo(Tractor::class);
     }
 
     /**
-     * Get the operation that owns the TrucktorTask
+     * Get the operation that owns the TractorTask
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
@@ -78,7 +78,7 @@ class TrucktorTask extends Model
     }
 
     /**
-     * Get the user that owns the TrucktorTask
+     * Get the user that owns the TractorTask
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
