@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api\V1\tractor;
+namespace App\Http\Controllers\Api\V1\Tractor;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ActivetractorResource;
