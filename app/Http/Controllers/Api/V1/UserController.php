@@ -28,10 +28,6 @@ class UserController extends Controller
             $query->search($search, ['mobile']);
         }
 
-        if ($request->user()->hasAnyRole(['super-admin', 'admin'])) {
-            $query->where('created_by', $request->user()->id);
-        }
-
         $users = $search ? $query->get() : $query->simplePaginate();
 
         return UserResource::collection($users);
@@ -63,7 +59,7 @@ class UserController extends Controller
      */
     public function show(User $user)
     {
-        return new UserResource($user->load('profile'));
+        return new UserResource($user->load('profile', 'farms'));
     }
 
     /**

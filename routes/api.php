@@ -137,6 +137,8 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
 
     Route::get('/farms/{farm}/set_working_environment', [FarmController::class, 'setWorkingEnvironment']);
     Route::apiResource('farms', FarmController::class);
+    Route::post('/farms/{farm}/users/{user}/attach', [FarmController::class, 'attachUserToFarm']);
+    Route::post('/farms/{farm}/users/{user}/detach', [FarmController::class, 'detachUserFromFarm']);
     Route::apiResource('farms.farm-reports', FarmReportsController::class)->shallow();
     Route::apiResource('farms.fields', FieldController::class)->shallow();
     Route::apiResource('fields.rows', RowController::class)->except('update')->shallow();

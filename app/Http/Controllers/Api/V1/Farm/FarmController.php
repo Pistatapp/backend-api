@@ -9,6 +9,7 @@ use App\Http\Resources\FarmResource;
 use App\Models\Farm;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use App\Models\User;
 
 class FarmController extends Controller
 {
@@ -50,8 +51,8 @@ class FarmController extends Controller
         ]);
 
         $request->user()->farms()->attach($farm, [
-            'is_owner' => !$request->user()->created_by,
-            'role' => 'admin'
+            'is_owner' => true,
+            'role' => $request->user()->roles->first()->name,
         ]);
 
         return new FarmResource($farm);
@@ -120,5 +121,41 @@ class FarmController extends Controller
         $user->farms()->where('farm_id', '!=', $farm->id)->update(['is_working_environment' => false]);
 
         return new FarmResource($farm);
+    }
+
+    /**
+     * Attach a user to a farm
+     *
+     * @param Request $request
+     * @param Farm $farm
+     * @param User $user
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function attachUserToFarm(Request $request, Farm $farm, User $user)
+    {
+        $this->authorize('attach', [User::class, $user]);
+
+        $farm->users()->attach($user->id, [
+            'role' => $request->input('role'),
+            'is_owner' => false,
+        ]);
+
+        return response()->json(['message' => __('User attached to farm successfully.')]);
+    }
+
+    /**
+     * Detach a user from a farm
+     *
+     * @param Farm $farm
+     * @param User $user
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function detachUserFromFarm(Farm $farm, User $user)
+    {
+        $this->authorize('detach', [User::class, $user]);
+
+        $farm->users()->detach($user->id);
+
+        return response()->json(['message' => __('User detached from farm successfully.')]);
     }
 }

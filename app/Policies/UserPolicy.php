@@ -46,4 +46,20 @@ class UserPolicy
     {
         return $model->creator && $model->creator->is($user);
     }
+
+    /**
+     * Determine whether the user can search users.
+     */
+    public function search(User $user): bool
+    {
+        return $user->hasAnyRole(['admin', 'super-admin']);
+    }
+
+    /**
+     * Determine whether the user can attach a user to a farm.
+     */
+    public function attach(User $user, User $model): bool
+    {
+        return $user->hasAnyRole(['admin', 'super-admin']);
+    }
 }

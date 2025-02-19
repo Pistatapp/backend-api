@@ -5,13 +5,10 @@ namespace App\Http\Controllers\Api\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AuthenticatedUserResource;
 use App\Models\User;
-use App\Models\VerifyMobileToken;
 use App\Notifications\VerifyMobile;
 use App\Traits\ThrottlesLogins;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -44,17 +41,11 @@ class AuthController extends Controller
             'mobile' => 'required|ir_mobile:zero',
         ]);
 
-        $token = random_int(100000, 999999);
-
-        VerifyMobileToken::updateOrCreate([
+        $user = User::firstOrCreate([
             'mobile' => $request->mobile,
-        ], [
-            'token' => Hash::make($token),
-            'created_at' => now(),
         ]);
 
-        Notification::route('kavenegar', $request->mobile)
-            ->notify(new VerifyMobile($token));
+        $user->notify(new VerifyMobile);
 
         return response()->json([
             'message' => __('Verification token sent successfully.'),
@@ -76,37 +67,28 @@ class AuthController extends Controller
             'fcm_token' => 'nullable|string',
         ]);
 
-        if ($this->hasTooManyLoginAttempts($request)) {
-            throw ValidationException::withMessages([
-                'token' => __('Too many login attempts. Please try again in :seconds seconds.', [
-                    'seconds' => $this->secondsRemainingOnLockout($request),
-                ]),
-            ]);
+        $this->checkLoginAttempts($request);
+
+        $credentials = [
+            'mobile' => $request->mobile,
+            'password' => $request->token,
+        ];
+
+        $authenticated = Auth::attemptWhen($credentials, function (User $user) {
+            return $user->passwordNotExpired();
+        });
+
+        if ($authenticated) {
+            $this->clearLoginAttempts($request);
+            return $this->login($request);
         }
 
-        try {
-            $token = VerifyMobileToken::where('mobile', $request->mobile)->firstOrFail();
-        } catch (\Exception $e) {
-            throw ValidationException::withMessages([
-                'token' => __('Token not found.'),
-            ]);
-        }
+        // $this->incrementLoginAttempts($request);
 
-        if (!Hash::check($request->token, $token->token) || $token->expired()) {
-
-            $this->incrementLoginAttempts($request);
-
-            throw ValidationException::withMessages([
-                'token' => __('The provided token is incorrect.'),
-                'retries_left' => $this->retriesLeft($request),
-            ]);
-        }
-
-        $this->clearLoginAttempts($request);
-
-        $token->delete();
-
-        return $this->login($request);
+        throw ValidationException::withMessages([
+            'token' => __('The provided token is incorrect.'),
+            'retries_left' => $this->retriesLeft($request),
+        ]);
     }
 
     /**
@@ -117,9 +99,7 @@ class AuthController extends Controller
      */
     private function login(Request $request)
     {
-        $user = User::firstOrCreate([
-            'mobile' => $request->mobile,
-        ]);
+        $user = User::where('mobile', $request->mobile)->first();
 
         tap($user, function ($user) {
 
@@ -127,14 +107,13 @@ class AuthController extends Controller
                 'fcm_token' => request('fcm_token'),
             ]);
 
-            if (is_null($user->mobile_verified_at)) {
+            if (! $user->hasVerifiedMobile()) {
                 $user->markMobileAsVerified();
 
                 $user->profile()->create();
 
                 $user->assignRole('admin');
             }
-
         });
 
         $this->guard()->login($user);

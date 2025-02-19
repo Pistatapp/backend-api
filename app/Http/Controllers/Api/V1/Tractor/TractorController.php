@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Tractor;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\tractorResource;
+use App\Http\Resources\TractorResource;
 use App\Models\Farm;
 use App\Models\GpsDevice;
 use App\Models\tractor;

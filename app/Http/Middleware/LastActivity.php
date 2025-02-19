@@ -19,7 +19,9 @@ class LastActivity
         $response = $next($request);
 
         if (Auth::check()) {
-            $request->user()->update(['last_activity_at' => now()]);
+            $request->user()->forceFill([
+                'last_activity_at' => now(),
+            ])->save();
         }
 
         return $response;

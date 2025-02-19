@@ -47,6 +47,7 @@ class Farm extends Model
      */
     protected $attributes = [
         'is_working_environment' => false,
+        'is_owner' => false,
     ];
 
     /**
