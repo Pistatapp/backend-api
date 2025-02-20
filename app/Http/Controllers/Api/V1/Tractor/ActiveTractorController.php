@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Tractor;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\ActivetractorResource;
+use App\Http\Resources\ActiveTractorResource;
 use App\Models\Tractor;
 use Illuminate\Http\Request;
 use App\Http\Resources\PointsResource;

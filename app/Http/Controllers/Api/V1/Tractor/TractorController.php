@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\TractorResource;
 use App\Models\Farm;
 use App\Models\GpsDevice;
-use App\Models\tractor;
+use App\Models\Tractor;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
