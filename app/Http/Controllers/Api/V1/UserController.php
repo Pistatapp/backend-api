@@ -28,6 +28,10 @@ class UserController extends Controller
             $query->search($search, ['mobile']);
         }
 
+        if ($request->user()->hasAnyRole(['admin', 'super-admin'])) {
+            $query->where('created_by', $request->user()->id);
+        }
+
         $users = $search ? $query->get() : $query->simplePaginate();
 
         return UserResource::collection($users);

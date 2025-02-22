@@ -188,4 +188,19 @@ class AuthController extends Controller
     {
         return 'mobile';
     }
+
+    /**
+     * Get permissions of the authenticated user.
+     *
+     * @param \Illuminate\Http\Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function permissions(Request $request)
+    {
+        return response()->json([
+            'role' => $request->user()->getRoleNames()->first(),
+            'permissions' => $request->user()->getAllPermissions()->pluck('name'),
+        ]);
+    }
+
 }

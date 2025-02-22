@@ -63,6 +63,7 @@ Route::controller(AuthController::class)->prefix('auth')->group(function () {
     });
     Route::post('logout', 'logout')->middleware('auth:sanctum');
     Route::post('refresh', 'refreshToken')->middleware('auth:sanctum');
+    Route::get('permissions', 'permissions')->middleware('auth:sanctum');
 });
 
 Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(function () {
@@ -137,8 +138,8 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
 
     Route::get('/farms/{farm}/set_working_environment', [FarmController::class, 'setWorkingEnvironment']);
     Route::apiResource('farms', FarmController::class);
-    Route::post('/farms/{farm}/users/{user}/attach', [FarmController::class, 'attachUserToFarm']);
-    Route::post('/farms/{farm}/users/{user}/detach', [FarmController::class, 'detachUserFromFarm']);
+    Route::post('/farms/{farm}/attach-user', [FarmController::class, 'attachUserToFarm']);
+    Route::post('/farms/{farm}/detach-user', [FarmController::class, 'detachUserFromFarm']);
     Route::apiResource('farms.farm-reports', FarmReportsController::class)->shallow();
     Route::apiResource('farms.fields', FieldController::class)->shallow();
     Route::apiResource('fields.rows', RowController::class)->except('update')->shallow();

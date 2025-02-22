@@ -128,11 +128,16 @@ class FarmController extends Controller
      *
      * @param Request $request
      * @param Farm $farm
-     * @param User $user
      * @return \Illuminate\Http\JsonResponse
      */
-    public function attachUserToFarm(Request $request, Farm $farm, User $user)
+    public function attachUserToFarm(Request $request, Farm $farm)
     {
+        $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'role' => 'required|string',
+        ]);
+
+        $user = User::findOrFail($request->input('user_id'));
         $this->authorize('attach', [User::class, $user]);
 
         $farm->users()->attach($user->id, [
@@ -150,8 +155,13 @@ class FarmController extends Controller
      * @param User $user
      * @return \Illuminate\Http\JsonResponse
      */
-    public function detachUserFromFarm(Farm $farm, User $user)
+    public function detachUserFromFarm(Request $request, Farm $farm)
     {
+        $request->validate([
+            'user_id' => 'required|exists:users,id',
+        ]);
+
+        $user = User::findOrFail($request->input('user_id'));
         $this->authorize('detach', [User::class, $user]);
 
         $farm->users()->detach($user->id);
