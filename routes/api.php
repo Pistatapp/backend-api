@@ -128,7 +128,6 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
         Route::apiResource('plans.features', FeatureController::class)->shallow();
     });
 
-
     Route::withoutMiddleware('ensure.username')->group(function () {
         Route::patch('username', [ProfileController::class, 'setUsername']);
         Route::apiSingleton('profile', ProfileController::class);
