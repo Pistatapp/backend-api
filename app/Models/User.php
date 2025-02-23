@@ -156,12 +156,14 @@ class User extends Authenticatable implements HasMedia
     }
 
     /**
-     * Get the active farm of the user.
+     * Get the user's working environment farm.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\HasOne
+     * @return \App\Models\Farm|null
      */
-    public function active_farm()
+    public function workingEnvironment()
     {
-        return $this->hasOne(Farm::class)->where('is_working_environment', true);
+        return $this->farms()
+            ->wherePivot('is_working_environment', true)
+            ->first();
     }
 }

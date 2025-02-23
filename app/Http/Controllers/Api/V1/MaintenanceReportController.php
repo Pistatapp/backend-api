@@ -13,14 +13,16 @@ class MaintenanceReportController extends Controller
     public function __construct()
     {
         $this->authorizeResource(MaintenanceReport::class);
+        $this->middleware('ensure_user_has_working_environment');
     }
 
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $maintenanceReports = get_active_farm()->maintenanceReports()->latest()->simplePaginate();
+        $workingEnvironment = $request->user()->workingEnvironment();
+        $maintenanceReports = $workingEnvironment->maintenanceReports()->latest()->simplePaginate();
         return MaintenanceReportResource::collection($maintenanceReports);
     }
 
@@ -107,7 +109,9 @@ class MaintenanceReportController extends Controller
 
         $maintainable = getModel($request->maintainable_type, $request->maintainable_id);
 
-        $maintenanceReports = get_active_farm()->maintenanceReports()
+        $workingEnvironment = $request->user()->workingEnvironment();
+
+        $maintenanceReports = $workingEnvironment->maintenanceReports()
             ->whereBetween('date', [
                 jalali_to_carbon($request->from),
                 jalali_to_carbon($request->to),

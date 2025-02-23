@@ -109,5 +109,6 @@
     "basic": "پایه",
     "professional": "پیشرفته",
     "enterprise": "سازمانی",
-    "You do not have permission to assign this role.": "شما اجازه تخصیص این نقش را ندارید."
+    "You do not have permission to assign this role.": "شما اجازه تخصیص این نقش را ندارید.",
+    "You do not have a working environment.": "شما محیط کاری ندارید."
 }

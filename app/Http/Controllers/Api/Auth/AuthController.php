@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AuthenticatedUserResource;
+use App\Models\Role;
 use App\Models\User;
 use App\Notifications\VerifyMobile;
 use App\Traits\ThrottlesLogins;
@@ -197,10 +198,21 @@ class AuthController extends Controller
      */
     public function permissions(Request $request)
     {
+        $workingEnvironment = $request->user()->workingEnvironment();
+
+        if ($workingEnvironment) {
+            $pivotRole = $workingEnvironment->pivot->role;
+            $role = Role::where('name', $pivotRole)->with('permissions')->first();
+            $roleName = $role->name;
+            $permissions = $role->permissions->pluck('name');
+        } else {
+            $roleName = $request->user()->getRoleNames()->first();
+            $permissions = $request->user()->getAllPermissions()->pluck('name');
+        }
+
         return response()->json([
-            'role' => $request->user()->getRoleNames()->first(),
-            'permissions' => $request->user()->getAllPermissions()->pluck('name'),
+            'role' => $roleName,
+            'permissions' => $permissions,
         ]);
     }
-
 }

@@ -48,18 +48,18 @@ class UserPolicy
     }
 
     /**
-     * Determine whether the user can search users.
-     */
-    public function search(User $user): bool
-    {
-        return $user->hasAnyRole(['admin', 'super-admin']);
-    }
-
-    /**
      * Determine whether the user can attach a user to a farm.
      */
     public function attach(User $user, User $model): bool
     {
-        return $user->hasAnyRole(['admin', 'super-admin']);
+        return $user->hasAnyRole(['admin', 'super-admin']) && !$model->hasAnyRole(['super-admin', 'root']);
+    }
+
+    /**
+     * Determine whether the user can detach a user from a farm.
+     */
+    public function detach(User $user, User $model): bool
+    {
+        return $user->hasAnyRole(['admin', 'super-admin']) && !$model->hasAnyRole(['super-admin', 'root']);
     }
 }

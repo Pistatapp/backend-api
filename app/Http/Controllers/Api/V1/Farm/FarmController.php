@@ -52,7 +52,7 @@ class FarmController extends Controller
 
         $request->user()->farms()->attach($farm, [
             'is_owner' => true,
-            'role' => $request->user()->roles->first()->name,
+            'role' => $request->user()->getRoleNames()->first(),
         ]);
 
         return new FarmResource($farm);
@@ -138,12 +138,14 @@ class FarmController extends Controller
         ]);
 
         $user = User::find($request->input('user_id'));
-        $this->authorize('attach', [User::class, $user]);
+        $this->authorize('attach', $user);
 
         $farm->users()->attach($user->id, [
             'role' => $request->input('role'),
             'is_owner' => false,
         ]);
+
+        $user->assignRole($request->input('role'));
 
         return response()->json(['message' => __('User attached to farm successfully.')]);
     }
@@ -162,7 +164,7 @@ class FarmController extends Controller
         ]);
 
         $user = User::find($request->input('user_id'));
-        $this->authorize('detach', [User::class, $user]);
+        $this->authorize('detach', $user);
 
         $farm->users()->detach($user->id);
 
