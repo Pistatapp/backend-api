@@ -25,10 +25,10 @@ class UserController extends Controller
         $query = User::query()->withoutRole('root');
 
         if ($search = $request->input('search')) {
-            $query->search($search, ['mobile']);
+            $query->search($search, ['mobile'])->withoutRole('super-admin');
         }
 
-        if ($request->user()->hasAnyRole(['admin', 'super-admin'])) {
+        if (!$search && $request->user()->hasAnyRole(['admin', 'super-admin'])) {
             $query->where('created_by', $request->user()->id);
         }
 
