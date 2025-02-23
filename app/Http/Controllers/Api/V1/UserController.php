@@ -26,11 +26,11 @@ class UserController extends Controller
 
         if ($search = $request->input('search')) {
             $query->search($search, ['mobile'])->withoutRole('super-admin');
-        }
-
-        if (!$search && $request->user()->hasAnyRole(['admin', 'super-admin'])) {
+        } elseif ($request->user()->hasAnyRole(['admin', 'super-admin'])) {
             $query->where('created_by', $request->user()->id);
         }
+
+        $query->where('id', '!=', $request->user()->id);
 
         $users = $search ? $query->get() : $query->simplePaginate();
 

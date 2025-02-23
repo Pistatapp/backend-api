@@ -137,7 +137,7 @@ class FarmController extends Controller
             'role' => 'required|string',
         ]);
 
-        $user = User::findOrFail($request->input('user_id'));
+        $user = User::find($request->input('user_id'));
         $this->authorize('attach', [User::class, $user]);
 
         $farm->users()->attach($user->id, [
@@ -161,7 +161,7 @@ class FarmController extends Controller
             'user_id' => 'required|exists:users,id',
         ]);
 
-        $user = User::findOrFail($request->input('user_id'));
+        $user = User::find($request->input('user_id'));
         $this->authorize('detach', [User::class, $user]);
 
         $farm->users()->detach($user->id);
