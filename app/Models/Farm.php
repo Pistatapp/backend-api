@@ -23,7 +23,6 @@ class Farm extends Model
         'center',
         'zoom',
         'area',
-        'is_working_environment',
     ];
 
     /**
@@ -39,16 +38,6 @@ class Farm extends Model
             'is_working_environment' => 'boolean',
         ];
     }
-
-    /**
-     * The attributes that should have default values.
-     *
-     * @var array<string, mixed>
-     */
-    protected $attributes = [
-        'is_working_environment' => false,
-        'is_owner' => false,
-    ];
 
     /**
      * The relationships that should always be loaded
