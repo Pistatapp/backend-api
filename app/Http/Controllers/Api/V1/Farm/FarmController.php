@@ -138,7 +138,7 @@ class FarmController extends Controller
     {
         $request->validate([
             'user_id' => 'required|exists:users,id',
-            'role' => 'required|string',
+            'role' => 'required|string|not_in:admin,root,super-admin',
         ]);
 
         $user = User::find($request->input('user_id'));
