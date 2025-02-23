@@ -40,13 +40,6 @@ class Farm extends Model
     }
 
     /**
-     * The relationships that should always be loaded
-     *
-     * @var array<string>
-     */
-    protected $with = ['crop'];
-
-    /**
      * Get the crop that owns the farm.
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
