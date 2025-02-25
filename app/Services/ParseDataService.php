@@ -133,6 +133,7 @@ class ParseDataService
     private function decodeJsonData(string $jsonData)
     {
         $trimmedData = rtrim($jsonData, ".");
+        $trimmedData = preg_replace('}{', '},{', $trimmedData);
         return json_decode($trimmedData, true);
     }
 }
