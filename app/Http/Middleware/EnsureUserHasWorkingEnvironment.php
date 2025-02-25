@@ -4,10 +4,9 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
-class LastActivity
+class EnsureUserHasWorkingEnvironment
 {
     /**
      * Handle an incoming request.
@@ -16,14 +15,12 @@ class LastActivity
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $response = $next($request);
-
-        if (Auth::check()) {
-            $request->user()->forceFill([
-                'last_activity_at' => now(),
-            ])->save();
+        if ($request->user()->workingEnvironment()) {
+            return $next($request);
         }
 
-        return $response;
+        return response()->json([
+            'message' => __('You do not have a working environment.'),
+        ], 403);
     }
 }

@@ -13,7 +13,7 @@ class PlanFeatureSeeder extends Seeder
      */
     public function run(): void
     {
-        $plans = file_get_contents(storage_path('app/json/plan_features.json'));
+        $plans = file_get_contents(public_path('json/plan_features.json'));
         $plans = json_decode($plans, true);
 
         foreach ($plans as $planData) {

@@ -39,12 +39,12 @@ class GpsDailyReport extends Model
     ];
 
     /**
-     * Get the trucktor that owns the GpsDailyReport
+     * Get the tractor that owns the GpsDailyReport
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
-    public function trucktor()
+    public function tractor()
     {
-        return $this->belongsTo(Trucktor::class);
+        return $this->belongsTo(Tractor::class);
     }
 }

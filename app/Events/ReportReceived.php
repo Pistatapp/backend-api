@@ -41,7 +41,7 @@ class ReportReceived implements ShouldBroadcast
     {
         return [
             'id' => $this->data['id'],
-            'trucktor_id' => $this->data['trucktor_id'],
+            'tractor_id' => $this->data['tractor_id'],
             'traveled_distance' => number_format($this->data['traveled_distance'], 2),
             'work_duration' => gmdate('H:i:s', $this->data['work_duration']),
             'stoppage_duration' => gmdate('H:i:s', $this->data['stoppage_duration']),

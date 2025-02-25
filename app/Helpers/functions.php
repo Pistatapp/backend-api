@@ -42,16 +42,6 @@ function time_to_hours(string $time): float
 }
 
 /**
- * Get the active farm of the authenticated user
- *
- * @return \App\Models\Farm
- */
-function get_active_farm()
-{
-    return Auth::user()->active_farm;
-}
-
-/**
  * Calculate the area of a polygon with any number of corners
  *
  * @param array $points

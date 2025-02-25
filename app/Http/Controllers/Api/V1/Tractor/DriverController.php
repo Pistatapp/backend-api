@@ -1,37 +1,37 @@
 <?php
 
-namespace App\Http\Controllers\Api\V1\Trucktor;
+namespace App\Http\Controllers\Api\V1\Tractor;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\DriverResource;
-use App\Models\Trucktor;
+use App\Models\Tractor;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
 class DriverController extends Controller
 {
     /**
-     * Get driver of the trucktor.
+     * Get driver of the tractor.
      */
-    public function show(Trucktor $trucktor)
+    public function show(Tractor $tractor)
     {
-        $driver = $trucktor->driver;
+        $driver = $tractor->driver;
         return $driver ? new DriverResource($driver) : [];
     }
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request, Trucktor $trucktor)
+    public function store(Request $request, Tractor $tractor)
     {
         $request->validate([
             'name' => 'required|string|max:255',
             'mobile' => 'required|ir_mobile',
         ]);
 
-        throw_if($trucktor->driver()->exists(), new \Exception('Driver already exists.'));
+        throw_if($tractor->driver()->exists(), new \Exception('Driver already exists.'));
 
-        $driver = $trucktor->driver()->create([
+        $driver = $tractor->driver()->create([
             'name' => $request->name,
             'mobile' => $request->mobile,
             'employee_code' => random_int(1000000, 9999999)
@@ -43,14 +43,14 @@ class DriverController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Trucktor $trucktor)
+    public function update(Request $request, Tractor $tractor)
     {
         $request->validate([
             'name' => 'required|string|max:255',
             'mobile' => 'required|ir_mobile',
         ]);
 
-        $driver = $trucktor->driver;
+        $driver = $tractor->driver;
 
         throw_unless($driver, new \Exception('Driver not found.'));
 
@@ -65,11 +65,11 @@ class DriverController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Trucktor $trucktor)
+    public function destroy(Tractor $tractor)
     {
-        throw_unless($trucktor->driver()->exists(), JsonResponse::HTTP_FORBIDDEN);
+        throw_unless($tractor->driver()->exists(), JsonResponse::HTTP_FORBIDDEN);
 
-        $trucktor->driver()->delete();
+        $tractor->driver()->delete();
 
         return response()->json([], JsonResponse::HTTP_GONE);
     }

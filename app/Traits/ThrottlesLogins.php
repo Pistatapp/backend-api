@@ -3,9 +3,27 @@
 namespace App\Traits;
 
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 trait ThrottlesLogins
 {
+    /**
+     * Check the login attempts for the user.
+     *
+     * @param \Illuminate\Http\Request $request
+     * @return void
+     */
+    protected function checkLoginAttempts($request) {
+
+        if ($this->hasTooManyLoginAttempts($request)) {
+            throw ValidationException::withMessages([
+                'token' => __('Too many login attempts. Please try again in :seconds seconds.', [
+                    'seconds' => $this->secondsRemainingOnLockout($request),
+                ]),
+            ]);
+        }
+    }
+
     /**
      * Determine if the user has too many failed login attempts.
      *

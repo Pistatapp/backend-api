@@ -16,13 +16,13 @@ class DriverResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'trucktor_id' => $this->trucktor_id,
+            'tractor_id' => $this->tractor_id,
             'name' => $this->name,
             'mobile' => $this->mobile,
             'employee_code' => $this->employee_code,
             'created_at' => jdate($this->created_at)->format('Y-m-d H:i:s'),
             'can' => [
-                'delete' => $this->trucktor()->doesntExist(),
+                'delete' => $this->tractor()->doesntExist(),
             ],
         ];
     }

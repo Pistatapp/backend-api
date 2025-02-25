@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Trucktor extends Model
+class Tractor extends Model
 {
     use HasFactory;
 
@@ -35,7 +35,7 @@ class Trucktor extends Model
     ];
 
     /**
-     * Scope a query to only include working trucktors.
+     * Scope a query to only include working tractors.
      *
      * @param  \Illuminate\Database\Eloquent\Builder  $query
      * @return \Illuminate\Database\Eloquent\Builder
@@ -46,7 +46,7 @@ class Trucktor extends Model
     }
 
     /**
-     * Get the farm that owns the Trucktor
+     * Get the farm that owns the tractor
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
@@ -56,7 +56,7 @@ class Trucktor extends Model
     }
 
     /**
-     * Get driver of the trucktor.
+     * Get driver of the tractor.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasOne
      */
@@ -66,7 +66,7 @@ class Trucktor extends Model
     }
 
     /**
-     * Get the gps device of the trucktor.
+     * Get the gps device of the tractor.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasOne
      */
@@ -76,7 +76,7 @@ class Trucktor extends Model
     }
 
     /**
-     * Get the gps reports for the trucktor.
+     * Get the gps reports for the tractor.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasManyThrough
      */
@@ -86,7 +86,7 @@ class Trucktor extends Model
     }
 
     /**
-     * Get the gps daily reports for the trucktor.
+     * Get the gps daily reports for the tractor.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
@@ -96,27 +96,27 @@ class Trucktor extends Model
     }
 
     /**
-     * Get the tasks for the trucktor.
+     * Get the tasks for the tractor.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function tasks()
     {
-        return $this->hasMany(TrucktorTask::class);
+        return $this->hasMany(TractorTask::class);
     }
 
     /**
-     * Get the reports for the trucktor.
+     * Get the reports for the tractor.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function reports()
     {
-        return $this->hasMany(TrucktorReport::class);
+        return $this->hasMany(TractorReport::class);
     }
 
     /**
-     * Get the maintenance reports for the trucktor.
+     * Get the maintenance reports for the tractor.
      *
      * @return \Illuminate\Database\Eloquent\Relations\MorphMany
      */

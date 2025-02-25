@@ -23,7 +23,6 @@ class Farm extends Model
         'center',
         'zoom',
         'area',
-        'is_working_environment',
     ];
 
     /**
@@ -39,15 +38,6 @@ class Farm extends Model
             'is_working_environment' => 'boolean',
         ];
     }
-
-    /**
-     * The attributes that should have default values.
-     *
-     * @var array<string, mixed>
-     */
-    protected $attributes = [
-        'is_working_environment' => false,
-    ];
 
     /**
      * Get the crop that owns the farm.
@@ -77,9 +67,7 @@ class Farm extends Model
     public function users()
     {
         return $this->belongsToMany(User::class)
-            ->using(FarmUser::class)
-            ->withPivot('is_owner', 'role')
-            ->withTimestamps();
+            ->withPivot('is_owner', 'role', 'is_working_environment');
     }
 
     /**
@@ -133,13 +121,13 @@ class Farm extends Model
     }
 
     /**
-     * Get trucktors of the farm.
+     * Get tractors of the farm.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
-    public function trucktors()
+    public function tractors()
     {
-        return $this->hasMany(Trucktor::class);
+        return $this->hasMany(Tractor::class);
     }
 
     /**
@@ -270,20 +258,5 @@ class Farm extends Model
     public function frostbitRisks()
     {
         return $this->hasMany(FrostbitRisk::class);
-    }
-
-    /**
-     * Set this farm as working environment
-     *
-     * @return void
-     */
-    public function setAsWorkingEnvironment()
-    {
-        $this->update(['is_working_environment' => true]);
-
-        // Set other farms to false
-        Farm::where('user_id', $this->user_id)
-            ->where('id', '!=', $this->id)
-            ->update(['is_working_environment' => false]);
     }
 }

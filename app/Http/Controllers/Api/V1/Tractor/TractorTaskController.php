@@ -1,39 +1,39 @@
 <?php
 
-namespace App\Http\Controllers\Api\V1\Trucktor;
+namespace App\Http\Controllers\Api\V1\Tractor;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\StoreTrucktorTaskRequest;
-use App\Http\Requests\UpdateTrucktorTaskRequest;
-use App\Http\Resources\TrucktorTaskResource;
-use App\Models\Trucktor;
-use App\Models\TrucktorTask;
+use App\Http\Requests\StoreTractorTaskRequest;
+use App\Http\Requests\UpdateTractorTaskRequest;
+use App\Http\Resources\TractorTaskResource;
+use App\Models\Tractor;
+use App\Models\TractorTask;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Http\JsonResponse;
 
-class TrucktorTaskController extends Controller
+class TractorTaskController extends Controller
 {
     public function __construct()
     {
-        $this->authorizeResource(TrucktorTask::class);
+        $this->authorizeResource(TractorTask::class);
     }
     /**
      * Display a listing of the resource.
      */
-    public function index(Trucktor $trucktor)
+    public function index(Tractor $tractor)
     {
-        $tasks = $trucktor->tasks()->latest()->simplePaginate();
+        $tasks = $tractor->tasks()->latest()->simplePaginate();
 
-        return TrucktorTaskResource::collection($tasks);
+        return TractorTaskResource::collection($tasks);
     }
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(StoreTrucktorTaskRequest $request, Trucktor $trucktor)
+    public function store(StoreTractorTaskRequest $request, Tractor $tractor)
     {
-        $task = $trucktor->tasks()->create([
+        $task = $tractor->tasks()->create([
             'operation_id' => $request->operation_id,
             'field_ids' => $request->field_ids,
             'name' => $request->name,
@@ -45,23 +45,23 @@ class TrucktorTaskController extends Controller
 
         Cache::forget('tasks');
 
-        return new TrucktorTaskResource($task);
+        return new TractorTaskResource($task);
     }
 
     /**
      * Display the specified resource.
      */
-    public function show(TrucktorTask $trucktorTask)
+    public function show(TractorTask $tractorTask)
     {
-        return new TrucktorTaskResource($trucktorTask);
+        return new TractorTaskResource($tractorTask);
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(UpdateTrucktorTaskRequest $request, TrucktorTask $trucktorTask)
+    public function update(UpdateTractorTaskRequest $request, TractorTask $tractorTask)
     {
-        $trucktorTask->update($request->only([
+        $tractorTask->update($request->only([
             'name',
             'start_date',
             'end_date',
@@ -70,15 +70,15 @@ class TrucktorTaskController extends Controller
 
         Cache::forget('tasks');
 
-        return new TrucktorTaskResource($trucktorTask->fresh());
+        return new TractorTaskResource($tractorTask->fresh());
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(TrucktorTask $trucktorTask)
+    public function destroy(TractorTask $tractorTask)
     {
-        $trucktorTask->delete();
+        $tractorTask->delete();
 
         Cache::forget('tasks');
 

@@ -24,25 +24,22 @@ class User extends Authenticatable implements HasMedia
     protected $fillable = [
         'username',
         'mobile',
-        'mobile_verified_at',
-        'last_activity_at',
-        'avatar',
-        'is_admin',
         'fcm_token',
         'created_by',
     ];
 
     /**
-     * The attributes that should have default values.
+     * The attributes that should be hidden for arrays.
      *
-     * @var array<string, mixed>
+     * @var array<string>
      */
-    protected $attributes = [
-        'is_admin' => false,
+    protected $hidden = [
+        'password',
+        'password_expires_at',
     ];
 
     /**
-     * The attributes that should be hidden for arrays.
+     * The attributes that should be cast to native types.
      *
      * @return array<string, string>
      */
@@ -51,8 +48,9 @@ class User extends Authenticatable implements HasMedia
         return [
             'mobile_verified_at' => 'datetime',
             'last_activity_at' => 'datetime',
-            'is_admin' => 'boolean',
             'created_by' => 'integer',
+            'password' => 'hashed',
+            'password_expires_at' => 'datetime',
         ];
     }
 
@@ -62,6 +60,39 @@ class User extends Authenticatable implements HasMedia
      * @var array<string>
      */
     protected $with = ['roles'];
+
+    /**
+     * Mark the user's mobile as verified.
+     *
+     * @return void
+     */
+    public function markMobileAsVerified()
+    {
+        $this->forceFill([
+            'mobile_verified_at' => $this->freshTimestamp(),
+        ])->save();
+    }
+
+    /**
+     * Determine if the user has verified their mobile number.
+     *
+     * @return bool
+     */
+    public function hasVerifiedMobile()
+    {
+        return ! is_null($this->mobile_verified_at);
+    }
+
+    /**
+     * Determine if the password is not expired.
+     *
+     * @return bool
+     */
+    public function passwordNotExpired()
+    {
+        return $this->password_expires_at &&
+            $this->password_expires_at->isFuture();
+    }
 
     /**
      * Get the user's mobile number.
@@ -101,8 +132,7 @@ class User extends Authenticatable implements HasMedia
     public function farms()
     {
         return $this->belongsToMany(Farm::class)
-            ->using(FarmUser::class)
-            ->withPivot('is_owner', 'role');
+            ->withPivot('is_owner', 'role', 'is_working_environment');
     }
 
     /**
@@ -126,33 +156,14 @@ class User extends Authenticatable implements HasMedia
     }
 
     /**
-     * Determine if user is admin.
+     * Get the user's working environment farm.
      *
-     * @return bool
+     * @return \App\Models\Farm|null
      */
-    public function isAdmin()
+    public function workingEnvironment()
     {
-        return $this->is_admin === true;
-    }
-
-    /**
-     * Scope a query to only include users that are not admin.
-     *
-     * @param \Illuminate\Database\Eloquent\Builder $query
-     * @return \Illuminate\Database\Eloquent\Builder
-     */
-    public function scopeNotAdmin($query)
-    {
-        return $query->where('is_admin', false);
-    }
-
-    /**
-     * Get the active farm of the user.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasOne
-     */
-    public function active_farm()
-    {
-        return $this->hasOne(Farm::class)->where('is_working_environment', true);
+        return $this->farms()
+            ->wherePivot('is_working_environment', true)
+            ->first();
     }
 }

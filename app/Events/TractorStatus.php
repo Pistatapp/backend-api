@@ -2,7 +2,7 @@
 
 namespace App\Events;
 
-use App\Models\Trucktor;
+use App\Models\Tractor;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PresenceChannel;
@@ -11,7 +11,7 @@ use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class TrucktorStatus implements ShouldBroadcast
+class TractorStatus implements ShouldBroadcast
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
@@ -19,10 +19,10 @@ class TrucktorStatus implements ShouldBroadcast
      * Create a new event instance.
      */
     public function __construct(
-        private Trucktor $trucktor,
+        private Tractor $tractor,
         private int $status
     ) {
-        $trucktor->update(['is_working' => $status]);
+        $tractor->update(['is_working' => $status]);
     }
 
     /**
@@ -32,7 +32,7 @@ class TrucktorStatus implements ShouldBroadcast
      */
     public function broadcastAs()
     {
-        return 'trucktor.status.changed';
+        return 'tractor.status.changed';
     }
 
     /**
@@ -43,7 +43,7 @@ class TrucktorStatus implements ShouldBroadcast
     public function broadcastWith()
     {
         return [
-            'trucktor' => $this->trucktor->id,
+            'tractor' => $this->tractor->id,
             'status' => $this->status
         ];
     }
@@ -55,6 +55,6 @@ class TrucktorStatus implements ShouldBroadcast
      */
     public function broadcastOn(): Channel
     {
-        return new Channel('trucktor.status');
+        return new Channel('tractor.status');
     }
 }

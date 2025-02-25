@@ -1,35 +1,35 @@
 <?php
 
-namespace App\Http\Controllers\Api\V1\Trucktor;
+namespace App\Http\Controllers\Api\V1\Tractor;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\TrucktorReportResource;
-use App\Models\Trucktor;
-use App\Models\TrucktorReport;
+use App\Http\Resources\TractorReportResource;
+use App\Models\Tractor;
+use App\Models\TractorReport;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
-class TrucktorReportController extends Controller
+class TractorReportController extends Controller
 {
 
     public function __construct()
     {
-        $this->authorizeResource(TrucktorReport::class);
+        $this->authorizeResource(TractorReport::class);
     }
 
     /**
      * Display a listing of the resource.
      */
-    public function index(Trucktor $trucktor)
+    public function index(Tractor $tractor)
     {
-        $reports = $trucktor->reports()->latest()->simplePaginate();
-        return TrucktorReportResource::collection($reports);
+        $reports = $tractor->reports()->latest()->simplePaginate();
+        return TractorReportResource::collection($reports);
     }
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request, Trucktor $trucktor)
+    public function store(Request $request, Tractor $tractor)
     {
         $request->validate([
             'date' => 'required|date',
@@ -40,7 +40,7 @@ class TrucktorReportController extends Controller
             'description' => 'nullable|string',
         ]);
 
-        $trucktorReport = $trucktor->reports()->create([
+        $tractorReport = $tractor->reports()->create([
             'date' => jalali_to_carbon($request->date),
             'start_time' => $request->start_time,
             'end_time' => $request->end_time,
@@ -50,21 +50,21 @@ class TrucktorReportController extends Controller
             'created_by' => $request->user()->id,
         ]);
 
-        return new TrucktorReportResource($trucktorReport);
+        return new TractorReportResource($tractorReport);
     }
 
     /**
      * Display the specified resource.
      */
-    public function show(TrucktorReport $trucktorReport)
+    public function show(TractorReport $tractorReport)
     {
-        return new TrucktorReportResource($trucktorReport);
+        return new TractorReportResource($tractorReport);
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, TrucktorReport $trucktorReport)
+    public function update(Request $request, TractorReport $tractorReport)
     {
         $request->validate([
             'date' => 'required|date',
@@ -75,7 +75,7 @@ class TrucktorReportController extends Controller
             'description' => 'nullable|string',
         ]);
 
-        $trucktorReport->update([
+        $tractorReport->update([
             'date' => jalali_to_carbon($request->date),
             'start_time' => $request->start_time,
             'end_time' => $request->end_time,
@@ -84,15 +84,15 @@ class TrucktorReportController extends Controller
             'description' => $request->description,
         ]);
 
-        return new TrucktorReportResource($trucktorReport->fresh());
+        return new TractorReportResource($tractorReport->fresh());
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(TrucktorReport $trucktorReport)
+    public function destroy(TractorReport $tractorReport)
     {
-        $trucktorReport->delete();
+        $tractorReport->delete();
 
         return response()->json([], JsonResponse::HTTP_GONE);
     }
@@ -107,10 +107,10 @@ class TrucktorReportController extends Controller
             'to' => 'required|shamsi_date',
             'operation_id' => 'nullable|exists:operations,id',
             'field_id' => 'nullable|exists:fields,id',
-            'trucktor_id' => 'nullable|exists:trucktors,id',
+            'tractor_id' => 'nullable|exists:tractors,id',
         ]);
 
-        $reports = TrucktorReport::whereBetween('date', [
+        $reports = TractorReport::whereBetween('date', [
             jalali_to_carbon($request->from),
             jalali_to_carbon($request->to),
         ])
@@ -120,12 +120,12 @@ class TrucktorReportController extends Controller
             ->when($request->has('field_id'), function ($query) use ($request) {
                 return $query->where('field_id', $request->field_id);
             })
-            ->when($request->has('trucktor_id'), function ($query) use ($request) {
-                return $query->where('trucktor_id', $request->trucktor_id);
+            ->when($request->has('tractor_id'), function ($query) use ($request) {
+                return $query->where('tractor_id', $request->tractor_id);
             })
             ->latest()
             ->simplePaginate();
 
-        return TrucktorReportResource::collection($reports);
+        return TractorReportResource::collection($reports);
     }
 }

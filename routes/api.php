@@ -12,22 +12,22 @@ use App\Http\Controllers\Api\V1\Farm\BlockController;
 use App\Http\Controllers\Api\V1\Farm\PumpController;
 use App\Http\Controllers\Api\V1\Farm\ValveController;
 use App\Http\Controllers\Api\V1\Management\TeamController;
-use App\Http\Controllers\Api\V1\Trucktor\DriverController;
-use App\Http\Controllers\Api\V1\Trucktor\GpsReportController;
-use App\Http\Controllers\Api\V1\Trucktor\TrucktorController;
+use App\Http\Controllers\Api\V1\Tractor\DriverController;
+use App\Http\Controllers\Api\V1\Tractor\GpsReportController;
+use App\Http\Controllers\Api\V1\Tractor\TractorController;
 use App\Http\Controllers\Api\V1\Management\LabourController;
 use App\Http\Controllers\Api\V1\Farm\AttachmentController;
 use App\Http\Controllers\Api\V1\Management\OprationController;
-use App\Http\Controllers\Api\V1\Trucktor\TrucktorTaskController;
+use App\Http\Controllers\Api\V1\Tractor\TractorTaskController;
 use App\Http\Controllers\Api\V1\Farm\IrrigationController;
-use App\Http\Controllers\Api\V1\Trucktor\TrucktorReportController;
+use App\Http\Controllers\Api\V1\Tractor\TractorReportController;
 use App\Http\Controllers\Api\V1\UserController;
 use App\Http\Controllers\Api\V1\GpsDeviceController;
 use App\Http\Controllers\Api\V1\PestController;
 use App\Http\Controllers\Api\V1\PhonologyGuideFileController;
 use App\Http\Controllers\Api\V1\Farm\ColdRequirementController;
 use App\Http\Controllers\Api\V1\Farm\VolkOilSprayController;
-use App\Http\Controllers\Api\V1\Trucktor\ActiveTrucktorController;
+use App\Http\Controllers\Api\V1\Tractor\ActiveTractorController;
 use App\Http\Controllers\Api\V1\Management\MaintenanceController;
 use App\Http\Controllers\Api\V1\MaintenanceReportController;
 use App\Http\Controllers\Api\V1\Farm\FarmReportsController;
@@ -63,6 +63,7 @@ Route::controller(AuthController::class)->prefix('auth')->group(function () {
     });
     Route::post('logout', 'logout')->middleware('auth:sanctum');
     Route::post('refresh', 'refreshToken')->middleware('auth:sanctum');
+    Route::get('permissions', 'permissions')->middleware('auth:sanctum');
 });
 
 Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(function () {
@@ -127,7 +128,6 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
         Route::apiResource('plans.features', FeatureController::class)->shallow();
     });
 
-
     Route::withoutMiddleware('ensure.username')->group(function () {
         Route::patch('username', [ProfileController::class, 'setUsername']);
         Route::apiSingleton('profile', ProfileController::class);
@@ -137,6 +137,8 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
 
     Route::get('/farms/{farm}/set_working_environment', [FarmController::class, 'setWorkingEnvironment']);
     Route::apiResource('farms', FarmController::class);
+    Route::post('/farms/{farm}/attach-user', [FarmController::class, 'attachUserToFarm']);
+    Route::post('/farms/{farm}/detach-user', [FarmController::class, 'detachUserFromFarm']);
     Route::apiResource('farms.farm-reports', FarmReportsController::class)->shallow();
     Route::apiResource('farms.fields', FieldController::class)->shallow();
     Route::apiResource('fields.rows', RowController::class)->except('update')->shallow();
@@ -146,15 +148,16 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::apiResource('farms.pumps', PumpController::class)->shallow();
     Route::get('/fields/{field}/valves', [FieldController::class, 'getValvesForField']);
     Route::apiResource('pumps.valves', ValveController::class)->shallow();
-    Route::get('/farms/{farm}/trucktors/active', [ActiveTrucktorController::class, 'index']);
-    Route::apiResource('farms.trucktors', TrucktorController::class)->shallow();
-    Route::get('/trucktors/{trucktor}/devices', [TrucktorController::class, 'getAvailableDevices']);
-    Route::post('/trucktors/{trucktor}/assign_device/{gps_device}', [TrucktorController::class, 'assignDevice']);
-    Route::post('/trucktors/{trucktor}/unassign_device/{gps_device}', [TrucktorController::class, 'unassignDevice']);
-    Route::get('/trucktors/{trucktor}/reports', [ActiveTrucktorController::class, 'reports']);
-    Route::apiSingleton('trucktors.driver', DriverController::class)->creatable();
-    Route::apiResource('trucktors.trucktor_reports', TrucktorReportController::class)->shallow();
-    Route::post('/trucktor_reports/filter', [TrucktorReportController::class, 'filter']);
+    Route::get('/farms/{farm}/tractors/active', [ActiveTractorController::class, 'index']);
+    Route::apiResource('farms.tractors', TractorController::class)->shallow();
+    Route::get('/tractors/{tractor}/devices', [TractorController::class, 'getAvailableDevices']);
+    Route::post('/tractors/{tractor}/assign_device/{gps_device}', [TractorController::class, 'assignDevice']);
+    Route::post('/tractors/{tractor}/unassign_device/{gps_device}', [TractorController::class, 'unassignDevice']);
+    Route::get('/tractors/{tractor}/reports', [ActiveTractorController::class, 'reports']);
+    Route::apiSingleton('tractors.driver', DriverController::class)->creatable();
+    Route::apiResource('tractors.tractor_reports', TractorReportController::class)->shallow();
+    Route::post('/tractor_reports/filter', [TractorReportController::class, 'filter']);
+    Route::apiResource('tractors.tractor_tasks', TractorTaskController::class)->shallow();
     Route::apiResource('farms.maintenances', MaintenanceController::class)->except('show')->shallow();
     Route::post(('maintenance_reports/filter'), [MaintenanceReportController::class, 'filter']);
     Route::apiResource('maintenance_reports', MaintenanceReportController::class)->except('show')->shallow();
@@ -162,7 +165,6 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::apiResource('farms.labours', LabourController::class)->shallow();
     Route::apiResource('attachments', AttachmentController::class)->except('show', 'index');
     Route::apiResource('farms.operations', OprationController::class)->shallow();
-    Route::apiResource('trucktors.trucktor_tasks', TrucktorTaskController::class)->shallow();
     Route::post('/farms/{farm}/irrigations/reports', [IrrigationController::class, 'filterReports']);
     Route::get('/fields/{field}/irrigations', [IrrigationController::class, 'getIrrigationsForField']);
     Route::get('/fields/{field}/irrigations/report', [IrrigationController::class, 'getIrrigationReportForField']);

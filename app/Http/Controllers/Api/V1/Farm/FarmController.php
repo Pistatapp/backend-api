@@ -9,6 +9,7 @@ use App\Http\Resources\FarmResource;
 use App\Models\Farm;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use App\Models\User;
 
 class FarmController extends Controller
 {
@@ -25,7 +26,7 @@ class FarmController extends Controller
     public function index(Request $request)
     {
         $farms = $request->user()->farms()
-            ->withCount(['trees', 'fields', 'labours', 'trucktors', 'plans'])
+            ->withCount(['trees', 'fields', 'labours', 'tractors', 'plans'])
             ->get();
 
         return FarmResource::collection($farms);
@@ -50,8 +51,8 @@ class FarmController extends Controller
         ]);
 
         $request->user()->farms()->attach($farm, [
-            'is_owner' => !$request->user()->created_by,
-            'role' => 'admin'
+            'is_owner' => true,
+            'role' => $request->user()->getRoleNames()->first(),
         ]);
 
         return new FarmResource($farm);
@@ -64,7 +65,11 @@ class FarmController extends Controller
      */
     public function show(Farm $farm)
     {
-        $farm = $farm->loadCount(['trees', 'fields', 'labours', 'trucktors', 'plans'])->load('crop');
+        $farm = $farm
+            ->load(['crop', 'users' => function ($query) {
+                $query->wherePivot('is_owner', false);
+            }])
+            ->loadCount(['trees', 'fields', 'labours', 'tractors', 'plans']);
 
         return new FarmResource($farm);
     }
@@ -105,15 +110,68 @@ class FarmController extends Controller
     /**
      * Set working environment for the farm
      *
+     * @param Request $request
      * @param Farm $farm
      * @return \Illuminate\Http\JsonResponse
      */
-    public function setWorkingEnvironment(Farm $farm)
+    public function setWorkingEnvironment(Request $request, Farm $farm)
     {
         $this->authorize('setWorkingEnvironment', $farm);
 
-        $farm->setAsWorkingEnvironment();
+        $user = $request->user();
+        $user->farms()->updateExistingPivot($farm->id, ['is_working_environment' => true]);
+
+        // Reset other farms' working environment status
+        $user->farms()->where('farm_id', '!=', $farm->id)->update(['is_working_environment' => false]);
 
         return new FarmResource($farm);
+    }
+
+    /**
+     * Attach a user to a farm
+     *
+     * @param Request $request
+     * @param Farm $farm
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function attachUserToFarm(Request $request, Farm $farm)
+    {
+        $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'role' => 'required|string|not_in:admin,root,super-admin',
+        ]);
+
+        $user = User::find($request->input('user_id'));
+        $this->authorize('attach', $user);
+
+        $farm->users()->attach($user->id, [
+            'role' => $request->input('role'),
+            'is_owner' => false,
+        ]);
+
+        $user->assignRole($request->input('role'));
+
+        return response()->json(['message' => __('User attached to farm successfully.')]);
+    }
+
+    /**
+     * Detach a user from a farm
+     *
+     * @param Farm $farm
+     * @param User $user
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function detachUserFromFarm(Request $request, Farm $farm)
+    {
+        $request->validate([
+            'user_id' => 'required|exists:users,id',
+        ]);
+
+        $user = User::find($request->input('user_id'));
+        $this->authorize('detach', $user);
+
+        $farm->users()->detach($user->id);
+
+        return response()->json(['message' => __('User detached from farm successfully.')]);
     }
 }

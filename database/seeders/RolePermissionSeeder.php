@@ -20,7 +20,7 @@ class RolePermissionSeeder extends Seeder
             PermissionSeeder::class,
         ]);
 
-        $rolePermissions = file_get_contents(storage_path('app/json/role_permissions.json'));
+        $rolePermissions = file_get_contents(public_path('json/role_permissions.json'));
 
         $rolePermissions = json_decode($rolePermissions, true);
 
@@ -32,30 +32,30 @@ class RolePermissionSeeder extends Seeder
             $role->syncPermissions($permissions);
         });
 
-        if (app()->environment('local')) {
-            $localRootUser = User::where('mobile', '09107529334')->first();
+        // if (app()->environment('local')) {
+        //     $localRootUser = User::where('mobile', '09107529334')->first();
 
-            if ($localRootUser) {
-                $localRootUser->assignRole('root');
-            }
+        //     if ($localRootUser) {
+        //         $localRootUser->assignRole('root');
+        //     }
 
-            $localUsers = User::whereNot('mobile', '09107529334')->get();
+        //     $localUsers = User::whereNot('mobile', '09107529334')->get();
 
-            $localUsers->each(function ($user) {
-                $user->assignRole('admin');
-            });
-        } else {
-            $rootUser = User::where('mobile', '09195065248')->first();
+        //     $localUsers->each(function ($user) {
+        //         $user->assignRole('admin');
+        //     });
+        // } else {
+        //     $rootUser = User::where('mobile', '09195065248')->first();
 
-            if ($rootUser) {
-                $rootUser->assignRole('root');
-            }
+        //     if ($rootUser) {
+        //         $rootUser->assignRole('root');
+        //     }
 
-            $users = User::whereNot('mobile', '09195065248')->get();
+        //     $users = User::whereNot('mobile', '09195065248')->get();
 
-            $users->each(function ($user) {
-                $user->assignRole('admin');
-            });
-        }
+        //     $users->each(function ($user) {
+        //         $user->assignRole('admin');
+        //     });
+        // }
     }
 }

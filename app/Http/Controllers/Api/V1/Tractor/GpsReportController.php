@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Http\Controllers\Api\V1\Trucktor;
+namespace App\Http\Controllers\Api\V1\Tractor;
 
 use App\Events\ReportReceived;
-use App\Events\TrucktorStatus;
+use App\Events\TractorStatus;
 use App\Http\Controllers\Controller;
 use App\Services\ParseDataService;
 use App\Services\LiveReportService;
@@ -39,7 +39,8 @@ class GpsReportController extends Controller
             $generatedReport = $reportService->generate();
 
             event(new ReportReceived($generatedReport, $device));
-            event(new TrucktorStatus($device->trucktor, $lastReportStatus));
+
+            event(new TractorStatus($device->tractor, $lastReportStatus));
         } catch (\Exception $e) {
             //
         } finally {
@@ -56,10 +57,8 @@ class GpsReportController extends Controller
     private function getDevice(string $imei): ?GpsDevice
     {
         return Cache::remember('gps_device_' . $imei, 3600, function () use ($imei) {
-            return GpsDevice::with('trucktor')
-                ->where('imei', $imei)
-                ->whereHas('trucktor')
-                ->first();
+            return GpsDevice::where('imei', $imei)
+                ->whereHas('tractor')->with('tractor')->first();
         });
     }
 }

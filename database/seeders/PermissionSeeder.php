@@ -13,7 +13,7 @@ class PermissionSeeder extends Seeder
      */
     public function run(): void
     {
-        $permissions = file_get_contents(storage_path('app/json/permissions.json'));
+        $permissions = file_get_contents(public_path('json/permissions.json'));
 
         $permissions = json_decode($permissions, true);
 

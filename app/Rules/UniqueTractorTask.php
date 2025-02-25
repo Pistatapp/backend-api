@@ -5,9 +5,9 @@ namespace App\Rules;
 use Closure;
 use Illuminate\Contracts\Validation\DataAwareRule;
 use Illuminate\Contracts\Validation\ValidationRule;
-use App\Models\TrucktorTask;
+use App\Models\tractorTask;
 
-class UniqueTrucktorTask implements ValidationRule, DataAwareRule
+class UniqueTractorTask implements ValidationRule, DataAwareRule
 {
 
     protected $data = [];
@@ -32,11 +32,11 @@ class UniqueTrucktorTask implements ValidationRule, DataAwareRule
      */
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
-        $trucktor = request()->route('trucktor') ?? request()->route('trucktor_task')->trucktor;
+        $tractor = request()->route('tractor') ?? request()->route('tractor_task')->tractor;
         $startDate = $this->data['start_date'];
         $endDate = $this->data['end_date'];
 
-        $existingTaskQuery = TrucktorTask::whereBelongsTo($trucktor)
+        $existingTaskQuery = tractorTask::whereBelongsTo($tractor)
             ->where(function ($query) use ($startDate, $endDate) {
                 $query->whereBetween('start_date', [$startDate, $endDate])
                     ->orWhereBetween('end_date', [$startDate, $endDate])
@@ -46,7 +46,7 @@ class UniqueTrucktorTask implements ValidationRule, DataAwareRule
                     });
             });
 
-        if ($task = request()->route('trucktor_task')) {
+        if ($task = request()->route('tractor_task')) {
             $existingTaskQuery->where('id', '!=', $task->id);
         }
 

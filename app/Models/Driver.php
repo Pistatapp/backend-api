@@ -15,7 +15,7 @@ class Driver extends Model
      * @var array<string>
      */
     protected $fillable = [
-        'trucktor_id',
+        'tractor_id',
         'name',
         'mobile',
         'employee_code',
@@ -39,12 +39,12 @@ class Driver extends Model
     }
 
     /**
-     * Get the trucktor that owns the Driver
+     * Get the tractor that owns the Driver
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
-    public function trucktor()
+    public function tractor()
     {
-        return $this->belongsTo(Trucktor::class);
+        return $this->belongsTo(Tractor::class);
     }
 }
