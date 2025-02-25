@@ -64,7 +64,8 @@
         "pay-consultation-fee": "امکان پرداخت هزینه مشاوره",
         "grant-consultant-access": "امکان اعطای دسترسی به مشاور",
         "contact-consultant": "امکان برقراری تماس با مشاور",
-        "manage-users": "مدیریت کاربران"
+        "manage-users": "مدیریت کاربران",
+        "phonology-report": "گزارش گیری فنولوژی"
     },
     "operator": {
         "draw-field-block-row-tree": "ترسیم قطعه، کرت، ردیف و درخت در باغ",
@@ -117,7 +118,8 @@
         "view-consultants-list": "امکان مشاهده لیست مشاوران",
         "pay-consultation-fee": "امکان پرداخت هزینه مشاوره",
         "grant-consultant-access": "امکان اعطای دسترسی به مشاور",
-        "contact-consultant": "امکان برقراری تماس با مشاور"
+        "contact-consultant": "امکان برقراری تماس با مشاور",
+        "phonology-report": "گزارش گیری فنولوژی"
     },
     "viewer": {
         "help": "راهنما",
@@ -154,7 +156,8 @@
         "view-consultants-list": "امکان مشاهده لیست مشاوران",
         "pay-consultation-fee": "امکان پرداخت هزینه مشاوره",
         "grant-consultant-access": "امکان اعطای دسترسی به مشاور",
-        "contact-consultant": "امکان برقراری تماس با مشاور"
+        "contact-consultant": "امکان برقراری تماس با مشاور",
+        "phonology-report": "گزارش گیری فنولوژی"
     },
     "advisor": {
         "help": "راهنما",
@@ -190,7 +193,8 @@
         "view-consultants-list": "امکان مشاهده لیست مشاوران",
         "pay-consultation-fee": "امکان پرداخت هزینه مشاوره",
         "grant-consultant-access": "امکان اعطای دسترسی به مشاور",
-        "contact-consultant": "امکان برقراری تماس با مشاور"
+        "contact-consultant": "امکان برقراری تماس با مشاور",
+        "phonology-report": "گزارش گیری فنولوژی"
     },
     "inspector": {
         "help": "راهنما",
@@ -229,6 +233,7 @@
         "grant-consultant-access": "امکان اعطای دسترسی به مشاور",
         "contact-consultant": "امکان برقراری تماس با مشاور",
         "complete-inspection-checklist": "امکان تکمیل چک لیست بازرسی",
-        "view-inspection-results": "امکان مشاهده نتایج بازرسی"
+        "view-inspection-results": "امکان مشاهده نتایج بازرسی",
+        "phonology-report": "گزارش گیری فنولوژی"
     }
 }
