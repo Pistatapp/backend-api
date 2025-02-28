@@ -11,7 +11,7 @@ use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class IrrigationCompleted implements ShouldBroadcast
+class IrrigationFinished implements ShouldBroadcast
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
@@ -30,7 +30,7 @@ class IrrigationCompleted implements ShouldBroadcast
      */
     public function broadcastAs(): string
     {
-        return 'irrigation.completed';
+        return 'irrigation.finished';
     }
 
     /**

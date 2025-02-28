@@ -17,34 +17,17 @@ class FarmFactory extends Factory
     public function definition(): array
     {
         return [
-            'user_id' => \App\Models\User::factory(),
             'name' => $this->faker->unique()->word,
             'coordinates' => [
-                [
-                    $this->faker->latitude,
-                    $this->faker->longitude,
-                ],
-                [
-                    $this->faker->latitude,
-                    $this->faker->longitude,
-                ],
-                [
-                    $this->faker->latitude,
-                    $this->faker->longitude,
-                ],
-                [
-                    $this->faker->latitude,
-                    $this->faker->longitude,
-                ]
+                $this->faker->latitude . ',' . $this->faker->longitude,
+                $this->faker->latitude . ',' . $this->faker->longitude,
+                $this->faker->latitude . ',' . $this->faker->longitude,
+                $this->faker->latitude . ',' . $this->faker->longitude
             ],
             'crop_id' => \App\Models\Crop::factory(),
-            'center' => [
-                $this->faker->latitude,
-                $this->faker->longitude,
-            ],
+            'center' => $this->faker->latitude . ',' . $this->faker->longitude,
             'zoom' => $this->faker->randomFloat(2, 1, 20),
             'area' => $this->faker->randomFloat(2, 1, 100),
-            'is_working_environment' => false,
         ];
     }
 }

@@ -17,6 +17,7 @@ class CropTypeFactory extends Factory
     public function definition(): array
     {
         return [
+            'crop_id' => \App\Models\Crop::factory(),
             'name' => $this->faker->unique()->word,
         ];
     }

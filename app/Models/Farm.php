@@ -16,7 +16,6 @@ class Farm extends Model
      * @var array<string>
      */
     protected $fillable = [
-        'user_id',
         'name',
         'coordinates',
         'crop_id',
@@ -35,7 +34,6 @@ class Farm extends Model
         return [
             'coordinates' => 'array',
             'center' => 'array',
-            'is_working_environment' => 'boolean',
         ];
     }
 
@@ -47,16 +45,6 @@ class Farm extends Model
     public function crop()
     {
         return $this->belongsTo(Crop::class);
-    }
-
-    /**
-     * Get the user that owns the farm.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
-     */
-    public function user()
-    {
-        return $this->belongsTo(User::class);
     }
 
     /**

@@ -7,7 +7,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Queue\InteractsWithQueue;
 use App\Notifications\IrrigationNotification;
 use Illuminate\Events\Dispatcher;
-use App\Events\IrrigationCompleted;
+use App\Events\IrrigationFinished;
 
 class IrrigationEventSubscriber
 {
@@ -20,9 +20,9 @@ class IrrigationEventSubscriber
     }
 
     /**
-     * Handle irrigation completed events.
+     * Handle irrigation finished events.
      */
-    public function handleIrrigationCompleted(IrrigationCompleted $event): void
+    public function handleIrrigationFinished(IrrigationFinished $event): void
     {
         $this->updateIrrigationStatus($event->irrigation, 'completed', 'closed');
     }
@@ -68,7 +68,7 @@ class IrrigationEventSubscriber
     {
         return [
             IrrigationStarted::class => 'handleIrrigationStarted',
-            IrrigationCompleted::class => 'handleIrrigationCompleted',
+            IrrigationFinished::class => 'handleIrrigationFinished',
         ];
     }
 }

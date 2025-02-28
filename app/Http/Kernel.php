@@ -44,6 +44,7 @@ class Kernel extends HttpKernel
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
             \Illuminate\Session\Middleware\StartSession::class,
             \App\Http\Middleware\ConvertPersianNumbersToEnglish::class,
+            // \App\Http\Middleware\ConvertShamsiToGregorian::class,
         ],
     ];
 

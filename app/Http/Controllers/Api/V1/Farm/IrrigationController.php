@@ -11,7 +11,6 @@ use App\Models\Farm;
 use App\Models\Field;
 use App\Models\Irrigation;
 use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
 
 class IrrigationController extends Controller
 {
@@ -86,7 +85,7 @@ class IrrigationController extends Controller
     {
         $irrigation->delete();
 
-        return response()->json([], JsonResponse::HTTP_GONE);
+        return response()->noContent();
     }
 
     /**
@@ -135,7 +134,7 @@ class IrrigationController extends Controller
 
         return response()->json([
             'data' => [
-                'date' => $date,
+                'date' => jdate($date)->format('Y/m/d'),
                 'total_duration' => to_time_format($totalDuration),
                 'total_volume' => $totalVolume, // In liters
                 'irrigation_count' => $irrigations->count(),
@@ -149,7 +148,7 @@ class IrrigationController extends Controller
     public function filterReports(FilterIrrigationReportsRequest $request, Farm $farm)
     {
         $irrigations = Irrigation::whereBelongsTo($farm)
-            ->filter('completed')
+            ->filter('finished')
             ->when($request->field_id, function ($query) use ($request) {
                 $query->whereHas('fields', function ($query) use ($request) {
                     $query->where('fields.id', $request->field_id);

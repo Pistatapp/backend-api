@@ -41,7 +41,6 @@ class FarmController extends Controller
     public function store(StoreFarmRequest $request)
     {
         $farm = Farm::create([
-            'user_id' => $request->user()->id,
             'name' => $request->name,
             'coordinates' => $request->coordinates,
             'center' => $request->center,

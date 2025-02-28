@@ -31,31 +31,5 @@ class RolePermissionSeeder extends Seeder
 
             $role->syncPermissions($permissions);
         });
-
-        // if (app()->environment('local')) {
-        //     $localRootUser = User::where('mobile', '09107529334')->first();
-
-        //     if ($localRootUser) {
-        //         $localRootUser->assignRole('root');
-        //     }
-
-        //     $localUsers = User::whereNot('mobile', '09107529334')->get();
-
-        //     $localUsers->each(function ($user) {
-        //         $user->assignRole('admin');
-        //     });
-        // } else {
-        //     $rootUser = User::where('mobile', '09195065248')->first();
-
-        //     if ($rootUser) {
-        //         $rootUser->assignRole('root');
-        //     }
-
-        //     $users = User::whereNot('mobile', '09195065248')->get();
-
-        //     $users->each(function ($user) {
-        //         $user->assignRole('admin');
-        //     });
-        // }
     }
 }

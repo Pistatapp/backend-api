@@ -2,9 +2,12 @@
 
 namespace Database\Seeders;
 
-use App\Models\Crop;
-use App\Models\CropType;
+use App\Models\Farm;
+use App\Models\Field;
+use App\Models\Labour;
 use App\Models\User;
+use App\Models\Pump;
+use App\Models\Valve;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -15,7 +18,28 @@ class FarmSeeder extends Seeder
      */
     public function run(): void
     {
-        $crops = Crop::factory(10)->has(CropType::factory())->create();
         $user = User::where('mobile', '09369238614')->first();
+
+        for ($i = 0; $i < 3; $i++) {
+            $farm = Farm::factory()
+                ->hasAttached($user, [
+                    'role' => 'admin',
+                    'is_owner' => true,
+                ])
+                ->has(Labour::factory()->count(15))
+                ->has(Field::factory()->count(4))
+                ->has(Pump::factory())
+                ->create();
+
+            $fields = $farm->fields;
+            $pump = $farm->pumps->first();
+
+            $fields->each(function ($field) use ($pump) {
+                Valve::factory()->count(4)->open()->create([
+                    'pump_id' => $pump->id,
+                    'field_id' => $field->id,
+                ]);
+            });
+        }
     }
 }

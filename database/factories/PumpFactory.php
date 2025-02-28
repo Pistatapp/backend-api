@@ -31,10 +31,7 @@ class PumpFactory extends Factory
             'debi' => $this->faker->randomFloat(2, 0, 100),
             'is_active' => $this->faker->boolean,
             'is_healthy' => $this->faker->boolean,
-            'location' => [
-                $this->faker->latitude,
-                $this->faker->longitude,
-            ],
+            'location' => $this->faker->latitude . ',' . $this->faker->longitude,
             'tempurature' => $this->faker->randomFloat(2, 0, 100),
         ];
     }

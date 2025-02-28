@@ -20,11 +20,21 @@ class ValveFactory extends Factory
         return [
             'pump_id' => Pump::factory(),
             'name' => $this->faker->name,
-            'location' => [
-                'lat' => $this->faker->latitude,
-                'lng' => $this->faker->longitude,
-            ],
+            'location' => $this->faker->latitude . ',' . $this->faker->longitude,
             'flow_rate' => $this->faker->randomFloat(2, 0, 100),
         ];
+
+    }
+
+    /**
+     * Indicate that the model's is_open is false.
+     *
+     * @return static
+     */
+    public function open(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'is_open' => false,
+        ]);
     }
 }

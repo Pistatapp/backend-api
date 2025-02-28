@@ -14,13 +14,20 @@ class MaintenanceController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(Farm $farm)
+    public function index(Request $request, Farm $farm)
     {
-        if (request()->has('without_pagination')) {
-            return MaintenanceResource::collection($farm->maintenances);
+        $maintenances = Maintenance::query();
+        $maintenances->where('farm_id', $farm->id);
+
+        if ($request->has('search')) {
+            $maintenances->where('name', 'like', "%{$request->search}%");
         } else {
-            return MaintenanceResource::collection($farm->maintenances()->paginate());
+            $maintenances->latest();
         }
+
+        $maintenances = $request->has('search') ? $maintenances->get() : $maintenances->simplePaginate();
+
+        return MaintenanceResource::collection($maintenances);
     }
 
     /**

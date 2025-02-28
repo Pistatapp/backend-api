@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Events\IrrigationCompleted;
+use App\Events\IrrigationFinished;
 use App\Events\IrrigationStarted;
 use Illuminate\Console\Command;
 use App\Models\Irrigation;
@@ -21,7 +21,7 @@ class ChangeIrrigationStatus extends Command
      *
      * @var string
      */
-    protected $description = 'Change the status of irrigation from pending to in-progress or completed';
+    protected $description = 'Change the status of irrigation from pending to in-progress or finished';
 
     /**
      * Execute the console command.
@@ -29,7 +29,7 @@ class ChangeIrrigationStatus extends Command
     public function handle()
     {
         $this->updateIrrigationStatus('pending', 'in-progress');
-        $this->updateIrrigationStatus('in-progress', 'completed');
+        $this->updateIrrigationStatus('in-progress', 'finished');
 
         return Command::SUCCESS;
     }
@@ -51,7 +51,7 @@ class ChangeIrrigationStatus extends Command
                     if ($newStatus === 'in-progress') {
                         IrrigationStarted::dispatch($irrigation, $newStatus);
                     } else {
-                        IrrigationCompleted::dispatch($irrigation, $newStatus);
+                        IrrigationFinished::dispatch($irrigation, $newStatus);
                     }
                 }
             });

@@ -23,24 +23,9 @@ class FilterIrrigationReportsRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'field_id' => [
-                'nullable',
-                'integer',
-                'exists:fields,id',
-                Rule::prohibitedIf(fn() => $this->labour_id || $this->valve_id),
-            ],
-            'labour_id' => [
-                'nullable',
-                'integer',
-                'exists:labours,id',
-                Rule::prohibitedIf(fn() => $this->field_id || $this->valve_id),
-            ],
-            'valve_id' => [
-                'nullable',
-                'integer',
-                'exists:valves,id',
-                Rule::prohibitedIf(fn() => $this->field_id || $this->labour_id),
-            ],
+            'field_id' => 'nullable|integer|exists:fields,id',
+            'labour_id' => 'nullable|integer|exists:labours,id',
+            'valve_id' => 'nullable|integer|exists:valves,id',
             'from_date' => 'required|shamsi_date',
             'to_date' => 'required|shamsi_date|after_or_equal:from_date'
         ];
@@ -51,7 +36,7 @@ class FilterIrrigationReportsRequest extends FormRequest
      */
     protected function prepareForValidation()
     {
-        $dates = ['sepcific_date' => 'specific_date', 'from_date' => 'from_date', 'to_date' => 'to_date'];
+        $dates = ['from_date' => 'from_date', 'to_date' => 'to_date'];
 
         foreach ($dates as $input => $output) {
             if ($this->$input) {

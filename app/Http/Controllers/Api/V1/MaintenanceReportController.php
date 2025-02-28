@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\MaintenanceReportResource;
 use App\Models\MaintenanceReport;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
@@ -103,7 +104,7 @@ class MaintenanceReportController extends Controller
             'to' => 'required|shamsi_date',
             'maintainable_type' => 'required|string',
             'maintainable_id' => 'required|integer',
-            'maintained_by' => 'nullable|integer|exists:labour,id',
+            'maintained_by' => 'nullable|integer|exists:labours,id',
             'maintenance_id' => 'nullable|integer|exists:maintenances,id',
         ]);
 
@@ -123,8 +124,23 @@ class MaintenanceReportController extends Controller
             })
             ->when($request->maintenance_id, function ($query) use ($request) {
                 return $query->where('maintenance_id', $request->maintenance_id);
-            })->latest()->simplePaginate();
+            })
+            ->latest()
+            ->get();
 
-        return MaintenanceReportResource::collection($maintenanceReports);
+        $groupedReports = $maintenanceReports->groupBy(function ($report) {
+            return Carbon::parse($report->date)->format('Y/m/d');
+        });
+
+        $result = $groupedReports->map(function ($reports, $date) {
+            return [
+                'date' => jdate($date)->format('Y/m/d'),
+                'maintenance' => $reports->first()->maintenance->name,
+                'maintained_by' => $reports->first()->maintainedBy->full_name,
+                'description' => $reports->first()->description,
+            ];
+        })->values();
+
+        return response()->json(['data' => $result]);
     }
 }

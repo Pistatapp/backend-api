@@ -165,10 +165,12 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::apiResource('farms.labours', LabourController::class)->shallow();
     Route::apiResource('attachments', AttachmentController::class)->except('show', 'index');
     Route::apiResource('farms.operations', OprationController::class)->shallow();
-    Route::post('/farms/{farm}/irrigations/reports', [IrrigationController::class, 'filterReports']);
-    Route::get('/fields/{field}/irrigations', [IrrigationController::class, 'getIrrigationsForField']);
-    Route::get('/fields/{field}/irrigations/report', [IrrigationController::class, 'getIrrigationReportForField']);
+
+    Route::post('/farms/{farm}/irrigations/reports', [IrrigationController::class, 'filterReports'])->name('irrigations.reports.filter');
+    Route::get('/fields/{field}/irrigations', [IrrigationController::class, 'getIrrigationsForField'])->name('fields.irrigations');
+    Route::get('/fields/{field}/irrigations/report', [IrrigationController::class, 'getIrrigationReportForField'])->name('fields.irrigations.report');
     Route::apiResource('farms.irrigations', IrrigationController::class)->shallow();
+
     Route::apiResource('farms.treatments', TreatmentController::class)->shallow();
     Route::apiResource('farms.farm_plans', FarmPlanController::class)->shallow();
     Route::post('farms/{farm}/cold_requirement', ColdRequirementController::class);
