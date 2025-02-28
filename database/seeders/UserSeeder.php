@@ -13,11 +13,12 @@ class UserSeeder extends Seeder
     public function run(): void
     {
         $users = \App\Models\User::factory()
-            ->count(2)
+            ->count(3)
             ->has(\App\Models\Profile::factory())
             ->sequence(
                 ['mobile' => '09107529334'],
-                ['mobile' => '09369238614']
+                ['mobile' => '09369238614'],
+                ['mobile' => '09195065248'],
             )
             ->create();
 
@@ -26,6 +27,7 @@ class UserSeeder extends Seeder
         ]);
 
         $users->where('mobile', '09107529334')->first()->assignRole('root');
+        $users->where('mobile', '09195065248')->first()->assignRole('root');
         $users->where('mobile', '09369238614')->first()->assignRole('admin');
     }
 }
