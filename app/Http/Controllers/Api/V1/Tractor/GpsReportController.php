@@ -15,8 +15,7 @@ use App\Models\GpsDevice;
 class GpsReportController extends Controller
 {
     public function __construct(
-        private ParseDataService $parseDataService,
-        private LiveReportService $liveReportService
+        private ParseDataService $parseDataService
     ) {
         //
     }
