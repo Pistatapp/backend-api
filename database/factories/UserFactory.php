@@ -20,7 +20,6 @@ class UserFactory extends Factory
             'username' => $this->faker->unique()->userName,
             'mobile' => $this->faker->unique()->phoneNumber,
             'last_activity_at' => now(),
-            'is_admin' => false,
         ];
     }
 
