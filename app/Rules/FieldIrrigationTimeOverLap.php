@@ -37,15 +37,15 @@ class FieldIrrigationTimeOverLap implements ValidationRule, DataAwareRule
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
         try {
-            $fields = $this->data['fields'];
-            $start_time = $this->data['start_time'];
-            $end_time = $this->data['end_time'];
+            $fields = $this->data['fields'] ?? [];
+            $start_time = $this->data['start_time'] ?? null;
+            $end_time = $this->data['end_time'] ?? null;
+            $date = $this->data['date'] ?? null;
             $irrigation = request()->route('irrigation');
-            $date = $this->data['date'];
-            $farm_id = request()->route('farm')->id ?? $irrigation->farm_id;
+            $farm_id = request()->route('farm')->id ?? $irrigation->farm_id ?? null;
 
-            if (!$farm_id) {
-                $fail(__("Invalid farm ID."));
+            if (!$farm_id || !$start_time || !$end_time || !$date) {
+                $fail(__("Invalid data provided."));
                 return;
             }
 
@@ -65,7 +65,7 @@ class FieldIrrigationTimeOverLap implements ValidationRule, DataAwareRule
                 $fail(__("The selected field's irrigation time overlaps with another irrigation time."));
             }
         } catch (\Exception $e) {
-            $fail(__("An error occurred while validating the irrigation time."));
+            $fail(__("An error occurred while validating the irrigation time: " . $e->getMessage()));
         }
     }
 }

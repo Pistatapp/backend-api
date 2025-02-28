@@ -2,7 +2,6 @@
 
 namespace App\Events;
 
-use App\Http\Resources\IrrigationResource;
 use App\Models\Irrigation;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
@@ -42,7 +41,22 @@ class IrrigationCompleted implements ShouldBroadcast
     public function broadcastWith(): array
     {
         return [
-            'data' => new IrrigationResource($this->irrigation),
+            'data' => [
+                'id' => $this->irrigation->id,
+                'status' => $this->status,
+                'duration' => $this->irrigation->duration,
+                'fields' => $this->irrigation->fields->map(fn ($field) => [
+                    'id' => $field->id,
+                    'name' => $field->name,
+                ]),
+                'valves' => $this->irrigation->valves->map(fn ($valve) => [
+                    'id' => $valve->id,
+                    'name' => $valve->name,
+                    'status' => $valve->pivot->status,
+                    'opened_at' => $valve->pivot->opened_at?->format('H:i'),
+                    'closed_at' => $valve->pivot->closed_at?->format('H:i'),
+                ]),
+            ]
         ];
     }
 

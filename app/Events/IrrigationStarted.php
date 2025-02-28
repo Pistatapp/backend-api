@@ -10,7 +10,6 @@ use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
-use App\Http\Resources\IrrigationResource;
 
 class IrrigationStarted implements ShouldBroadcast
 {
@@ -42,7 +41,22 @@ class IrrigationStarted implements ShouldBroadcast
     public function broadcastWith(): array
     {
         return [
-            'data' => new IrrigationResource($this->irrigation),
+            'data' => [
+                'id' => $this->irrigation->id,
+                'status' => $this->status,
+                'duration' => $this->irrigation->duration,
+                'fields' => $this->irrigation->fields->map(fn ($field) => [
+                    'id' => $field->id,
+                    'name' => $field->name,
+                ]),
+                'valves' => $this->irrigation->valves->map(fn ($valve) => [
+                    'id' => $valve->id,
+                    'name' => $valve->name,
+                    'status' => $valve->pivot->status,
+                    'opened_at' => $valve->pivot->opened_at?->format('H:i'),
+                    'closed_at' => $valve->pivot->closed_at?->format('H:i'),
+                ]),
+            ]
         ];
     }
 

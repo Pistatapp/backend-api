@@ -110,17 +110,16 @@ class IrrigationController extends Controller
     /**
      * Get brief irrigation report for a field.
      *
+     * @param  \Illuminate\Http\Request  $request
      * @param  \App\Models\Field  $field
      * @return \Illuminate\Http\JsonResponse
      */
-    public function getIrrigationReportForField(Field $field)
+    public function getIrrigationReportForField(Request $request, Field $field)
     {
+        $date = $request->has('date') ? jalali_to_carbon($request->query('date')) : today();
         $irrigations = $field->irrigations()->filter('completed')->with('valves')
-            ->when(request()->has('date'), function ($query) {
-                $query->where('date', jalali_to_carbon(request()->query('date')));
-            }, function ($query) {
-                $query->whereDate('date', today());
-            })->get();
+            ->whereDate('date', $date)
+            ->get();
 
         $totalDuration = 0;
         $totalVolume = 0;
@@ -136,6 +135,7 @@ class IrrigationController extends Controller
 
         return response()->json([
             'data' => [
+                'date' => $date,
                 'total_duration' => to_time_format($totalDuration),
                 'total_volume' => $totalVolume, // In liters
                 'irrigation_count' => $irrigations->count(),
@@ -163,7 +163,11 @@ class IrrigationController extends Controller
             })->whereBetween('date', [$request->from_date, $request->to_date])
             ->with('fields', 'valves', 'labour', 'creator')->latest()->get();
 
-        $irrigationReports = $this->generateIrrigationReports($irrigations, $request->from_date, $request->to_date);
+        if (!$request->field_id && !$request->labour_id && !$request->valve_id) {
+            $irrigationReports = $this->generateFarmIrrigationReports($farm, $request->from_date, $request->to_date);
+        } else {
+            $irrigationReports = $this->generateIrrigationReports($irrigations, $request->from_date, $request->to_date);
+        }
 
         return response()->json([
             'data' => $irrigationReports
@@ -205,6 +209,49 @@ class IrrigationController extends Controller
                 'total_volume' => $totalVolume, // In liters
                 'irrigation_count' => $dailyIrrigations->count(),
             ];
+
+            $startDate->addDay();
+        }
+
+        return $irrigationReports;
+    }
+
+    /**
+     * Generate irrigation reports for the whole farm.
+     */
+    private function generateFarmIrrigationReports(Farm $farm, $startDate, $endDate)
+    {
+        $irrigationReports = [];
+        $fields = $farm->fields;
+
+        while ($startDate->lte($endDate)) {
+            $totalDuration = 0;
+            $totalVolume = 0;
+            $irrigationCount = 0;
+
+            foreach ($fields as $field) {
+                $dailyIrrigations = $field->irrigations()->whereDate('date', $startDate)->with('valves')->get();
+
+                foreach ($dailyIrrigations as $irrigation) {
+                    $durationInMinutes = $irrigation->start_time->diffInMinutes($irrigation->end_time);
+                    $totalDuration += $durationInMinutes;
+
+                    foreach ($irrigation->valves as $valve) {
+                        $totalVolume += $valve->flow_rate * $durationInMinutes;
+                    }
+                }
+
+                $irrigationCount += $dailyIrrigations->count();
+            }
+
+            if ($irrigationCount > 0) {
+                $irrigationReports[] = [
+                    'date' => jdate($startDate)->format('Y/m/d'),
+                    'total_duration' => to_time_format($totalDuration),
+                    'total_volume' => $totalVolume, // In liters
+                    'irrigation_count' => $irrigationCount,
+                ];
+            }
 
             $startDate->addDay();
         }
