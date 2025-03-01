@@ -29,7 +29,7 @@ class GpsReportController extends Controller
     public function __invoke(Request $request)
     {
         $logData = $request->getContent();
-        $filePath = storage_path('gps_data_' . date('Y-m-d') . '.txt');
+        $filePath = storage_path('logs/gps_data_' . date('Y-m-d') . '.txt');
         file_put_contents($filePath, $logData . PHP_EOL, FILE_APPEND);
 
         try {
