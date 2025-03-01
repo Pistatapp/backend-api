@@ -21,7 +21,7 @@ class FieldPolicy
      */
     public function view(User $user, Field $field): bool
     {
-        return $field->farm->user->is($user);
+        return $field->farm->users->contains($user);
     }
 
     /**
@@ -37,7 +37,7 @@ class FieldPolicy
      */
     public function update(User $user, Field $field): bool
     {
-        return $field->farm->user->is($user);
+        return $field->farm->users->contains($user);
     }
 
     /**
@@ -45,6 +45,6 @@ class FieldPolicy
      */
     public function delete(User $user, Field $field): bool
     {
-        return $field->farm->user->is($user);
+        return $field->farm->users->contains($user);
     }
 }
