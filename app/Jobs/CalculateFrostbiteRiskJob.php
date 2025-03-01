@@ -21,7 +21,7 @@ class CalculateFrostbiteRiskJob implements ShouldQueue
      */
     public function handle()
     {
-        $farms = Farm::with('frostbitRisks', 'user')->get();
+        $farms = Farm::with('frostbitRisks', 'users')->get();
 
         foreach ($farms as $farm) {
             foreach ($farm->frostbitRisks as $risk) {
