@@ -33,17 +33,17 @@ class ParseDataService
      */
     private function processDataItem(array $dataItem)
     {
-        if (!$this->isValidFormat($dataItem['data'])) {
-            return null;
-        }
+        // if (!$this->isValidFormat($dataItem['data'])) {
+        //     return null;
+        // }
 
         $dataFields = explode(',', $dataItem['data']);
         $coordinates = $this->parseCoordinates($dataFields[1], $dataFields[2]);
         $dateTime = $this->parseDateTime($dataFields[4], $dataFields[5]);
 
-        // if (!$dateTime->isToday()) {
-        //     return null;
-        // }
+        if (!$dateTime->isToday()) {
+            return null;
+        }
 
         return [
             'latitude' => $coordinates['latitude'],
