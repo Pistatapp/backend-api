@@ -11,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use App\Models\GpsDevice;
+use Illuminate\Support\Facades\Log;
 
 class GpsReportController extends Controller
 {

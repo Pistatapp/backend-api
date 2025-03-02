@@ -41,9 +41,9 @@ class ParseDataService
         $coordinates = $this->parseCoordinates($dataFields[1], $dataFields[2]);
         $dateTime = $this->parseDateTime($dataFields[4], $dataFields[5]);
 
-        if (!$dateTime->isToday()) {
-            return null;
-        }
+        // if (!$dateTime->isToday()) {
+        //     return null;
+        // }
 
         return [
             'latitude' => $coordinates['latitude'],
@@ -113,13 +113,13 @@ class ParseDataService
      * Check the format of the data received from the GPS device
      *
      * @param string $data
-     * @return int
+     * @return bool
      */
-    private function isValidFormat(string $data)
+    private function isValidFormat(string $data): bool
     {
-        $pattern = '/^\+Hooshnic:V\d+\.\d+,\d+\.\d+,\d+\.\d+,\d+,\d+,\d+,\d+,\d+,\d+$/';
+        $pattern = '/^\+Hooshnic:V\d+\.\d{2},\d{4}\.\d{5},\d{5}\.\d{4},\d{3},\d{6},\d{6},\d{3},\d{3},\d,\d{15}$/';
 
-        return preg_match($pattern, $data);
+        return preg_match($pattern, $data) === 1;
     }
 
     /**
@@ -133,7 +133,7 @@ class ParseDataService
         // Add commas between JSON objects if they are missing
         $correctedData = preg_replace('/}\s*{/', '},{', $data);
         // Wrap the corrected data in square brackets to form a valid JSON array
-        return '[' . $correctedData . ']';
+        return $correctedData;
     }
 
     /**
