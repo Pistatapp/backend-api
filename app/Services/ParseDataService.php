@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Log;
 
 class ParseDataService
 {
@@ -15,7 +14,6 @@ class ParseDataService
      */
     public function parse(string $data): array
     {
-        Log::info('Received Data', ['data' => $data]);
         $decodedData = $this->decodeJsonData($data);
         $processedData = array_filter(array_map([$this, 'processDataItem'], $decodedData));
 
@@ -35,7 +33,6 @@ class ParseDataService
      */
     private function processDataItem(array $dataItem)
     {
-        Log::info('Processing Data Item', $dataItem);
         if (!$this->isValidFormat($dataItem['data'])) {
             return null;
         }
@@ -120,9 +117,23 @@ class ParseDataService
      */
     private function isValidFormat(string $data)
     {
-        $pattern = '/^\+Hooshnic:V\d+\.\d+,\d+\.\d+,\d+\.\d+,\d+,\d+,\d+,\d+,\d+,\d+,\d+$/';
+        $pattern = '/^\+Hooshnic:V\d+\.\d+,\d+\.\d+,\d+\.\d+,\d+,\d+,\d+,\d+,\d+,\d+$/';
 
         return preg_match($pattern, $data);
+    }
+
+    /**
+     * Correct the data format to be a valid JSON format
+     *
+     * @param string $data
+     * @return string
+     */
+    private function correctJsonFormat(string $data): string
+    {
+        // Add commas between JSON objects if they are missing
+        $correctedData = preg_replace('/}\s*{/', '},{', $data);
+        // Wrap the corrected data in square brackets to form a valid JSON array
+        return '[' . $correctedData . ']';
     }
 
     /**
@@ -134,7 +145,7 @@ class ParseDataService
     private function decodeJsonData(string $jsonData)
     {
         $trimmedData = rtrim($jsonData, ".");
-        $trimmedData = preg_replace('}{', '},{', $trimmedData);
-        return json_decode($trimmedData, true);
+        $correctedData = $this->correctJsonFormat($trimmedData);
+        return json_decode($correctedData, true);
     }
 }
