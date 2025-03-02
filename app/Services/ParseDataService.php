@@ -15,6 +15,7 @@ class ParseDataService
      */
     public function parse(string $data): array
     {
+        Log::info('Received Data', ['data' => $data]);
         $decodedData = $this->decodeJsonData($data);
         $processedData = array_filter(array_map([$this, 'processDataItem'], $decodedData));
 
