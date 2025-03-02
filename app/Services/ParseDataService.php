@@ -41,9 +41,9 @@ class ParseDataService
         $coordinates = $this->parseCoordinates($dataFields[1], $dataFields[2]);
         $dateTime = $this->parseDateTime($dataFields[4], $dataFields[5]);
 
-        if (!$dateTime->isToday()) {
-            return null;
-        }
+        // if (!$dateTime->isToday()) {
+        //     return null;
+        // }
 
         return [
             'latitude' => $coordinates['latitude'],
