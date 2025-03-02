@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 
 class ParseDataService
 {
@@ -33,9 +34,10 @@ class ParseDataService
      */
     private function processDataItem(array $dataItem)
     {
-        // if (!$this->isValidFormat($dataItem['data'])) {
-        //     return null;
-        // }
+        Log::info('Processing Data Item', $dataItem);
+        if (!$this->isValidFormat($dataItem['data'])) {
+            return null;
+        }
 
         $dataFields = explode(',', $dataItem['data']);
         $coordinates = $this->parseCoordinates($dataFields[1], $dataFields[2]);
