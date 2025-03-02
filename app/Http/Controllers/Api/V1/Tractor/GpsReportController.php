@@ -35,6 +35,8 @@ class GpsReportController extends Controller
         try {
             $data = $this->parseDataService->parse($request->getContent());
 
+            Log::info('Parsed Data', $data);
+
             $device = $this->getDevice($data[0]['imei']);
 
             $lastReportStatus = end($data)['status'];
