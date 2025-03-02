@@ -106,9 +106,7 @@ class ParseDataService
      */
     private function parseDateTime(string $date, string $time)
     {
-        return Carbon::createFromFormat('ymdHis', $date . $time)
-            ->addHours(3)
-            ->addMinutes(30);
+        return Carbon::createFromFormat('ymdHis', $date . $time)->tz('Asia/Tehran');
     }
 
     /**
