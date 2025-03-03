@@ -11,7 +11,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use App\Models\GpsDevice;
-use Illuminate\Support\Facades\Log;
 
 class GpsReportController extends Controller
 {
@@ -28,10 +27,6 @@ class GpsReportController extends Controller
      */
     public function __invoke(Request $request)
     {
-        $logData = $request->getContent();
-        $filePath = storage_path('logs/gps_data_' . date('Y-m-d') . '.txt');
-        file_put_contents($filePath, $logData . PHP_EOL, FILE_APPEND);
-
         try {
             $data = $this->parseDataService->parse($request->getContent());
 

@@ -44,7 +44,6 @@ class Kernel extends HttpKernel
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
             \Illuminate\Session\Middleware\StartSession::class,
             \App\Http\Middleware\ConvertPersianNumbersToEnglish::class,
-            // \App\Http\Middleware\ConvertShamsiToGregorian::class,
         ],
     ];
 
@@ -68,7 +67,6 @@ class Kernel extends HttpKernel
         'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
         'last.activity' => \App\Http\Middleware\LastActivity::class,
-        'admin' => \App\Http\Middleware\Admin::class,
         'ensure.username' => \App\Http\Middleware\EnsureUserHasUsername::class,
         'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
         'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
