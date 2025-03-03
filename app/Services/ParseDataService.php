@@ -17,10 +17,7 @@ class ParseDataService
         $decodedData = $this->decodeJsonData($data);
         $processedData = array_filter(array_map([$this, 'processDataItem'], $decodedData));
 
-        // Order the data by date time
-        usort($processedData, function ($a, $b) {
-            return $a['date_time'] <=> $b['date_time'];
-        });
+        usort($processedData, fn($a, $b) => $a['date_time'] <=> $b['date_time']);
 
         return $processedData;
     }
@@ -41,9 +38,9 @@ class ParseDataService
         $coordinates = $this->parseCoordinates($dataFields[1], $dataFields[2]);
         $dateTime = $this->parseDateTime($dataFields[4], $dataFields[5]);
 
-        // if (!$dateTime->isToday()) {
-        //     return null;
-        // }
+        if (!$dateTime->isToday()) {
+            return null;
+        }
 
         return [
             'latitude' => $coordinates['latitude'],
@@ -66,21 +63,11 @@ class ParseDataService
      * @param string $longitude
      * @return array
      */
-    private function parseCoordinates($latitude, $longitude)
+    private function parseCoordinates(string $latitude, string $longitude): array
     {
-        // Convert latitude and longitude to double
-        $latitude = doubleval($latitude);
-        $longitude = doubleval($longitude);
-
-        // Convert latitude to decimal degrees
-        $latitudeDecimalDegrees = $this->toDecimalDegrees($latitude);
-
-        // Convert longitude to decimal degrees
-        $longitudeDecimalDegrees = $this->toDecimalDegrees($longitude);
-
         return [
-            'latitude' => $latitudeDecimalDegrees,
-            'longitude' => $longitudeDecimalDegrees
+            'latitude' => $this->toDecimalDegrees((float)$latitude),
+            'longitude' => $this->toDecimalDegrees((float)$longitude)
         ];
     }
 
@@ -93,8 +80,9 @@ class ParseDataService
     private function toDecimalDegrees(float $coordinate): float
     {
         $degrees = floor($coordinate / 100);
-        $minutes = $coordinate - ($degrees * 100);
-        return $degrees + ($minutes / 60);
+        $minutes = floor(($coordinate - ($degrees * 100)) * 100) / 100;
+        $seconds = (($coordinate - ($degrees * 100)) * 100 - $minutes * 100) * 60;
+        return $degrees + ($minutes / 60) + ($seconds / 3600);
     }
 
     /**
@@ -104,7 +92,7 @@ class ParseDataService
      * @param string $time
      * @return Carbon
      */
-    private function parseDateTime(string $date, string $time)
+    private function parseDateTime(string $date, string $time): Carbon
     {
         return Carbon::createFromFormat('ymdHis', $date . $time)->addHours(3)->addMinutes(30);
     }
@@ -118,7 +106,6 @@ class ParseDataService
     private function isValidFormat(string $data): bool
     {
         $pattern = '/^\+Hooshnic:V\d+\.\d{2},\d{4}\.\d{5},\d{5}\.\d{4},\d{3},\d{6},\d{6},\d{3},\d{3},\d,\d{15}$/';
-
         return preg_match($pattern, $data) === 1;
     }
 
@@ -130,9 +117,7 @@ class ParseDataService
      */
     private function correctJsonFormat(string $data): string
     {
-        // Add commas between JSON objects if they are missing
         $correctedData = preg_replace('/}\s*{/', '},{', $data);
-        // Wrap the corrected data in square brackets to form a valid JSON array
         return $correctedData;
     }
 
@@ -142,7 +127,7 @@ class ParseDataService
      * @param string $jsonData
      * @return array
      */
-    private function decodeJsonData(string $jsonData)
+    private function decodeJsonData(string $jsonData): array
     {
         $trimmedData = rtrim($jsonData, ".");
         $correctedData = $this->correctJsonFormat($trimmedData);
