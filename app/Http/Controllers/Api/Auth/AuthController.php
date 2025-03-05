@@ -198,16 +198,23 @@ class AuthController extends Controller
      */
     public function permissions(Request $request)
     {
-        $workingEnvironment = $request->user()->workingEnvironment();
+        $user = $request->user();
 
-        if ($workingEnvironment) {
-            $pivotRole = $workingEnvironment->pivot->role;
-            $role = Role::where('name', $pivotRole)->with('permissions')->first();
-            $roleName = $role->name;
-            $permissions = $role->permissions->pluck('name');
+        if ($user->hasRole('root')) {
+            $roleName = 'root';
+            $permissions = $user->getAllPermissions()->pluck('name');
         } else {
-            $roleName = $request->user()->getRoleNames()->first();
-            $permissions = $request->user()->getAllPermissions()->pluck('name');
+            $workingEnvironment = $user->workingEnvironment();
+
+            if ($workingEnvironment) {
+                $pivotRole = $workingEnvironment->pivot->role;
+                $role = Role::where('name', $pivotRole)->with('permissions')->first();
+                $roleName = $role->name;
+                $permissions = $role->permissions->pluck('name');
+            } else {
+                $roleName = $user->getRoleNames()->first();
+                $permissions = $user->getAllPermissions()->pluck('name');
+            }
         }
 
         return response()->json([
