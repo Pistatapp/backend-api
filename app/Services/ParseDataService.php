@@ -80,9 +80,8 @@ class ParseDataService
     private function toDecimalDegrees(float $coordinate): float
     {
         $degrees = floor($coordinate / 100);
-        $minutes = floor(($coordinate - ($degrees * 100)) * 100) / 100;
-        $seconds = (($coordinate - ($degrees * 100)) * 100 - $minutes * 100) * 60;
-        return $degrees + ($minutes / 60) + ($seconds / 3600);
+        $minutes = ($coordinate - ($degrees * 100)) / 60;
+        return $degrees + $minutes;
     }
 
     /**
