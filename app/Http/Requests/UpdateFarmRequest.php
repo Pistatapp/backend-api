@@ -22,7 +22,17 @@ class UpdateFarmRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => 'required|string|max:255|unique:farms,name,' . $this->route('farm')->id . ',id,user_id,' . $this->user()->id,
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+                function ($attribute, $value, $fail) {
+                    $user = $this->user();
+                    if ($user->farms()->where('name', $value)->where('id', '!=', $this->route('farm')->id)->exists()) {
+                        $fail(__('validation.unique', ['attribute' => $attribute]));
+                    }
+                },
+            ],
             'coordinates' => 'required|array|min:3',
             'coordinates.*' => 'required|string',
             'center' => 'required|string|regex:/^(\-?\d+(\.\d+)?),\s*(\-?\d+(\.\d+)?)$/',
