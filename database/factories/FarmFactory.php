@@ -17,7 +17,7 @@ class FarmFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => $this->faker->unique()->word,
+            'name' => $this->faker->word,
             'coordinates' => [
                 $this->faker->latitude . ',' . $this->faker->longitude,
                 $this->faker->latitude . ',' . $this->faker->longitude,

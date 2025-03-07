@@ -17,7 +17,7 @@ class CropFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => $this->faker->unique()->word,
+            'name' => $this->faker->word,
             'cold_requirement' => $this->faker->randomElement([100, 200, 300]),
         ];
     }

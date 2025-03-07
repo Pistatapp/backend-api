@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateTractorTaskRequest extends FormRequest
 {
@@ -22,20 +23,28 @@ class UpdateTractorTaskRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => 'required|string|max:255',
-            'start_date' => [
+            'operation_id' => 'required|integer|exists:operations,id',
+            'field_ids' => 'required|array|min:1',
+            'field_ids.*' => 'integer|exists:fields,id',
+            'date' => [
                 'required',
-                'date',
-                'after_or_equal:' . now()->toDateString(),
-                new \App\Rules\UniquetractorTask(),
+                'shamsi_date',
+                Rule::unique('tractor_tasks')->where(function ($query) {
+                    return $query->where('date', $this->date)
+                        ->where('tractor_id', $this->tractor_task->tractor_id)
+                        ->where('id', '!=', $this->route('tractor_task')->id);
+                }),
             ],
-            'end_date' => [
+            'start_time' => 'required|date_format:H:i',
+            'end_time' => [
                 'required',
-                'date',
-                'after_or_equal:start_date',
-                new \App\Rules\UniquetractorTask(),
+                'date_format:H:i',
+                function ($attribute, $value, $fail) {
+                    if (strtotime($value) <= strtotime($this->start_time)) {
+                        $fail('The end time must be after the start time.');
+                    }
+                },
             ],
-            'description' => 'nullable|string|max:5000',
         ];
     }
 
@@ -46,8 +55,7 @@ class UpdateTractorTaskRequest extends FormRequest
     {
         try {
             $this->merge([
-                'start_date' => jalali_to_carbon($this->start_date),
-                'end_date' => jalali_to_carbon($this->end_date),
+                'date' => jalali_to_carbon($this->date),
             ]);
         } catch (\Exception $e) {
             throw new \Exception('Error: ' . $e->getMessage());

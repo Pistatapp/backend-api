@@ -18,20 +18,12 @@ class TractorTask extends Model
         'tractor_id',
         'operation_id',
         'field_ids',
-        'name',
-        'start_date',
-        'end_date',
+        'date',
+        'start_time',
+        'end_time',
         'status',
-        'description',
         'created_by',
     ];
-
-    /**
-     * The relationships that should always be loaded.
-     *
-     * @var array<string>
-     */
-    protected $with = ['creator', 'operation'];
 
     /**
      * The attributes that should be cast.
@@ -51,8 +43,9 @@ class TractorTask extends Model
     {
         return [
             'field_ids' => 'array',
-            'start_date' => 'date',
-            'end_date' => 'date',
+            'date' => 'date',
+            'start_time' => 'datetime:H:i',
+            'end_time' => 'datetime:H:i',
             'created_by' => 'integer',
         ];
     }
@@ -96,7 +89,30 @@ class TractorTask extends Model
      */
     public function scopeForDate($query, $date)
     {
-        return $query->whereDate('start_date', '<=', $date)
-            ->whereDate('end_date', '>=', $date);
+        return $query->whereDate('date', $date);
+    }
+
+    /**
+     * Scope a query to only include tasks for the present time.
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeForPresentTime($query)
+    {
+        $now = now();
+        return $query->whereDate('date', $now->toDateString())
+                     ->whereTime('start_time', '<=', $now->toTimeString())
+                     ->whereTime('end_time', '>=', $now->toTimeString());
+    }
+
+    /**
+     * Get the fields for the tractor task.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function fields()
+    {
+        return $this->hasMany(Field::class, 'id', 'field_ids');
     }
 }

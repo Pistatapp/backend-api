@@ -157,6 +157,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::apiSingleton('tractors.driver', DriverController::class)->creatable();
     Route::apiResource('tractors.tractor_reports', TractorReportController::class)->shallow();
     Route::post('/tractor_reports/filter', [TractorReportController::class, 'filter']);
+    Route::get('/tractors/{tractor}/tractor_tasks', [TractorTaskController::class, 'generateReport']);
     Route::apiResource('tractors.tractor_tasks', TractorTaskController::class)->shallow();
     Route::apiResource('farms.maintenances', MaintenanceController::class)->except('show')->shallow();
     Route::post(('maintenance_reports/filter'), [MaintenanceReportController::class, 'filter']);
