@@ -66,6 +66,20 @@ Route::controller(AuthController::class)->prefix('auth')->group(function () {
     Route::get('permissions', 'permissions')->middleware('auth:sanctum');
 });
 
+Route::post('/broadcast-test', function(App\Http\Requests\BroadcastTestRequest $request) {
+    event(new \App\Events\TestBroadcastEvent(
+        $request->input('message'),
+        $request->input('channel_type'),
+        $request->input('channel_type') === 'private' ? auth()->id() : null
+    ));
+    return response()->json([
+        'message' => 'Event broadcasted successfully',
+        'channel_type' => $request->input('channel_type'),
+        'event_name' => $request->input('channel_type') === 'private' ? 'private.test.broadcast' : 'test.broadcast',
+        'channel' => $request->input('channel_type') === 'private' ? 'user.' . auth()->id() : 'test-channel'
+    ]);
+})->middleware(['auth:sanctum']);
+
 Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(function () {
 
     Route::middleware('role:root')->group(function () {

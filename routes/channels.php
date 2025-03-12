@@ -23,3 +23,7 @@ Broadcast::channel('gps_devices.{gps_device}', function (User $user, GpsDevice $
 Broadcast::channel('irrigations.{irrigation}', function (User $user, Irrigation $irrigation) {
     return $irrigation->creator->is($user);
 });
+
+Broadcast::channel('user.{id}', function (User $user, $id) {
+    return (int) $user->id === (int) $id;
+});
