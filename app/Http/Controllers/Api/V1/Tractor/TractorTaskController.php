@@ -35,7 +35,7 @@ class TractorTaskController extends Controller
     {
         $task = $tractor->tasks()->create([
             'operation_id' => $request->operation_id,
-            'field_ids' => $request->field_ids,
+            'field_id' => $request->field_id,
             'date' => $request->date,
             'start_time' => $request->start_time,
             'end_time' => $request->end_time,
@@ -62,7 +62,7 @@ class TractorTaskController extends Controller
     {
         $tractorTask->update($request->only([
             'operation_id',
-            'field_ids',
+            'field_id',
             'date',
             'start_time',
             'end_time',

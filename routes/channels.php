@@ -23,3 +23,8 @@ Broadcast::channel('gps_devices.{gps_device}', function (User $user, GpsDevice $
 Broadcast::channel('irrigations.{irrigation}', function (User $user, Irrigation $irrigation) {
     return $irrigation->creator->is($user);
 });
+
+
+Broadcast::channel('tractor.tasks.{tractorTask}', function (User $user, TractorTask $tractorTask) {
+    return $tractorTask->creator->is($user);
+});

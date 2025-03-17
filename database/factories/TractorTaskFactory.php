@@ -20,9 +20,8 @@ class TractorTaskFactory extends Factory
             'date' => $this->faker->date,
             'start_time' => $this->faker->dateTime,
             'end_time' => $this->faker->dateTime,
-            'status' => $this->faker->randomElement(['pending', 'in_progress', 'completed']),
             'tractor_id' => \App\Models\Tractor::factory(),
-            'field_ids' => \App\Models\Field::factory()->count(10)->create()->pluck('id'),
+            'field_id' => \App\Models\Field::factory(),
             'operation_id' => \App\Models\Operation::factory(),
             'created_by' => \App\Models\User::factory(),
         ];

@@ -23,10 +23,10 @@ class TractorTaskResource extends JsonResource
                     'name' => $this->operation->name,
                 ];
             }),
-            'fields' => Field::whereIn('id', $this->field_ids)->get()->map(function ($field) {
+            'field' => $this->whenLoaded('field', function () {
                 return [
-                    'id' => $field->id,
-                    'name' => $field->name,
+                    'id' => $this->field->id,
+                    'name' => $this->field->name,
                 ];
             }),
             'date' => jdate($this->date)->format('Y/m/d'),

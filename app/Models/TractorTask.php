@@ -17,7 +17,7 @@ class TractorTask extends Model
     protected $fillable = [
         'tractor_id',
         'operation_id',
-        'field_ids',
+        'field_id',
         'date',
         'start_time',
         'end_time',
@@ -42,7 +42,6 @@ class TractorTask extends Model
     protected function casts()
     {
         return [
-            'field_ids' => 'array',
             'date' => 'date',
             'start_time' => 'datetime:H:i',
             'end_time' => 'datetime:H:i',
@@ -68,6 +67,16 @@ class TractorTask extends Model
     public function operation()
     {
         return $this->belongsTo(Operation::class);
+    }
+
+    /**
+     * Get the field that owns the TractorTask
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
+    public function field()
+    {
+        return $this->belongsTo(Field::class);
     }
 
     /**
@@ -104,15 +113,5 @@ class TractorTask extends Model
         return $query->whereDate('date', $now->toDateString())
                      ->whereTime('start_time', '<=', $now->toTimeString())
                      ->whereTime('end_time', '>=', $now->toTimeString());
-    }
-
-    /**
-     * Get the fields for the tractor task.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
-     */
-    public function fields()
-    {
-        return $this->hasMany(Field::class, 'id', 'field_ids');
     }
 }

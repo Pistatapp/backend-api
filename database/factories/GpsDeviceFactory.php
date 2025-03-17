@@ -20,8 +20,8 @@ class GpsDeviceFactory extends Factory
             'user_id' => \App\Models\User::factory(),
             'tractor_id' => \App\Models\Tractor::factory(),
             'name' => $this->faker->word,
-            'imei' => $this->faker->randomNumber(15, true),
-            'sim_number' => $this->faker->randomNumber(10, true),
+            'imei' => substr(str_repeat(mt_rand(0, 9), 15), 0, 15),
+            'sim_number' => $this->faker->numerify('##########'),
         ];
     }
 }

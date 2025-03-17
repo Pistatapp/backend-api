@@ -22,7 +22,7 @@ class LiveReportService
     private $tractor;
     private $points = [];
     private $maxSpeed;
-    private $taskAreas = [];
+    private $taskArea;
 
     public function __construct(
         private GpsDevice $device,
@@ -39,7 +39,7 @@ class LiveReportService
         $this->latestStoredReport = $this->getLatestStoredReport();
         $this->maxSpeed = $this->dailyReport->max_speed;
         $this->currentTask = $this->tasks->where('tractor_id', $this->tractor->id)->first();
-        $this->taskAreas = isset($this->currentTask) ? $this->getTaskAreas() : [];
+        $this->taskArea = isset($this->currentTask) ? $this->getTaskArea() : [];
     }
 
     /**
@@ -226,22 +226,19 @@ class LiveReportService
     }
 
     /**
-     * Get the task areas.
+     * Get the task area.
      *
      * @return array
      */
-    private function getTaskAreas(): array
+    private function getTaskArea(): array
     {
-        return Cache::remember('task_fields_' . $this->currentTask->id, 60 * 60, function () {
-            return Field::whereIn('id', $this->currentTask->field_ids)
-                ->get()
-                ->map(function ($field) {
-                    return collect($field->coordinates)
-                        ->map(function ($coordinate) {
-                            [$lat, $lng] = explode(',', $coordinate);
-                            return ['lat' => $lat, 'lng' => $lng];
-                        })
-                        ->toArray();
+        return Cache::remember('task_field_' . $this->currentTask->id, 60 * 60, function () {
+            $field = $this->currentTask->field;
+
+            return collect($field->coordinates)
+                ->map(function ($coordinate) {
+                    [$lat, $lng] = explode(',', $coordinate);
+                    return ['lat' => $lat, 'lng' => $lng];
                 })
                 ->toArray();
         });
@@ -297,8 +294,8 @@ class LiveReportService
      */
     private function getTasks()
     {
-        return Cache::remember('tasks', now()->endOfDay(), function () {
-            return TractorTask::forDate(today())->get();
+        return Cache::remember('tasks', now()->addHour(), function () {
+            return TractorTask::with('field')->forPresentTime()->get();
         });
     }
 

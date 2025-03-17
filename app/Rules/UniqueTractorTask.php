@@ -9,6 +9,11 @@ use App\Models\TractorTask;
 
 class UniqueTractorTask implements ValidationRule, DataAwareRule
 {
+    /**
+     * The data the validation rule has access to.
+     *
+     * @var array<string, mixed>
+     */
     protected $data = [];
 
     /**
@@ -53,18 +58,6 @@ class UniqueTractorTask implements ValidationRule, DataAwareRule
 
         if ($existingTaskQuery->exists()) {
             $fail(__('A task already exists for the vehicle within the selected time range.'));
-        }
-
-        // Ensure only a single task per day
-        $dailyTaskQuery = TractorTask::whereBelongsTo($tractor)
-            ->where('date', $date);
-
-        if ($task = request()->route('tractor_task')) {
-            $dailyTaskQuery->where('id', '!=', $task->id);
-        }
-
-        if ($dailyTaskQuery->exists()) {
-            $fail(__('A task already exists for the vehicle on the selected date.'));
         }
     }
 }

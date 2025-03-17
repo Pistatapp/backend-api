@@ -198,4 +198,4 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     });
 });
 
-Route::post('/gps/reports', GpsReportController::class);
+Route::post('/gps/reports', GpsReportController::class)->name('gps.reports');

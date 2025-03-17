@@ -14,6 +14,9 @@ class Kernel extends ConsoleKernel
     {
         $schedule->command('app:change-farm-plan-status')->everyMinute();
         $schedule->command('app:change-irrigation-status')->everyMinute();
+
+        // Check and update tractor task status every minute
+        $schedule->command('tractor:update-task-status')->everyMinute();
     }
 
     /**

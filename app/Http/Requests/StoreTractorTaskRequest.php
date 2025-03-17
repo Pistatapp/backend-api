@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use App\Models\TractorTask;
+use App\Rules\UniqueTractorTask;
 use Illuminate\Validation\Rule;
 
 class StoreTractorTaskRequest extends FormRequest
@@ -25,20 +26,20 @@ class StoreTractorTaskRequest extends FormRequest
     {
         return [
             'operation_id' => 'required|integer|exists:operations,id',
-            'field_ids' => 'required|array|min:1',
-            'field_ids.*' => 'integer|exists:fields,id',
+            'field_id' => 'required|integer|exists:fields,id',
             'date' => [
                 'required',
                 'shamsi_date',
-                Rule::unique('tractor_tasks')->where(function ($query) {
-                    return $query->where('date', $this->date)
-                        ->where('tractor_id', $this->tractor->id);
-                }),
             ],
-            'start_time' => 'required|date_format:H:i',
+            'start_time' => [
+                'required',
+                'date_format:H:i',
+                new UniqueTractorTask,
+            ],
             'end_time' => [
                 'required',
                 'date_format:H:i',
+                new UniqueTractorTask,
                 function ($attribute, $value, $fail) {
                     if (strtotime($value) <= strtotime($this->start_time)) {
                         $fail('The end time must be after the start time.');

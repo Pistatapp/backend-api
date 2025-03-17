@@ -110,5 +110,6 @@
     "professional": "پیشرفته",
     "enterprise": "سازمانی",
     "You do not have permission to assign this role.": "شما اجازه تخصیص این نقش را ندارید.",
-    "You do not have a working environment.": "شما محیط کاری ندارید."
+    "You do not have a working environment.": "شما محیط کاری ندارید.",
+    "A task already exists for the vehicle within the selected time range.": "یک وظیفه برای خودرو در بازه زمانی انتخاب شده وجود دارد."
 }
