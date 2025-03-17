@@ -8,6 +8,7 @@ use App\Models\Tractor;
 use Illuminate\Http\Request;
 use App\Http\Resources\PointsResource;
 use App\Models\Farm;
+use App\Http\Resources\TractorTaskResource;
 
 class ActiveTractorController extends Controller
 {
@@ -47,6 +48,9 @@ class ActiveTractorController extends Controller
 
         $reports = $tractor->gpsReports()->whereDate('date_time', $date)->orderBy('date_time')->get();
         $startWorkingTime = count($reports) > 0 ? $reports->where('is_starting_point', 1)->first() : null;
+        $currentTask = $tractor->tasks()->where('date', $date)
+            ->with('operation', 'field', 'creator')
+            ->latest()->first();
 
         return response()->json([
             'data' => [
@@ -61,6 +65,7 @@ class ActiveTractorController extends Controller
                 'stoppage_duration' => gmdate('H:i:s', $dailyReport->stoppage_duration ?? 0),
                 'efficiency' => number_format($dailyReport->efficiency ?? 0, 2),
                 'points' => PointsResource::collection($reports),
+                'current_task' => new TractorTaskResource($currentTask)
             ]
         ]);
     }
