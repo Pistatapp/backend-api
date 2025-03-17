@@ -5,9 +5,9 @@ namespace Database\Factories;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\CropType>
+ * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Operation>
  */
-class CropTypeFactory extends Factory
+class OperationFactory extends Factory
 {
     /**
      * Define the model's default state.
@@ -17,8 +17,8 @@ class CropTypeFactory extends Factory
     public function definition(): array
     {
         return [
-            'crop_id' => \App\Models\Crop::factory(),
             'name' => $this->faker->word,
+            'farm_id' => \App\Models\Farm::factory(),
         ];
     }
 }

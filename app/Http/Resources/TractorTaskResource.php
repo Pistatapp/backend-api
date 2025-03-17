@@ -17,25 +17,28 @@ class TractorTaskResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'operation' => [
-                'id' => $this->operation->id,
-                'name' => $this->operation->name,
-            ],
-            'fields' => Field::whereIn('id', $this->field_ids)->get()->map(function ($field) {
+            'operation' => $this->whenLoaded('operation', function () {
                 return [
-                    'id' => $field->id,
-                    'name' => $field->name,
+                    'id' => $this->operation->id,
+                    'name' => $this->operation->name,
                 ];
             }),
-            'name' => $this->name,
-            'start_date' => jdate($this->start_date)->format('Y/m/d'),
-            'end_date' => jdate($this->end_date)->format('Y/m/d'),
+            'field' => $this->whenLoaded('field', function () {
+                return [
+                    'id' => $this->field->id,
+                    'name' => $this->field->name,
+                ];
+            }),
+            'date' => jdate($this->date)->format('Y/m/d'),
+            'start_time' => $this->start_time,
+            'end_time' => $this->end_time,
             'status' => $this->status,
-            'description' => $this->description,
-            'created_by' => [
-                'id' => $this->creator->id,
-                'name' => $this->creator->username,
-            ],
+            'created_by' => $this->whenLoaded('creator', function () {
+                return [
+                    'id' => $this->creator->id,
+                    'name' => $this->creator->name,
+                ];
+            }),
             'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),
         ];
     }

@@ -8,6 +8,7 @@ use App\Models\Labour;
 use App\Models\User;
 use App\Models\Pump;
 use App\Models\Valve;
+use App\Models\Tractor;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -26,9 +27,10 @@ class FarmSeeder extends Seeder
                     'role' => 'admin',
                     'is_owner' => true,
                 ])
-                ->has(Labour::factory()->count(15))
+                ->has(Labour::factory()->count(2))
                 ->has(Field::factory()->count(4))
                 ->has(Pump::factory())
+                ->has(Tractor::factory()->count(2))
                 ->create();
 
             $fields = $farm->fields;

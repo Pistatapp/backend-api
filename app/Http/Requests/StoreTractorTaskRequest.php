@@ -4,6 +4,8 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use App\Models\TractorTask;
+use App\Rules\UniqueTractorTask;
+use Illuminate\Validation\Rule;
 
 class StoreTractorTaskRequest extends FormRequest
 {
@@ -24,22 +26,26 @@ class StoreTractorTaskRequest extends FormRequest
     {
         return [
             'operation_id' => 'required|integer|exists:operations,id',
-            'field_ids' => 'required|array|min:1',
-            'field_ids.*' => 'integer|exists:fields,id',
-            'name' => 'required|string|max:255',
-            'start_date' => [
+            'field_id' => 'required|integer|exists:fields,id',
+            'date' => [
                 'required',
-                'date',
-                'after_or_equal:' . now()->toDateString(),
-                new \App\Rules\UniquetractorTask(),
+                'shamsi_date',
             ],
-            'end_date' => [
+            'start_time' => [
                 'required',
-                'date',
-                'after_or_equal:start_date',
-                new \App\Rules\UniquetractorTask(),
+                'date_format:H:i',
+                new UniqueTractorTask,
             ],
-            'description' => 'nullable|string|max:5000',
+            'end_time' => [
+                'required',
+                'date_format:H:i',
+                new UniqueTractorTask,
+                function ($attribute, $value, $fail) {
+                    if (strtotime($value) <= strtotime($this->start_time)) {
+                        $fail('The end time must be after the start time.');
+                    }
+                },
+            ],
         ];
     }
 
@@ -50,8 +56,7 @@ class StoreTractorTaskRequest extends FormRequest
     {
         try {
             $this->merge([
-                'start_date' => jalali_to_carbon($this->start_date),
-                'end_date' => jalali_to_carbon($this->end_date),
+                'date' => jalali_to_carbon($this->date),
             ]);
         } catch (\Exception $e) {
             throw new \Exception('Error: ' . $e->getMessage());

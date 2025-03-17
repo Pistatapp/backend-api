@@ -38,26 +38,28 @@ class GpsReportController extends Controller
             $generatedReport = $reportService->generate();
 
             event(new ReportReceived($generatedReport, $device));
-
             event(new TractorStatus($device->tractor, $lastReportStatus));
+
         } catch (\Exception $e) {
             //
-        } finally {
-            return new JsonResponse([]);
         }
+
+        return new JsonResponse([], JsonResponse::HTTP_OK);
     }
 
     /**
      * Get device by imei
      *
      * @param string $imei
-     * @return GPSDevice
+     * @return GPSDevice|null
      */
     private function getDevice(string $imei): ?GpsDevice
     {
         return Cache::remember('gps_device_' . $imei, 3600, function () use ($imei) {
             return GpsDevice::where('imei', $imei)
-                ->whereHas('tractor')->with('tractor')->first();
+                ->whereHas('tractor')
+                ->with('tractor')
+                ->first();
         });
     }
 }

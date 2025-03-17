@@ -21,7 +21,7 @@ class RowPolicy
      */
     public function view(User $user, Row $row): bool
     {
-        return $row->field->farm->user->is($user);
+        return $row->field->farm->users->contains($user);
     }
 
     /**
@@ -37,6 +37,6 @@ class RowPolicy
      */
     public function delete(User $user, Row $row): bool
     {
-        return $row->field->farm->user->is($user);
+        return $row->field->farm->users->contains($user);
     }
 }

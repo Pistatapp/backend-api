@@ -5,11 +5,15 @@ namespace App\Rules;
 use Closure;
 use Illuminate\Contracts\Validation\DataAwareRule;
 use Illuminate\Contracts\Validation\ValidationRule;
-use App\Models\tractorTask;
+use App\Models\TractorTask;
 
 class UniqueTractorTask implements ValidationRule, DataAwareRule
 {
-
+    /**
+     * The data the validation rule has access to.
+     *
+     * @var array<string, mixed>
+     */
     protected $data = [];
 
     /**
@@ -33,16 +37,18 @@ class UniqueTractorTask implements ValidationRule, DataAwareRule
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
         $tractor = request()->route('tractor') ?? request()->route('tractor_task')->tractor;
-        $startDate = $this->data['start_date'];
-        $endDate = $this->data['end_date'];
+        $date = $this->data['date'];
+        $startTime = $this->data['start_time'];
+        $endTime = $this->data['end_time'];
 
-        $existingTaskQuery = tractorTask::whereBelongsTo($tractor)
-            ->where(function ($query) use ($startDate, $endDate) {
-                $query->whereBetween('start_date', [$startDate, $endDate])
-                    ->orWhereBetween('end_date', [$startDate, $endDate])
-                    ->orWhere(function ($query) use ($startDate, $endDate) {
-                        $query->where('start_date', '<=', $startDate)
-                            ->where('end_date', '>=', $endDate);
+        $existingTaskQuery = TractorTask::whereBelongsTo($tractor)
+            ->where('date', $date)
+            ->where(function ($query) use ($startTime, $endTime) {
+                $query->whereBetween('start_time', [$startTime, $endTime])
+                    ->orWhereBetween('end_time', [$startTime, $endTime])
+                    ->orWhere(function ($query) use ($startTime, $endTime) {
+                        $query->where('start_time', '<=', $startTime)
+                            ->where('end_time', '>=', $endTime);
                     });
             });
 
@@ -51,7 +57,7 @@ class UniqueTractorTask implements ValidationRule, DataAwareRule
         }
 
         if ($existingTaskQuery->exists()) {
-            $fail(__('A task already exists for the vehicle within the selected date range.'));
+            $fail(__('A task already exists for the vehicle within the selected time range.'));
         }
     }
 }

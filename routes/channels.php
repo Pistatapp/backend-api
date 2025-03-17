@@ -27,3 +27,7 @@ Broadcast::channel('irrigations.{irrigation}', function (User $user, Irrigation 
 Broadcast::channel('user.{id}', function (User $user, $id) {
     return (int) $user->id === (int) $id;
 });
+
+Broadcast::channel('tractor.tasks.{tractorTask}', function (User $user, TractorTask $tractorTask) {
+    return $tractorTask->creator->is($user);
+});

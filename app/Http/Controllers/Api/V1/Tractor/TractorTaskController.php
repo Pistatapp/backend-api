@@ -35,11 +35,10 @@ class TractorTaskController extends Controller
     {
         $task = $tractor->tasks()->create([
             'operation_id' => $request->operation_id,
-            'field_ids' => $request->field_ids,
-            'name' => $request->name,
-            'start_date' => $request->start_date,
-            'end_date' => $request->end_date,
-            'description' => $request->description,
+            'field_id' => $request->field_id,
+            'date' => $request->date,
+            'start_time' => $request->start_time,
+            'end_time' => $request->end_time,
             'created_by' => $request->user()->id,
         ]);
 
@@ -62,10 +61,11 @@ class TractorTaskController extends Controller
     public function update(UpdateTractorTaskRequest $request, TractorTask $tractorTask)
     {
         $tractorTask->update($request->only([
-            'name',
-            'start_date',
-            'end_date',
-            'description',
+            'operation_id',
+            'field_id',
+            'date',
+            'start_time',
+            'end_time',
         ]));
 
         Cache::forget('tasks');
