@@ -45,12 +45,9 @@ class ActiveTractorController extends Controller
         $date = jalali_to_carbon($request->date);
 
         $dailyReport = $tractor->gpsDailyReports()->where('date', $date)->first();
-
         $reports = $tractor->gpsReports()->whereDate('date_time', $date)->orderBy('date_time')->get();
-        $startWorkingTime = count($reports) > 0 ? $reports->where('is_starting_point', 1)->first() : null;
-        $currentTask = $tractor->tasks()->where('date', $date)
-            ->with('operation', 'field', 'creator')
-            ->latest()->first();
+        $startWorkingTime = $reports->where('is_starting_point', 1)->first();
+        $currentTask = $tractor->tasks()->forPresentTime()->with('operation', 'field', 'creator')->latest()->first();
 
         return response()->json([
             'data' => [
@@ -58,12 +55,12 @@ class ActiveTractorController extends Controller
                 'name' => $tractor->name,
                 'speed' => $reports->last()->speed ?? 0,
                 'status' => $reports->last()->status ?? 0,
-                'start_working_time' => $startWorkingTime ? $startWorkingTime->date_time->format('H:i:s') : '00:00:00',
-                'traveled_distance' => number_format($dailyReport->traveled_distance ?? 0, 2),
-                'work_duration' => gmdate('H:i:s', $dailyReport->work_duration ?? 0),
-                'stoppage_count' => $dailyReport->stoppage_count ?? 0,
-                'stoppage_duration' => gmdate('H:i:s', $dailyReport->stoppage_duration ?? 0),
-                'efficiency' => number_format($dailyReport->efficiency ?? 0, 2),
+                'start_working_time' => optional($startWorkingTime)->date_time->format('H:i:s') ?? '00:00:00',
+                'traveled_distance' => number_format(optional($dailyReport)->traveled_distance ?? 0, 2),
+                'work_duration' => gmdate('H:i:s', optional($dailyReport)->work_duration ?? 0),
+                'stoppage_count' => optional($dailyReport)->stoppage_count ?? 0,
+                'stoppage_duration' => gmdate('H:i:s', optional($dailyReport)->stoppage_duration ?? 0),
+                'efficiency' => number_format(optional($dailyReport)->efficiency ?? 0, 2),
                 'points' => PointsResource::collection($reports),
                 'current_task' => new TractorTaskResource($currentTask)
             ]

@@ -39,7 +39,7 @@ class TractorTaskStatusChanged implements ShouldBroadcast
         return [
             'task_id' => $this->task->id,
             'tractor_id' => $this->task->tractor_id,
-            'status' => $this->status,
+            'status' => $this->status, // pending, started, finished
             'operation' => [
                 'id' => $this->task->operation->id,
                 'name' => $this->task->operation->name,
