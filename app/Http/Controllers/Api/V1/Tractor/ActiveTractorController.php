@@ -9,9 +9,16 @@ use Illuminate\Http\Request;
 use App\Http\Resources\PointsResource;
 use App\Models\Farm;
 use App\Http\Resources\TractorTaskResource;
+use App\Services\KalmanFilter;
 
 class ActiveTractorController extends Controller
 {
+    private $kalmanFilter;
+
+    public function __construct()
+    {
+        $this->kalmanFilter = new KalmanFilter();
+    }
 
     /**
      * Get active tractors for the farm
@@ -29,6 +36,7 @@ class ActiveTractorController extends Controller
 
         return ActiveTractorResource::collection($tractors);
     }
+
     /**
      * Get reports for a sepcific tractor
      *
@@ -47,6 +55,15 @@ class ActiveTractorController extends Controller
         $dailyReport = $tractor->gpsDailyReports()->where('date', $date)->first();
 
         $reports = $tractor->gpsReports()->whereDate('date_time', $date)->orderBy('date_time')->get();
+
+        // Apply Kalman filter to smooth the GPS coordinates
+        $filteredReports = $reports->map(function ($report) {
+            $filtered = $this->kalmanFilter->filter($report->latitude, $report->longitude);
+            $report->latitude = $filtered['latitude'];
+            $report->longitude = $filtered['longitude'];
+            return $report;
+        });
+
         $startWorkingTime = count($reports) > 0 ? $reports->where('is_starting_point', 1)->first() : null;
         $currentTask = $tractor->tasks()->where('date', $date)
             ->with('operation', 'field', 'creator')
@@ -64,7 +81,7 @@ class ActiveTractorController extends Controller
                 'stoppage_count' => $dailyReport->stoppage_count ?? 0,
                 'stoppage_duration' => gmdate('H:i:s', $dailyReport->stoppage_duration ?? 0),
                 'efficiency' => number_format($dailyReport->efficiency ?? 0, 2),
-                'points' => PointsResource::collection($reports),
+                'points' => PointsResource::collection($filteredReports),
                 'current_task' => new TractorTaskResource($currentTask)
             ]
         ]);
