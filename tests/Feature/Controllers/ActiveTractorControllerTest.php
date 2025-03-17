@@ -88,7 +88,7 @@ class ActiveTractorControllerTest extends TestCase
             ]));
         }
 
-        $response = $this->getJson("/api/tractors/{$this->tractor->id}/reports?date=" . today()->toJalali()->format('Y/m/d'));
+        $response = $this->getJson("/api/tractors/{$this->tractor->id}/reports?date=" . jdate(today())->format('Y/m/d'));
 
         $response->assertStatus(200)
             ->assertJsonStructure([
