@@ -82,7 +82,7 @@ class ActiveTractorController extends Controller
                 'stoppage_duration' => gmdate('H:i:s', $dailyReport->stoppage_duration ?? 0),
                 'efficiency' => number_format($dailyReport->efficiency ?? 0, 2),
                 'points' => PointsResource::collection($filteredReports),
-                'current_task' => new TractorTaskResource($currentTask)
+                'current_task' => $currentTask ? new TractorTaskResource($currentTask) : null,
             ]
         ]);
     }
