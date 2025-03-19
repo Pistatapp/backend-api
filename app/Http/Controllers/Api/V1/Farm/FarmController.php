@@ -117,11 +117,9 @@ class FarmController extends Controller
     {
         $this->authorize('setWorkingEnvironment', $farm);
 
-        $user = $request->user();
-        $user->farms()->updateExistingPivot($farm->id, ['is_working_environment' => true]);
-
-        // Reset other farms' working environment status
-        $user->farms()->where('farm_id', '!=', $farm->id)->update(['is_working_environment' => false]);
+        $request->user()->update([
+            'preferences->working_environment' => $farm->id,
+        ]);
 
         return new FarmResource($farm);
     }

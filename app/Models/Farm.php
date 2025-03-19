@@ -38,6 +38,16 @@ class Farm extends Model
     }
 
     /**
+     * Determine if the farm is a working environment of the current user.
+     *
+     * @return bool
+     */
+    public function isWorkingEnvironment()
+    {
+        return $this->id === auth()->user()->preferences['working_environment'] ?? false;
+    }
+
+    /**
      * Get the crop that owns the farm.
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
@@ -55,7 +65,7 @@ class Farm extends Model
     public function users()
     {
         return $this->belongsToMany(User::class)
-            ->withPivot('is_owner', 'role', 'is_working_environment');
+            ->withPivot('is_owner', 'role');
     }
 
     /**

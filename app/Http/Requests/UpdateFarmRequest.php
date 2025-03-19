@@ -28,7 +28,11 @@ class UpdateFarmRequest extends FormRequest
                 'max:255',
                 function ($attribute, $value, $fail) {
                     $user = $this->user();
-                    if ($user->farms()->where('name', $value)->where('id', '!=', $this->route('farm')->id)->exists()) {
+                    if ($user->farms()
+                        ->where('farms.name', $value)
+                        ->where('farms.id', '!=', $this->route('farm')->id)
+                        ->exists()
+                    ) {
                         $fail(__('validation.unique', ['attribute' => $attribute]));
                     }
                 },
