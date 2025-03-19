@@ -44,7 +44,7 @@ class Farm extends Model
      */
     public function isWorkingEnvironment()
     {
-        return $this->id === auth()->user()->preferences['working_environment'] ?? false;
+        return $this->id === auth()->user()?->preferences['working_environment'] ?? false;
     }
 
     /**
