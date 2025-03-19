@@ -26,6 +26,7 @@ class User extends Authenticatable implements HasMedia
         'mobile',
         'fcm_token',
         'created_by',
+        'preferences->working_environment',
     ];
 
     /**
@@ -51,6 +52,7 @@ class User extends Authenticatable implements HasMedia
             'created_by' => 'integer',
             'password' => 'hashed',
             'password_expires_at' => 'datetime',
+            'preferences' => 'array',
         ];
     }
 
@@ -132,7 +134,7 @@ class User extends Authenticatable implements HasMedia
     public function farms()
     {
         return $this->belongsToMany(Farm::class)
-            ->withPivot('is_owner', 'role', 'is_working_environment');
+            ->withPivot('is_owner', 'role');
     }
 
     /**
@@ -163,7 +165,7 @@ class User extends Authenticatable implements HasMedia
     public function workingEnvironment()
     {
         return $this->farms()
-            ->wherePivot('is_working_environment', true)
+            ->where('farms.id', $this->preferences['working_environment'] ?? null)
             ->first();
     }
 }

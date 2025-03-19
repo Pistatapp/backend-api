@@ -159,7 +159,10 @@ class AuthControllerTest extends TestCase
 
         $farm->users()->attach($user, [
             'role' => 'admin',
-            'is_working_environment' => true
+        ]);
+
+        $user->update([
+            'preferences->working_environment' => $farm->id
         ]);
 
         Sanctum::actingAs($user);

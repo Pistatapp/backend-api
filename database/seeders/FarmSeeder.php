@@ -43,5 +43,9 @@ class FarmSeeder extends Seeder
                 ]);
             });
         }
+
+        $user->update([
+            'preferences->working_environment' => $farm->id,
+        ]);
     }
 }
