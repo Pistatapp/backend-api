@@ -63,6 +63,35 @@ function calculate_polygon_area(array $points): float
 }
 
 /**
+ * Calculate the center point (centroid) of a polygon
+ *
+ * @param array $points Array of [x,y] coordinates
+ * @return array [x,y] coordinates of the center point
+ * @throws \InvalidArgumentException if polygon has less than 3 points
+ */
+function calculate_polygon_center(array $points): array
+{
+    $numPoints = count($points);
+
+    if ($numPoints < 3) {
+        throw new \InvalidArgumentException('A polygon must have at least 3 points');
+    }
+
+    $sumX = 0;
+    $sumY = 0;
+
+    foreach ($points as $point) {
+        $sumX += $point[0];
+        $sumY += $point[1];
+    }
+
+    return [
+        $sumX / $numPoints,
+        $sumY / $numPoints
+    ];
+}
+
+/**
  * Convert hours to a time format
  *
  * @param float $hours
@@ -125,4 +154,61 @@ function getModel(string $model_type, string $model_id)
 function zarinpal()
 {
     return app('zarinpal');
+}
+
+/**
+ * Determine if a point is within a polygon
+ *
+ * @param array $point [x, y] coordinates of the point
+ * @param array $polygon Array of [x, y] coordinates representing the polygon
+ * @return bool
+ */
+function is_point_in_polygon(array $point, array $polygon): bool
+{
+    $x = $point[0];
+    $y = $point[1];
+    $inside = false;
+    $numPoints = count($polygon);
+
+    for ($i = 0, $j = $numPoints - 1; $i < $numPoints; $j = $i++) {
+        $xi = $polygon[$i][0];
+        $yi = $polygon[$i][1];
+        $xj = $polygon[$j][0];
+        $yj = $polygon[$j][1];
+
+        $intersect = (($yi > $y) != ($yj > $y)) &&
+            ($x < ($xj - $xi) * ($y - $yi) / ($yj - $yi) + $xi);
+        if ($intersect) {
+            $inside = !$inside;
+        }
+    }
+
+    return $inside;
+}
+
+/**
+ * Calculate the distance between two points using the Haversine formula
+ *
+ * @param array $point1 [latitude, longitude] coordinates of the first point
+ * @param array $point2 [latitude, longitude] coordinates of the second point
+ * @return float The distance between the two points in kilometers
+ */
+function calculate_distance(array $point1, array $point2): float
+{
+    $earthRadius = 6371; // Earth's radius in kilometers
+
+    $lat1 = deg2rad($point1[0]);
+    $lon1 = deg2rad($point1[1]);
+    $lat2 = deg2rad($point2[0]);
+    $lon2 = deg2rad($point2[1]);
+
+    $dLat = $lat2 - $lat1;
+    $dLon = $lon2 - $lon1;
+
+    $a = sin($dLat / 2) ** 2 +
+         cos($lat1) * cos($lat2) * sin($dLon / 2) ** 2;
+
+    $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
+
+    return $earthRadius * $c;
 }

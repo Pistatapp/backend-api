@@ -8,7 +8,6 @@ use App\Models\GpsDevice;
 use App\Models\Tractor;
 use App\Models\GpsDailyReport;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class LiveReportServiceTest extends TestCase

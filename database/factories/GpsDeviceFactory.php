@@ -16,11 +16,13 @@ class GpsDeviceFactory extends Factory
      */
     public function definition(): array
     {
+        static $imeiCounter = 0;
+
         return [
             'user_id' => \App\Models\User::factory(),
             'tractor_id' => \App\Models\Tractor::factory(),
             'name' => $this->faker->word,
-            'imei' => substr(str_repeat(mt_rand(0, 9), 15), 0, 15),
+            'imei' => '86307004338' . str_pad(++$imeiCounter, 4, '0', STR_PAD_LEFT),
             'sim_number' => $this->faker->numerify('##########'),
         ];
     }

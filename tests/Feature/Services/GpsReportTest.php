@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature\Tractor;
+namespace Tests\Feature\Services;
 
 use Tests\TestCase;
 use App\Models\GpsDevice;
@@ -58,16 +58,16 @@ class GpsReportTest extends TestCase
             'imei' => '863070043386100',
             'speed' => 18,
             'status' => 1,
-            'is_stopped' => 0 // Database stores boolean as 0/1
+            'is_stopped' => 0
         ]);
 
-        // Assert daily report was created
-        $this->assertDatabaseHas('gps_daily_reports', [
-            'tractor_id' => $this->tractor->id,
-            'date' => now()->startOfDay(),
-        ]);
+        // Get the report and check coordinate structure
+        $report = \App\Models\GpsReport::where('imei', '863070043386100')->first();
+        $this->assertIsArray($report->coordinate);
+        $this->assertCount(2, $report->coordinate);
+        $this->assertEquals(34.884065, $report->coordinate[0]);
+        $this->assertEquals(50.599625, $report->coordinate[1]);
 
-        // Assert events were dispatched
         Event::assertDispatched(ReportReceived::class);
         Event::assertDispatched(TractorStatus::class);
     }

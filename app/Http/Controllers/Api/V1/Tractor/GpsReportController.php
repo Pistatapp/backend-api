@@ -32,6 +32,10 @@ class GpsReportController extends Controller
 
             $device = $this->getDevice($data[0]['imei']);
 
+            if(!$device) {
+                return new JsonResponse(['message' => 'Device not found'], JsonResponse::HTTP_NOT_FOUND);
+            }
+
             $lastReportStatus = end($data)['status'];
 
             $reportService = new LiveReportService($device, $data);

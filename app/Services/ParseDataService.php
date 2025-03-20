@@ -35,7 +35,7 @@ class ParseDataService
         }
 
         $dataFields = explode(',', $dataItem['data']);
-        $coordinates = $this->parseCoordinates($dataFields[1], $dataFields[2]);
+        $coordinate = $this->parseCoordinate($dataFields[1], $dataFields[2]);
         $dateTime = $this->parseDateTime($dataFields[4], $dataFields[5]);
 
         if (!$dateTime->isToday()) {
@@ -43,8 +43,7 @@ class ParseDataService
         }
 
         return [
-            'latitude' => $coordinates['latitude'],
-            'longitude' => $coordinates['longitude'],
+            'coordinate' => $coordinate,
             'speed' => (int)$dataFields[6],
             'status' => (int)$dataFields[8],
             'date_time' => $dateTime,
@@ -57,17 +56,17 @@ class ParseDataService
     }
 
     /**
-     * Convert the coordinates from the GPS device to decimal degrees
+     * Convert the coordinate from the GPS device to decimal degrees
      *
      * @param string $latitude
      * @param string $longitude
      * @return array
      */
-    private function parseCoordinates(string $latitude, string $longitude): array
+    private function parseCoordinate(string $latitude, string $longitude): array
     {
         return [
-            'latitude' => $this->toDecimalDegrees((float)$latitude),
-            'longitude' => $this->toDecimalDegrees((float)$longitude)
+            $this->toDecimalDegrees((float)$latitude),
+            $this->toDecimalDegrees((float)$longitude)
         ];
     }
 

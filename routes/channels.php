@@ -3,6 +3,7 @@
 use App\Models\GpsDevice;
 use App\Models\Irrigation;
 use App\Models\User;
+use App\Models\TractorTask;
 use Illuminate\Support\Facades\Broadcast;
 
 /*

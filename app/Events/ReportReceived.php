@@ -50,8 +50,8 @@ class ReportReceived implements ShouldBroadcast
             'speed' => $this->data['speed'],
             'points' => collect($this->data['points'])->map(function ($point) {
                 return [
-                    'latitude' => $point['latitude'],
-                    'longitude' => $point['longitude'],
+                    'latitude' => $point['coordinate'][0],
+                    'longitude' => $point['coordinate'][1],
                     'speed' => $point['speed'],
                     'status' => $point['status'],
                     'is_starting_point' => $point['is_starting_point'],

@@ -14,55 +14,75 @@ class ParseDataServiceTest extends TestCase
     {
         parent::setUp();
         $this->service = new ParseDataService();
-        Carbon::setTestNow('2024-01-24 07:02:00'); // Match the time from sample data
+        Carbon::setTestNow('2024-01-24 07:02:00');
     }
 
     /** @test */
-    public function it_correctly_parses_valid_gps_data()
+    public function it_parses_valid_gps_data()
     {
-        $jsonData = json_encode([
-            ['data' => '+Hooshnic:V1.03,3453.04393,05035.9775,000,240124,070200,000,000,1,863070043386100']
-        ]);
-
-        $result = $this->service->parse($jsonData);
-
-        $this->assertCount(1, $result);
-        $report = $result[0];
-
-        $this->assertEqualsWithDelta(34.884065, $report['latitude'], 0.000001);
-        $this->assertEqualsWithDelta(50.599625, $report['longitude'], 0.000001);
-        $this->assertEquals(0, $report['speed']);
-        $this->assertEquals(1, $report['status']);
-        $this->assertEquals('863070043386100', $report['imei']);
-        $this->assertTrue($report['is_stopped']);
-        $this->assertEquals(0, $report['stoppage_time']);
-        $this->assertFalse($report['is_starting_point']);
-        $this->assertFalse($report['is_ending_point']);
-    }
-
-    /** @test */
-    public function it_filters_out_invalid_format_data()
-    {
-        $jsonData = json_encode([
-            ['data' => 'invalid-format-data'],
+        $data = json_encode([
             ['data' => '+Hooshnic:V1.03,3453.04393,05035.9775,000,240124,070200,018,000,1,863070043386100']
         ]);
 
-        $result = $this->service->parse($jsonData);
+        $result = $this->service->parse($data);
 
         $this->assertCount(1, $result);
+        $this->assertEquals([
+            'coordinate' => [
+                'latitude' => 34.884065,
+                'longitude' => 50.599625
+            ],
+            'speed' => 18,
+            'status' => 1,
+            'imei' => '863070043386100',
+            'is_stopped' => false,
+            'stoppage_time' => 0,
+            'is_starting_point' => false,
+            'is_ending_point' => false,
+            'date_time' => Carbon::createFromFormat('ymdHis', '240124070200')->addHours(3)->addMinutes(30),
+        ], $result[0]);
     }
 
     /** @test */
-    public function it_filters_out_non_today_data()
+    public function it_filters_out_invalid_format()
     {
-        $jsonData = json_encode([
-            ['data' => '+Hooshnic:V1.03,3453.04393,05035.9775,000,230124,070200,018,000,1,863070043386100'], // Yesterday
-            ['data' => '+Hooshnic:V1.03,3453.04393,05035.9775,000,240124,070200,018,000,1,863070043386100']  // Today
+        $data = json_encode([
+            ['data' => 'invalid format'],
+            ['data' => '+Hooshnic:V1.03,3453.04393,05035.9775,000,240124,070200,018,000,1,863070043386100']
         ]);
 
-        $result = $this->service->parse($jsonData);
+        $result = $this->service->parse($data);
 
         $this->assertCount(1, $result);
+        $this->assertEquals('863070043386100', $result[0]['imei']);
+    }
+
+    /** @test */
+    public function it_filters_out_old_dates()
+    {
+        $data = json_encode([
+            ['data' => '+Hooshnic:V1.03,3453.04393,05035.9775,000,230124,070200,018,000,1,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.04393,05035.9775,000,240124,070200,018,000,1,863070043386100']
+        ]);
+
+        $result = $this->service->parse($data);
+
+        $this->assertCount(1, $result);
+        $this->assertEquals('240124070200', $result[0]['date_time']->format('dmy His'));
+    }
+
+    /** @test */
+    public function it_sorts_results_by_datetime()
+    {
+        $data = json_encode([
+            ['data' => '+Hooshnic:V1.03,3453.04393,05035.9775,000,240124,070200,018,000,1,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.04393,05035.9775,000,240124,070100,018,000,1,863070043386100']
+        ]);
+
+        $result = $this->service->parse($data);
+
+        $this->assertCount(2, $result);
+        $this->assertEquals('070100', $result[0]['date_time']->format('His'));
+        $this->assertEquals('070200', $result[1]['date_time']->format('His'));
     }
 }

@@ -2,15 +2,18 @@
 
 namespace App\Services;
 
-use App\Models\Field;
 use App\Models\GpsDailyReport;
 use App\Models\GpsDevice;
 use App\Models\GpsReport;
 use App\Models\TractorTask;
 use Illuminate\Support\Facades\Cache;
+use App\Traits\DistanceCalculator;
+use App\Traits\TractorWorkingTime;
 
 class LiveReportService
 {
+    use DistanceCalculator, TractorWorkingTime;
+
     private $tasks;
     private $currentTask;
     private $dailyReport;
@@ -34,12 +37,12 @@ class LiveReportService
     private function initialize(): void
     {
         $this->tractor = $this->device->tractor;
-        $this->tasks = $this->getTasks();
-        $this->dailyReport = $this->getDailyReport();
-        $this->latestStoredReport = $this->getLatestStoredReport();
+        $this->tasks = $this->fetchDailyTasks();
+        $this->dailyReport = $this->fetchOrCreateDailyReport();
+        $this->latestStoredReport = $this->fetchLatestStoredReport();
         $this->maxSpeed = $this->dailyReport->max_speed;
         $this->currentTask = $this->tasks->where('tractor_id', $this->tractor->id)->first();
-        $this->taskArea = isset($this->currentTask) ? $this->getTaskArea() : [];
+        $this->taskArea = isset($this->currentTask) ? $this->currentTask->fetchTaskArea() : [];
     }
 
     /**
@@ -92,7 +95,7 @@ class LiveReportService
         $this->saveReport($report);
         $this->points[] = $report;
         $this->maxSpeed = $report['speed'];
-        if ($report['is_stopped'] && $this->isInTractorTime($report)) {
+        if ($report['is_stopped'] && $this->isWithinWorkingHours($report)) {
             $this->stoppageCount += 1;
         }
     }
@@ -100,7 +103,7 @@ class LiveReportService
     private function processSubsequentReports(array $previousReport, array $report): void
     {
         $this->maxSpeed = max($this->maxSpeed, $report['speed']);
-        $distanceDiff = $this->calculateDistance($previousReport, $report);
+        $distanceDiff = calculate_distance($previousReport, $report);
         $timeDiff = $previousReport['date_time']->diffInSeconds($report['date_time']);
 
         if ($previousReport['is_stopped'] && $report['is_stopped']) {
@@ -156,13 +159,11 @@ class LiveReportService
      */
     private function incrementTimingAndTraveledDistance(array $report, int $timeDiff, float $distanceDiff, bool $stopped = false, bool $incrementStoppage = false): void
     {
-        if (isset($this->currentTask) && $this->isInTractorTime($report)) {
-            foreach ($this->taskAreas as $area) {
-                if ($this->isReportInTaskArea($report, $area)) {
-                    $this->updateTimingAndDistance($timeDiff, $distanceDiff, $stopped, $incrementStoppage);
-                }
+        if (isset($this->currentTask) && $this->isWithinWorkingHours($report)) {
+            if (is_point_in_polygon($report, $this->taskArea)) {
+                $this->updateTimingAndDistance($timeDiff, $distanceDiff, $stopped, $incrementStoppage);
             }
-        } elseif ($this->isInTractorTime($report)) {
+        } elseif ($this->isWithinWorkingHours($report)) {
             $this->updateTimingAndDistance($timeDiff, $distanceDiff, $stopped, $incrementStoppage);
         }
     }
@@ -177,102 +178,6 @@ class LiveReportService
     }
 
     /**
-     * Check if the point is in taskArea.
-     *
-     * @param  array  $report
-     * @return bool
-     */
-    protected function isReportInTaskArea(array $report, array $area): bool
-    {
-        $point = [
-            'lat' => $report['latitude'],
-            'lng' => $report['longitude'],
-        ];
-
-        $vertices_x = [];
-        $vertices_y = [];
-
-        foreach ($area as $vertex) {
-            $vertices_x[] = $vertex['lng']; // longitude corresponds to x
-            $vertices_y[] = $vertex['lat']; // latitude corresponds to y
-        }
-
-        $points_taskArea = count($vertices_x) - 1;
-        $i = $j = $c = 0;
-
-        for ($i = 0, $j = $points_taskArea; $i < $points_taskArea; $j = $i++) {
-            if ((($vertices_y[$i] > $point['lng']) != ($vertices_y[$j] > $point['lng'])) &&
-                ($point['lat'] < ($vertices_x[$j] - $vertices_x[$i]) *
-                    ($point['lng'] - $vertices_y[$i]) /
-                    ($vertices_y[$j] - $vertices_y[$i]) + $vertices_x[$i])
-            ) {
-                $c = !$c;
-            }
-        }
-
-        return $c;
-    }
-
-    /**
-     * Check if the report is in tractor time.
-     *
-     * @param  array  $report
-     * @return bool
-     */
-    private function isInTractorTime(array $report): bool
-    {
-        return $report['date_time']->gte($this->tractor->start_work_time)
-            && $report['date_time']->lte($this->tractor->end_work_time);
-    }
-
-    /**
-     * Get the task area.
-     *
-     * @return array
-     */
-    private function getTaskArea(): array
-    {
-        return Cache::remember('task_field_' . $this->currentTask->id, 60 * 60, function () {
-            $field = $this->currentTask->field;
-
-            return collect($field->coordinates)
-                ->map(function ($coordinate) {
-                    [$lat, $lng] = explode(',', $coordinate);
-                    return ['lat' => $lat, 'lng' => $lng];
-                })
-                ->toArray();
-        });
-    }
-
-    /**
-     * Calculate distance between two points.
-     *
-     * @param  object  $point1
-     * @param  object  $point2
-     * @return float
-     */
-    protected function calculateDistance(array $point1, array $point2): float
-    {
-        $earthRadiusKm = 6371;
-
-        $lat1 = deg2rad($point1['latitude']);
-        $lng1 = deg2rad($point1['longitude']);
-        $lat2 = deg2rad($point2['latitude']);
-        $lng2 = deg2rad($point2['longitude']);
-
-        $deltaLat = $lat2 - $lat1;
-        $deltaLng = $lng2 - $lng1;
-
-        $a = sin($deltaLat / 2) * sin($deltaLat / 2) +
-            cos($lat1) * cos($lat2) *
-            sin($deltaLng / 2) * sin($deltaLng / 2);
-
-        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
-
-        return $earthRadiusKm * $c;
-    }
-
-    /**
      * Save the report.
      *
      * @param  array  $data
@@ -283,28 +188,27 @@ class LiveReportService
         $report =  $this->device->reports()->create($data);
         $this->latestStoredReport = $report;
         Cache::put('latest_stored_report_id' . $this->device->id, $report->id, now()->endOfDay());
-        $this->setStartWorkingTime($report);
-        $this->setEndWorkingTime($report);
+        $this->setWorkingTimes($report);
     }
 
     /**
-     * Get tasks for the day.
+     * Fetch daily tasks for the tractor.
      *
      * @return \Illuminate\Support\Collection
      */
-    private function getTasks()
+    private function fetchDailyTasks()
     {
         return Cache::remember('tasks', now()->addHour(), function () {
-            return TractorTask::with('field')->forPresentTime()->get();
+            return TractorTask::with('field:id,coordinates')->forPresentTime()->get();
         });
     }
 
     /**
-     * Get daily reports for the tractor
+     * Fetch or create the daily report for the tractor.
      *
-     * @return GPSDailyReport
+     * @return GpsDailyReport
      */
-    private function getDailyReport(): GpsDailyReport
+    private function fetchOrCreateDailyReport(): GpsDailyReport
     {
         return GpsDailyReport::firstOrCreate([
             'tractor_id' => $this->tractor->id,
@@ -313,20 +217,20 @@ class LiveReportService
     }
 
     /**
-     * Get the latest stored report.
+     * Fetch the latest stored report for the tractor.
      *
-     * @return GPSReport
+     * @return GpsReport|null
      */
-    private function getLatestStoredReport(): ?GpsReport
+    private function fetchLatestStoredReport(): ?GpsReport
     {
         $latestStoredReportId = Cache::get('latest_stored_report_id' . $this->device->id);
         return GpsReport::find($latestStoredReportId);
     }
 
     /**
-     * Update the daily report.
+     * Update the daily report with calculated data.
      *
-     * @return array $data
+     * @return array
      */
     private function updateDailyReport(): array
     {
@@ -364,38 +268,8 @@ class LiveReportService
      */
     public function calculateAverageSpeed(): float
     {
-        return $this->dailyReport->work_duration > 0 ? $this->dailyReport->traveled_distance / ($this->dailyReport->work_duration / 3600) : 0;
-    }
-
-    /**
-     * Set the start working time.
-     *
-     * @param  \App\Models\Report  $report
-     * @return void
-     */
-    private function setStartWorkingTime(GpsReport $report): void
-    {
-        if (!Cache::has('start_working_time_' . $this->tractor->id)) {
-            if (!$report->is_stopped && $report->date_time->gte($this->tractor->start_work_time)) {
-                $report->update(['is_starting_point' => true]);
-                Cache::put('start_working_time_' . $this->tractor->id, $report->date_time, now()->endOfDay());
-            }
-        }
-    }
-
-    /**
-     * Set the end working time.
-     *
-     * @param  \App\Models\Report  $report
-     * @return void
-     */
-    private function setEndWorkingTime(GpsReport $report): void
-    {
-        if (!Cache::has('ending_time_' . $this->tractor->id)) {
-            if ($report->is_stopped && $report->date_time->gte($this->tractor->end_work_time)) {
-                $report->update(['is_ending_point' => true]);
-                Cache::put('end_working_time_' . $this->tractor->id, $report->date_work_time, now()->endOfDay());
-            }
-        }
+        return $this->dailyReport->work_duration > 0
+            ? $this->dailyReport->traveled_distance / ($this->dailyReport->work_duration / 3600)
+            : 0;
     }
 }

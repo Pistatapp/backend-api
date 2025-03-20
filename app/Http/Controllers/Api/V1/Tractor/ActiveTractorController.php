@@ -53,15 +53,15 @@ class ActiveTractorController extends Controller
         $date = jalali_to_carbon($request->date);
 
         $dailyReport = $tractor->gpsDailyReports()->where('date', $date)->first();
-        $reports = $tractor->gpsReports()->whereDate('date_time', $date)->orderBy('date_time')->get();
-
-        // Apply Kalman filter to smooth the GPS coordinates
-        $filteredReports = $reports->map(function ($report) {
-            $filtered = $this->kalmanFilter->filter($report->latitude, $report->longitude);
-            $report->latitude = $filtered['latitude'];
-            $report->longitude = $filtered['longitude'];
-            return $report;
-        });
+        $reports = $tractor->gpsReports()
+            ->whereDate('date_time', $date)
+            ->orderBy('date_time')
+            ->get()
+            ->map(function ($report) {
+                $filtered = $this->kalmanFilter->filter($report->coordinate[0], $report->coordinate[1]);
+                $report->coordinate = [$filtered['latitude'], $filtered['longitude']];
+                return $report;
+            });
 
         $startWorkingTime = count($reports) > 0 ? $reports->where('is_starting_point', 1)->first() : null;
         $currentTask = $tractor->tasks()->where('date', $date)
@@ -80,7 +80,7 @@ class ActiveTractorController extends Controller
                 'stoppage_count' => $dailyReport->stoppage_count ?? 0,
                 'stoppage_duration' => gmdate('H:i:s', $dailyReport->stoppage_duration ?? 0),
                 'efficiency' => number_format($dailyReport->efficiency ?? 0, 2),
-                'points' => PointsResource::collection($filteredReports),
+                'points' => PointsResource::collection($reports),
                 'current_task' => $currentTask ? new TractorTaskResource($currentTask) : null,
             ]
         ]);

@@ -16,8 +16,8 @@ class PointsResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'latitude' => $this->latitude,
-            'longitude' => $this->longitude,
+            'latitude' => $this->coordinate[0],
+            'longitude' => $this->coordinate[1],
             'speed' => $this->speed,
             'status' => $this->status,
             'is_starting_point' => $this->is_starting_point,

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
 
 class TractorTask extends Model
 {
@@ -47,6 +48,18 @@ class TractorTask extends Model
             'end_time' => 'datetime:H:i',
             'created_by' => 'integer',
         ];
+    }
+
+        /**
+     * Fetch the task area for the current task.
+     *
+     * @return array
+     */
+    private function fetchTaskArea(): array
+    {
+        return Cache::remember('task_field_' . $this->id, 60 * 60, function () {
+            return $this->field->coordinates;
+        });
     }
 
     /**

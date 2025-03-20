@@ -5,7 +5,6 @@ namespace App\Http\Requests;
 use Illuminate\Foundation\Http\FormRequest;
 use App\Models\TractorTask;
 use App\Rules\UniqueTractorTask;
-use Illuminate\Validation\Rule;
 
 class StoreTractorTaskRequest extends FormRequest
 {
