@@ -7,12 +7,11 @@ use App\Models\GpsDevice;
 use App\Models\GpsReport;
 use App\Models\TractorTask;
 use Illuminate\Support\Facades\Cache;
-use App\Traits\DistanceCalculator;
 use App\Traits\TractorWorkingTime;
 
 class LiveReportService
 {
-    use DistanceCalculator, TractorWorkingTime;
+    use TractorWorkingTime;
 
     private $tasks;
     private $currentTask;
