@@ -44,8 +44,7 @@ class LiveReportServiceTest extends TestCase
         $now = now();
         $this->reports = [
             [
-                'latitude' => 34.884065,
-                'longitude' => 50.599625,
+                'coordinate' => [34.884065, 50.599625],
                 'speed' => 0,
                 'status' => 1,
                 'date_time' => $now->copy()->subMinutes(2),
@@ -56,8 +55,7 @@ class LiveReportServiceTest extends TestCase
                 'is_ending_point' => false,
             ],
             [
-                'latitude' => 34.884066,
-                'longitude' => 50.599626,
+                'coordinate' => [34.884066, 50.599626],
                 'speed' => 20,
                 'status' => 1,
                 'date_time' => $now->copy()->subMinute(),
@@ -68,8 +66,7 @@ class LiveReportServiceTest extends TestCase
                 'is_ending_point' => false,
             ],
             [
-                'latitude' => 34.884067,
-                'longitude' => 50.599627,
+                'coordinate' => [34.884067, 50.599627],
                 'speed' => 0,
                 'status' => 1,
                 'date_time' => $now->copy(),

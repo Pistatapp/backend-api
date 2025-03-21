@@ -102,18 +102,21 @@ class LiveReportService
     private function processSubsequentReports(array $previousReport, array $report): void
     {
         $this->maxSpeed = max($this->maxSpeed, $report['speed']);
-        $distanceDiff = calculate_distance($previousReport, $report);
+        $distanceDiff = calculate_distance($previousReport['coordinate'], $report['coordinate']);
         $timeDiff = $previousReport['date_time']->diffInSeconds($report['date_time']);
 
-        if ($previousReport['is_stopped'] && $report['is_stopped']) {
-            $this->handleStoppedToStopped($report, $timeDiff, $distanceDiff);
-        } elseif ($previousReport['is_stopped'] && !$report['is_stopped']) {
-            $this->handleStoppedToMoving($report, $timeDiff, $distanceDiff);
-        } elseif (!$previousReport['is_stopped'] && $report['is_stopped']) {
-            $this->handleMovingToStopped($report, $timeDiff, $distanceDiff);
-        } else {
-            $this->handleMovingToMoving($report, $timeDiff, $distanceDiff);
-        }
+        $transitionHandler = $this->getTransitionHandler($previousReport['is_stopped'], $report['is_stopped']);
+        $transitionHandler($report, $timeDiff, $distanceDiff);
+    }
+
+    private function getTransitionHandler(bool $wasStopped, bool $isStopped): callable
+    {
+        return match (true) {
+            $wasStopped && $isStopped => fn($report, $timeDiff, $distanceDiff) => $this->handleStoppedToStopped($report, $timeDiff, $distanceDiff),
+            $wasStopped && !$isStopped => fn($report, $timeDiff, $distanceDiff) => $this->handleStoppedToMoving($report, $timeDiff, $distanceDiff),
+            !$wasStopped && $isStopped => fn($report, $timeDiff, $distanceDiff) => $this->handleMovingToStopped($report, $timeDiff, $distanceDiff),
+            default => fn($report, $timeDiff, $distanceDiff) => $this->handleMovingToMoving($report, $timeDiff, $distanceDiff),
+        };
     }
 
     private function handleStoppedToStopped(array $report, int $timeDiff, float $distanceDiff): void

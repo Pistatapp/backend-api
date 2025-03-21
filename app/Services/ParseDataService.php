@@ -64,10 +64,10 @@ class ParseDataService
      */
     private function parseCoordinate(string $latitude, string $longitude): array
     {
-        return [
-            $this->toDecimalDegrees((float)$latitude),
-            $this->toDecimalDegrees((float)$longitude)
-        ];
+        return array_map('floatval', [
+            sprintf('%.6f', $this->toDecimalDegrees((float)$latitude)),
+            sprintf('%.6f', $this->toDecimalDegrees((float)$longitude))
+        ]);
     }
 
     /**

@@ -29,8 +29,8 @@ class ParseDataServiceTest extends TestCase
         $this->assertCount(1, $result);
         $this->assertEquals([
             'coordinate' => [
-                'latitude' => 34.884065,
-                'longitude' => 50.599625
+                34.884065,
+                50.599625
             ],
             'speed' => 18,
             'status' => 1,
@@ -68,7 +68,7 @@ class ParseDataServiceTest extends TestCase
         $result = $this->service->parse($data);
 
         $this->assertCount(1, $result);
-        $this->assertEquals('240124070200', $result[0]['date_time']->format('dmy His'));
+        $this->assertEquals('240124 103200', $result[0]['date_time']->format('dmy His'));
     }
 
     /** @test */
@@ -82,7 +82,7 @@ class ParseDataServiceTest extends TestCase
         $result = $this->service->parse($data);
 
         $this->assertCount(2, $result);
-        $this->assertEquals('070100', $result[0]['date_time']->format('His'));
-        $this->assertEquals('070200', $result[1]['date_time']->format('His'));
+        $this->assertEquals('103100', $result[0]['date_time']->format('His'));
+        $this->assertEquals('103200', $result[1]['date_time']->format('His'));
     }
 }
