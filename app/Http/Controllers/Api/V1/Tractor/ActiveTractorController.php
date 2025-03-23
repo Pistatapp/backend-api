@@ -64,9 +64,7 @@ class ActiveTractorController extends Controller
             });
 
         $startWorkingTime = count($reports) > 0 ? $reports->where('is_starting_point', 1)->first() : null;
-        $currentTask = $tractor->tasks()->where('date', $date)
-            ->with('operation', 'field', 'creator')
-            ->latest()->first();
+        $currentTask = $tractor->tasks()->with('operation', 'field', 'creator')->started()->first();
 
         return response()->json([
             'data' => [

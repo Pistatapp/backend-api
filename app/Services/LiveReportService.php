@@ -5,16 +5,14 @@ namespace App\Services;
 use App\Models\GpsDailyReport;
 use App\Models\GpsDevice;
 use App\Models\GpsReport;
-use App\Models\TractorTask;
 use Illuminate\Support\Facades\Cache;
 use App\Traits\TractorWorkingTime;
+use Illuminate\Support\Facades\Log;
 
 class LiveReportService
 {
     use TractorWorkingTime;
 
-    private $tasks;
-    private $currentTask;
     private $dailyReport;
     private $latestStoredReport;
     private $totalTraveledDistance = 0;
@@ -24,6 +22,7 @@ class LiveReportService
     private $tractor;
     private $points = [];
     private $maxSpeed;
+    private $currentTask;
     private $taskArea;
 
     public function __construct(
@@ -33,15 +32,19 @@ class LiveReportService
         $this->initialize();
     }
 
+    /**
+     * Initialize service properties.
+     *
+     * @return void
+     */
     private function initialize(): void
     {
         $this->tractor = $this->device->tractor;
-        $this->tasks = $this->fetchDailyTasks();
+        $this->currentTask = $this->fetchCurrentTask();
         $this->dailyReport = $this->fetchOrCreateDailyReport();
         $this->latestStoredReport = $this->fetchLatestStoredReport();
         $this->maxSpeed = $this->dailyReport->max_speed;
-        $this->currentTask = $this->tasks->where('tractor_id', $this->tractor->id)->first();
-        $this->taskArea = isset($this->currentTask) ? $this->currentTask->fetchTaskArea() : [];
+        $this->taskArea = $this->currentTask ? $this->currentTask->fetchTaskArea() : null;
     }
 
     /**
@@ -63,7 +66,7 @@ class LiveReportService
             'stoppage_duration' => $data['stoppage_duration'],
             'efficiency' => $data['efficiency'],
             'stoppage_count' => $data['stoppage_count'],
-            'speed' => $this->latestStoredReport['speed'],
+            'speed' => $this->latestStoredReport['speed'] ?? 0,
             'points' => $this->points,
         ];
     }
@@ -75,7 +78,8 @@ class LiveReportService
      */
     private function calculateTimingAndTraveledDistance(): void
     {
-        $previousReport = Cache::get('previous_report_' . $this->device->id);
+        $cacheKey = "previous_report_{$this->device->id}";
+        $previousReport = Cache::get($cacheKey);
 
         foreach ($this->reports as $report) {
             if (is_null($previousReport)) {
@@ -85,7 +89,7 @@ class LiveReportService
             }
 
             $previousReport = $report;
-            Cache::put('previous_report_' . $this->device->id, $previousReport, now()->endOfDay());
+            Cache::put($cacheKey, $previousReport, now()->endOfDay());
         }
     }
 
@@ -122,20 +126,24 @@ class LiveReportService
     private function handleStoppedToStopped(array $report, int $timeDiff, float $distanceDiff): void
     {
         $this->incrementTimingAndTraveledDistance($report, $timeDiff, $distanceDiff, true);
-        if (!in_array($this->latestStoredReport, $this->points)) {
-            $this->points[] = $this->latestStoredReport;
+        if ($this->latestStoredReport) {
+            if (!in_array($this->latestStoredReport, $this->points)) {
+                $this->points[] = $this->latestStoredReport;
+            }
+            $this->latestStoredReport->update([
+                'stoppage_time' => $this->latestStoredReport->stoppage_time + $timeDiff,
+            ]);
         }
-        $this->latestStoredReport->update([
-            'stoppage_time' => $this->latestStoredReport->stoppage_time + $timeDiff,
-        ]);
     }
 
     private function handleStoppedToMoving(array $report, int $timeDiff, float $distanceDiff): void
     {
         $this->incrementTimingAndTraveledDistance($report, $timeDiff, $distanceDiff, true);
-        $this->latestStoredReport->update([
-            'stoppage_time' => $this->latestStoredReport->stoppage_time + $timeDiff,
-        ]);
+        if ($this->latestStoredReport) {
+            $this->latestStoredReport->update([
+                'stoppage_time' => $this->latestStoredReport->stoppage_time + $timeDiff,
+            ]);
+        }
         $this->points[] = $report;
         $this->saveReport($report);
     }
@@ -156,13 +164,15 @@ class LiveReportService
 
     /**
      * Increment the timing and traveled distance.
+     *
      * @param  array  $parameters
      * @return void
      */
     private function incrementTimingAndTraveledDistance(array $report, int $timeDiff, float $distanceDiff, bool $stopped = false, bool $incrementStoppage = false): void
     {
-        if (isset($this->currentTask) && $this->isWithinWorkingHours($report)) {
-            if (is_point_in_polygon($report, $this->taskArea)) {
+        if ($this->currentTask) {
+            $isInTaskArea = is_point_in_polygon($report['coordinate'], $this->taskArea);
+            if ($isInTaskArea) {
                 $this->updateTimingAndDistance($timeDiff, $distanceDiff, $stopped, $incrementStoppage);
             }
         } elseif ($this->isWithinWorkingHours($report)) {
@@ -187,22 +197,22 @@ class LiveReportService
      */
     private function saveReport(array $data): void
     {
-        $report =  $this->device->reports()->create($data);
+        $report = $this->device->reports()->create($data);
+
         $this->latestStoredReport = $report;
         Cache::put('latest_stored_report_id' . $this->device->id, $report->id, now()->endOfDay());
+
         $this->setWorkingTimes($report);
     }
 
     /**
-     * Fetch daily tasks for the tractor.
+     * Fetch current task for the tractor.
      *
      * @return \Illuminate\Support\Collection
      */
-    private function fetchDailyTasks()
+    private function fetchCurrentTask()
     {
-        return Cache::remember('tasks', now()->addHour(), function () {
-            return TractorTask::with('field:id,coordinates')->forPresentTime()->get();
-        });
+        return $this->tractor->tasks()->with('field:id,coordinates')->started()->first();
     }
 
     /**
@@ -212,8 +222,12 @@ class LiveReportService
      */
     private function fetchOrCreateDailyReport(): GpsDailyReport
     {
+        // Ensure task-specific reports are only created when currentTask is valid
+        $taskId = $this->currentTask ? $this->currentTask->id : null;
+
         return GpsDailyReport::firstOrCreate([
             'tractor_id' => $this->tractor->id,
+            'tractor_task_id' => $taskId,
             'date' => today()
         ]);
     }
@@ -225,7 +239,8 @@ class LiveReportService
      */
     private function fetchLatestStoredReport(): ?GpsReport
     {
-        $latestStoredReportId = Cache::get('latest_stored_report_id' . $this->device->id);
+        $cacheKey = "latest_stored_report_id_{$this->device->id}";
+        $latestStoredReportId = Cache::get($cacheKey);
         return GpsReport::find($latestStoredReportId);
     }
 
@@ -237,6 +252,7 @@ class LiveReportService
     private function updateDailyReport(): array
     {
         $efficiency = $this->calculateEfficiency();
+        $averageSpeed = $this->calculateAverageSpeed();
 
         $data = [
             'traveled_distance' => $this->dailyReport->traveled_distance + $this->totalTraveledDistance,
@@ -245,7 +261,7 @@ class LiveReportService
             'efficiency' => $this->dailyReport->efficiency + $efficiency,
             'stoppage_count' => $this->dailyReport->stoppage_count + $this->stoppageCount,
             'max_speed' => $this->maxSpeed,
-            'average_speed' => $this->calculateAverageSpeed(),
+            'average_speed' => $averageSpeed,
         ];
 
         $this->dailyReport->update($data);

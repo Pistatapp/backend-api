@@ -4,119 +4,146 @@ namespace App\Traits;
 
 use App\Models\GpsReport;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
 trait TractorWorkingTime
 {
-    /**
-     * Set the start and end working times based on the GPS report.
-     *
-     * @param  \App\Models\GpsReport  $report
-     * @return void
-     */
+    private const SPEED_THRESHOLD = 5; // km/h, minimum speed to consider as movement
+    private const WINDOW_SIZE = 3; // Number of reports to analyze in the sliding window
+    private const CACHE_TTL = 1440; // 24 hours in minutes
+
     public function setWorkingTimes(GpsReport $report): void
     {
-        $this->setStartWorkingTime($report);
-        $this->setEndWorkingTime($report);
+        if ($this->isWithinWorkingHours($report)) {
+            $this->detectStartEndPoints($report);
+        }
     }
 
-    /**
-     * Determine and set the start working time.
-     *
-     * @param  \App\Models\GpsReport  $report
-     * @return void
-     */
-    private function setStartWorkingTime(GpsReport $report): void
+    private function detectStartEndPoints(GpsReport $report): void
     {
-        $cacheKey = 'start_working_time_' . $this->tractor->id;
+        $cacheKey = "tractor_points_{$this->tractor->id}_{$report->date_time->toDateString()}";
 
-        // Check if the start time is already set
-        if (!Cache::has($cacheKey)) {
-            // Ensure the tractor is moving and within the expected working hours
-            if (!$report->is_stopped && $this->isWithinWorkingHours($report)) {
-                // Check if the tractor has been moving consistently for a threshold duration
-                if ($this->hasConsistentMovement($report, 'start')) {
-                    $report->update(['is_starting_point' => true]);
-                    Cache::put($cacheKey, $report->date_time, now()->endOfDay());
+        $points = Cache::remember($cacheKey, now()->addMinutes(self::CACHE_TTL), function () use ($report) {
+            return [
+                'start' => $this->hasStartPointForToday($report),
+                'end' => $this->hasEndPointForToday($report)
+            ];
+        });
+
+        if ($points['start'] && $points['end']) {
+            Log::info("Already have start and end points for today", [
+                'date' => $report->date_time->toDateString()
+            ]);
+            return;
+        }
+
+        $reportsCacheKey = "tractor_reports_{$this->tractor->id}_{$report->date_time->toDateString()}";
+        $surroundingReports = Cache::remember($reportsCacheKey, now()->addMinutes(5), function () use ($report) {
+            return $this->device->reports()
+                ->whereDate('date_time', $report->date_time->toDateString())
+                ->orderBy('date_time')
+                ->get();
+        });
+
+        if (!$surroundingReports->contains('id', $report->id)) {
+            $surroundingReports->push($report);
+            $surroundingReports = $surroundingReports->sortBy('date_time')->values();
+            Cache::put($reportsCacheKey, $surroundingReports, now()->addMinutes(5));
+        }
+
+        $currentIndex = $surroundingReports->search(function ($item) use ($report) {
+            return $item->id === $report->id;
+        });
+
+        if ($currentIndex !== false) {
+            if (!$points['start'] && $currentIndex >= 1) {
+                for ($i = 1; $i < $surroundingReports->count(); $i++) {
+                    $prevReport = $surroundingReports[$i - 1];
+                    $currReport = $surroundingReports[$i];
+
+                    $isTransitionToMoving = $prevReport->speed < self::SPEED_THRESHOLD &&
+                        $currReport->speed >= self::SPEED_THRESHOLD;
+
+                    if ($isTransitionToMoving) {
+                        $sustainedMovement = true;
+                        for ($j = 1; $j < self::WINDOW_SIZE && ($i + $j) < $surroundingReports->count(); $j++) {
+                            if ($surroundingReports[$i + $j]->speed < self::SPEED_THRESHOLD) {
+                                $sustainedMovement = false;
+                                break;
+                            }
+                        }
+
+                        if ($sustainedMovement) {
+                            $currReport->update(['is_starting_point' => true]);
+                            Cache::put($cacheKey, [
+                                'start' => true,
+                                'end' => $points['end']
+                            ], now()->addMinutes(self::CACHE_TTL));
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (!$points['end']) {
+                if ($currentIndex >= self::WINDOW_SIZE - 1) {
+                    $window = $surroundingReports->slice($currentIndex - self::WINDOW_SIZE + 1, self::WINDOW_SIZE);
+
+                    $isEndPoint = $window->slice(0, -1)->every(function ($r) {
+                        return $r->speed >= self::SPEED_THRESHOLD;
+                    }) &&
+                        $window->last()->speed < self::SPEED_THRESHOLD;
+
+                    if ($isEndPoint) {
+                        $report->update(['is_ending_point' => true]);
+                        Cache::put($cacheKey, [
+                            'start' => $points['start'],
+                            'end' => true
+                        ], now()->addMinutes(self::CACHE_TTL));
+                    }
                 }
             }
         }
     }
 
-    /**
-     * Determine and set the end working time.
-     *
-     * @param  \App\Models\GpsReport  $report
-     * @return void
-     */
-    private function setEndWorkingTime(GpsReport $report): void
+    private function hasStartPointForToday(GpsReport $report): bool
     {
-        $cacheKey = 'ending_time_' . $this->tractor->id;
+        $cacheKey = "start_point_{$this->tractor->id}_{$report->date_time->toDateString()}";
 
-        // Check if the end time is already set
-        if (!Cache::has($cacheKey)) {
-            // Ensure the tractor is stopped and within the expected working hours
-            if ($report->is_stopped && $this->isWithinWorkingHours($report)) {
-                // Check if the tractor has been stopped consistently for a threshold duration
-                if ($this->hasConsistentMovement($report, 'end')) {
-                    $report->update(['is_ending_point' => true]);
-                    Cache::put($cacheKey, $report->date_time, now()->endOfDay());
-                }
-            }
-        }
+        return Cache::remember($cacheKey, now()->addMinutes(self::CACHE_TTL), function () use ($report) {
+            return $this->device->reports()
+                ->whereDate('date_time', $report->date_time->toDateString())
+                ->where('is_starting_point', true)
+                ->exists();
+        });
     }
 
-    /**
-     * Check if the report is within the tractor's working hours.
-     *
-     * @param  \App\Models\GpsReport|array  $report
-     * @return bool
-     */
+    private function hasEndPointForToday(GpsReport $report): bool
+    {
+        $cacheKey = "end_point_{$this->tractor->id}_{$report->date_time->toDateString()}";
+
+        return Cache::remember($cacheKey, now()->addMinutes(self::CACHE_TTL), function () use ($report) {
+            return $this->device->reports()
+                ->whereDate('date_time', $report->date_time->toDateString())
+                ->where('is_ending_point', true)
+                ->exists();
+        });
+    }
+
     private function isWithinWorkingHours(GpsReport|array $report): bool
     {
         $dateTime = is_array($report) ? Carbon::parse($report['date_time']) : $report->date_time;
-        return $dateTime->gte($this->tractor->start_work_time)
-            && $dateTime->lte($this->tractor->end_work_time);
-    }
 
-    /**
-     * Check if the tractor has consistent movement or stoppage for a threshold duration.
-     *
-     * @param  \App\Models\GpsReport  $report
-     * @param  string  $type  'start' or 'end'
-     * @return bool
-     */
-    private function hasConsistentMovement(GpsReport $report, string $type): bool
-    {
-        $thresholdSeconds = 300; // 5 minutes threshold
-        $cacheKey = ($type === 'start' ? 'consistent_movement_' : 'consistent_stoppage_') . $this->tractor->id;
+        $workingHoursCacheKey = "tractor_working_hours_{$this->tractor->id}_{$dateTime->toDateString()}";
 
-        // Retrieve the last consistent time from the cache
-        $lastConsistentTime = Cache::get($cacheKey);
+        $workingHours = Cache::remember($workingHoursCacheKey, now()->addMinutes(self::CACHE_TTL), function () {
+            return [
+                'start' => today()->setTimeFromTimeString($this->tractor->start_work_time),
+                'end' => today()->setTimeFromTimeString($this->tractor->end_work_time)
+            ];
+        });
 
-        if (!$lastConsistentTime) {
-            // Initialize the consistent time if not set
-            Cache::put($cacheKey, $report->date_time, now()->endOfDay());
-            return false;
-        }
-
-        // Calculate the time difference between the current report and the last consistent time
-        $timeDifference = $report->date_time->diffInSeconds($lastConsistentTime);
-
-        if ($type === 'start' && !$report->is_stopped && $timeDifference >= $thresholdSeconds) {
-            // Update the cache for consistent movement
-            Cache::put($cacheKey, $report->date_time, now()->endOfDay());
-            return true;
-        }
-
-        if ($type === 'end' && $report->is_stopped && $timeDifference >= $thresholdSeconds) {
-            // Update the cache for consistent stoppage
-            Cache::put($cacheKey, $report->date_time, now()->endOfDay());
-            return true;
-        }
-
-        // Reset the cache if the condition is not met
-        Cache::put($cacheKey, $report->date_time, now()->endOfDay());
-        return false;
+        return $dateTime->between($workingHours['start'], $workingHours['end']);
     }
 }

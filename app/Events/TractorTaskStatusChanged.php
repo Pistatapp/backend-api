@@ -17,8 +17,8 @@ class TractorTaskStatusChanged implements ShouldBroadcast
      * Create a new event instance.
      */
     public function __construct(
-        private TractorTask $task,
-        private string $status
+        public TractorTask $task,
+        public string $status
     ) {
         //
     }

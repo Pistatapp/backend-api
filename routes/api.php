@@ -66,20 +66,6 @@ Route::controller(AuthController::class)->prefix('auth')->group(function () {
     Route::get('permissions', 'permissions')->middleware('auth:sanctum');
 });
 
-Route::post('/broadcast-test', function(App\Http\Requests\BroadcastTestRequest $request) {
-    event(new \App\Events\TestBroadcastEvent(
-        $request->input('message'),
-        $request->input('channel_type'),
-        $request->input('channel_type') === 'private' ? auth()->id() : null
-    ));
-    return response()->json([
-        'message' => 'Event broadcasted successfully',
-        'channel_type' => $request->input('channel_type'),
-        'event_name' => $request->input('channel_type') === 'private' ? 'private.test.broadcast' : 'test.broadcast',
-        'channel' => $request->input('channel_type') === 'private' ? 'user.' . auth()->id() : 'test-channel'
-    ]);
-})->middleware(['auth:sanctum']);
-
 Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(function () {
 
     Route::middleware('role:root')->group(function () {
@@ -169,10 +155,8 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::post('/tractors/{tractor}/unassign_device/{gps_device}', [TractorController::class, 'unassignDevice']);
     Route::get('/tractors/{tractor}/reports', [ActiveTractorController::class, 'reports']);
     Route::apiSingleton('tractors.driver', DriverController::class)->creatable();
-    Route::apiResource('tractors.tractor_reports', TractorReportController::class)->shallow();
-    Route::post('/tractor_reports/filter', [TractorReportController::class, 'filter']);
-    Route::get('/tractors/{tractor}/tractor_tasks', [TractorTaskController::class, 'generateReport']);
     Route::apiResource('tractors.tractor_tasks', TractorTaskController::class)->shallow();
+    Route::post('/tractors/filter_reports', [TractorTaskController::class, 'filterReports'])->name('tractor.reports.filter');
     Route::apiResource('farms.maintenances', MaintenanceController::class)->except('show')->shallow();
     Route::post(('maintenance_reports/filter'), [MaintenanceReportController::class, 'filter']);
     Route::apiResource('maintenance_reports', MaintenanceReportController::class)->except('show')->shallow();

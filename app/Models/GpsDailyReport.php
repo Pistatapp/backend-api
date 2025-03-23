@@ -39,6 +39,16 @@ class GpsDailyReport extends Model
     ];
 
     /**
+     * Get the tractor task associated with this daily report
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
+    public function tractorTask()
+    {
+        return $this->belongsTo(TractorTask::class);
+    }
+
+    /**
      * Get the tractor that owns the GpsDailyReport
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo

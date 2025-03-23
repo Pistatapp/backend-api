@@ -9,15 +9,18 @@ use App\Http\Resources\TractorTaskResource;
 use App\Models\Tractor;
 use App\Models\TractorTask;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Http\JsonResponse;
+use App\Services\TractorReportFilterService;
+use Illuminate\Support\Facades\Auth;
 
 class TractorTaskController extends Controller
 {
-    public function __construct()
-    {
+    public function __construct(
+        private TractorReportFilterService $reportFilterService
+    ) {
         $this->authorizeResource(TractorTask::class);
     }
+
     /**
      * Display a listing of the resource.
      */
@@ -33,16 +36,16 @@ class TractorTaskController extends Controller
      */
     public function store(StoreTractorTaskRequest $request, Tractor $tractor)
     {
-        $task = $tractor->tasks()->create([
-            'operation_id' => $request->operation_id,
-            'field_id' => $request->field_id,
-            'date' => $request->date,
-            'start_time' => $request->start_time,
-            'end_time' => $request->end_time,
-            'created_by' => $request->user()->id,
-        ]);
+        $validated = $request->validated();
 
-        Cache::forget('tasks');
+        $task = $tractor->tasks()->create([
+            'operation_id' => $validated['operation_id'],
+            'field_id' => $validated['field_id'],
+            'date' => $validated['date'],
+            'start_time' => $validated['start_time'],
+            'end_time' => $validated['end_time'],
+            'created_by' => Auth::id(),
+        ]);
 
         return new TractorTaskResource($task);
     }
@@ -60,15 +63,15 @@ class TractorTaskController extends Controller
      */
     public function update(UpdateTractorTaskRequest $request, TractorTask $tractorTask)
     {
-        $tractorTask->update($request->only([
-            'operation_id',
-            'field_id',
-            'date',
-            'start_time',
-            'end_time',
-        ]));
+        $validated = $request->validated();
 
-        Cache::forget('tasks');
+        $tractorTask->update([
+            'operation_id' => $validated['operation_id'],
+            'field_id' => $validated['field_id'],
+            'date' => $validated['date'],
+            'start_time' => $validated['start_time'],
+            'end_time' => $validated['end_time'],
+        ]);
 
         return new TractorTaskResource($tractorTask->fresh());
     }
@@ -80,8 +83,25 @@ class TractorTaskController extends Controller
     {
         $tractorTask->delete();
 
-        Cache::forget('tasks');
-
         return response()->json([], JsonResponse::HTTP_GONE);
+    }
+
+    /**
+     * Filter tractor reports by tractor and date.
+     */
+    public function filterReports(Request $request)
+    {
+        $validated = $request->validate([
+            'tractor_id' => 'required|exists:tractors,id',
+            'date' => 'required_without:period|date',
+            'period' => 'required_without:date|in:month,year,specific_month,persian_year',
+            'month' => 'required_if:period,specific_month|shamsi_date',
+            'year' => 'required_if:period,persian_year|regex:/^\d{4}$/',
+            'operation' => 'nullable|exists:operations,id'
+        ]);
+
+        $data = $this->reportFilterService->filter($validated);
+
+        return response()->json(['data' => $data]);
     }
 }

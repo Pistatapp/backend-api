@@ -18,11 +18,11 @@ class TractorFactory extends Factory
     {
         return [
             'name' => $this->faker->word,
-            'start_work_time' => $this->faker->time,
-            'end_work_time' => $this->faker->time,
-            'expected_daily_work_time' => $this->faker->numberBetween(1, 24),
-            'expected_monthly_work_time' => $this->faker->numberBetween(1, 720),
-            'expected_yearly_work_time' => $this->faker->numberBetween(1, 8640),
+            'start_work_time' => '08:00',
+            'end_work_time' => '16:00',
+            'expected_daily_work_time' => 8, // 8 hours per day
+            'expected_monthly_work_time' => 240, // ~8 hours * 30 days
+            'expected_yearly_work_time' => 2920, // ~8 hours * 365 days
             'is_working' => $this->faker->boolean,
             'farm_id' => \App\Models\Farm::factory(),
         ];

@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Cache;
 
 class TractorTask extends Model
 {
@@ -50,16 +49,24 @@ class TractorTask extends Model
         ];
     }
 
-        /**
+    /**
+     * Get the GPS daily report for this task
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function gpsDailyReport()
+    {
+        return $this->hasOne(GpsDailyReport::class);
+    }
+
+    /**
      * Fetch the task area for the current task.
      *
      * @return array
      */
-    private function fetchTaskArea(): array
+    public function fetchTaskArea(): array
     {
-        return Cache::remember('task_field_' . $this->id, 60 * 60, function () {
-            return $this->field->coordinates;
-        });
+        return $this->field->coordinates;
     }
 
     /**
@@ -115,16 +122,24 @@ class TractorTask extends Model
     }
 
     /**
-     * Scope a query to only include tasks for the present time.
+     * Scope a query to only include tasks that have started.
      *
      * @param \Illuminate\Database\Eloquent\Builder $query
      * @return \Illuminate\Database\Eloquent\Builder
      */
-    public function scopeForPresentTime($query)
+    public function scopeStarted($query)
     {
-        $now = now();
-        return $query->whereDate('date', $now->toDateString())
-                     ->whereTime('start_time', '<=', $now->toTimeString())
-                     ->whereTime('end_time', '>=', $now->toTimeString());
+        return $query->where('status', 'started');
+    }
+
+    /**
+     * Scope a query to only include finished tasks.
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeFinished($query)
+    {
+        return $query->where('status', 'finished');
     }
 }

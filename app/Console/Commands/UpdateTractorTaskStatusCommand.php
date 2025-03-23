@@ -30,28 +30,22 @@ class UpdateTractorTaskStatusCommand extends Command
     {
         $now = Carbon::now();
 
-        // Find tasks that should start now (pending tasks where start time has passed)
-        $startingTasks = TractorTask::where('status', 'pending')
-            ->whereDate('date', $now->toDateString())
-            ->where('start_time', '<=', $now->format('H:i'))
-            ->get();
-
-        foreach ($startingTasks as $task) {
-            $task->update(['status' => 'started']);
-            event(new TractorTaskStatusChanged($task, 'started'));
-            $this->info("Task {$task->id} status updated to started");
-        }
-
-        // Find tasks that should end now (started tasks where end time has passed)
-        $endingTasks = TractorTask::where('status', 'started')
-            ->whereDate('date', $now->toDateString())
-            ->where('end_time', '<=', $now->format('H:i'))
-            ->get();
-
-        foreach ($endingTasks as $task) {
-            $task->update(['status' => 'finished']);
-            event(new TractorTaskStatusChanged($task, 'finished'));
-            $this->info("Task {$task->id} status updated to finished");
-        }
+        TractorTask::whereDate('date', $now->toDateString())
+            ->where(function ($query) use ($now) {
+                $query->where(function ($q) use ($now) {
+                    $q->where('status', 'pending')
+                        ->where('start_time', '<=', $now->format('H:i'));
+                })->orWhere(function ($q) use ($now) {
+                    $q->where('status', 'started')
+                        ->where('end_time', '<=', $now->format('H:i'));
+                });
+            })
+            ->chunk(100, function ($tasks) {
+                foreach ($tasks as $task) {
+                    $newStatus = $task->status === 'pending' ? 'started' : 'finished';
+                    $task->update(['status' => $newStatus]);
+                    event(new TractorTaskStatusChanged($task, $newStatus));
+                }
+            });
     }
 }

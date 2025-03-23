@@ -35,7 +35,7 @@ class ParseDataService
         }
 
         $dataFields = explode(',', $dataItem['data']);
-        $coordinate = $this->parseCoordinate($dataFields[1], $dataFields[2]);
+        $coordinate = $this->convertNmeaToDecimalDegrees($dataFields[1], $dataFields[2]);
         $dateTime = $this->parseDateTime($dataFields[4], $dataFields[5]);
 
         if (!$dateTime->isToday()) {
@@ -56,30 +56,30 @@ class ParseDataService
     }
 
     /**
-     * Convert the coordinate from the GPS device to decimal degrees
+     * Convert the NMEA coordinates from the GPS device to decimal degrees
      *
-     * @param string $latitude
-     * @param string $longitude
+     * @param string $nmeaLatitude
+     * @param string $nmeaLongitude
      * @return array
      */
-    private function parseCoordinate(string $latitude, string $longitude): array
+    private function convertNmeaToDecimalDegrees(string $nmeaLatitude, string $nmeaLongitude): array
     {
         return array_map('floatval', [
-            sprintf('%.6f', $this->toDecimalDegrees((float)$latitude)),
-            sprintf('%.6f', $this->toDecimalDegrees((float)$longitude))
+            sprintf('%.6f', $this->nmeaToDecimalDegrees((float)$nmeaLatitude)),
+            sprintf('%.6f', $this->nmeaToDecimalDegrees((float)$nmeaLongitude))
         ]);
     }
 
     /**
-     * Convert coordinates to decimal degrees
+     * Convert NMEA coordinate to decimal degrees
      *
-     * @param float $coordinate
+     * @param float $nmeaCoordinate
      * @return float
      */
-    private function toDecimalDegrees(float $coordinate): float
+    private function nmeaToDecimalDegrees(float $nmeaCoordinate): float
     {
-        $degrees = floor($coordinate / 100);
-        $minutes = ($coordinate - ($degrees * 100)) / 60;
+        $degrees = floor($nmeaCoordinate / 100);
+        $minutes = ($nmeaCoordinate - ($degrees * 100)) / 60;
         return $degrees + $minutes;
     }
 
