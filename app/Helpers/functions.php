@@ -132,6 +132,10 @@ function getModelClass(string $modelType): string
         $modelClass = 'App\\Models\\' . ucfirst($modelClass);
     }
 
+    if (!class_exists($modelClass)) {
+        throw new InvalidArgumentException("Model class {$modelClass} does not exist");
+    }
+
     return $modelClass;
 }
 
