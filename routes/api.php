@@ -139,7 +139,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::apiResource('farms', FarmController::class);
     Route::post('/farms/{farm}/attach-user', [FarmController::class, 'attachUserToFarm']);
     Route::post('/farms/{farm}/detach-user', [FarmController::class, 'detachUserFromFarm']);
-    Route::apiResource('farms.farm-reports', FarmReportsController::class)->shallow();
+    Route::apiResource('farms.farm_reports', FarmReportsController::class)->shallow();
     Route::apiResource('farms.fields', FieldController::class)->shallow();
     Route::apiResource('fields.rows', RowController::class)->except('update')->shallow();
     Route::post('rows/{row}/trees/batch_store', [TreeController::class, 'batchStore']);
@@ -158,8 +158,8 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::apiResource('tractors.tractor_tasks', TractorTaskController::class)->shallow();
     Route::post('/tractors/filter_reports', [TractorTaskController::class, 'filterReports'])->name('tractor.reports.filter');
     Route::apiResource('farms.maintenances', MaintenanceController::class)->except('show')->shallow();
-    Route::post(('maintenance_reports/filter'), [MaintenanceReportController::class, 'filter']);
-    Route::apiResource('maintenance_reports', MaintenanceReportController::class)->except('show')->shallow();
+    Route::post('maintenance_reports/filter', [MaintenanceReportController::class, 'filter']);
+    Route::apiResource('maintenance_reports', MaintenanceReportController::class);
     Route::apiResource('farms.teams', TeamController::class)->shallow();
     Route::apiResource('farms.labours', LabourController::class)->shallow();
     Route::apiResource('attachments', AttachmentController::class)->except('show', 'index');

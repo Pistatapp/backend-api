@@ -16,18 +16,24 @@ class MaintenanceReportResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'maintenance' => [
-                'id' => $this->maintenance->id,
-                'name' => $this->maintenance->name,
-            ],
-            'maintainable' => [
-                'id' => $this->maintainable->id,
-                'name' => $this->maintainable->name,
-            ],
-            'maintained_by' => [
-                'id' => $this->maintainedBy->id,
-                'name' => $this->maintainedBy->full_name,
-            ],
+            'maintenance' => $this->whenLoaded('maintenance', function () {
+                return [
+                    'id' => $this->maintenance->id,
+                    'name' => $this->maintenance->name,
+                ];
+            }),
+            'maintainable' => $this->whenLoaded('maintainable', function () {
+                return [
+                    'id' => $this->maintainable->id,
+                    'name' => $this->maintainable->name,
+                ];
+            }),
+            'maintained_by' => $this->whenLoaded('maintainedBy', function () {
+                return [
+                    'id' => $this->maintainedBy->id,
+                    'name' => $this->maintainedBy->full_name,
+                ];
+            }),
             'date' => jdate($this->date)->format('Y/m/d'),
             'description' => $this->description,
             'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),

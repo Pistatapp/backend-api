@@ -21,7 +21,7 @@ class WeatherForecastControllerTest extends TestCase
 
         $this->user = User::factory()->create();
         $this->farm = Farm::factory()->create([
-            'center' => [35.7219, 51.3347], // Tehran coordinates
+            'center' => '35.7219, 51.3347', // Tehran coordinates
         ]);
 
         $this->actingAs($this->user);

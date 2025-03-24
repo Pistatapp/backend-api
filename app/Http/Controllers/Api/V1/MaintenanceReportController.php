@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\MaintenanceReportResource;
 use App\Models\MaintenanceReport;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
@@ -24,6 +23,7 @@ class MaintenanceReportController extends Controller
     {
         $workingEnvironment = $request->user()->workingEnvironment();
         $maintenanceReports = $workingEnvironment->maintenanceReports()->latest()->simplePaginate();
+
         return MaintenanceReportResource::collection($maintenanceReports);
     }
 
@@ -41,9 +41,11 @@ class MaintenanceReportController extends Controller
             'description' => 'required|string|max:500',
         ]);
 
-        $maintable = getModel($request->maintainable_type, $request->maintainable_id);
+        $maintainableType = getModelClass($request->maintainable_type);
 
-        $maintenanceReport = $maintable->maintenanceReports()->create([
+        $maintainable = $maintainableType::findOrFail($request->maintainable_id);
+
+        $maintenanceReport = $maintainable->maintenanceReports()->create([
             'maintenance_id' => $request->maintenance_id,
             'created_by' => $request->user()->id,
             'maintained_by' => $request->maintained_by,
@@ -108,17 +110,18 @@ class MaintenanceReportController extends Controller
             'maintenance_id' => 'nullable|integer|exists:maintenances,id',
         ]);
 
-        $maintainable = getModel($request->maintainable_type, $request->maintainable_id);
+        $maintainableType = getModelClass($request->maintainable_type);
+
+        $fromDate = jalali_to_carbon($request->from)->startOfDay();
+        $toDate = jalali_to_carbon($request->to)->endOfDay();
 
         $workingEnvironment = $request->user()->workingEnvironment();
 
-        $maintenanceReports = $workingEnvironment->maintenanceReports()
-            ->whereBetween('date', [
-                jalali_to_carbon($request->from),
-                jalali_to_carbon($request->to),
-            ])
-            ->where('maintainable_type', get_class($maintainable))
-            ->where('maintainable_id', $maintainable->id)
+        $reports = $workingEnvironment->maintenanceReports()
+            ->whereDate('date', '>=', $fromDate)
+            ->whereDate('date', '<=', $toDate)
+            ->where('maintainable_type', $maintainableType)
+            ->where('maintainable_id', $request->maintainable_id)
             ->when($request->maintained_by, function ($query) use ($request) {
                 return $query->where('maintained_by', $request->maintained_by);
             })
@@ -128,19 +131,6 @@ class MaintenanceReportController extends Controller
             ->latest()
             ->get();
 
-        $groupedReports = $maintenanceReports->groupBy(function ($report) {
-            return Carbon::parse($report->date)->format('Y/m/d');
-        });
-
-        $result = $groupedReports->map(function ($reports, $date) {
-            return [
-                'date' => jdate($date)->format('Y/m/d'),
-                'maintenance' => $reports->first()->maintenance->name,
-                'maintained_by' => $reports->first()->maintainedBy->full_name,
-                'description' => $reports->first()->description,
-            ];
-        })->values();
-
-        return response()->json(['data' => $result]);
+        return MaintenanceReportResource::collection($reports);
     }
 }

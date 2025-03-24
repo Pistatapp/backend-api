@@ -117,19 +117,22 @@ function weather_api()
 /**
  * Get the fully qualified class name of a model based on the model type.
  *
- * @param string $model_type The type of the model (e.g., 'user', 'post').
+ * @param string $modelType The type of the model (e.g., 'tractor').
  * @return string The fully qualified class name of the model.
  */
-function getModelClass(string $model_type)
+function getModelClass(string $modelType): string
 {
-    $model_type = str_replace(' ', '', ucwords(str_replace('_', ' ', $model_type)));
-    $class = "App\\Models\\{$model_type}";
+    $modelMap = [
+        'tractor' => \App\Models\Tractor::class,
+    ];
 
-    if (!class_exists($class)) {
-        throw new \InvalidArgumentException("Invalid model type: {$model_type}");
+    $modelClass = $modelMap[$modelType] ?? $modelType;
+
+    if (!str_starts_with($modelClass, 'App\\Models\\')) {
+        $modelClass = 'App\\Models\\' . ucfirst($modelClass);
     }
 
-    return $class;
+    return $modelClass;
 }
 
 /**

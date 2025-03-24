@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
 use Staudenmeir\EloquentHasManyDeep\HasRelationships;
 
 class Farm extends Model
@@ -44,7 +45,7 @@ class Farm extends Model
      */
     public function isWorkingEnvironment()
     {
-        return $this->id === (auth()->user()->preferences['working_environment'] ?? null);
+        return $this->id === (Auth::user()->preferences['working_environment'] ?? null);
     }
 
     /**
@@ -64,8 +65,7 @@ class Farm extends Model
      */
     public function users()
     {
-        return $this->belongsToMany(User::class)
-            ->withPivot('is_owner', 'role');
+        return $this->belongsToMany(User::class)->withPivot('is_owner', 'role');
     }
 
     /**
