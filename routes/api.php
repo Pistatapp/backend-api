@@ -43,6 +43,7 @@ use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\PlanController;
 use App\Http\Controllers\Api\V1\FeatureController;
+use App\Http\Controllers\Api\V1\Farm\CompositionalNutrientDiagnosisController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -181,6 +182,14 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
         Route::get('/frostbite/notification', [FrostbiteCalculationController::class, 'getNotification']);
         Route::post('/frostbite/notification', [FrostbiteCalculationController::class, 'sendNotification']);
         Route::post('/blight/calculate', BlightCalculationController::class);
+
+        // Nutrient Diagnosis Routes
+        Route::get('/nutrient_diagnosis', [CompositionalNutrientDiagnosisController::class, 'index']);
+        Route::get('/nutrient_diagnosis/{request}', [CompositionalNutrientDiagnosisController::class, 'show']);
+        Route::post('/nutrient_diagnosis', [CompositionalNutrientDiagnosisController::class, 'store']);
+        Route::delete('/nutrient_diagnosis/{request}', [CompositionalNutrientDiagnosisController::class, 'destroy']);
+        Route::post('/nutrient_diagnosis/{request}/response', [CompositionalNutrientDiagnosisController::class, 'sendResponse'])
+            ->middleware('role:root');
     });
 
     Route::post('/farms/{farm}/load_estimation', [LoadEstimationController::class, 'estimate']);
