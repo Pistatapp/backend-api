@@ -18,7 +18,7 @@ class WeatherForecastController extends Controller
      */
     public function __invoke(WeatherForecastRequest $request, Farm $farm)
     {
-        $location = implode(',', $farm->center);
+        $location = $farm->center;
 
         $type = $request->input('type', 'current');
         $startDt = $request->input('start_date');
