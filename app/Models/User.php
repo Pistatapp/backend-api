@@ -26,6 +26,9 @@ class User extends Authenticatable implements HasMedia
         'mobile',
         'fcm_token',
         'created_by',
+        'preferences->language',
+        'preferences->theme',
+        'preferences->notifications_enabled',
         'preferences->working_environment',
     ];
 
@@ -54,6 +57,26 @@ class User extends Authenticatable implements HasMedia
             'password_expires_at' => 'datetime',
             'preferences' => 'array',
         ];
+    }
+
+    /**
+     * Bootstrap the model and its traits.
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($user) {
+            // Only set default preferences if preferences weren't explicitly set
+            if (!$user->isDirty('preferences')) {
+                $user->preferences = [
+                    'language' => config('app.locale', 'en'),
+                    'theme' => 'light',
+                    'notifications_enabled' => true,
+                    'working_environment' => null
+                ];
+            }
+        });
     }
 
     /**

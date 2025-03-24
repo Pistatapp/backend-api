@@ -44,6 +44,7 @@ use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\PlanController;
 use App\Http\Controllers\Api\V1\FeatureController;
 use App\Http\Controllers\Api\V1\Farm\CompositionalNutrientDiagnosisController;
+use App\Http\Controllers\Api\V1\UserPreferenceController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -200,6 +201,13 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
         Route::get('/', 'index');
         Route::post('/{id}/mark_as_read', 'markAsRead');
         Route::post('/mark_all_as_read', 'markAllAsRead');
+    });
+
+    // User Preferences Routes
+    Route::prefix('preferences')->group(function () {
+        Route::get('/', [UserPreferenceController::class, 'index']);
+        Route::put('/', [UserPreferenceController::class, 'update']);
+        Route::delete('/', [UserPreferenceController::class, 'reset']);
     });
 });
 

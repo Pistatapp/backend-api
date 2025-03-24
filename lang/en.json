@@ -1,0 +1,10 @@
+{
+    "messages": {
+        "preferences": {
+            "updated": "Preferences updated successfully",
+            "reset": "Preferences reset to default values",
+            "invalid_language": "The selected language is invalid. Available options are: en, fa",
+            "invalid_theme": "The selected theme is invalid. Available options are: light, dark"
+        }
+    }
+}

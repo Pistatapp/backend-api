@@ -114,5 +114,13 @@
     "A task already exists for the vehicle within the selected time range.": "یک وظیفه برای خودرو در بازه زمانی انتخاب شده وجود دارد.",
     "On :date, tractor :tractor_name successfully completed :operation operation in field :field_name for :duration.": "در تاریخ :date تراکتور :tractor_name بمدت :duration در قطعه :field_name عملیات :operation را با موفقیت به پایان رساند.",
     "On :date, tractor :tractor_name did not complete the assigned task and did not enter field :field_name for :operation operation at the scheduled time.": "در تاریخ :date تراکتور :tractor_name وظیفه تععین شده را انجام نداده و برای عملیات :operation در ساعت تعیین شده وارد قطعه :field_name نگردیده است.",
-    "Tractor Task Status Notification": "اعلان وضعیت وظیفه تراکتور"
+    "Tractor Task Status Notification": "اعلان وضعیت وظیفه تراکتور",
+    "messages": {
+        "preferences": {
+            "updated": "تنظیمات با موفقیت به‌روزرسانی شد",
+            "reset": "تنظیمات به حالت پیش‌فرض بازنشانی شد",
+            "invalid_language": "زبان انتخاب شده معتبر نیست. گزینه‌های موجود: en، fa",
+            "invalid_theme": "پوسته انتخاب شده معتبر نیست. گزینه‌های موجود: روشن، تاریک"
+        }
+    }
 }
