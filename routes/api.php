@@ -184,9 +184,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     });
 
     Route::post('/farms/{farm}/load_estimation', [LoadEstimationController::class, 'estimate']);
-
-    Route::post('/farms/{farm}/weather_forecast', WeatherForecastController::class);
-
+    Route::post('/farms/{farm}/weather_forecast', WeatherForecastController::class)->name('farms.weather_forecast');
     Route::get('/farms/{farm}/dashboard/widgets', [DashboardController::class, 'dashboardWidgets']);
 
     Route::controller(NotificationController::class)->prefix('notifications')->group(function () {
