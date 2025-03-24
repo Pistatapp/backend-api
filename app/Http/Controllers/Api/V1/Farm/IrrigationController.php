@@ -10,12 +10,14 @@ use App\Http\Resources\IrrigationResource;
 use App\Models\Farm;
 use App\Models\Field;
 use App\Models\Irrigation;
+use App\Services\IrrigationReportService;
 use Illuminate\Http\Request;
 
 class IrrigationController extends Controller
 {
-    public function __construct()
-    {
+    public function __construct(
+        private IrrigationReportService $irrigationReportService
+    ) {
         $this->authorizeResource(Irrigation::class);
     }
 
@@ -147,114 +149,18 @@ class IrrigationController extends Controller
      */
     public function filterReports(FilterIrrigationReportsRequest $request, Farm $farm)
     {
-        $irrigations = Irrigation::whereBelongsTo($farm)
-            ->filter('finished')
-            ->when($request->field_id, function ($query) use ($request) {
-                $query->whereHas('fields', function ($query) use ($request) {
-                    $query->where('fields.id', $request->field_id);
-                });
-            })->when($request->labour_id, function ($query) use ($request) {
-                $query->where('labour_id', $request->labour_id);
-            })->when($request->valve_id, function ($query) use ($request) {
-                $query->whereHas('valves', function ($query) use ($request) {
-                    $query->where('valves.id', $request->valve_id);
-                });
-            })->whereBetween('date', [$request->from_date, $request->to_date])
-            ->with('fields', 'valves', 'labour', 'creator')->latest()->get();
+        $filters = [
+            'field_id' => $request->field_id,
+            'labour_id' => $request->labour_id,
+            'valve_id' => $request->valve_id,
+            'from_date' => $request->from_date,
+            'to_date' => $request->to_date,
+        ];
 
-        if (!$request->field_id && !$request->labour_id && !$request->valve_id) {
-            $irrigationReports = $this->generateFarmIrrigationReports($farm, $request->from_date, $request->to_date);
-        } else {
-            $irrigationReports = $this->generateIrrigationReports($irrigations, $request->from_date, $request->to_date);
-        }
+        $reports = $this->irrigationReportService->filterReports($farm, $filters);
 
         return response()->json([
-            'data' => $irrigationReports
+            'data' => $reports
         ]);
-    }
-
-    /**
-     * Generate irrigation reports.
-     */
-    private function generateIrrigationReports($irrigations, $startDate, $endDate)
-    {
-        $irrigationReports = [];
-
-        while ($startDate->lte($endDate)) {
-            $dailyIrrigations = $irrigations->filter(function ($irrigation) use ($startDate) {
-                return $irrigation->date->isSameDay($startDate);
-            });
-
-            if ($dailyIrrigations->isEmpty()) {
-                $startDate->addDay();
-                continue;
-            }
-
-            $totalDuration = 0;
-            $totalVolume = 0;
-
-            foreach ($dailyIrrigations as $irrigation) {
-                $durationInMinutes = $irrigation->start_time->diffInMinutes($irrigation->end_time);
-                $totalDuration += $durationInMinutes;
-
-                foreach ($irrigation->valves as $valve) {
-                    $totalVolume += $valve->flow_rate * $durationInMinutes;
-                }
-            }
-
-            $irrigationReports[] = [
-                'date' => jdate($startDate)->format('Y/m/d'),
-                'total_duration' => to_time_format($totalDuration),
-                'total_volume' => $totalVolume, // In liters
-                'irrigation_count' => $dailyIrrigations->count(),
-            ];
-
-            $startDate->addDay();
-        }
-
-        return $irrigationReports;
-    }
-
-    /**
-     * Generate irrigation reports for the whole farm.
-     */
-    private function generateFarmIrrigationReports(Farm $farm, $startDate, $endDate)
-    {
-        $irrigationReports = [];
-        $fields = $farm->fields;
-
-        while ($startDate->lte($endDate)) {
-            $totalDuration = 0;
-            $totalVolume = 0;
-            $irrigationCount = 0;
-
-            foreach ($fields as $field) {
-                $dailyIrrigations = $field->irrigations()->whereDate('date', $startDate)->with('valves')->get();
-
-                foreach ($dailyIrrigations as $irrigation) {
-                    $durationInMinutes = $irrigation->start_time->diffInMinutes($irrigation->end_time);
-                    $totalDuration += $durationInMinutes;
-
-                    foreach ($irrigation->valves as $valve) {
-                        $totalVolume += $valve->flow_rate * $durationInMinutes;
-                    }
-                }
-
-                $irrigationCount += $dailyIrrigations->count();
-            }
-
-            if ($irrigationCount > 0) {
-                $irrigationReports[] = [
-                    'date' => jdate($startDate)->format('Y/m/d'),
-                    'total_duration' => to_time_format($totalDuration),
-                    'total_volume' => $totalVolume, // In liters
-                    'irrigation_count' => $irrigationCount,
-                ];
-            }
-
-            $startDate->addDay();
-        }
-
-        return $irrigationReports;
     }
 }

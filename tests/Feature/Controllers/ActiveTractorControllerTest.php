@@ -8,7 +8,6 @@ use App\Models\GpsDevice;
 use App\Models\GpsReport;
 use App\Models\GpsDailyReport;
 use App\Models\User;
-use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class ActiveTractorControllerTest extends TestCase
@@ -55,22 +54,19 @@ class ActiveTractorControllerTest extends TestCase
         // Create some GPS reports with slightly noisy coordinates
         $reports = [
             [
-                'latitude' => '34.884065',
-                'longitude' => '50.599625',
+                'coordinate' => [34.884065, 50.599625],
                 'speed' => 20,
                 'status' => 1,
                 'date_time' => now()->subMinutes(2),
             ],
             [
-                'latitude' => '34.884067', // Slightly noisy
-                'longitude' => '50.599627', // Slightly noisy
+                'coordinate' => [34.884067, 50.599627], // Slightly noisy
                 'speed' => 20,
                 'status' => 1,
                 'date_time' => now()->subMinute(),
             ],
             [
-                'latitude' => '34.884066', // More noise
-                'longitude' => '50.599626', // More noise
+                'coordinate' => [34.884066, 50.599626], // More noise
                 'speed' => 20,
                 'status' => 1,
                 'date_time' => now(),
@@ -123,8 +119,8 @@ class ActiveTractorControllerTest extends TestCase
         // Check that coordinates were smoothed
         // The middle point should have coordinates between its neighbors
         $this->assertCount(3, $points);
-        $this->assertNotEquals('34.884067', $points[1]['latitude']);
-        $this->assertNotEquals('50.599627', $points[1]['longitude']);
+        $this->assertNotEquals(34.884067, $points[1]['latitude']);
+        $this->assertNotEquals(50.599627, $points[1]['longitude']);
 
         // Verify the smoothed coordinates are between the original values
         $this->assertGreaterThan(34.884065, $points[1]['latitude']);

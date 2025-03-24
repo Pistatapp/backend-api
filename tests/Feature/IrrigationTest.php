@@ -175,17 +175,22 @@ class IrrigationTest extends TestCase
         $farm = $user->farms()->with('fields')->first();
         $field = $farm->fields->first();
 
-        // Create some irrigations for the field
-        Irrigation::factory()->hasAttached($field)->count(3)->create([
+        $date = now(); // Use current date
+        $jalaliDate = jdate($date)->format('Y/m/d');
+
+        // Create some irrigations for the field with specific duration
+        $irrigation = Irrigation::factory()->hasAttached($field)->create([
             'created_by' => $user->id,
-            'date' => now()->format('Y-m-d'),
+            'date' => $date->format('Y-m-d'),
+            'start_time' => '08:00',
+            'end_time' => '10:00',
         ]);
 
         $response = $this->actingAs($user)->postJson(route('irrigations.reports.filter', [
             'farm' => $farm,
             'field_id' => $field->id,
-            'from_date' => '1402/06/31', // Shamsi date
-            'to_date' => '1402/07/01', // Shamsi date
+            'from_date' => $jalaliDate,
+            'to_date' => $jalaliDate,
         ]));
 
         $response->assertStatus(200);
@@ -201,17 +206,22 @@ class IrrigationTest extends TestCase
         $farm = $user->farms()->with('valves')->first();
         $valve = $farm->valves->first();
 
-        // Create some irrigations for the valve
-        Irrigation::factory()->hasAttached($valve)->count(3)->create([
+        $date = now(); // Use current date
+        $jalaliDate = jdate($date)->format('Y/m/d');
+
+        // Create some irrigations for the valve with specific duration
+        $irrigation = Irrigation::factory()->hasAttached($valve)->create([
             'created_by' => $user->id,
-            'date' => now()->format('Y-m-d'),
+            'date' => $date->format('Y-m-d'),
+            'start_time' => '08:00',
+            'end_time' => '10:00',
         ]);
 
         $response = $this->actingAs($user)->postJson(route('irrigations.reports.filter', [
             'farm' => $farm,
             'valve_id' => $valve->id,
-            'from_date' => '1402/06/31', // Shamsi date
-            'to_date' => '1402/07/01', // Shamsi date
+            'from_date' => $jalaliDate,
+            'to_date' => $jalaliDate,
         ]));
 
         $response->assertStatus(200);
@@ -227,18 +237,23 @@ class IrrigationTest extends TestCase
         $farm = $user->farms()->with('labours')->first();
         $labour = $farm->labours->first();
 
-        // Create some irrigations for the labour
-        Irrigation::factory()->create([
+        $date = now(); // Use current date
+        $jalaliDate = jdate($date)->format('Y/m/d');
+
+        // Create some irrigations for the labour with specific duration
+        $irrigation = Irrigation::factory()->create([
             'created_by' => $user->id,
             'labour_id' => $labour->id,
-            'date' => now()->format('Y-m-d'),
+            'date' => $date->format('Y-m-d'),
+            'start_time' => '08:00',
+            'end_time' => '10:00',
         ]);
 
         $response = $this->actingAs($user)->postJson(route('irrigations.reports.filter', [
             'farm' => $farm,
             'labour_id' => $labour->id,
-            'from_date' => '1402/06/31', // Shamsi date
-            'to_date' => '1402/07/01', // Shamsi date
+            'from_date' => $jalaliDate,
+            'to_date' => $jalaliDate,
         ]));
 
         $response->assertStatus(200);
@@ -253,16 +268,21 @@ class IrrigationTest extends TestCase
         $user = User::where('mobile', '09369238614')->first();
         $farm = $user->farms()->first();
 
-        // Create some irrigations for the farm
-        Irrigation::factory()->for($farm)->count(3)->create([
+        $date = now(); // Use current date
+        $jalaliDate = jdate($date)->format('Y/m/d');
+
+        // Create some irrigations for the farm with specific duration
+        $irrigation = Irrigation::factory()->for($farm)->create([
             'created_by' => $user->id,
-            'date' => now()->format('Y-m-d'),
+            'date' => $date->format('Y-m-d'),
+            'start_time' => '08:00',
+            'end_time' => '10:00',
         ]);
 
         $response = $this->actingAs($user)->postJson(route('irrigations.reports.filter', [
             'farm' => $farm,
-            'from_date' => '1402/06/31', // Shamsi date
-            'to_date' => '1402/07/01', // Shamsi date
+            'from_date' => $jalaliDate,
+            'to_date' => $jalaliDate,
         ]));
 
         $response->assertStatus(200);
