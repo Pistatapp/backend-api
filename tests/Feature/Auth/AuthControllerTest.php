@@ -4,23 +4,22 @@ namespace Tests\Feature\Auth;
 
 use Tests\TestCase;
 use App\Models\User;
-use App\Models\Role;
 use App\Models\Farm;
 use App\Notifications\VerifyMobile;
+use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
-use Illuminate\Support\Facades\Auth;
 use Laravel\Sanctum\Sanctum;
 
 class AuthControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected $seed = true;
-
     protected function setUp(): void
     {
         parent::setUp();
+
+        $this->seed(RolePermissionSeeder::class);
     }
 
     /** @test */
