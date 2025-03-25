@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature\Api\Controllers;
+namespace Tests\Feature\Controllers;
 
 use App\Models\Farm;
 use App\Models\Field;
