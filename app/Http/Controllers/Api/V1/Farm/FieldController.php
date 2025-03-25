@@ -10,7 +10,6 @@ use App\Http\Resources\ValveResource;
 use App\Models\Valve;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Symfony\Component\HttpFoundation\Response;
 
 class FieldController extends Controller
 {

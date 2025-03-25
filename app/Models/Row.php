@@ -59,7 +59,7 @@ class Row extends Model
      */
     public function timars()
     {
-        return $this->morphMany(Timar::class, 'timarable');
+        return $this->morphMany(Treatment::class, 'treatable');
     }
 
     /**

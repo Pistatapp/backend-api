@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api\V1\Farm;
 use App\Models\Row;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
-use App\Http\Resources\FieldResource;
 use App\Http\Resources\RowResource;
 use App\Models\Field;
 use Illuminate\Http\JsonResponse;
@@ -37,20 +36,9 @@ class RowController extends Controller
             'rows.*.coordinates.*' => 'required|string',
         ]);
 
-        $rowsData = [];
+        $rows = $field->rows()->createMany($request->input('rows'));
 
-        foreach ($request->input('rows') as $row) {
-            $rowData = [
-                'field_id' => $field->id,
-                'name' => $row['name'],
-                'coordinates' => json_encode([$row['coordinates'][0], $row['coordinates'][1]]),
-            ];
-            $rowsData[] = $rowData;
-        }
-
-        Row::insert($rowsData);
-
-        return new FieldResource($field->load('rows'));
+        return RowResource::collection($rows);
     }
 
     /**
