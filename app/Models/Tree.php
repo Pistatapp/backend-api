@@ -58,13 +58,13 @@ class Tree extends Model implements HasMedia
     }
 
     /**
-     * Get the timars for the tree.
+     * Get the treatment for the tree.
      *
      * @return \Illuminate\Database\Eloquent\Relations\MorphMany
      */
-    public function timars()
+    public function treatments()
     {
-        return $this->morphMany(Timar::class, 'timarable');
+        return $this->morphMany(Treatment::class, 'treatable');
     }
 
     /**

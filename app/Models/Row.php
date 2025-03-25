@@ -53,11 +53,11 @@ class Row extends Model
     }
 
     /**
-     * Get the timars for the row.
+     * Get the treatments for the row.
      *
      * @return \Illuminate\Database\Eloquent\Relations\MorphMany
      */
-    public function timars()
+    public function treatments()
     {
         return $this->morphMany(Treatment::class, 'treatable');
     }
