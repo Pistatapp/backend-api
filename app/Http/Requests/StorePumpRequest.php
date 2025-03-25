@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StorePumpRequest extends FormRequest
 {
@@ -22,7 +23,14 @@ class StorePumpRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => 'required|string|max:255',
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('pumps')->where(function ($query) {
+                    return $query->where('farm_id', $this->route('farm')->id);
+                })
+            ],
             'serial_number' => 'required|string|max:255',
             'model' => 'required|string|max:255',
             'manufacturer' => 'required|string|max:255',

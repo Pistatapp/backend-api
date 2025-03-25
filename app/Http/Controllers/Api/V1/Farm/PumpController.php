@@ -8,10 +8,17 @@ use App\Http\Requests\UpdatePumpRequest;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PumpResource;
 use App\Models\Farm;
-use Illuminate\Http\JsonResponse;
 
 class PumpController extends Controller
 {
+    /**
+     * Create a new controller instance.
+     */
+    public function __construct()
+    {
+        $this->authorizeResource(Pump::class, 'pump');
+    }
+
     /**
      * Display a listing of the resource.
      */
@@ -55,6 +62,6 @@ class PumpController extends Controller
     {
         $pump->delete();
 
-        return response()->json([], JsonResponse::HTTP_GONE);
+        return response()->noContent();
     }
 }

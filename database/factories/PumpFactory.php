@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\Farm;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -17,7 +18,7 @@ class PumpFactory extends Factory
     public function definition(): array
     {
         return [
-            'farm_id' => 1,
+            'farm_id' => Farm::factory(),
             'name' => $this->faker->name,
             'serial_number' => $this->faker->uuid,
             'model' => $this->faker->word,

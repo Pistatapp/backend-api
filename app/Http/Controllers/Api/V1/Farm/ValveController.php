@@ -7,7 +7,6 @@ use App\Http\Resources\ValveResource;
 use App\Models\Pump;
 use App\Models\Valve;
 use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
 
 class ValveController extends Controller
 {
@@ -68,18 +67,6 @@ class ValveController extends Controller
     {
         $valve->delete();
 
-        return response()->json([], JsonResponse::HTTP_GONE);
-    }
-
-    /**
-     * Toggle the specified resource in storage.
-     */
-    public function toggle(Valve $valve)
-    {
-        $valve->update([
-            'is_open' => !$valve->is_open,
-        ]);
-
-        return new ValveResource($valve);
+        return response()->noContent();
     }
 }

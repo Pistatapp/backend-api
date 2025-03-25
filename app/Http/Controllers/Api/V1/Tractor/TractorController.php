@@ -8,7 +8,6 @@ use App\Models\Farm;
 use App\Models\GpsDevice;
 use App\Models\Tractor;
 use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
 
 class TractorController extends Controller
 {
@@ -17,7 +16,7 @@ class TractorController extends Controller
      */
     public function index(Farm $farm)
     {
-        $tractors = $farm->tractors()->with('driver','gpsDevice')->simplePaginate(25);
+        $tractors = $farm->tractors()->with('driver', 'gpsDevice')->simplePaginate(25);
         return TractorResource::collection($tractors);
     }
 
@@ -34,8 +33,6 @@ class TractorController extends Controller
             'expected_monthly_work_time' => 'required|integer:0,744',
             'expected_yearly_work_time' => 'required|integer:0,8760',
         ]);
-
-        $this->authorize('create', [Tractor::class, $farm]);
 
         $tractor = $farm->tractors()->create($request->only([
             'name',
@@ -54,7 +51,9 @@ class TractorController extends Controller
      */
     public function show(Tractor $tractor)
     {
-        $tractor->load(['driver', 'gpsDevice',
+        $tractor->load([
+            'driver',
+            'gpsDevice',
             'gpsDailyReports' => function ($query) {
                 $query->latest('date')->limit(7);
             },
@@ -96,11 +95,9 @@ class TractorController extends Controller
      */
     public function destroy(Tractor $tractor)
     {
-        $this->authorize('delete', $tractor);
-
         $tractor->delete();
 
-        return response()->json([], JsonResponse::HTTP_GONE);
+        return response()->noContent();
     }
 
     /**
