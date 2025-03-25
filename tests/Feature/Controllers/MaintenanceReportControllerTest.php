@@ -9,12 +9,13 @@ use App\Models\Maintenance;
 use App\Models\MaintenanceReport;
 use App\Models\Tractor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Database\Seeders\RolePermissionSeeder;
+use App\Models\Farm;
 
 class MaintenanceReportControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected $seed = true;
     private $user;
     private $farm;
     private $labour;
@@ -25,8 +26,14 @@ class MaintenanceReportControllerTest extends TestCase
     {
         parent::setUp();
 
-        $this->user = User::where('mobile', '09369238614')->first();
-        $this->farm = $this->user->farms()->first();
+        $this->user = User::factory()->create();
+        $this->seed(RolePermissionSeeder::class);
+        $this->user->assignRole('admin');
+        $this->farm = Farm::factory()->create();
+        $this->user->farms()->attach($this->farm->id, [
+            'role' => 'admin',
+            'is_owner' => true,
+        ]);
         $this->labour = Labour::factory()->create(['farm_id' => $this->farm->id]);
         $this->maintenance = Maintenance::factory()->create(['farm_id' => $this->farm->id]);
         $this->tractor = Tractor::factory()->create(['farm_id' => $this->farm->id]);

@@ -103,7 +103,7 @@ class FarmController extends Controller
     {
         $farm->delete();
 
-        return response()->json([], JsonResponse::HTTP_GONE);
+        return response()->noContent();
     }
 
     /**

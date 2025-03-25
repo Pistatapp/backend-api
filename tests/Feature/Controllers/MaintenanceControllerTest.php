@@ -6,21 +6,27 @@ use Tests\TestCase;
 use App\Models\User;
 use App\Models\Farm;
 use App\Models\Maintenance;
+use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class MaintenanceControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected $seed = true;
     private $user;
     private $farm;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->user = User::where('mobile', '09369238614')->first();
-        $this->farm = $this->user->farms()->first();
+        $this->user = User::factory()->create();
+        $this->seed(RolePermissionSeeder::class);
+        $this->user->assignRole('admin');
+        $this->farm = Farm::factory()->create();
+        $this->user->farms()->attach($this->farm->id, [
+            'role' => 'admin',
+            'is_owner' => true,
+        ]);
         $this->actingAs($this->user);
     }
 

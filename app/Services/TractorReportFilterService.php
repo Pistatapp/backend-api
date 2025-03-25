@@ -8,6 +8,8 @@ use Morilog\Jalali\Jalalian;
 
 class TractorReportFilterService
 {
+    private $tasks;
+
     /**
      * Filter tractor reports by tractor and date/period.
      *
@@ -22,8 +24,8 @@ class TractorReportFilterService
         $this->applyDateFilters($query, $filters);
         $this->applyOperationFilter($query, $filters);
 
-        $tasks = $query->get();
-        $reports = $this->mapTasksToReports($tasks);
+        $this->tasks = $query->get();
+        $reports = $this->mapTasksToReports($this->tasks);
         $accumulated = $this->calculateAccumulatedValues($reports);
         $expectations = $this->calculateExpectations($accumulated['work_duration'], $tractor, $filters);
 
@@ -201,14 +203,15 @@ class TractorReportFilterService
     private function calculateExpectations(int $totalWorkDuration, Tractor $tractor, array $filters = []): array
     {
         $dailyExpectedWork = $tractor->expected_daily_work_time * 3600;
+        $workingDays = count($this->tasks ?? []);
 
-        $totalExpectedWork = match ($filters['period'] ?? 'day') {
-            'month', 'specific_month' => $tractor->expected_monthly_work_time * 3600,
-            'year', 'persian_year' => $tractor->expected_yearly_work_time * 3600,
-            default => $dailyExpectedWork,
+        // Calculate efficiency based on period type
+        $efficiency = match ($filters['period'] ?? 'day') {
+            'month', 'specific_month' => $totalWorkDuration / ($tractor->expected_monthly_work_time * 3600) * 100,
+            'year' => $totalWorkDuration / ($tractor->expected_yearly_work_time * 3600) * 100,
+            'persian_year' => $workingDays > 0 ? ($totalWorkDuration / ($dailyExpectedWork * $workingDays)) * 100 : 0,
+            default => $totalWorkDuration / $dailyExpectedWork * 100, // For daily and operation views
         };
-
-        $efficiency = $totalWorkDuration > 0 ? ($totalWorkDuration / $totalExpectedWork) * 100 : 0;
 
         return [
             'expected_daily_work' => $dailyExpectedWork,

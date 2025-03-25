@@ -6,12 +6,17 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
 use Tests\TestCase;
 use App\Models\Operation;
+use App\Models\Farm;
+use App\Models\Field;
+use App\Models\Tractor;
+use App\Models\User;
+use Database\Seeders\RolePermissionSeeder;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Notification;
 
 class TractorTaskTest extends TestCase
 {
-    use RefreshDatabase;
-
-    protected $seed = true;
+    use RefreshDatabase, WithFaker;
 
     private $user;
     private $tractor;
@@ -21,9 +26,29 @@ class TractorTaskTest extends TestCase
     {
         parent::setUp();
 
-        $this->user = \App\Models\User::where('mobile', '09369238614')->first();
-        $this->farm = $this->user->farms()->with('tractors')->first();
-        $this->tractor = $this->farm->tractors->first();
+        $this->user = User::factory()->create();
+
+        $this->seed(RolePermissionSeeder::class);
+
+        $this->user->assignRole('admin');
+
+        $this->farm = Farm::factory()->create();
+
+        Field::factory(3)->create([
+            'farm_id' => $this->farm->id
+        ]);
+
+        $this->farm->users()->attach($this->user, [
+            'role' => 'owner',
+            'is_owner' => true
+        ]);
+
+        $this->tractor = Tractor::factory()->create([
+            'farm_id' => $this->farm->id,
+        ]);
+
+        Event::fake();
+        Notification::fake();
     }
 
     /**

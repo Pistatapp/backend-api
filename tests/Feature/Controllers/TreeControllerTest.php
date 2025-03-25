@@ -5,17 +5,18 @@ namespace Tests\Feature\Controllers;
 use Tests\TestCase;
 use App\Models\User;
 use App\Models\Farm;
+use App\Models\Field;
 use App\Models\Row;
 use App\Models\Tree;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Database\Seeders\RolePermissionSeeder;
 
 class TreeControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected $seed = true;
     private $user;
     private $farm;
     private $row;
@@ -25,12 +26,25 @@ class TreeControllerTest extends TestCase
         parent::setUp();
 
         // Create test user and farm
-        $this->user = User::where('mobile', '09369238614')->first();
-        $this->farm = $this->user->farms()->first();
+        $this->user = User::factory()->create();
+
+        $this->seed(RolePermissionSeeder::class);
+
+        $this->user->assignRole('admin');
+
+        $this->farm = Farm::factory()->create();
+        $this->farm->users()->attach($this->user, [
+            'role' => 'owner',
+            'is_owner' => true
+        ]);
+
+        $field = Field::factory()->create([
+            'farm_id' => $this->farm->id
+        ]);
 
         // Create a row for testing
         $this->row = Row::factory()->create([
-            'field_id' => $this->farm->fields()->first()->id
+            'field_id' => $field->id
         ]);
 
         $this->actingAs($this->user);

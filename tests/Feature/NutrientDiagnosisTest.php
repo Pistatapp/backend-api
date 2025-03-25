@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Notification;
 use Illuminate\Http\UploadedFile;
 use App\Notifications\NewNutrientDiagnosisRequest;
 use App\Notifications\NutrientDiagnosisResponse;
+use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\WithFaker;
 use Illuminate\Support\Facades\Storage;
 
@@ -22,8 +23,6 @@ use Illuminate\Support\Facades\Storage;
 class NutrientDiagnosisTest extends TestCase
 {
     use RefreshDatabase, WithFaker;
-
-    protected $seed = true;
 
     private User $user;
     private User $rootUser;
@@ -38,12 +37,19 @@ class NutrientDiagnosisTest extends TestCase
     {
         parent::setUp();
 
-        $this->user = User::where('mobile', '09369238614')->first();
-        $this->rootUser = User::where('mobile', '09107529334')->first();
+        $this->seed(RolePermissionSeeder::class);
 
-        $this->farm = $this->user->farms()->first();
+        $this->user = User::factory()->create();
+        $this->rootUser = User::factory()->create();
 
-        $this->field = $this->farm->fields()->first();
+        $this->user->assignRole('admin');
+        $this->rootUser->assignRole('root');
+
+        $this->farm = Farm::factory()->create();
+
+        $this->farm->users()->attach($this->user->id, ['role' => 'admin', 'is_owner' => true]);
+
+        $this->field = Field::factory()->create(['farm_id' => $this->farm->id]);
         $this->actingAs($this->user);
 
         Notification::fake();

@@ -20,6 +20,7 @@ class UserFactory extends Factory
             'username' => $this->faker->unique()->userName,
             'mobile' => $this->faker->unique()->phoneNumber,
             'last_activity_at' => now(),
+            'fcm_token' => 'd9qXYvAPRPeAlAfGiDtw5R:APA91bGJBYyf_JzzC_FUdzbv4ZBHZ3ZYNZiVZTegDsy7I8xWKiuu4VDxxlYhlo_x3C8gQe-xkjuCYte_O8y8-T-tbbNrXmxLElcgeLZhRO9wB7TX2pmfiCI'
         ];
     }
 
