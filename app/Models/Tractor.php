@@ -26,6 +26,18 @@ class Tractor extends Model
     ];
 
     /**
+     * The attributes that should be cast to native types.
+     *
+     * @var array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'is_working' => 'boolean',
+        ];
+    }
+
+    /**
      * The attributes with default values.
      *
      * @var array<string, mixed>

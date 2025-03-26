@@ -184,6 +184,7 @@ return [
     'aliases' => Facade::defaultAliases()->merge([
         'Kavenegar' => Kavenegar\Laravel\Facade::class,
         'firebase' => App\Notifications\FirebaseChannel::class,
+        'time' => App\Casts\Time::class,
     ])->toArray(),
 
 ];

@@ -4,7 +4,6 @@ namespace App\Traits;
 
 use App\Models\GpsReport;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
 trait TractorWorkingTime
@@ -32,9 +31,6 @@ trait TractorWorkingTime
         });
 
         if ($points['start'] && $points['end']) {
-            Log::info("Already have start and end points for today", [
-                'date' => $report->date_time->toDateString()
-            ]);
             return;
         }
 
