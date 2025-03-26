@@ -62,9 +62,9 @@ class TeamController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'supervisor_id' => 'nullable|integer|exists:labour,id',
+            'supervisor_id' => 'nullable|integer|exists:labours,id',
             'labours' => 'nullable|array',
-            'labours.*' => 'integer|exists:labour,id'
+            'labours.*' => 'integer|exists:labours,id'
         ]);
 
         $team->update($request->only('name', 'supervisor_id'));

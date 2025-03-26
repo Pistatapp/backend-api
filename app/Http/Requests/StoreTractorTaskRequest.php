@@ -45,6 +45,7 @@ class StoreTractorTaskRequest extends FormRequest
                     }
                 },
             ],
+            'description' => 'nullable|string|max:255',
         ];
     }
 
@@ -55,10 +56,12 @@ class StoreTractorTaskRequest extends FormRequest
     {
         try {
             $this->merge([
-                'date' => jalali_to_carbon($this->date),
+                'date' => $this->date ? jalali_to_carbon($this->date) : null,
             ]);
-        } catch (\Exception $e) {
-            throw new \Exception('Error: ' . $e->getMessage());
+        } catch (\InvalidArgumentException $e) {
+            $this->merge([
+                'date' => null,
+            ]);
         }
     }
 }

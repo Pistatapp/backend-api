@@ -24,7 +24,7 @@ class LabourController extends Controller
                 ->orWhere('lname', 'like', '%' . request()->search . '%')
                 ->get();
         } else {
-            $labours = $labours->simplePaginate(10);
+            $labours = $labours->simplePaginate();
         }
 
         return LabourResource::collection($labours);
@@ -37,7 +37,7 @@ class LabourController extends Controller
     {
         $labour = $farm->labours()->create($request->validated());
 
-        if($request->has('team_id')) {
+        if ($request->has('team_id')) {
             $labour->teams()->sync($request->team_id);
         }
 
@@ -59,7 +59,7 @@ class LabourController extends Controller
     {
         $labour->update($request->validated());
 
-        if($request->has('team_id')) {
+        if ($request->has('team_id')) {
             $labour->teams()->sync($request->team_id);
         }
 

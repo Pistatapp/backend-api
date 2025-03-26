@@ -1,0 +1,39 @@
+<?php
+
+namespace App\Http\Resources;
+
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+
+class TractorReportResource extends JsonResource
+{
+    /**
+     * Transform the resource into an array.
+     *
+     * @return array<string, mixed>
+     */
+    public function toArray(Request $request): array
+    {
+        return [
+            'id' => $this->id,
+            'tractor_id' => $this->tractor_id,
+            'operation' => $this->whenLoaded('operation', function () {
+                return [
+                    'id' => $this->operation->id,
+                    'name' => $this->operation->name,
+                ];
+            }),
+            'field' => $this->whenLoaded('field', function () {
+                return [
+                    'id' => $this->field->id,
+                    'name' => $this->field->name,
+                ];
+            }),
+            'date' => jdate($this->date)->format('Y/m/d'),
+            'start_time' => $this->start_time,
+            'end_time' => $this->end_time,
+            'description' => $this->description,
+            'created_by' => $this->created_by,
+        ];
+    }
+}

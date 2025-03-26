@@ -10,6 +10,11 @@ use Illuminate\Http\Request;
 
 class OprationController extends Controller
 {
+    public function __construct()
+    {
+        $this->authorizeResource(Operation::class, 'operation');
+    }
+
     /**
      * Display a listing of the resource.
      */
@@ -64,8 +69,6 @@ class OprationController extends Controller
      */
     public function destroy(Operation $operation)
     {
-        $this->authorize('delete', $operation);
-
         $operation->delete();
 
         return response()->noContent();

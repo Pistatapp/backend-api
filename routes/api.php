@@ -44,6 +44,7 @@ use App\Http\Controllers\Api\V1\PlanController;
 use App\Http\Controllers\Api\V1\FeatureController;
 use App\Http\Controllers\Api\V1\Farm\CompositionalNutrientDiagnosisController;
 use App\Http\Controllers\Api\V1\UserPreferenceController;
+use App\Http\Controllers\Api\V1\Tractor\TractorReportController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -156,6 +157,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::post('/tractors/{tractor}/unassign_device/{gps_device}', [TractorController::class, 'unassignDevice']);
     Route::get('/tractors/{tractor}/reports', [ActiveTractorController::class, 'reports']);
     Route::apiSingleton('tractors.driver', DriverController::class)->creatable();
+    Route::apiResource('/tractors.tractor_reports', TractorReportController::class)->shallow();
     Route::apiResource('tractors.tractor_tasks', TractorTaskController::class)->shallow();
     Route::post('/tractors/filter_reports', [TractorTaskController::class, 'filterReports'])->name('tractor.reports.filter');
     Route::apiResource('farms.maintenances', MaintenanceController::class)->except('show')->shallow();

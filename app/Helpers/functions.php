@@ -5,11 +5,15 @@ use Morilog\Jalali\Jalalian;
 /**
  * Convert a Jalali date to Carbon
  *
- * @param string $jalaliDate
- * @return \Carbon\Carbon
+ * @param string|null $jalaliDate
+ * @return \Carbon\Carbon|null
  */
-function jalali_to_carbon(string $jalaliDate): \Carbon\Carbon
+function jalali_to_carbon(?string $jalaliDate): ?\Carbon\Carbon
 {
+    if (is_null($jalaliDate)) {
+        return null; // Handle null input gracefully
+    }
+
     try {
         return Jalalian::fromFormat('Y/m/d', $jalaliDate)->toCarbon();
     } catch (\Exception $e) {
