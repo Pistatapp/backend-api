@@ -33,13 +33,6 @@ class FarmPlan extends Model
     ];
 
     /**
-     * The relationships that should always be loaded.
-     *
-     * @var array<string>
-     */
-    protected $with = ['creator:id,username'];
-
-    /**
      * The attributes that should be cast.
      *
      * @return array<string, mixed>
@@ -49,6 +42,7 @@ class FarmPlan extends Model
         return [
             'start_date' => 'date',
             'end_date' => 'date',
+            'status' => 'string',
         ];
     }
 
@@ -80,25 +74,5 @@ class FarmPlan extends Model
     public function details()
     {
         return $this->hasMany(FarmPlanDetail::class);
-    }
-
-    /**
-     * Get the plan's status.
-     *
-     * @return string
-     */
-    public function getStatusAttribute($value)
-    {
-        return ucfirst($value);
-    }
-
-    /**
-     * Set the plan's status.
-     *
-     * @param string $value
-     */
-    public function setStatusAttribute($value)
-    {
-        $this->attributes['status'] = strtolower($value);
     }
 }

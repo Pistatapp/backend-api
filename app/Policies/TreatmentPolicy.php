@@ -21,7 +21,7 @@ class TreatmentPolicy
      */
     public function view(User $user, Treatment $treatment): bool
     {
-        return $treatment->farm->user->is($user);
+        return $treatment->farm->users->contains($user);
     }
 
     /**
@@ -37,7 +37,7 @@ class TreatmentPolicy
      */
     public function update(User $user, Treatment $treatment): bool
     {
-        return $treatment->farm->user->is($user);
+        return $treatment->farm->users->contains($user);
     }
 
     /**
@@ -45,6 +45,6 @@ class TreatmentPolicy
      */
     public function delete(User $user, Treatment $treatment): bool
     {
-        return $treatment->farm->user->is($user);
+        return $treatment->farm->users->contains($user);
     }
 }

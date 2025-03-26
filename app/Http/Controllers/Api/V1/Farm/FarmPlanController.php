@@ -10,7 +10,6 @@ use App\Models\Farm;
 use App\Models\FarmPlan;
 use App\Models\FarmPlanDetail;
 use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
 
 class FarmPlanController extends Controller
 {
@@ -38,38 +37,41 @@ class FarmPlanController extends Controller
      */
     public function store(StoreFarmPlanRequest $request, Farm $farm)
     {
-        $plan = FarmPlan::create([
-            'farm_id' => $farm->id,
-            'name' => $request->name,
-            'goal' => $request->goal,
-            'referrer' => $request->referrer,
-            'counselors' => $request->counselors,
-            'executors' => $request->executors,
-            'statistical_counselors' => $request->statistical_counselors,
-            'implementation_location' => $request->implementation_location,
-            'used_materials' => $request->used_materials,
-            'evaluation_criteria' => $request->evaluation_criteria,
-            'description' => $request->description,
-            'start_date' => $request->start_date,
-            'end_date' => $request->end_date,
-            'created_by' => $request->user()->id,
-            'status' => 'pending'
-        ]);
+        $plan = $farm->plans()->create(array_merge(
+            $request->only([
+                'name',
+                'goal',
+                'referrer',
+                'counselors',
+                'executors',
+                'statistical_counselors',
+                'implementation_location',
+                'used_materials',
+                'evaluation_criteria',
+                'description',
+                'start_date',
+                'end_date'
+            ]),
+            [
+                'created_by' => $request->user()->id,
+                'status' => 'pending'
+            ]
+        ));
 
-        $plan_details_data = [];
-
-        foreach ($request->details as $detail) {
-            foreach ($detail['treatables'] as $treatable) {
-                $plan_details_data[] = [
+        $plan_details_data = collect($request->details)->flatMap(function ($detail) use ($plan) {
+            return collect($detail['treatables'])->map(function ($treatable) use ($detail, $plan) {
+                return [
                     'farm_plan_id' => $plan->id,
                     'treatment_id' => $detail['treatment_id'],
                     'treatable_id' => $treatable['treatable_id'],
                     'treatable_type' => 'App\Models\\' . ucfirst($treatable['treatable_type']),
                 ];
-            }
-        }
+            });
+        })->toArray();
 
         FarmPlanDetail::insert($plan_details_data);
+
+        $plan->load('creator:id,username', 'details.treatment', 'details.treatable');
 
         return new FarmPlanResource($plan);
     }
@@ -120,7 +122,9 @@ class FarmPlanController extends Controller
 
         FarmPlanDetail::insert($plan_details_data);
 
-        return new FarmPlanResource($farmPlan->fresh());
+        $farmPlan = $farmPlan->fresh()->load('creator:id,username', 'details.treatment', 'details.treatable');
+
+        return new FarmPlanResource($farmPlan);
     }
 
     /**
@@ -130,6 +134,6 @@ class FarmPlanController extends Controller
     {
         $farmPlan->delete();
 
-        return response()->json([], JsonResponse::HTTP_GONE);
+        return response()->noContent();
     }
 }

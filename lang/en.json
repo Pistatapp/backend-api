@@ -5,6 +5,9 @@
             "reset": "Preferences reset to default values",
             "invalid_language": "The selected language is invalid. Available options are: en, fa",
             "invalid_theme": "The selected theme is invalid. Available options are: light, dark"
-        }
+        },
+        "Plan :name implementation started on :date in sections :fields.": "Plan :name implementation started on :date in sections :fields.",
+        "Plan :name implementation completed on :date in sections :fields.": "Plan :name implementation completed on :date in sections :fields.",
+        "Farm Plan Status Update": "Farm Plan Status Update"
     }
 }

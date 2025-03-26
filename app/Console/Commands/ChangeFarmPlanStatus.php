@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\FarmPlan;
+use App\Events\FarmPlanStatusChanged;
 use Illuminate\Console\Command;
 
 class ChangeFarmPlanStatus extends Command
@@ -19,24 +20,25 @@ class ChangeFarmPlanStatus extends Command
      *
      * @var string
      */
-    protected $description = 'Change the status of the farm plan from active to inactive and vice versa.';
+    protected $description = 'Change the status of the farm plan from pending to started and vice versa.';
 
     /**
      * Execute the console command.
      */
     public function handle()
     {
-        FarmPlan::where('status', '!=', 'expired')
+        FarmPlan::where('status', '!=', 'finished')
             ->chunkById(100, function ($plans) {
                 foreach ($plans as $plan) {
                     $newStatus = 'pending';
                     if ($plan->start_date <= now() && $plan->end_date > now()) {
-                        $newStatus = 'active';
+                        $newStatus = 'started';
                     } elseif ($plan->end_date < now()) {
-                        $newStatus = 'expired';
+                        $newStatus = 'finished';
                     }
                     if ($plan->status !== $newStatus) {
                         $plan->update(['status' => $newStatus]);
+                        FarmPlanStatusChanged::dispatch($plan, $newStatus);
                     }
                 }
             });

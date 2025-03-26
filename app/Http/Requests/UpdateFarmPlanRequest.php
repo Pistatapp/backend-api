@@ -3,7 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-use App\Models\FarmPlan as Plan;
+use App\Models\FarmPlan;
 
 class UpdateFarmPlanRequest extends FormRequest
 {
@@ -37,7 +37,7 @@ class UpdateFarmPlanRequest extends FormRequest
                 'required',
                 'date',
                 function ($attribute, $value, $fail) {
-                    $planExists = Plan::where('farm_id', $this->route('farm_plan')->farm_id)
+                    $planExists = FarmPlan::where('farm_id', $this->route('farm_plan')->farm_id)
                         ->where('id', '!=', $this->route('farm_plan')->id)
                         ->where('start_date', '<=', $value)
                         ->where('end_date', '>=', $value)
@@ -51,7 +51,7 @@ class UpdateFarmPlanRequest extends FormRequest
                 'required',
                 'date',
                 function ($attribute, $value, $fail) {
-                    $planExists = Plan::where('farm_id', $this->route('farm_plan')->farm_id)
+                    $planExists = FarmPlan::where('farm_id', $this->route('farm_plan')->farm_id)
                         ->where('id', '!=', $this->route('farm_plan')->id)
                         ->where('start_date', '<=', $value)
                         ->where('end_date', '>=', $value)
