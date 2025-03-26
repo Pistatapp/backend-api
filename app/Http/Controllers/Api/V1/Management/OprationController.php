@@ -7,7 +7,6 @@ use App\Http\Resources\OperationResource;
 use App\Models\Operation;
 use App\Models\Farm;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\JsonResponse;
 
 class OprationController extends Controller
 {
@@ -69,6 +68,6 @@ class OprationController extends Controller
 
         $operation->delete();
 
-        return response()->json([], JsonResponse::HTTP_GONE);
+        return response()->noContent();
     }
 }

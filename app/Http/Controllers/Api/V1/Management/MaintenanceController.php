@@ -7,7 +7,6 @@ use App\Http\Resources\MaintenanceResource;
 use App\Models\Farm;
 use App\Models\Maintenance;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\JsonResponse;
 
 class MaintenanceController extends Controller
 {
@@ -69,6 +68,6 @@ class MaintenanceController extends Controller
     {
         $maintenance->delete();
 
-        return response()->json([], JsonResponse::HTTP_GONE);
+        return response()->noContent();
     }
 }

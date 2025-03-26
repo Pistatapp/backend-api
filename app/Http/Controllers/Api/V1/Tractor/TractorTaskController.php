@@ -9,7 +9,6 @@ use App\Http\Resources\TractorTaskResource;
 use App\Models\Tractor;
 use App\Models\TractorTask;
 use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
 use App\Services\TractorReportFilterService;
 use Illuminate\Support\Facades\Auth;
 
@@ -83,7 +82,7 @@ class TractorTaskController extends Controller
     {
         $tractorTask->delete();
 
-        return response()->json([], JsonResponse::HTTP_GONE);
+        return response()->noContent();
     }
 
     /**

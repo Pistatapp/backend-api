@@ -9,7 +9,6 @@ use App\Models\Tree;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
-use Illuminate\Http\JsonResponse;
 
 class TreeController extends Controller
 {
@@ -149,6 +148,6 @@ class TreeController extends Controller
     {
         $tree->delete();
 
-        return response()->json([], JsonResponse::HTTP_GONE);
+        return response()->noContent();
     }
 }

@@ -9,7 +9,6 @@ use App\Http\Resources\FieldResource;
 use App\Http\Resources\ValveResource;
 use App\Models\Valve;
 use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
 
 class FieldController extends Controller
 {
@@ -116,7 +115,7 @@ class FieldController extends Controller
     {
         $field->delete();
 
-        return response()->json([], JsonResponse::HTTP_GONE);
+        return response()->noContent();
     }
 
     /**

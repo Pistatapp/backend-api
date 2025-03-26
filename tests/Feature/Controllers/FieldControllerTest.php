@@ -100,7 +100,7 @@ class FieldControllerTest extends TestCase
 
         $response = $this->deleteJson("/api/fields/{$field->id}");
 
-        $response->assertStatus(410);
+        $response->assertNoContent();
 
         $this->assertDatabaseMissing('fields', [
             'id' => $field->id

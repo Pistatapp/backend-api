@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\GpsDeviceResource;
 use App\Models\GpsDevice;
 use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
 
 class GpsDeviceController extends Controller
 {
@@ -75,6 +74,6 @@ class GpsDeviceController extends Controller
     {
         $gpsDevice->delete();
 
-        return response()->json([], JsonResponse::HTTP_GONE);
+        return response()->noContent();
     }
 }

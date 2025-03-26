@@ -7,7 +7,6 @@ use App\Http\Resources\TreatmentResource;
 use App\Models\Farm;
 use App\Models\Treatment;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\JsonResponse;
 
 class TreatmentController extends Controller
 {
@@ -71,6 +70,6 @@ class TreatmentController extends Controller
     {
         $treatment->delete();
 
-        return response()->json([], JsonResponse::HTTP_GONE);
+        return response()->noContent();
     }
 }

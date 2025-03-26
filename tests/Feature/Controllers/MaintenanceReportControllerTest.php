@@ -219,7 +219,7 @@ class MaintenanceReportControllerTest extends TestCase
 
         $response = $this->deleteJson("/api/maintenance_reports/{$report->id}");
 
-        $response->assertStatus(410);
+        $response->assertNoContent();
         $this->assertDatabaseMissing('maintenance_reports', ['id' => $report->id]);
     }
 

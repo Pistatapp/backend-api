@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\DriverResource;
 use App\Models\Tractor;
 use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
 
 class DriverController extends Controller
 {
@@ -67,10 +66,10 @@ class DriverController extends Controller
      */
     public function destroy(Tractor $tractor)
     {
-        throw_unless($tractor->driver()->exists(), JsonResponse::HTTP_FORBIDDEN);
+        throw_unless($tractor->driver()->exists(), 403, 'Driver not found.');
 
         $tractor->driver()->delete();
 
-        return response()->json([], JsonResponse::HTTP_GONE);
+        return response()->noContent();
     }
 }

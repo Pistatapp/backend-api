@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Crop;
 use App\Http\Resources\CropResource;
 use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
 
 class CropController extends Controller
 {
@@ -66,6 +65,6 @@ class CropController extends Controller
 
         $crop->delete();
 
-        return response()->json([], JsonResponse::HTTP_GONE);
+        return response()->noContent();
     }
 }

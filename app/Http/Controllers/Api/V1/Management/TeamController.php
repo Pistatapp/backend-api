@@ -7,7 +7,6 @@ use App\Http\Resources\TeamResource;
 use App\Models\Farm;
 use App\Models\Team;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\JsonResponse;
 
 class TeamController extends Controller
 {
@@ -83,6 +82,6 @@ class TeamController extends Controller
     public function destroy(Team $team)
     {
         $team->delete();
-        return response()->json([], JsonResponse::HTTP_GONE);
+        return response()->noContent();
     }
 }

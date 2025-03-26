@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\PestResource;
 use Illuminate\Http\Request;
 use App\Models\Pest;
-use Illuminate\Http\JsonResponse;
 
 class PestController extends Controller
 {
@@ -110,7 +109,7 @@ class PestController extends Controller
     public function destroy(Pest $pest)
     {
         $pest->delete();
-        return response()->json([], JsonResponse::HTTP_GONE);
+        return response()->noContent();
     }
 
     /**
@@ -122,6 +121,6 @@ class PestController extends Controller
     public function deleteImage(Pest $pest)
     {
         $pest->clearMediaCollection('images');
-        return response()->json([], JsonResponse::HTTP_GONE);
+        return response()->noContent();
     }
 }

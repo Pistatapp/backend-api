@@ -9,7 +9,6 @@ use App\Http\Resources\LabourResource;
 use App\Models\Farm;
 use App\Models\Labour;
 use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
 
 class LabourController extends Controller
 {
@@ -74,6 +73,6 @@ class LabourController extends Controller
     {
         $labour->delete();
 
-        return response()->json([], JsonResponse::HTTP_GONE);
+        return response()->noContent();
     }
 }

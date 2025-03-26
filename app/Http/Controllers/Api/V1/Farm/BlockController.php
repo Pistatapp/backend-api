@@ -7,7 +7,6 @@ use App\Http\Resources\BlockResource;
 use App\Models\Block;
 use App\Models\Field;
 use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
 
 class BlockController extends Controller
 {
@@ -72,6 +71,6 @@ class BlockController extends Controller
     {
         $block->delete();
 
-        return response()->json([], JsonResponse::HTTP_GONE);
+        return response()->noContent();
     }
 }

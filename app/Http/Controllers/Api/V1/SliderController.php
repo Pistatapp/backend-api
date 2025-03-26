@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreSliderRequest;
 use App\Http\Resources\SliderResource;
 use App\Models\Slider;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class SliderController extends Controller
@@ -82,6 +81,6 @@ class SliderController extends Controller
     {
         $slider->delete();
 
-        return response()->json([], JsonResponse::HTTP_GONE);
+        return response()->noContent();
     }
 }

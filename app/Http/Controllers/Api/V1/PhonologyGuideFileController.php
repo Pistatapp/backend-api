@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Http\Resources\PhonologyGuideFileResource;
-use Illuminate\Http\JsonResponse;
 
 class PhonologyGuideFileController extends Controller
 {
@@ -75,6 +74,6 @@ class PhonologyGuideFileController extends Controller
 
         $phonologyGuideFile->delete();
 
-        return response()->json([], JsonResponse::HTTP_GONE);
+        return response()->noContent();
     }
 }

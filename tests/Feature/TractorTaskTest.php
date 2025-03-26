@@ -136,7 +136,7 @@ class TractorTaskTest extends TestCase
 
         $response = $this->deleteJson(route('tractor_tasks.destroy', $task));
 
-        $response->assertGone();
+        $response->assertNoContent();
     }
 
     /**

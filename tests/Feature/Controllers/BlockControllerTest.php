@@ -179,7 +179,7 @@ class BlockControllerTest extends TestCase
 
         $response = $this->deleteJson("/api/blocks/{$block->id}");
 
-        $response->assertStatus(410);
+        $response->assertNoContent();
         $this->assertDatabaseMissing('blocks', ['id' => $block->id]);
     }
 }

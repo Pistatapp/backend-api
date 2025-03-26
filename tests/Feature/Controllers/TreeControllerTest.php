@@ -239,7 +239,7 @@ class TreeControllerTest extends TestCase
 
         $response = $this->deleteJson("/api/trees/{$tree->id}");
 
-        $response->assertStatus(410);
+        $response->assertNoContent();
         $this->assertDatabaseMissing('trees', ['id' => $tree->id]);
     }
 }

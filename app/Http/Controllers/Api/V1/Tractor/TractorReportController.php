@@ -7,7 +7,6 @@ use App\Http\Resources\TractorReportResource;
 use App\Models\Tractor;
 use App\Models\TractorReport;
 use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
 
 class TractorReportController extends Controller
 {
@@ -94,7 +93,7 @@ class TractorReportController extends Controller
     {
         $tractorReport->delete();
 
-        return response()->json([], JsonResponse::HTTP_GONE);
+        return response()->noContent();
     }
 
     /**

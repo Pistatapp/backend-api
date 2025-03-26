@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\MaintenanceReportResource;
 use App\Models\MaintenanceReport;
 use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
 
 class MaintenanceReportController extends Controller
 {
@@ -93,7 +92,7 @@ class MaintenanceReportController extends Controller
     {
         $maintenanceReport->delete();
 
-        return response()->json([], JsonResponse::HTTP_GONE);
+        return response()->noContent();
     }
 
     /**
