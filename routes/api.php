@@ -20,7 +20,6 @@ use App\Http\Controllers\Api\V1\Farm\AttachmentController;
 use App\Http\Controllers\Api\V1\Management\OprationController;
 use App\Http\Controllers\Api\V1\Tractor\TractorTaskController;
 use App\Http\Controllers\Api\V1\Farm\IrrigationController;
-use App\Http\Controllers\Api\V1\Tractor\TractorReportController;
 use App\Http\Controllers\Api\V1\UserController;
 use App\Http\Controllers\Api\V1\GpsDeviceController;
 use App\Http\Controllers\Api\V1\PestController;
