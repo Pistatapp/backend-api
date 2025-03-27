@@ -40,8 +40,6 @@ use App\Http\Controllers\Api\V1\Farm\WeatherForecastController;
 use App\Http\Controllers\Api\V1\SliderController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\NotificationController;
-use App\Http\Controllers\Api\V1\PlanController;
-use App\Http\Controllers\Api\V1\FeatureController;
 use App\Http\Controllers\Api\V1\Farm\CompositionalNutrientDiagnosisController;
 use App\Http\Controllers\Api\V1\UserPreferenceController;
 use App\Http\Controllers\Api\V1\Tractor\TractorReportController;
@@ -116,18 +114,6 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
             Route::put('/{slider}', 'update');
             Route::delete('/{slider}', 'destroy');
         });
-
-        Route::controller(PlanController::class)->prefix('plans')->group(function () {
-            Route::withoutMiddleware('role:root')->middleware('can:upgrade-user-level')->group(function () {
-                Route::get('/', 'index');
-                Route::get('/{plan}', 'show');
-            });
-            Route::post('/', 'store');
-            Route::put('/{plan}', 'update');
-            Route::delete('/{plan}', 'destroy');
-        });
-
-        Route::apiResource('plans.features', FeatureController::class)->shallow();
     });
 
     Route::withoutMiddleware('ensure.username')->group(function () {
