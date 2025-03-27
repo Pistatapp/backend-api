@@ -223,3 +223,5 @@ function calculate_distance(array $point1, array $point2): float
 
     return $earthRadius * $c;
 }
+
+

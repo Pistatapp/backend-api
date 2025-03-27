@@ -58,15 +58,15 @@ class WeatherForecastController extends Controller
     {
         return [
             'date' => jdate($weatherData['date'])->format('Y/m/d'),
-            'mintemp_c' => number_format($weatherData['day']['mintemp_c'], 2),
-            'avgtemp_c' => number_format($weatherData['day']['avgtemp_c'], 2),
-            'maxtemp_c' => number_format($weatherData['day']['maxtemp_c'], 2),
+            'mintemp_c' => number_format($weatherData['day']['mintemp_c'], 1),
+            'avgtemp_c' => number_format($weatherData['day']['avgtemp_c'], 1),
+            'maxtemp_c' => number_format($weatherData['day']['maxtemp_c'], 1),
             'condition' => $weatherData['day']['condition']['text'],
             'icon' => $weatherData['day']['condition']['icon'],
-            'maxwind_kph' => number_format($weatherData['day']['maxwind_kph'], 2),
-            'humidity' => number_format($weatherData['day']['avghumidity'], 2),
-            'dewpoint_c' => number_format(collect($weatherData['hour'])->avg('dewpoint_c'), 2),
-            'cloud' => number_format(collect($weatherData['hour'])->avg('cloud'), 2),
+            'maxwind_kph' => number_format($weatherData['day']['maxwind_kph'], 1),
+            'humidity' => number_format($weatherData['day']['avghumidity'], 1),
+            'dewpoint_c' => number_format(collect($weatherData['hour'])->avg('dewpoint_c'), 1),
+            'cloud' => number_format(collect($weatherData['hour'])->avg('cloud'), 1),
         ];
     }
 
@@ -96,13 +96,13 @@ class WeatherForecastController extends Controller
 
         return [
             'last_updated' => jdate($weatherData['current']['last_updated'])->format('Y/m/d H:i:s'),
-            'temp_c' => number_format($weatherData['current']['temp_c'], 2),
+            'temp_c' => number_format($weatherData['current']['temp_c'], 1),
             'condition' => $weatherData['current']['condition']['text'],
             'icon' => $weatherData['current']['condition']['icon'],
-            'wind_kph' => number_format($weatherData['current']['wind_kph'], 2),
-            'humidity' => number_format($weatherData['current']['humidity'], 2),
-            'dewpoint_c' => number_format($weatherData['current']['dewpoint_c'], 2),
-            'cloud' => number_format($weatherData['current']['cloud'], 2),
+            'wind_kph' => number_format($weatherData['current']['wind_kph'], 1),
+            'humidity' => number_format($weatherData['current']['humidity'], 1),
+            'dewpoint_c' => number_format($weatherData['current']['dewpoint_c'], 1),
+            'cloud' => number_format($weatherData['current']['cloud'], 1),
         ];
     }
 
