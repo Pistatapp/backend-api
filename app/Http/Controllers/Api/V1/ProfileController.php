@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Http\Requests\UpdateProfileRequest;
 use App\Http\Resources\ProfileResource;
-use Illuminate\Http\JsonResponse;
 
 class ProfileController extends Controller
 {
@@ -63,6 +62,8 @@ class ProfileController extends Controller
 
         $request->user()->update(['username' => str_replace(' ', '_', $request->username)]);
 
-        return response()->json([], JsonResponse::HTTP_OK);
+        return response()->json([
+            'message' => __('Username updated successfully.'),
+        ]);
     }
 }
