@@ -68,32 +68,14 @@ Route::controller(AuthController::class)->prefix('auth')->group(function () {
 
 Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(function () {
 
+    Route::apiResource('gps_devices', GpsDeviceController::class);
+    Route::apiResource('crops', CropController::class);
+    Route::apiResource('crops.crop_types', CropTypeController::class)->shallow();
+
+    Route::delete('/pests/{pest}/image', [PestController::class, 'deleteImage']);
+    Route::apiResource('pests', PestController::class);
+
     Route::middleware('role:root')->group(function () {
-
-        Route::apiResource('gps_devices', GpsDeviceController::class)->except('show');
-
-        Route::controller(CropController::class)->prefix('crops')->group(function () {
-            Route::withoutMiddleware('role:root')->group(function () {
-                Route::get('/', 'index');
-                Route::get('/{crop}', 'show');
-            });
-            Route::post('/', 'store');
-            Route::put('/{crop}', 'update');
-            Route::delete('/{crop}', 'destroy');
-        });
-
-        Route::apiResource('crops.crop_types', CropTypeController::class)->except('show')->shallow();
-
-        Route::controller(PestController::class)->prefix('pests')->group(function () {
-            Route::withoutMiddleware('role:root')->group(function () {
-                Route::get('/', 'index');
-                Route::get('/{pest}', 'show');
-            });
-            Route::post('/', 'store');
-            Route::put('/{pest}', 'update');
-            Route::delete('/{pest}', 'destroy');
-            Route::delete('{pest}/image', 'deleteImage');
-        });
 
         Route::controller(PhonologyGuideFileController::class)
             ->prefix('phonology/guide_files/{model_type}/{model_id}')->group(function () {

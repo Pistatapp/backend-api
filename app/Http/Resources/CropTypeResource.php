@@ -20,7 +20,10 @@ class CropTypeResource extends JsonResource
             'standard_day_degree' => $this->standard_day_degree,
             'phonology_guide_files' => PhonologyGuideFileResource::collection($this->whenLoaded('phonologyGuideFiles')),
             'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),
-            'can_delete' => $this->fields()->doesntExist(),
+            'can' => [
+                'update' => $request->user()->can('update', $this->resource),
+                'delete' => $request->user()->can('delete', $this->resource),
+            ],
         ];
     }
 }

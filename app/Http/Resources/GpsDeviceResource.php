@@ -27,12 +27,10 @@ class GpsDeviceResource extends JsonResource
             'imei' => $this->imei,
             'sim_number' => $this->sim_number,
             'created_at' => jdate($this->created_at)->format('Y-m-d H:i:s'),
-            $this->mergeWhen($request->user()->is_admin, [
-                'can' => [
-                    'update' => $request->user()->can('update', $this->resource),
-                    'delete' => $request->user()->can('delete', $this->resource),
-                ],
-            ]),
+            'can' => [
+                'update' => $request->user()->can('update', $this->resource),
+                'delete' => $request->user()->can('delete', $this->resource),
+            ],
         ];
     }
 }

@@ -20,7 +20,10 @@ class CropResource extends JsonResource
             'cold_requirement' => $this->cold_requirement,
             'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),
             'crop_types' => CropTypeResource::collection($this->whenLoaded('cropTypes')),
-            'can_delete' => $this->farms()->doesntExist(),
+            'can' => [
+                'update' => $request->user()->can('update', $this),
+                'delete' => $request->user()->can('delete', $this),
+            ]
         ];
     }
 }

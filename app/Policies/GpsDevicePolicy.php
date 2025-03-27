@@ -13,7 +13,7 @@ class GpsDevicePolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->is_admin;
+        return true;
     }
 
     /**
@@ -21,7 +21,7 @@ class GpsDevicePolicy
      */
     public function view(User $user, GpsDevice $gpsDevice): bool
     {
-        return $user->is_admin || $gpsDevice->user->is($user);
+        return $user->hasRole('root') || $gpsDevice->user->is($user);
     }
 
     /**
@@ -29,7 +29,7 @@ class GpsDevicePolicy
      */
     public function create(User $user): bool
     {
-        return $user->is_admin;
+        return $user->hasRole('root');
     }
 
     /**
@@ -37,7 +37,7 @@ class GpsDevicePolicy
      */
     public function update(User $user, GpsDevice $gpsDevice): bool
     {
-        return $user->is_admin && is_null($gpsDevice->vehicle_id);
+        return $user->hasRole('root');
     }
 
     /**
@@ -45,6 +45,6 @@ class GpsDevicePolicy
      */
     public function delete(User $user, GpsDevice $gpsDevice): bool
     {
-        return $user->is_admin || is_null($gpsDevice->vehicle_id);
+        return $user->hasRole('root') && is_null($gpsDevice->vehicle_id);
     }
 }

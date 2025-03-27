@@ -24,6 +24,10 @@ class PestResource extends JsonResource
             'image' => $this->getFirstMediaUrl('images'),
             'standard_day_degree' => number_format($this->standard_day_degree, 2),
             'created_at' => jdate($this->created_at)->format('Y-m-d H:i:s'),
+            'can' => [
+                'update' => $request->user()->can('update', $this->resource),
+                'delete' => $request->user()->can('delete', $this->resource),
+            ],
         ];
     }
 }

@@ -17,9 +17,15 @@ class GpsDeviceController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $devices = GpsDevice::with('user:id,username,mobile')->simplePaginate();
+        $query = GpsDevice::with('user');
+
+        if (!$request->user()->hasRole('root')) {
+            $query->where('user_id', $request->user()->id);
+        }
+
+        $devices = $query->simplePaginate();
         return GpsDeviceResource::collection($devices);
     }
 
@@ -43,6 +49,15 @@ class GpsDeviceController extends Controller
         ]);
 
         return new GpsDeviceResource($device);
+    }
+
+    /**
+     * Display the specified resource.
+     */
+    public function show(GpsDevice $gpsDevice)
+    {
+        $gpsDevice->load('user');
+        return new GpsDeviceResource($gpsDevice);
     }
 
     /**

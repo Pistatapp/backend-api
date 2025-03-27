@@ -10,6 +10,14 @@ use App\Models\Pest;
 class PestController extends Controller
 {
     /**
+     * Create a new controller instance.
+     */
+    public function __construct()
+    {
+        $this->authorizeResource(Pest::class, 'pest');
+    }
+
+    /**
      * Display a listing of the resource.
      *
      * @return \Illuminate\Http\JsonResponse
@@ -120,6 +128,7 @@ class PestController extends Controller
      */
     public function deleteImage(Pest $pest)
     {
+        $this->authorize('update', $pest);
         $pest->clearMediaCollection('images');
         return response()->noContent();
     }

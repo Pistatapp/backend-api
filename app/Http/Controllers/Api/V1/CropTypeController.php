@@ -10,6 +10,11 @@ use Illuminate\Http\Request;
 
 class CropTypeController extends Controller
 {
+    public function __construct()
+    {
+        $this->authorizeResource(CropType::class, 'crop_type');
+    }
+
     /**
      * Display a listing of the resource.
      */
@@ -28,7 +33,7 @@ class CropTypeController extends Controller
             'standard_day_degree' => 'nullable|numeric',
         ]);
 
-        $cropType = $crop->cropTypes()->create($request->only('name'));
+        $cropType = $crop->cropTypes()->create($request->only(['name', 'standard_day_degree']));
 
         return new CropTypeResource($cropType);
     }
@@ -43,7 +48,7 @@ class CropTypeController extends Controller
             'standard_day_degree' => 'nullable|numeric',
         ]);
 
-        $cropType->update($request->only('name'));
+        $cropType->update($request->only(['name', 'standard_day_degree']));
 
         return new CropTypeResource($cropType->fresh());
     }

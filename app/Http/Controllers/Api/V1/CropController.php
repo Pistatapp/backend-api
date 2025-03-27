@@ -9,6 +9,10 @@ use Illuminate\Http\Request;
 
 class CropController extends Controller
 {
+    public function __construct()
+    {
+        $this->authorizeResource(Crop::class, 'crop');
+    }
 
     /**
      * Display a listing of the resource.
@@ -61,7 +65,7 @@ class CropController extends Controller
      */
     public function destroy(Crop $crop)
     {
-        abort_unless($crop->farms()->isEmpty(), 400, 'This crop$crop has farms.');
+        abort_if($crop->farms()->exists(), 403, 'This crop has farms.');
 
         $crop->delete();
 
