@@ -21,7 +21,23 @@ class FarmReport extends Model
         'labour_id',
         'description',
         'value',
+        'created_by',
+        'verified'
     ];
+
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array<string, string>
+     */
+    protected function casts()
+    {
+        return [
+            'date' => 'date',
+            'value' => 'float',
+            'verified' => 'boolean'
+        ];
+    }
 
     /**
      * Get the farm that owns the FarmReport
@@ -55,9 +71,21 @@ class FarmReport extends Model
 
     /**
      * Get all of the owning reportable models.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\MorphTo
      */
     public function reportable()
     {
         return $this->morphTo();
+    }
+
+    /**
+     * Get the user who created the report
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 }

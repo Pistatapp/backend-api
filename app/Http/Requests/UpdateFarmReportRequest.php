@@ -11,7 +11,7 @@ class UpdateFarmReportRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return $this->user()->can('update', $this->route('farmReport'));
+        return $this->user()->can('update', $this->route('farm_report'));
     }
 
     /**
@@ -29,6 +29,7 @@ class UpdateFarmReportRequest extends FormRequest
             'value' => 'required|numeric',
             'reportable_type' => 'required|string|in:farm,field,row,tree',
             'reportable_id' => 'required|integer',
+            'verified' => 'boolean',
         ];
     }
 }

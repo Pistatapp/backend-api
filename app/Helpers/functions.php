@@ -128,6 +128,14 @@ function getModelClass(string $modelType): string
 {
     $modelMap = [
         'tractor' => \App\Models\Tractor::class,
+        'field' => \App\Models\Field::class,
+        'row' => \App\Models\Row::class,
+        'tree' => \App\Models\Tree::class,
+        'farm' => \App\Models\Farm::class,
+        'operation' => \App\Models\Operation::class,
+        'labour' => \App\Models\Labour::class,
+        'pump' => \App\Models\Pump::class,
+        'valve' => \App\Models\Valve::class,
     ];
 
     $modelClass = $modelMap[$modelType] ?? $modelType;

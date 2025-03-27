@@ -37,6 +37,13 @@ class FarmReportResource extends JsonResource
                     'name' => $this->reportable->name,
                 ];
             }),
+            'creator' => $this->whenLoaded('creator', function () {
+                return [
+                    'id' => $this->creator->id,
+                    'name' => $this->creator->name,
+                ];
+            }),
+            'verified' => $this->verified,
             'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),
         ];
     }

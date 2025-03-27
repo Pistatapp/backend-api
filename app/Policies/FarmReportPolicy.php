@@ -21,7 +21,7 @@ class FarmReportPolicy
      */
     public function view(User $user, FarmReport $farmReport): bool
     {
-        return $farmReport->farm->user->is($user);
+        return $user->farms->contains('id', $farmReport->farm_id);
     }
 
     /**
@@ -37,7 +37,7 @@ class FarmReportPolicy
      */
     public function update(User $user, FarmReport $farmReport): bool
     {
-        return $farmReport->farm->user->is($user);
+        return $farmReport->creator->is($user);
     }
 
     /**
@@ -45,6 +45,14 @@ class FarmReportPolicy
      */
     public function delete(User $user, FarmReport $farmReport): bool
     {
-        return $farmReport->farm->user->is($user);
+        return $farmReport->creator->is($user);
+    }
+
+    /**
+     * Determine whether the user can verify the model.
+     */
+    public function verify(User $user, FarmReport $farmReport): bool
+    {
+        return $user->hasRole('admin') && $farmReport->farm->users->contains($user);
     }
 }

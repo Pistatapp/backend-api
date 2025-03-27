@@ -141,7 +141,10 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::apiResource('farms', FarmController::class);
     Route::post('/farms/{farm}/attach-user', [FarmController::class, 'attachUserToFarm']);
     Route::post('/farms/{farm}/detach-user', [FarmController::class, 'detachUserFromFarm']);
+
+    Route::patch('farm_reports/{farmReport}/verify', [FarmReportsController::class, 'verify']);
     Route::apiResource('farms.farm_reports', FarmReportsController::class)->shallow();
+
     Route::apiResource('farms.fields', FieldController::class)->shallow();
     Route::apiResource('fields.rows', RowController::class)->except('update')->shallow();
     Route::post('rows/{row}/trees/batch_store', [TreeController::class, 'batchStore']);
@@ -210,6 +213,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
         Route::put('/', [UserPreferenceController::class, 'update']);
         Route::delete('/', [UserPreferenceController::class, 'reset']);
     });
+
 });
 
 Route::post('/gps/reports', GpsReportController::class)->name('gps.reports');
