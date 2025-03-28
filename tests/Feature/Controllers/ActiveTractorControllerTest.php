@@ -8,7 +8,10 @@ use App\Models\GpsDevice;
 use App\Models\GpsReport;
 use App\Models\GpsDailyReport;
 use App\Models\User;
+use App\Models\Farm;
+use App\Models\Driver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
 
 class ActiveTractorControllerTest extends TestCase
 {
@@ -48,7 +51,42 @@ class ActiveTractorControllerTest extends TestCase
         $this->actingAs($this->user);
     }
 
-    /** @test */
+    #[Test]
+    public function it_lists_active_tractors_for_a_farm()
+    {
+        $farm = Farm::factory()->create();
+        $farm->tractors()->save($this->tractor);
+
+        $driver = Driver::factory()->create([
+            'tractor_id' => $this->tractor->id,
+            'name' => 'John Doe',
+            'mobile' => '09123456789'
+        ]);
+
+        $response = $this->getJson("/api/farms/{$farm->id}/tractors/active");
+
+        $response->assertOk()
+            ->assertJsonStructure([
+                'data' => [
+                    '*' => [
+                        'id',
+                        'name',
+                        'gps_device' => [
+                            'id',
+                            'imei'
+                        ],
+                        'driver' => [
+                            'id',
+                            'name',
+                            'mobile'
+                        ],
+                        'status'
+                    ]
+                ]
+            ]);
+    }
+
+    #[Test]
     public function it_applies_kalman_filter_to_gps_coordinates()
     {
         // Create some GPS reports with slightly noisy coordinates
@@ -127,5 +165,85 @@ class ActiveTractorControllerTest extends TestCase
         $this->assertLessThan(34.884067, $points[1]['latitude']);
         $this->assertGreaterThan(50.599625, $points[1]['longitude']);
         $this->assertLessThan(50.599627, $points[1]['longitude']);
+    }
+
+    #[Test]
+    public function it_can_get_tractor_path()
+    {
+        GpsReport::create([
+            'gps_device_id' => $this->device->id,
+            'imei' => $this->device->imei,
+            'coordinate' => [34.884065, 50.599625],
+            'speed' => 20,
+            'status' => 1,
+            'date_time' => now(),
+            'is_stopped' => false,
+            'stoppage_time' => 0,
+            'is_starting_point' => true,
+            'is_ending_point' => false,
+        ]);
+
+        $response = $this->getJson("/api/tractors/{$this->tractor->id}/path?date=" . jdate(today())->format('Y/m/d'));
+
+        $response->assertOk()
+            ->assertJsonStructure([
+                'data' => [
+                    '*' => [
+                        'latitude',
+                        'longitude',
+                        'speed',
+                        'status',
+                        'is_starting_point',
+                        'is_ending_point',
+                        'is_stopped',
+                        'stoppage_time',
+                        'date_time'
+                    ]
+                ]
+            ]);
+    }
+
+    #[Test]
+    public function it_can_get_tractor_details()
+    {
+        $response = $this->getJson("/api/tractors/{$this->tractor->id}/details?date=" . jdate(today())->format('Y/m/d'));
+
+        $response->assertOk()
+            ->assertJsonStructure([
+                'data' => [
+                    'id',
+                    'name',
+                    'last_seven_days_efficiency' => [
+                        '*' => [
+                            'date',
+                            'efficiency'
+                        ]
+                    ]
+                ]
+            ]);
+    }
+
+    #[Test]
+    public function it_validates_date_parameter()
+    {
+        $response = $this->getJson("/api/tractors/{$this->tractor->id}/reports");
+        $response->assertUnprocessable()->assertJsonValidationErrors(['date']);
+
+        $response = $this->getJson("/api/tractors/{$this->tractor->id}/path");
+        $response->assertUnprocessable()->assertJsonValidationErrors(['date']);
+
+        $response = $this->getJson("/api/tractors/{$this->tractor->id}/details");
+        $response->assertUnprocessable()->assertJsonValidationErrors(['date']);
+    }
+
+    #[Test]
+    public function it_returns_empty_points_when_no_reports_exist()
+    {
+        GpsReport::where('gps_device_id', $this->device->id)->delete();
+
+        $response = $this->getJson("/api/tractors/{$this->tractor->id}/reports?date=" . jdate(today())->format('Y/m/d'));
+
+        $response->assertOk()
+            ->assertJsonPath('data.points', []);
     }
 }

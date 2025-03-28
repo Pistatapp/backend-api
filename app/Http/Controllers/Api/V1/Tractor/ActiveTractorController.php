@@ -4,21 +4,17 @@ namespace App\Http\Controllers\Api\V1\Tractor;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ActiveTractorResource;
+use App\Http\Resources\PointsResource;
 use App\Models\Tractor;
 use Illuminate\Http\Request;
-use App\Http\Resources\PointsResource;
 use App\Models\Farm;
-use App\Http\Resources\TractorTaskResource;
-use App\Services\KalmanFilter;
+use App\Services\TractorReportService;
 
 class ActiveTractorController extends Controller
 {
-    private $kalmanFilter;
-
-    public function __construct()
-    {
-        $this->kalmanFilter = new KalmanFilter();
-    }
+    public function __construct(
+        private TractorReportService $tractorReportService
+    ) {}
 
     /**
      * Get active tractors for the farm
@@ -30,15 +26,13 @@ class ActiveTractorController extends Controller
     {
         $tractors = Tractor::whereBelongsTo($farm)->whereHas('gpsDevice')
             ->whereHas('driver')
-            ->with(['gpsDevice', 'driver', 'gpsReports' => function ($query) {
-                $query->whereDate('date_time', today())->latest('date_time')->limit(1);
-            }])->get();
+            ->with('gpsDevice', 'driver')->get();
 
         return ActiveTractorResource::collection($tractors);
     }
 
     /**
-     * Get reports for a sepcific tractor
+     * Get reports for a specific tractor
      *
      * @param Request $request
      * @param Tractor $tractor
@@ -51,36 +45,45 @@ class ActiveTractorController extends Controller
         ]);
 
         $date = jalali_to_carbon($request->date);
+        $reportData = $this->tractorReportService->getDailyReport($tractor, $date);
 
-        $dailyReport = $tractor->gpsDailyReports()->where('date', $date)->first();
-        $reports = $tractor->gpsReports()
-            ->whereDate('date_time', $date)
-            ->orderBy('date_time')
-            ->get()
-            ->map(function ($report) {
-                $filtered = $this->kalmanFilter->filter($report->coordinate[0], $report->coordinate[1]);
-                $report->coordinate = [$filtered['latitude'], $filtered['longitude']];
-                return $report;
-            });
+        return response()->json(['data' => $reportData]);
+    }
 
-        $startWorkingTime = count($reports) > 0 ? $reports->where('is_starting_point', 1)->first() : null;
-        $currentTask = $tractor->tasks()->with('operation', 'field', 'creator')->started()->first();
-
-        return response()->json([
-            'data' => [
-                'id' => $tractor->id,
-                'name' => $tractor->name,
-                'speed' => $reports->last()->speed ?? 0,
-                'status' => $reports->last()->status ?? 0,
-                'start_working_time' => $startWorkingTime ? $startWorkingTime->date_time->format('H:i:s') : '00:00:00',
-                'traveled_distance' => number_format($dailyReport->traveled_distance ?? 0, 2),
-                'work_duration' => gmdate('H:i:s', $dailyReport->work_duration ?? 0),
-                'stoppage_count' => $dailyReport->stoppage_count ?? 0,
-                'stoppage_duration' => gmdate('H:i:s', $dailyReport->stoppage_duration ?? 0),
-                'efficiency' => number_format($dailyReport->efficiency ?? 0, 2),
-                'points' => PointsResource::collection($reports),
-                'current_task' => $currentTask ? new TractorTaskResource($currentTask) : null,
-            ]
+    /**
+     * Get traveled path for a specific tractor
+     *
+     * @param Request $request
+     * @param Tractor $tractor
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getPath(Request $request, Tractor $tractor)
+    {
+        $request->validate([
+            'date' => 'required|shamsi_date'
         ]);
+
+        $date = jalali_to_carbon($request->date);
+        $points = $this->tractorReportService->getTractorPath($tractor, $date);
+        return PointsResource::collection($points);
+    }
+
+    /**
+     * Get details of a specific tractor
+     *
+     * @param Request $request
+     * @param Tractor $tractor
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getDetails(Request $request, Tractor $tractor)
+    {
+        $request->validate([
+            'date' => 'required|shamsi_date'
+        ]);
+
+        $date = jalali_to_carbon($request->date);
+        $details = $this->tractorReportService->getTractorDetails($tractor, $date);
+
+        return response()->json(['data' => $details]);
     }
 }

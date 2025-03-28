@@ -121,16 +121,21 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::apiResource('farms.pumps', PumpController::class)->shallow();
     Route::get('/fields/{field}/valves', [FieldController::class, 'getValvesForField']);
     Route::apiResource('pumps.valves', ValveController::class)->shallow();
+
+    // Tractors Routes
     Route::get('/farms/{farm}/tractors/active', [ActiveTractorController::class, 'index']);
+    Route::get('/tractors/{tractor}/reports', [ActiveTractorController::class, 'reports']);
+    Route::get('/tractors/{tractor}/path', [ActiveTractorController::class, 'getPath']);
+    Route::get('/tractors/{tractor}/details', [ActiveTractorController::class, 'getDetails']);
     Route::apiResource('farms.tractors', TractorController::class)->shallow();
     Route::get('/tractors/{tractor}/devices', [TractorController::class, 'getAvailableDevices']);
     Route::post('/tractors/{tractor}/assign_device/{gps_device}', [TractorController::class, 'assignDevice']);
     Route::post('/tractors/{tractor}/unassign_device/{gps_device}', [TractorController::class, 'unassignDevice']);
-    Route::get('/tractors/{tractor}/reports', [ActiveTractorController::class, 'reports']);
     Route::apiSingleton('tractors.driver', DriverController::class)->creatable();
     Route::apiResource('/tractors.tractor_reports', TractorReportController::class)->shallow();
     Route::apiResource('tractors.tractor_tasks', TractorTaskController::class)->shallow();
     Route::post('/tractors/filter_reports', [TractorTaskController::class, 'filterReports'])->name('tractor.reports.filter');
+
     Route::apiResource('farms.maintenances', MaintenanceController::class)->except('show')->shallow();
     Route::post('maintenance_reports/filter', [MaintenanceReportController::class, 'filter']);
     Route::apiResource('maintenance_reports', MaintenanceReportController::class);

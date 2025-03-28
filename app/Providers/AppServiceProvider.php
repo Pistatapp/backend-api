@@ -5,6 +5,8 @@ namespace App\Providers;
 use App\Listeners\IrrigationEventSubscriber;
 use App\Services\WeatherApi;
 use App\Services\Zarinpal\Zarinpal;
+use App\Services\KalmanFilter;
+use App\Services\TractorReportService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Event;
@@ -19,6 +21,8 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         //
+        $this->app->singleton(KalmanFilter::class);
+        $this->app->singleton(TractorReportService::class);
     }
 
     /**

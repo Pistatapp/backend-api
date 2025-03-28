@@ -4,54 +4,57 @@ namespace App\Services;
 
 class KalmanFilter
 {
-    private $Q_metres_per_second;    // process noise
-    private $R_metres;               // measurement noise
-    private $variance_metres;        // estimation variance
-    private $last_lat;              // last latitude estimate
-    private $last_lng;              // last longitude estimate
+    private float $q; // process noise
+    private float $r; // measurement noise
+    private float $x_lat; // estimated latitude
+    private float $x_lon; // estimated longitude
+    private float $p_lat; // estimation error for latitude
+    private float $p_lon; // estimation error for longitude
+    private bool $initialized;
 
-    public function __construct($noise = 3.0)
+    public function __construct(float $q = 0.000001, float $r = 0.01)
     {
-        $this->Q_metres_per_second = $noise;
-        $this->R_metres = 6.0;
-        $this->variance_metres = -1;
-        $this->last_lat = 0.0;
-        $this->last_lng = 0.0;
+        $this->q = $q;
+        $this->r = $r;
+        $this->initialized = false;
     }
 
-    public function filter($lat, $lng): array
+    public function filter(float $latitude, float $longitude): array
     {
-        if ($this->variance_metres < 0) {
-            // Initial state
-            $this->last_lat = $lat;
-            $this->last_lng = $lng;
-            $this->variance_metres = $this->R_metres;
-            return ['latitude' => $lat, 'longitude' => $lng];
+        if (!$this->initialized) {
+            $this->x_lat = $latitude;
+            $this->x_lon = $longitude;
+            $this->p_lat = 1.0;
+            $this->p_lon = 1.0;
+            $this->initialized = true;
+            return [
+                'latitude' => $latitude,
+                'longitude' => $longitude
+            ];
         }
 
-        // Project state ahead
-        $prediction_variance = $this->variance_metres + $this->Q_metres_per_second;
+        // prediction phase
+        $this->p_lat = $this->p_lat + $this->q;
+        $this->p_lon = $this->p_lon + $this->q;
 
-        // Calculate Kalman gain
-        $kalman_gain = $prediction_variance / ($prediction_variance + $this->R_metres);
+        // measurement update for latitude
+        $k_lat = $this->p_lat / ($this->p_lat + $this->r);
+        $this->x_lat = $this->x_lat + $k_lat * ($latitude - $this->x_lat);
+        $this->p_lat = (1 - $k_lat) * $this->p_lat;
 
-        // Update state estimate
-        $this->last_lat = $this->last_lat + $kalman_gain * ($lat - $this->last_lat);
-        $this->last_lng = $this->last_lng + $kalman_gain * ($lng - $this->last_lng);
-
-        // Update variance estimate
-        $this->variance_metres = (1 - $kalman_gain) * $prediction_variance;
+        // measurement update for longitude
+        $k_lon = $this->p_lon / ($this->p_lon + $this->r);
+        $this->x_lon = $this->x_lon + $k_lon * ($longitude - $this->x_lon);
+        $this->p_lon = (1 - $k_lon) * $this->p_lon;
 
         return [
-            'latitude' => $this->last_lat,
-            'longitude' => $this->last_lng
+            'latitude' => $this->x_lat,
+            'longitude' => $this->x_lon
         ];
     }
 
     public function reset(): void
     {
-        $this->variance_metres = -1;
-        $this->last_lat = 0.0;
-        $this->last_lng = 0.0;
+        $this->initialized = false;
     }
 }

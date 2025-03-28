@@ -26,7 +26,7 @@ class ActiveTractorResource extends JsonResource
                 'name' => $this->driver->name,
                 'mobile' => $this->driver->mobile,
             ],
-            'status' => $this->gpsReports->first()->status ?? 0,
+            'status' => $this->is_working,
         ];
     }
 }
