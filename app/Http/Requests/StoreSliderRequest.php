@@ -11,7 +11,7 @@ class StoreSliderRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        return $this->user()->can('create', \App\Models\Slider::class);
     }
 
     /**
@@ -23,9 +23,9 @@ class StoreSliderRequest extends FormRequest
     {
         return [
             'name' => 'required|string|unique:sliders',
-            'images' => 'required|array',
-            'images.*.sort_order' => 'required|integer',
-            'images.*.file' => 'required|image|max:2048',
+            'images' => 'required|array|min:1',
+            'images.*.sort_order' => 'required|integer|min:0',
+            'images.*.file' => 'required|image|max:5120',
             'page' => 'required|string',
             'is_active' => 'required|boolean',
             'interval' => 'required|integer|min:1',

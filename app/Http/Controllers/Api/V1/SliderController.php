@@ -4,20 +4,28 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreSliderRequest;
+use App\Http\Requests\UpdateSliderRequest;
 use App\Http\Resources\SliderResource;
 use App\Models\Slider;
 use Illuminate\Http\Request;
 
 class SliderController extends Controller
 {
+    public function __construct()
+    {
+        $this->authorizeResource(Slider::class, 'slider');
+    }
+
     /**
      * Display a listing of the resource.
      */
     public function index()
     {
-        $sliders = request()->query('page')
-            ? Slider::where('page', request()->query('page'))->get()
-            : Slider::all();
+        $sliders = Slider::query()
+            ->when(request()->has('page'), function ($query) {
+                $query->where('page', request()->get('page'));
+            })
+            ->get();
 
         return SliderResource::collection($sliders);
     }
@@ -27,48 +35,48 @@ class SliderController extends Controller
      */
     public function store(StoreSliderRequest $request)
     {
-        $images = [];
-
-        foreach ($request->images as $image) {
-            $images[] = [
-                'sort_order' => $image['sort_order'],
-                'file' => url('storage/' . $image['file']->store('sliders', 'public')),
-            ];
-        }
-
         $slider = Slider::create([
             'name' => $request->name,
-            'images' => $images,
             'page' => $request->page,
             'is_active' => $request->is_active,
             'interval' => $request->interval,
+            'images' => collect($request->images)->map(function ($imageData) {
+                $path = $imageData['file']->store('slides', 'public');
+                return [
+                    'path' => $path,
+                    'sort_order' => $imageData['sort_order'],
+                ];
+            }),
         ]);
 
         return new SliderResource($slider);
     }
 
     /**
+     * Display the specified resource.
+     */
+    public function show(Slider $slider)
+    {
+        return new SliderResource($slider);
+    }
+
+    /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Slider $slider)
+    public function update(UpdateSliderRequest $request, Slider $slider)
     {
-        $images = $slider->images;
-
-        foreach ($request->images as $image) {
-            if (isset($image['file'])) {
-                $images[] = [
-                    'sort_order' => $image['sort_order'],
-                    'file' => $image['file']->store('sliders', 'public'),
-                ];
-            }
-        }
-
         $slider->update([
             'name' => $request->name,
-            'images' => $images,
             'page' => $request->page,
             'is_active' => $request->is_active,
             'interval' => $request->interval,
+            'images' => collect($request->images)->map(function ($imageData) {
+                $path = $imageData['file']->store('slides', 'public');
+                return [
+                    'path' => $path,
+                    'sort_order' => $imageData['sort_order'],
+                ];
+            }),
         ]);
 
         return new SliderResource($slider);

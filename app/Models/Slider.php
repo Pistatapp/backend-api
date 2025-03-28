@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Slider extends Model
 {
+    use HasFactory;
+
     /**
      * The attributes that are mass assignable.
      *
@@ -31,5 +34,11 @@ class Slider extends Model
             'images' => 'array',
             'interval' => 'integer',
         ];
+    }
+
+    // Scope to filter only active sliders
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
     }
 }

@@ -74,6 +74,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
 
     Route::delete('/pests/{pest}/image', [PestController::class, 'deleteImage']);
     Route::apiResource('pests', PestController::class);
+    Route::apiResource('sliders', SliderController::class);
 
     Route::middleware('role:root')->group(function () {
 
@@ -87,15 +88,6 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
             });
 
         Route::apiSingleton('crop_types.load_estimation', LoadEstimationController::class);
-
-        Route::controller(SliderController::class)->prefix('sliders')->group(function () {
-            Route::withoutMiddleware('role:root')->group(function () {
-                Route::get('/', 'index');
-            });
-            Route::post('/', 'store');
-            Route::put('/{slider}', 'update');
-            Route::delete('/{slider}', 'destroy');
-        });
     });
 
     Route::withoutMiddleware('ensure.username')->group(function () {
@@ -186,7 +178,6 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
         Route::put('/', [UserPreferenceController::class, 'update']);
         Route::delete('/', [UserPreferenceController::class, 'reset']);
     });
-
 });
 
 Route::post('/gps/reports', GpsReportController::class)->name('gps.reports');

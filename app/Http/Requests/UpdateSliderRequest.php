@@ -11,7 +11,7 @@ class UpdateSliderRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        return $this->user()->can('update', $this->route('slider'));
     }
 
     /**
@@ -22,7 +22,7 @@ class UpdateSliderRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => 'required|string|unique:sliders,name,' . $this->slider->id,
+            'name' => 'required|string|unique:sliders,name,' . $this->route('slider')->id,
             'images' => 'required|array',
             'images.*.sort_order' => 'required|integer',
             'images.*.file' => 'nullable|image|max:2048',

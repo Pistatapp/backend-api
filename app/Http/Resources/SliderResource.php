@@ -17,10 +17,15 @@ class SliderResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
-            'images' => $this->images,
             'page' => $this->page,
             'is_active' => $this->is_active,
             'interval' => $this->interval,
+            'images' => collect($this->images)->map(function ($image) {
+                return [
+                    'sort_order' => $image['sort_order'],
+                    'url' => asset('storage/' . $image['path']),
+                ];
+            })->sortBy('sort_order')->values(),
         ];
     }
 }
