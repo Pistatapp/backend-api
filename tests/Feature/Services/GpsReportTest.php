@@ -11,6 +11,7 @@ use App\Events\TractorStatus;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
 
 class GpsReportTest extends TestCase
 {
@@ -39,7 +40,7 @@ class GpsReportTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_processes_gps_report_and_broadcasts_events()
     {
         Event::fake([ReportReceived::class, TractorStatus::class]);
@@ -72,7 +73,7 @@ class GpsReportTest extends TestCase
         Event::assertDispatched(TractorStatus::class);
     }
 
-    /** @test */
+    #[Test]
     public function it_calculates_travel_metrics_for_multiple_reports()
     {
         $jsonData = [
@@ -94,7 +95,7 @@ class GpsReportTest extends TestCase
         $this->assertEquals(20, $dailyReport->max_speed);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_invalid_device_imei()
     {
         $jsonData = [
@@ -111,7 +112,7 @@ class GpsReportTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_updates_existing_daily_report()
     {
         // First report

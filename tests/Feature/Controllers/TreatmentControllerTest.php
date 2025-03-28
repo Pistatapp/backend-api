@@ -8,7 +8,7 @@ use App\Models\Farm;
 use App\Models\Treatment;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Event\Code\Test;
 
 class TreatmentControllerTest extends TestCase
 {

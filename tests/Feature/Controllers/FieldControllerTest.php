@@ -7,6 +7,7 @@ use App\Models\Field;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class FieldControllerTest extends TestCase
 {
@@ -31,7 +32,7 @@ class FieldControllerTest extends TestCase
         $this->actingAs($this->user);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_list_fields_of_a_farm()
     {
         Field::factory()->count(3)->create(['farm_id' => $this->farm->id]);
@@ -41,7 +42,7 @@ class FieldControllerTest extends TestCase
         $response->assertOk();
     }
 
-    /** @test */
+    #[Test]
     public function it_can_create_a_field()
     {
         $data = [
@@ -66,7 +67,7 @@ class FieldControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_update_a_field()
     {
         $field = Field::factory()->create(['farm_id' => $this->farm->id]);
@@ -93,7 +94,7 @@ class FieldControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_delete_a_field()
     {
         $field = Field::factory()->create(['farm_id' => $this->farm->id]);

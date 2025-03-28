@@ -8,6 +8,7 @@ use App\Models\Farm;
 use App\Models\Maintenance;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
 
 class MaintenanceControllerTest extends TestCase
 {
@@ -30,7 +31,7 @@ class MaintenanceControllerTest extends TestCase
         $this->actingAs($this->user);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_get_list_of_maintenances()
     {
         // Create some test maintenances
@@ -53,7 +54,7 @@ class MaintenanceControllerTest extends TestCase
         $this->assertCount(3, $response->json('data'));
     }
 
-    /** @test */
+    #[Test]
     public function user_can_search_maintenances()
     {
         // Create test maintenances with specific names
@@ -73,7 +74,7 @@ class MaintenanceControllerTest extends TestCase
         $this->assertEquals('Oil Change', $response->json('data.0.name'));
     }
 
-    /** @test */
+    #[Test]
     public function user_can_create_maintenance()
     {
         $response = $this->postJson("/api/farms/{$this->farm->id}/maintenances", [
@@ -94,7 +95,7 @@ class MaintenanceControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function user_cannot_create_maintenance_without_name()
     {
         $response = $this->postJson("/api/farms/{$this->farm->id}/maintenances", [
@@ -105,7 +106,7 @@ class MaintenanceControllerTest extends TestCase
             ->assertJsonValidationErrors(['name']);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_update_maintenance()
     {
         $maintenance = Maintenance::factory()->create([
@@ -126,7 +127,7 @@ class MaintenanceControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function user_cannot_update_maintenance_with_empty_name()
     {
         $maintenance = Maintenance::factory()->create([
@@ -141,7 +142,7 @@ class MaintenanceControllerTest extends TestCase
             ->assertJsonValidationErrors(['name']);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_delete_maintenance()
     {
         $maintenance = Maintenance::factory()->create([

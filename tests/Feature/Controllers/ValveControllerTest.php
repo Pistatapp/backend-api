@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\Valve;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class ValveControllerTest extends TestCase
 {
@@ -42,7 +43,7 @@ class ValveControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_list_valves()
     {
         $valves = Valve::factory()->count(3)->create([
@@ -70,7 +71,7 @@ class ValveControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_create_valve()
     {
         $valveData = [
@@ -95,7 +96,7 @@ class ValveControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_view_single_valve()
     {
         $valve = Valve::factory()->create([
@@ -115,7 +116,7 @@ class ValveControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_update_valve()
     {
         $valve = Valve::factory()->create([
@@ -145,7 +146,7 @@ class ValveControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_delete_valve()
     {
         $valve = Valve::factory()->create([
@@ -160,7 +161,7 @@ class ValveControllerTest extends TestCase
         $this->assertDatabaseMissing('valves', ['id' => $valve->id]);
     }
 
-    /** @test */
+    #[Test]
     public function validate_required_fields_when_creating_valve()
     {
         $response = $this->actingAs($this->user)
@@ -170,7 +171,7 @@ class ValveControllerTest extends TestCase
             ->assertJsonValidationErrors(['name', 'location', 'flow_rate', 'field_id']);
     }
 
-    /** @test */
+    #[Test]
     public function validate_flow_rate_range()
     {
         $valveData = [

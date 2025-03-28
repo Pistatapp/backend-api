@@ -7,6 +7,7 @@ use App\Models\Pump;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class PumpControllerTest extends TestCase
 {
@@ -32,7 +33,7 @@ class PumpControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_list_pumps()
     {
         // Create some pumps
@@ -68,7 +69,7 @@ class PumpControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_view_single_pump()
     {
         $pump = Pump::factory()->create([
@@ -88,7 +89,7 @@ class PumpControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_create_pump()
     {
         $pumpData = [
@@ -115,7 +116,7 @@ class PumpControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function user_cannot_create_pump_with_duplicate_name_in_same_farm()
     {
         // Create first pump
@@ -145,7 +146,7 @@ class PumpControllerTest extends TestCase
             ->assertJsonValidationErrors(['name']);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_create_pump_with_same_name_in_different_farm()
     {
         // Create first pump in first farm
@@ -184,7 +185,7 @@ class PumpControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_update_pump()
     {
         $pump = Pump::factory()->create([
@@ -218,7 +219,7 @@ class PumpControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function user_cannot_update_pump_with_duplicate_name_in_same_farm()
     {
         // Create two pumps
@@ -253,7 +254,7 @@ class PumpControllerTest extends TestCase
             ->assertJsonValidationErrors(['name']);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_delete_pump()
     {
         $pump = Pump::factory()->create([

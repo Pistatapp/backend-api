@@ -4,6 +4,7 @@ namespace Tests\Unit\Services;
 
 use Tests\TestCase;
 use App\Services\KalmanFilter;
+use PHPUnit\Framework\Attributes\Test;
 
 class KalmanFilterTest extends TestCase
 {
@@ -15,7 +16,7 @@ class KalmanFilterTest extends TestCase
         $this->filter = new KalmanFilter();
     }
 
-    /** @test */
+    #[Test]
     public function it_initializes_with_first_coordinate()
     {
         $result = $this->filter->filter(34.884065, 50.599625);
@@ -24,7 +25,7 @@ class KalmanFilterTest extends TestCase
         $this->assertEquals(50.599625, $result['longitude']);
     }
 
-    /** @test */
+    #[Test]
     public function it_smooths_noisy_coordinates()
     {
         // First point
@@ -40,7 +41,7 @@ class KalmanFilterTest extends TestCase
         $this->assertLessThan(50.599627, $result['longitude']);
     }
 
-    /** @test */
+    #[Test]
     public function it_resets_filter_state()
     {
         // Initial point
@@ -55,7 +56,7 @@ class KalmanFilterTest extends TestCase
         $this->assertEquals(50.599630, $result['longitude']);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_large_position_jumps()
     {
         // Initial position

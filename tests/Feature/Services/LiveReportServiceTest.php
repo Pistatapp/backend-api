@@ -9,6 +9,7 @@ use App\Models\Tractor;
 use App\Models\GpsDailyReport;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
 
 class LiveReportServiceTest extends TestCase
 {
@@ -81,7 +82,7 @@ class LiveReportServiceTest extends TestCase
         $this->service = new LiveReportService($this->device, $this->reports, cache()->store());
     }
 
-    /** @test */
+    #[Test]
     public function it_calculates_live_report_metrics()
     {
         $report = $this->service->generate();
@@ -103,7 +104,7 @@ class LiveReportServiceTest extends TestCase
         $this->assertCount(3, $report['points']);
     }
 
-    /** @test */
+    #[Test]
     public function it_calculates_efficiency_correctly()
     {
         $report = $this->service->generate();
@@ -114,7 +115,7 @@ class LiveReportServiceTest extends TestCase
         $this->assertEquals(round($expectedEfficiency, 2), round($report['efficiency'], 2));
     }
 
-    /** @test */
+    #[Test]
     public function it_tracks_stoppage_time()
     {
         $report = $this->service->generate();
@@ -125,7 +126,7 @@ class LiveReportServiceTest extends TestCase
         $this->assertEquals(2, $report['stoppage_count']);
     }
 
-    /** @test */
+    #[Test]
     public function it_calculates_traveled_distance()
     {
         $report = $this->service->generate();
@@ -135,7 +136,7 @@ class LiveReportServiceTest extends TestCase
         $this->assertGreaterThan(0, $report['traveled_distance']);
     }
 
-    /** @test */
+    #[Test]
     public function it_correctly_sets_tractor_working_times()
     {
         $startTime = now()->subHours(2);
@@ -156,7 +157,7 @@ class LiveReportServiceTest extends TestCase
         $this->assertEquals(10, $expectedWorkHours);
     }
 
-    /** @test */
+    #[Test]
     public function it_does_not_calculate_metrics_if_tractor_is_not_in_task_field()
     {
         $this->device->tractor->update([
@@ -175,7 +176,7 @@ class LiveReportServiceTest extends TestCase
         $this->assertCount(3, $report['points']);
     }
 
-    /** @test */
+    #[Test]
     public function it_detects_actual_working_times_from_gps_reports()
     {
         // Set theoretical working hours

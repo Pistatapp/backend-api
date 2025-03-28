@@ -7,6 +7,7 @@ use App\Models\Tractor;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class TractorReportsFilterTest extends TestCase
 {
@@ -23,7 +24,7 @@ class TractorReportsFilterTest extends TestCase
         $this->actingAs($this->user);
     }
 
-    /** @test */
+    #[Test]
     public function it_filters_reports_by_tractor_and_date(): void
     {
         $tractor = Tractor::factory()->create();
@@ -162,7 +163,7 @@ class TractorReportsFilterTest extends TestCase
         $this->assertEquals(75, $expectations['total_efficiency']); // (21600 / 28800) * 100
     }
 
-    /** @test */
+    #[Test]
     public function it_filters_reports_by_tractor_operation_and_date(): void
     {
         $tractor = Tractor::factory()->create();
@@ -282,7 +283,7 @@ class TractorReportsFilterTest extends TestCase
         $this->assertEquals(37.5, $expectations['total_efficiency']); // (10800 / 28800) * 100
     }
 
-    /** @test */
+    #[Test]
     public function it_filters_reports_by_tractor_and_current_month(): void
     {
         $tractor = Tractor::factory()->create();
@@ -354,7 +355,7 @@ class TractorReportsFilterTest extends TestCase
         $this->assertEquals(5400, $accumulated['stoppage_duration']); // 3 tasks * 1800
     }
 
-    /** @test */
+    #[Test]
     public function it_filters_reports_by_tractor_and_current_year(): void
     {
         $tractor = Tractor::factory()->create();
@@ -428,7 +429,7 @@ class TractorReportsFilterTest extends TestCase
         $this->assertEquals(5400, $accumulated['stoppage_duration']); // 3 tasks * 1800
     }
 
-    /** @test */
+    #[Test]
     public function it_filters_reports_by_tractor_and_specific_month(): void
     {
         $tractor = Tractor::factory()->create();
@@ -504,7 +505,7 @@ class TractorReportsFilterTest extends TestCase
         $this->assertEquals(3600, $accumulated['stoppage_duration']); // 2 tasks * 1800
     }
 
-    /** @test */
+    #[Test]
     public function it_filters_reports_by_tractor_and_persian_year(): void
     {
         $tractor = Tractor::factory()->create();
@@ -581,7 +582,7 @@ class TractorReportsFilterTest extends TestCase
         $this->assertEquals(5400, $accumulated['stoppage_duration']); // 3 tasks * 1800
     }
 
-    /** @test */
+    #[Test]
     public function it_filters_reports_by_specific_persian_year(): void
     {
         $tractor = Tractor::factory()->create();

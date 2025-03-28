@@ -10,6 +10,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 /**
  * @method void actingAs(\Illuminate\Contracts\Auth\Authenticatable $user, string|null $guard = null)
@@ -41,7 +42,7 @@ class AttachmentControllerTest extends TestCase
         $this->farm->users()->attach($this->user->id, ['is_owner' => true]);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_upload_attachment()
     {
         $this->actingAs($this->user);
@@ -77,7 +78,7 @@ class AttachmentControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_update_attachment()
     {
         $this->actingAs($this->user);
@@ -116,7 +117,7 @@ class AttachmentControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_delete_attachment()
     {
         $this->actingAs($this->user);
@@ -136,7 +137,7 @@ class AttachmentControllerTest extends TestCase
         $this->assertDatabaseMissing('media', ['model_id' => $attachment->id]);
     }
 
-    /** @test */
+    #[Test]
     public function unauthorized_user_cannot_modify_others_attachment()
     {
         $otherUser = User::factory()->create();

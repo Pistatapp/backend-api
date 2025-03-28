@@ -10,6 +10,7 @@ use App\Models\TractorTask;
 use App\Models\Field;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
 
 class TaskSpecificDailyReportTest extends TestCase
 {
@@ -86,7 +87,7 @@ class TaskSpecificDailyReportTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_creates_separate_daily_reports_for_different_tasks()
     {
         // Force task1 to start since we're within its time window
@@ -129,7 +130,7 @@ class TaskSpecificDailyReportTest extends TestCase
         $this->assertNotEquals($firstTaskReport->id, $secondTaskReport->id);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_gps_reports_outside_task_areas()
     {
         // Send GPS report way outside any task area
@@ -155,7 +156,7 @@ class TaskSpecificDailyReportTest extends TestCase
         $this->assertNull($defaultReport->tractor_task_id, 'Default report should not be associated with any task.');
     }
 
-    /** @test */
+    #[Test]
     public function it_accumulates_metrics_separately_for_each_task()
     {
         // Force task1 to start since we're within its time window
@@ -204,7 +205,7 @@ class TaskSpecificDailyReportTest extends TestCase
         $this->assertNotEquals($firstTaskReport->traveled_distance, $secondTaskReport->traveled_distance, 'Metrics for tasks should be independent.');
     }
 
-    /** @test */
+    #[Test]
     public function it_correctly_loads_task_area_coordinates()
     {
         // Verify task1's area matches field1's coordinates

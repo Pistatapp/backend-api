@@ -12,6 +12,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Database\Seeders\RolePermissionSeeder;
+use PHPUnit\Framework\Attributes\Test;
 
 class TreeControllerTest extends TestCase
 {
@@ -50,7 +51,7 @@ class TreeControllerTest extends TestCase
         $this->actingAs($this->user);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_list_trees_of_a_row()
     {
         Tree::factory()->count(3)->create([
@@ -72,7 +73,7 @@ class TreeControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_store_a_new_tree()
     {
         Storage::fake('public');
@@ -104,7 +105,7 @@ class TreeControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_store_request()
     {
         $response = $this->postJson("/api/rows/{$this->row->id}/trees", []);
@@ -117,7 +118,7 @@ class TreeControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_show_tree_details()
     {
         $tree = Tree::factory()->create([
@@ -139,7 +140,7 @@ class TreeControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_update_a_tree()
     {
         $tree = Tree::factory()->create([
@@ -173,7 +174,7 @@ class TreeControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_update_request()
     {
         $tree = Tree::factory()->create([
@@ -190,7 +191,7 @@ class TreeControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_batch_store_trees()
     {
         $data = [
@@ -220,7 +221,7 @@ class TreeControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_batch_store_request()
     {
         $response = $this->postJson("/api/rows/{$this->row->id}/trees/batch_store", []);
@@ -229,7 +230,7 @@ class TreeControllerTest extends TestCase
             ->assertJsonValidationErrors(['trees']);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_delete_a_tree()
     {
         $tree = Tree::factory()->create([

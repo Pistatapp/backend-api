@@ -7,6 +7,7 @@ use Tests\TestCase;
 use App\Models\Labour;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
 
 class LabourControllerTest extends TestCase
 {
@@ -29,7 +30,7 @@ class LabourControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_list_all_labours()
     {
         Labour::factory(3)->create([
@@ -42,7 +43,7 @@ class LabourControllerTest extends TestCase
         $response->assertJsonCount(3);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_create_a_labour()
     {
         $data = [
@@ -66,7 +67,7 @@ class LabourControllerTest extends TestCase
         $this->assertDatabaseHas('labours', array_merge($data, ['farm_id' => $this->farm->id]));
     }
 
-    /** @test */
+    #[Test]
     public function it_can_update_a_labour()
     {
         $labour = Labour::factory()->create([
@@ -97,7 +98,7 @@ class LabourControllerTest extends TestCase
         $this->assertDatabaseHas('labours', ['id' => $labour->id, 'fname' => 'Updated Name']);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_delete_a_labour()
     {
         $labour = Labour::factory()->create(['farm_id' => $this->farm->id]);
@@ -108,7 +109,7 @@ class LabourControllerTest extends TestCase
         $this->assertDatabaseMissing('labours', ['id' => $labour->id]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_search_labours()
     {
         Labour::factory()->create([

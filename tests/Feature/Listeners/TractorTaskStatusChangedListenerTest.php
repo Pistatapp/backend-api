@@ -15,6 +15,7 @@ use App\Listeners\TractorTaskStatusChangedListener;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Event;
+use PHPUnit\Framework\Attributes\Test;
 
 class TractorTaskStatusChangedListenerTest extends TestCase
 {
@@ -47,7 +48,7 @@ class TractorTaskStatusChangedListenerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_sends_success_notification_when_task_completed_with_gps_data()
     {
         Notification::fake();
@@ -78,7 +79,7 @@ class TractorTaskStatusChangedListenerTest extends TestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function it_sends_failure_notification_when_task_completed_without_gps_data()
     {
         Notification::fake();
@@ -98,7 +99,7 @@ class TractorTaskStatusChangedListenerTest extends TestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function it_sends_failure_notification_when_task_has_gps_report_but_no_movement()
     {
         Notification::fake();
@@ -129,7 +130,7 @@ class TractorTaskStatusChangedListenerTest extends TestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function it_does_not_send_notification_for_non_finished_status()
     {
         Notification::fake();
@@ -142,7 +143,7 @@ class TractorTaskStatusChangedListenerTest extends TestCase
         Notification::assertNothingSent();
     }
 
-    /** @test */
+    #[Test]
     public function it_includes_correct_persian_date_in_message()
     {
         Notification::fake();
@@ -165,7 +166,7 @@ class TractorTaskStatusChangedListenerTest extends TestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function it_does_not_throw_exceptions_when_sending_notification()
     {
         Notification::fake();

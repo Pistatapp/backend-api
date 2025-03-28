@@ -7,6 +7,7 @@ use App\Models\Farm;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use PHPUnit\Framework\Attributes\Test;
 
 class WeatherForecastControllerTest extends TestCase
 {
@@ -93,7 +94,7 @@ class WeatherForecastControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_get_current_weather()
     {
         $response = $this->postJson(route('farms.weather_forecast', [
@@ -126,7 +127,7 @@ class WeatherForecastControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_get_forecast_weather()
     {
         $response = $this->postJson(route('farms.weather_forecast', [
@@ -167,7 +168,7 @@ class WeatherForecastControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_get_historical_weather()
     {
         $response = $this->postJson(route('farms.weather_forecast', [
@@ -210,7 +211,7 @@ class WeatherForecastControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_history_type_requires_dates()
     {
         $response = $this->postJson(route('farms.weather_forecast', [
@@ -222,7 +223,7 @@ class WeatherForecastControllerTest extends TestCase
             ->assertJsonValidationErrors(['start_date', 'end_date']);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_date_range_for_historical_weather()
     {
         $response = $this->postJson(route('farms.weather_forecast', [
@@ -236,7 +237,7 @@ class WeatherForecastControllerTest extends TestCase
             ->assertJsonValidationErrors(['start_date']);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_end_date_must_be_after_start_date()
     {
         $response = $this->postJson(route('farms.weather_forecast', [

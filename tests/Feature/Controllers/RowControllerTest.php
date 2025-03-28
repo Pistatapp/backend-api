@@ -8,6 +8,7 @@ use App\Models\Row;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class RowControllerTest extends TestCase
 {
@@ -31,7 +32,7 @@ class RowControllerTest extends TestCase
         $this->actingAs($this->user);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_list_rows_of_a_field()
     {
         Row::factory()->count(3)->create(['field_id' => $this->field->id]);
@@ -48,7 +49,7 @@ class RowControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_create_rows_for_a_field()
     {
         $data = [
@@ -72,7 +73,7 @@ class RowControllerTest extends TestCase
         $this->assertDatabaseHas('rows', ['name' => 'Row 2', 'field_id' => $this->field->id]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_show_a_row()
     {
         $row = Row::factory()->create(['field_id' => $this->field->id]);
@@ -87,7 +88,7 @@ class RowControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_delete_a_row()
     {
         $row = Row::factory()->create(['field_id' => $this->field->id]);

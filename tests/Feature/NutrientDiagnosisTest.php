@@ -15,6 +15,7 @@ use App\Notifications\NutrientDiagnosisResponse;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\WithFaker;
 use Illuminate\Support\Facades\Storage;
+use PHPUnit\Framework\Attributes\Test;
 
 /**
  * Tests for nutrient diagnosis request functionality.
@@ -56,10 +57,7 @@ class NutrientDiagnosisTest extends TestCase
         Storage::fake('public');
     }
 
-    /**
-     * @test
-     * Test that a user can create a nutrient diagnosis request successfully.
-     */
+    #[Test]
     public function user_can_create_nutrient_diagnosis_request()
     {
         $response = $this->actingAs($this->user)->postJson("/api/farms/{$this->farm->id}/nutrient_diagnosis", [
@@ -101,10 +99,7 @@ class NutrientDiagnosisTest extends TestCase
         );
     }
 
-    /**
-     * @test
-     * Test that a user cannot create a nutrient diagnosis request for an unauthorized farm.
-     */
+    #[Test]
     public function user_cannot_create_request_for_unauthorized_farm()
     {
         $unauthorizedFarm = Farm::factory()->create();
@@ -132,10 +127,7 @@ class NutrientDiagnosisTest extends TestCase
         $response->assertStatus(403);
     }
 
-    /**
-     * @test
-     * Test that a user can view their nutrient diagnosis requests.
-     */
+    #[Test]
     public function user_can_view_their_requests()
     {
         // Create a request
@@ -152,10 +144,7 @@ class NutrientDiagnosisTest extends TestCase
             ->assertJsonPath('data.0.id', $request->id);
     }
 
-    /**
-     * @test
-     * Test that a root user can view all nutrient diagnosis requests.
-     */
+    #[Test]
     public function root_user_can_view_all_requests()
     {
         // Create requests for different users
@@ -177,10 +166,7 @@ class NutrientDiagnosisTest extends TestCase
             ->assertJsonCount(2, 'data');
     }
 
-    /**
-     * @test
-     * Test that a root user can respond to a nutrient diagnosis request.
-     */
+    #[Test]
     public function root_user_can_respond_to_request()
     {
         // Create a request
@@ -213,10 +199,7 @@ class NutrientDiagnosisTest extends TestCase
         );
     }
 
-    /**
-     * @test
-     * Test that a user can delete their pending nutrient diagnosis request.
-     */
+    #[Test]
     public function user_can_delete_their_pending_request()
     {
         $request = NutrientDiagnosisRequest::factory()->create([
@@ -232,10 +215,7 @@ class NutrientDiagnosisTest extends TestCase
         $this->assertDatabaseMissing('nutrient_diagnosis_requests', ['id' => $request->id]);
     }
 
-    /**
-     * @test
-     * Test that a user cannot delete a completed nutrient diagnosis request.
-     */
+    #[Test]
     public function user_cannot_delete_completed_request()
     {
         $request = NutrientDiagnosisRequest::factory()->create([

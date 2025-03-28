@@ -11,6 +11,7 @@ use App\Models\Tractor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Database\Seeders\RolePermissionSeeder;
 use App\Models\Farm;
+use PHPUnit\Framework\Attributes\Test;
 
 class MaintenanceReportControllerTest extends TestCase
 {
@@ -46,7 +47,7 @@ class MaintenanceReportControllerTest extends TestCase
         $this->actingAs($this->user);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_list_maintenance_reports()
     {
         MaintenanceReport::factory()->count(3)->create([
@@ -77,7 +78,7 @@ class MaintenanceReportControllerTest extends TestCase
         $this->assertCount(3, $response->json('data'));
     }
 
-    /** @test */
+    #[Test]
     public function it_can_store_new_maintenance_report()
     {
         $data = [
@@ -102,7 +103,7 @@ class MaintenanceReportControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_store_request()
     {
         $response = $this->postJson('/api/maintenance_reports', []);
@@ -118,7 +119,7 @@ class MaintenanceReportControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_show_maintenance_report()
     {
         $report = MaintenanceReport::factory()->create([
@@ -145,7 +146,7 @@ class MaintenanceReportControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_update_maintenance_report()
     {
         $report = MaintenanceReport::factory()->create([
@@ -184,7 +185,7 @@ class MaintenanceReportControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_update_request()
     {
         $report = MaintenanceReport::factory()->create([
@@ -206,7 +207,7 @@ class MaintenanceReportControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_delete_maintenance_report()
     {
         $report = MaintenanceReport::factory()->create([
@@ -223,7 +224,7 @@ class MaintenanceReportControllerTest extends TestCase
         $this->assertDatabaseMissing('maintenance_reports', ['id' => $report->id]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_filter_maintenance_reports()
     {
         // Create reports with different dates
@@ -259,7 +260,7 @@ class MaintenanceReportControllerTest extends TestCase
         $this->assertCount(2, $response->json('data'));
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_filter_request()
     {
         $response = $this->postJson('/api/maintenance_reports/filter', []);

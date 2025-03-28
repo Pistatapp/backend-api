@@ -8,6 +8,7 @@ use App\Models\Crop;
 use App\Models\Farm;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
 
 class FarmControllerTest extends TestCase
 {
@@ -33,7 +34,7 @@ class FarmControllerTest extends TestCase
         $this->actingAs($this->user);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_get_their_farms()
     {
         $response = $this->getJson('/api/farms');
@@ -58,7 +59,7 @@ class FarmControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_create_farm()
     {
         $crop = Crop::factory()->create();
@@ -99,7 +100,7 @@ class FarmControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_view_single_farm()
     {
         $response = $this->getJson("/api/farms/{$this->farm->id}");
@@ -124,7 +125,7 @@ class FarmControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_update_farm()
     {
         $crop = Crop::factory()->create();
@@ -156,7 +157,7 @@ class FarmControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_delete_farm()
     {
         $response = $this->deleteJson("/api/farms/{$this->farm->id}");
@@ -165,7 +166,7 @@ class FarmControllerTest extends TestCase
         $this->assertDatabaseMissing('farms', ['id' => $this->farm->id]);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_set_farm_as_working_environment()
     {
         $response = $this->getJson("/api/farms/{$this->farm->id}/set_working_environment");
@@ -176,7 +177,7 @@ class FarmControllerTest extends TestCase
         $this->assertEquals($this->farm->id, $this->user->preferences['working_environment']);
     }
 
-    /** @test */
+    #[Test]
     public function owner_can_attach_user_to_farm()
     {
         $newUser = User::factory()->create();
@@ -197,7 +198,7 @@ class FarmControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function owner_can_detach_user_from_farm()
     {
         $otherUser = User::factory()->create();
@@ -219,7 +220,7 @@ class FarmControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function non_admin_cannot_attach_user_to_farm()
     {
         $regularUser = User::factory()->create();
@@ -236,7 +237,7 @@ class FarmControllerTest extends TestCase
         $response->assertForbidden();
     }
 
-    /** @test */
+    #[Test]
     public function cannot_attach_user_with_admin_role()
     {
         $newUser = User::factory()->create();

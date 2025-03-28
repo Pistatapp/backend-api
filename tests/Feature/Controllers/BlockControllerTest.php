@@ -8,6 +8,7 @@ use App\Models\Field;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class BlockControllerTest extends TestCase
 {
@@ -37,7 +38,7 @@ class BlockControllerTest extends TestCase
         $this->actingAs($this->user);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_list_blocks_of_a_field()
     {
         // Create some test blocks
@@ -61,7 +62,7 @@ class BlockControllerTest extends TestCase
         $this->assertCount(3, $response->json('data'));
     }
 
-    /** @test */
+    #[Test]
     public function it_can_store_new_block()
     {
         $data = [
@@ -90,7 +91,7 @@ class BlockControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_store_request()
     {
         $response = $this->postJson("/api/fields/{$this->field->id}/blocks", []);
@@ -102,7 +103,7 @@ class BlockControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_show_block_details()
     {
         $block = Block::factory()->create([
@@ -121,7 +122,7 @@ class BlockControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_update_block()
     {
         $block = Block::factory()->create([
@@ -154,7 +155,7 @@ class BlockControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_update_request()
     {
         $block = Block::factory()->create([
@@ -170,7 +171,7 @@ class BlockControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_delete_block()
     {
         $block = Block::factory()->create([

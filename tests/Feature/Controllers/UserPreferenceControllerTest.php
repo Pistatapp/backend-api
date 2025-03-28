@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class UserPreferenceControllerTest extends TestCase
 {
@@ -25,7 +26,7 @@ class UserPreferenceControllerTest extends TestCase
         $this->user = User::factory()->create();
     }
 
-    /** @test */
+    #[Test]
     public function unauthorized_users_cannot_access_preferences()
     {
         $response = $this->getJson('/api/preferences');
@@ -38,7 +39,7 @@ class UserPreferenceControllerTest extends TestCase
         $response->assertUnauthorized();
     }
 
-    /** @test */
+    #[Test]
     public function user_can_get_their_preferences()
     {
         Sanctum::actingAs($this->user);
@@ -56,7 +57,7 @@ class UserPreferenceControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_update_single_preference()
     {
         Sanctum::actingAs($this->user);
@@ -83,7 +84,7 @@ class UserPreferenceControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_update_multiple_preferences()
     {
         Sanctum::actingAs($this->user);
@@ -114,7 +115,7 @@ class UserPreferenceControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_reset_preferences()
     {
         Sanctum::actingAs($this->user);
@@ -143,7 +144,7 @@ class UserPreferenceControllerTest extends TestCase
         $this->assertEquals($this->defaultPreferences, $this->user->fresh()->preferences);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_language_preference()
     {
         Sanctum::actingAs($this->user);
@@ -161,7 +162,7 @@ class UserPreferenceControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_theme_preference()
     {
         Sanctum::actingAs($this->user);
@@ -179,7 +180,7 @@ class UserPreferenceControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_notifications_enabled_preference()
     {
         Sanctum::actingAs($this->user);

@@ -10,6 +10,7 @@ use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\Sanctum;
+use PHPUnit\Framework\Attributes\Test;
 
 class AuthControllerTest extends TestCase
 {
@@ -22,7 +23,7 @@ class AuthControllerTest extends TestCase
         $this->seed(RolePermissionSeeder::class);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_send_verification_token()
     {
         Notification::fake();
@@ -40,7 +41,7 @@ class AuthControllerTest extends TestCase
         Notification::assertSentTo($user, VerifyMobile::class);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_mobile_number_format()
     {
         $response = $this->postJson('/api/auth/send', [
@@ -50,7 +51,7 @@ class AuthControllerTest extends TestCase
         $response->assertStatus(422);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_verify_token_and_login()
     {
         $token = '123456';
@@ -74,7 +75,7 @@ class AuthControllerTest extends TestCase
         $this->assertEquals('test-fcm-token', $user->fcm_token);
     }
 
-    /** @test */
+    #[Test]
     public function it_throttles_login_attempts()
     {
         $user = User::factory()->create([
@@ -98,7 +99,7 @@ class AuthControllerTest extends TestCase
             ->assertJsonValidationErrors(['token']);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_refresh_token()
     {
         $user = User::factory()->create();
@@ -118,7 +119,7 @@ class AuthControllerTest extends TestCase
         $this->assertEquals('new-fcm-token', $user->fcm_token);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_logout()
     {
         $user = User::factory()->create();
@@ -134,7 +135,7 @@ class AuthControllerTest extends TestCase
         $this->assertFalse($user->tokens()->exists());
     }
 
-    /** @test */
+    #[Test]
     public function it_can_get_user_permissions()
     {
         $user = User::factory()->create();
@@ -150,7 +151,7 @@ class AuthControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_working_environment_permissions_when_available()
     {
         $user = User::factory()->create();
@@ -177,7 +178,7 @@ class AuthControllerTest extends TestCase
         $this->assertEquals('admin', $response->json('role'));
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_root_permissions_for_root_user()
     {
         $user = User::factory()->create();
@@ -192,7 +193,7 @@ class AuthControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_token_length()
     {
         $response = $this->postJson('/api/auth/verify', [
@@ -204,7 +205,7 @@ class AuthControllerTest extends TestCase
             ->assertJsonValidationErrors(['token']);
     }
 
-    /** @test */
+    #[Test]
     public function it_creates_user_profile_on_first_verification()
     {
         $token = '123456';

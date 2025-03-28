@@ -5,6 +5,7 @@ namespace Tests\Feature\Services;
 use Tests\TestCase;
 use App\Services\ParseDataService;
 use Carbon\Carbon;
+use PHPUnit\Framework\Attributes\Test;
 
 class ParseDataServiceTest extends TestCase
 {
@@ -17,7 +18,7 @@ class ParseDataServiceTest extends TestCase
         Carbon::setTestNow('2024-01-24 07:02:00');
     }
 
-    /** @test */
+    #[Test]
     public function it_parses_valid_gps_data()
     {
         $data = json_encode([
@@ -43,7 +44,7 @@ class ParseDataServiceTest extends TestCase
         ], $result[0]);
     }
 
-    /** @test */
+    #[Test]
     public function it_filters_out_invalid_format()
     {
         $data = json_encode([
@@ -57,7 +58,7 @@ class ParseDataServiceTest extends TestCase
         $this->assertEquals('863070043386100', $result[0]['imei']);
     }
 
-    /** @test */
+    #[Test]
     public function it_filters_out_old_dates()
     {
         $data = json_encode([
@@ -71,7 +72,7 @@ class ParseDataServiceTest extends TestCase
         $this->assertEquals('240124 103200', $result[0]['date_time']->format('dmy His'));
     }
 
-    /** @test */
+    #[Test]
     public function it_sorts_results_by_datetime()
     {
         $data = json_encode([

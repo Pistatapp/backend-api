@@ -8,6 +8,7 @@ use Tests\TestCase;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
 
 class TeamControllerTest extends TestCase
 {
@@ -31,7 +32,7 @@ class TeamControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_list_all_teams()
     {
         Team::factory(3)->create([
@@ -44,7 +45,7 @@ class TeamControllerTest extends TestCase
         $response->assertJsonCount(3, 'data');
     }
 
-    /** @test */
+    #[Test]
     public function it_can_create_a_team()
     {
         $supervisor = Labour::factory()->create(['farm_id' => $this->farm->id]);
@@ -69,7 +70,7 @@ class TeamControllerTest extends TestCase
         $this->assertEquals($labours->pluck('id')->toArray(), $team->labours->pluck('id')->toArray());
     }
 
-    /** @test */
+    #[Test]
     public function it_can_update_a_team()
     {
         $team = Team::factory()->create(['farm_id' => $this->farm->id]);
@@ -95,7 +96,7 @@ class TeamControllerTest extends TestCase
         $this->assertEquals($newLabours->pluck('id')->toArray(), $team->labours->pluck('id')->toArray());
     }
 
-    /** @test */
+    #[Test]
     public function it_can_delete_a_team()
     {
         $team = Team::factory()->create(['farm_id' => $this->farm->id]);
@@ -106,7 +107,7 @@ class TeamControllerTest extends TestCase
         $this->assertDatabaseMissing('teams', ['id' => $team->id]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_search_teams()
     {
         Team::factory()->create([
