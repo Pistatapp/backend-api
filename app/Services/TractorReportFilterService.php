@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Tractor;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use Morilog\Jalali\Jalalian;
 
 class TractorReportFilterService
@@ -25,6 +26,15 @@ class TractorReportFilterService
         $this->applyOperationFilter($query, $filters);
 
         $this->tasks = $query->get();
+
+        // Debug logging
+        \Log::info('Filtered tasks:', $this->tasks->map(function ($task) {
+            return [
+                'task_date' => $task->date,
+                'gps_date' => $task->gpsDailyReport->date ?? 'no_gps_report',
+            ];
+        })->toArray());
+
         $reports = $this->mapTasksToReports($this->tasks);
         $accumulated = $this->calculateAccumulatedValues($reports);
         $expectations = $this->calculateExpectations($accumulated['work_duration'], $tractor, $filters);
@@ -97,7 +107,13 @@ class TractorReportFilterService
     private function filterByGregorianMonth($query): void
     {
         $now = now();
-        $query->whereBetween('date', [$now->startOfMonth(), $now->copy()->endOfMonth()]);
+        Log::info('Filtering by month', [
+            'year' => $now->year,
+            'month' => $now->month,
+            'now' => $now->toDateTimeString()
+        ]);
+        $query->whereYear('date', $now->year)
+              ->whereMonth('date', $now->month);
     }
 
     /**

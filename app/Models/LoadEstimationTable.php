@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class LoadEstimationTable extends Model
 {
+    use HasFactory;
+
     /**
      * The attributes that are mass assignable.
      *
@@ -48,7 +51,7 @@ class LoadEstimationTable extends Model
             {"condition": "good", "fruit_cluster_weight": "0", "average_bud_count": "0", "bud_to_fruit_conversion": "0", "tree_yield_weight_grams": "0", "estimated_to_actual_yield_ratio": "0", "tree_weight_kg": "0", "tree_count": "0", "total_garden_yield_kg": "0"},
             {"condition": "normal", "fruit_cluster_weight": "0", "average_bud_count": "0", "bud_to_fruit_conversion": "0", "tree_yield_weight_grams": "0", "estimated_to_actual_yield_ratio": "0", "tree_weight_kg": "0", "tree_count": "0", "total_garden_yield_kg": "0"},
             {"condition": "bad", "fruit_cluster_weight": "0", "average_bud_count": "0", "bud_to_fruit_conversion": "0", "tree_yield_weight_grams": "0", "estimated_to_actual_yield_ratio": "0", "tree_weight_kg": "0", "tree_count": "0", "total_garden_yield_kg": "0"}
-            ]',
+            ]'
     ];
 
     /**

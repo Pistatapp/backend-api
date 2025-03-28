@@ -287,16 +287,17 @@ class TractorReportsFilterTest extends TestCase
     public function it_filters_reports_by_tractor_and_current_month(): void
     {
         $tractor = Tractor::factory()->create();
+        $baseDate = '2024-03-15';
 
         // Create tasks for current month
         $currentMonthTasks = collect([
-            ['date' => now(), 'efficiency' => 75],
-            ['date' => now()->subDays(5), 'efficiency' => 80],
-            ['date' => now()->subDays(10), 'efficiency' => 85],
+            ['date' => $baseDate, 'efficiency' => 75],
+            ['date' => date('Y-m-d', strtotime($baseDate . ' -5 days')), 'efficiency' => 80],
+            ['date' => date('Y-m-d', strtotime($baseDate . ' -10 days')), 'efficiency' => 85],
         ]);
 
         // Create task for last month (should not be included)
-        $lastMonthTask = ['date' => now()->subMonth(), 'efficiency' => 90];
+        $lastMonthTask = ['date' => date('Y-m-d', strtotime($baseDate . ' -1 month')), 'efficiency' => 90];
 
         // Create all tasks
         $operation = Operation::factory()->create();
@@ -307,7 +308,7 @@ class TractorReportsFilterTest extends TestCase
             $task = $tractor->tasks()->create([
                 'operation_id' => $operation->id,
                 'field_id' => $field->id,
-                'date' => $taskData['date']->format('Y-m-d'),
+                'date' => $taskData['date'],
                 'start_time' => '08:00',
                 'end_time' => '16:00',
                 'created_by' => $this->user->id,
@@ -323,7 +324,7 @@ class TractorReportsFilterTest extends TestCase
                 'average_speed' => 20,
                 'max_speed' => 40,
                 'efficiency' => $taskData['efficiency'],
-                'date' => $taskData['date']->format('Y-m-d'),
+                'date' => $taskData['date'],
             ]);
         };
 
@@ -332,6 +333,9 @@ class TractorReportsFilterTest extends TestCase
             $createTaskWithReport($taskData);
         });
         $createTaskWithReport($lastMonthTask);
+
+        // Mock current date to match our test data
+        $this->travelTo($baseDate);
 
         // Test filtering by current month
         $response = $this->postJson(route('tractor.reports.filter', [

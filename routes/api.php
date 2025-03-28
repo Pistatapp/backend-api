@@ -160,11 +160,12 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
         Route::delete('/nutrient_diagnosis/{request}', [CompositionalNutrientDiagnosisController::class, 'destroy']);
         Route::post('/nutrient_diagnosis/{request}/response', [CompositionalNutrientDiagnosisController::class, 'sendResponse'])
             ->middleware('role:root');
+
+        Route::post('/load_estimation', [LoadEstimationController::class, 'estimate']);
+        Route::post('/weather_forecast', WeatherForecastController::class)->name('farms.weather_forecast');
+        Route::get('/dashboard/widgets', [DashboardController::class, 'dashboardWidgets']);
     });
 
-    Route::post('/farms/{farm}/load_estimation', [LoadEstimationController::class, 'estimate']);
-    Route::post('/farms/{farm}/weather_forecast', WeatherForecastController::class)->name('farms.weather_forecast');
-    Route::get('/farms/{farm}/dashboard/widgets', [DashboardController::class, 'dashboardWidgets']);
 
     Route::controller(NotificationController::class)->prefix('notifications')->group(function () {
         Route::get('/', 'index');
