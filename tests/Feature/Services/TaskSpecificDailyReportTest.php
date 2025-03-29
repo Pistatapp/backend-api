@@ -51,20 +51,20 @@ class TaskSpecificDailyReportTest extends TestCase
         // Create two fields with different coordinates (in decimal degrees)
         $this->field1 = Field::factory()->create([
             'coordinates' => [
-                [34.884065, 50.599625], // Converted from 3453.04393, 05035.9775
-                [34.884075, 50.599625],
-                [34.884075, 50.599635],
-                [34.884065, 50.599635],
+                [34.884065, 50.599625], // Point 1
+                [34.884075, 50.599625], // Point 2
+                [34.884075, 50.599635], // Point 3
+                [34.884065, 50.599635], // Point 4
                 [34.884065, 50.599625], // Close the polygon
             ]
         ]);
 
         $this->field2 = Field::factory()->create([
             'coordinates' => [
-                [34.884480, 50.599770], // Make the field slightly larger to ensure it contains the GPS points
-                [34.884500, 50.599770],
-                [34.884500, 50.599790],
-                [34.884480, 50.599790],
+                [34.884480, 50.599770], // Point 1
+                [34.884500, 50.599770], // Point 2
+                [34.884500, 50.599790], // Point 3
+                [34.884480, 50.599790], // Point 4
                 [34.884480, 50.599770], // Close the polygon
             ]
         ]);

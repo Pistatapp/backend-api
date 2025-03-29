@@ -21,8 +21,10 @@ class GpsReportFactory extends Factory
         return [
             'gps_device_id' => GpsDevice::factory(),
             'imei' => fn (array $attributes) => GpsDevice::find($attributes['gps_device_id'])->imei,
-            'latitude' => fake()->latitude(34.0, 35.0),
-            'longitude' => fake()->longitude(50.0, 51.0),
+            'coordinate' => [
+                fake()->latitude(34.0, 35.0),
+                fake()->longitude(50.0, 51.0),
+            ],
             'speed' => fake()->numberBetween(0, 40),
             'status' => fake()->boolean(),
             'is_stopped' => false,

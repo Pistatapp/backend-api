@@ -68,7 +68,7 @@ class LoadEstimationService
         $estimatedYield = $estimatedYieldForSingleTreeKg * $treeCount;
 
         return [
-            'estimated_yield_per_tree_kg' => round($estimatedYieldForSingleTreeKg),
+            'estimated_yield_per_tree_kg' => ceil($estimatedYieldForSingleTreeKg),
             'estimated_yield_total_kg' => round($estimatedYield),
         ];
     }
