@@ -136,6 +136,8 @@ function getModelClass(string $modelType): string
         'labour' => \App\Models\Labour::class,
         'pump' => \App\Models\Pump::class,
         'valve' => \App\Models\Valve::class,
+        'crop_type' => \App\Models\CropType::class,
+        'pest' => \App\Models\Pest::class,
     ];
 
     $modelClass = $modelMap[$modelType] ?? $modelType;
