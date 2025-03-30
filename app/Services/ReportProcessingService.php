@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\GpsDevice;
-use App\Models\GpsReport;
 
 class ReportProcessingService
 {
@@ -70,17 +69,6 @@ class ReportProcessingService
         $distanceDiff = calculate_distance($previousReport['coordinate'], $report['coordinate']);
         $timeDiff = $previousReport['date_time']->diffInSeconds($report['date_time']);
 
-        \Illuminate\Support\Facades\Log::info('Processing subsequent reports', [
-            'previous_point' => $previousReport['coordinate'],
-            'current_point' => $report['coordinate'],
-            'distance_diff' => $distanceDiff,
-            'time_diff' => $timeDiff,
-            'previous_speed' => $previousReport['speed'],
-            'current_speed' => $report['speed'],
-            'previous_stopped' => $previousReport['is_stopped'],
-            'current_stopped' => $report['is_stopped']
-        ]);
-
         $transitionHandler = $this->getTransitionHandler($previousReport['is_stopped'], $report['is_stopped']);
         $transitionHandler($report, $timeDiff, $distanceDiff);
     }
@@ -139,17 +127,6 @@ class ReportProcessingService
     private function incrementTimingAndTraveledDistance(array $report, int $timeDiff, float $distanceDiff, bool $stopped = false, bool $incrementStoppage = false): void
     {
         if ($this->currentTask && $this->taskArea) {
-            \Illuminate\Support\Facades\Log::info('Checking point in polygon', [
-                'point' => $report['coordinate'],
-                'polygon' => $this->taskArea,
-                'task_id' => $this->currentTask->id,
-                'is_in_polygon' => is_point_in_polygon($report['coordinate'], $this->taskArea),
-                'stopped' => $stopped,
-                'distance_diff' => $distanceDiff,
-                'time_diff' => $timeDiff,
-                'current_total_distance' => $this->totalTraveledDistance
-            ]);
-
             if (is_point_in_polygon($report['coordinate'], $this->taskArea)) {
                 $this->updateTimingAndDistance($timeDiff, $distanceDiff, $stopped, $incrementStoppage);
             }
@@ -164,20 +141,8 @@ class ReportProcessingService
             $this->stoppageCount += 1;
         }
 
-        \Illuminate\Support\Facades\Log::info('Updating timing and distance', [
-            'time_diff' => $timeDiff,
-            'distance_diff' => $distanceDiff,
-            'stopped' => $stopped,
-            'increment_stoppage' => $incrementStoppage,
-            'current_total_distance' => $this->totalTraveledDistance
-        ]);
-
         $this->{$stopped ? 'totalStoppedTime' : 'totalMovingTime'} += $timeDiff;
         $this->totalTraveledDistance += ($stopped ? 0 : $distanceDiff);
-
-        \Illuminate\Support\Facades\Log::info('Updated timing and distance', [
-            'new_total_distance' => $this->totalTraveledDistance
-        ]);
     }
 
     private function saveReport(array $data): void

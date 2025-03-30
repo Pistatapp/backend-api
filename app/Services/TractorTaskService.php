@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\Tractor;
 use App\Models\TractorTask;
-use Illuminate\Support\Collection;
 
 class TractorTaskService
 {
@@ -28,11 +27,7 @@ class TractorTaskService
         }
 
         $task->load('field:id,coordinates');
-        \Illuminate\Support\Facades\Log::info('Getting task area', [
-            'task_id' => $task->id,
-            'field_id' => $task->field_id,
-            'coordinates' => $task->field->coordinates
-        ]);
+
         return $task->fetchTaskArea();
     }
 }
