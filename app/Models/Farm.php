@@ -257,4 +257,14 @@ class Farm extends Model
     {
         return $this->hasMany(FrostbitRisk::class);
     }
+
+    /**
+     * Get the warnings of the farm.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function warnings()
+    {
+        return $this->hasMany(Warning::class);
+    }
 }

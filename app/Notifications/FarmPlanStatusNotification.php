@@ -38,7 +38,7 @@ class FarmPlanStatusNotification extends Notification implements ShouldQueue
             ? jdate($this->status === 'started' ? $this->plan->start_date : $this->plan->end_date)->format('Y/m/d')
             : ($this->status === 'started' ? $this->plan->start_date : $this->plan->end_date)->format('Y-m-d');
 
-        $this->title = __('Farm Plan Status Update');
+        $this->title = __('Farm Plan Status Notification');
 
         $this->message = $this->status === 'started'
             ? __('Plan :name implementation started on :date in sections :fields.', [

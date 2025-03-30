@@ -43,6 +43,7 @@ use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\Farm\CompositionalNutrientDiagnosisController;
 use App\Http\Controllers\Api\V1\UserPreferenceController;
 use App\Http\Controllers\Api\V1\Tractor\TractorReportController;
+use App\Http\Controllers\Api\V1\WarningController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -182,3 +183,8 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
 });
 
 Route::post('/gps/reports', GpsReportController::class)->name('gps.reports');
+
+Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->prefix('v1')->group(function () {
+    Route::get('warnings', [WarningController::class, 'index']);
+    Route::post('warnings', [WarningController::class, 'store']);
+});
