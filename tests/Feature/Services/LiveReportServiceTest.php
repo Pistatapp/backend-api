@@ -4,9 +4,15 @@ namespace Tests\Feature\Services;
 
 use Tests\TestCase;
 use App\Services\LiveReportService;
+use App\Services\TaskService;
+use App\Services\DailyReportService;
+use App\Services\CacheService;
+use App\Services\TractorTaskService;
+use App\Services\ReportProcessingService;
 use App\Models\GpsDevice;
 use App\Models\Tractor;
 use App\Models\GpsDailyReport;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
@@ -18,26 +24,35 @@ class LiveReportServiceTest extends TestCase
     private GpsDevice $device;
     private array $reports;
     private LiveReportService $service;
+    private TractorTaskService $taskService;
+    private DailyReportService $dailyReportService;
+    private CacheService $cacheService;
+    private ReportProcessingService $reportProcessingService;
+    private User $user;
+    private Tractor $tractor;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        Carbon::setTestNow('2024-01-24 07:02:00');
+        // Set test time accounting for ParseDataService's timezone adjustment
+        Carbon::setTestNow('2024-01-24 10:32:00'); // 07:02 + 3:30 timezone offset
 
-        $tractor = Tractor::factory()->create([
-            'start_work_time' => now()->subHours(2),
-            'end_work_time' => now()->addHours(8),
+        $this->user = User::factory()->create();
+        $this->tractor = Tractor::factory()->create([
+            'start_work_time' => '06:00',
+            'end_work_time' => '18:00',
             'expected_daily_work_time' => 8 // 8 hours
         ]);
 
         $this->device = GpsDevice::factory()->create([
-            'tractor_id' => $tractor->id,
+            'user_id' => $this->user->id,
+            'tractor_id' => $this->tractor->id,
             'imei' => '863070043386100'
         ]);
 
         GpsDailyReport::create([
-            'tractor_id' => $tractor->id,
+            'tractor_id' => $this->tractor->id,
             'date' => today(),
             'max_speed' => 0
         ]);
@@ -79,7 +94,35 @@ class LiveReportServiceTest extends TestCase
             ]
         ];
 
-        $this->service = new LiveReportService($this->device, $this->reports, cache()->store());
+        $this->taskService = new TractorTaskService($this->tractor);
+        $this->dailyReportService = new DailyReportService($this->tractor, null);
+        $this->cacheService = new CacheService($this->device);
+        $this->reportProcessingService = new ReportProcessingService(
+            $this->device,
+            $this->reports,
+            null,
+            null,
+            fn($report) => $this->isWithinWorkingHours($report),
+            $this->cacheService
+        );
+
+        $this->service = new LiveReportService(
+            $this->device,
+            $this->reports,
+            $this->taskService,
+            $this->dailyReportService,
+            $this->cacheService,
+            $this->reportProcessingService
+        );
+    }
+
+    private function isWithinWorkingHours($report): bool
+    {
+        $reportTime = $report['date_time'];
+        $startTime = $this->device->tractor->start_work_time;
+        $endTime = $this->device->tractor->end_work_time;
+
+        return $reportTime->between($startTime, $endTime);
     }
 
     #[Test]
@@ -251,7 +294,24 @@ class LiveReportServiceTest extends TestCase
 
         // Process each report
         foreach ($reports as $report) {
-            $service = new LiveReportService($this->device, [$report]);
+            $reportProcessingService = new ReportProcessingService(
+                $this->device,
+                [$report],
+                null,
+                null,
+                fn($report) => $this->isWithinWorkingHours($report),
+                $this->cacheService
+            );
+
+            $dailyReportService = new DailyReportService($this->device->tractor, null);
+            $service = new LiveReportService(
+                $this->device,
+                [$report],
+                $this->taskService,
+                $dailyReportService,
+                $this->cacheService,
+                $reportProcessingService
+            );
             $service->generate();
         }
 

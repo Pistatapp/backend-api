@@ -40,6 +40,7 @@ class TaskSpecificDailyReportTest extends TestCase
         $this->tractor = Tractor::factory()->create([
             'start_work_time' => '06:00',
             'end_work_time' => '18:00',
+            'expected_daily_work_time' => 8 // 8 hours
         ]);
 
         $this->device = GpsDevice::factory()->create([
@@ -186,8 +187,8 @@ class TaskSpecificDailyReportTest extends TestCase
 
         // Send multiple GPS reports for second task - coordinates within field2
         $this->postJson('/api/gps/reports', [
-            ['data' => '+Hooshnic:V1.03,3453.06880,05035.9862,000,240124,110000,015,000,1,863070043386100'],
-            ['data' => '+Hooshnic:V1.03,3453.06900,05035.9874,000,240124,110100,015,000,1,863070043386100']
+            ['data' => '+Hooshnic:V1.03,3453.06888,05035.9862,015,240124,143000,015,000,1,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.06890,05035.9865,015,240124,143100,015,000,1,863070043386100']
         ]);
 
         // Refresh first task report and verify its metrics haven't changed

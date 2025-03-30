@@ -11,11 +11,18 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use App\Models\GpsDevice;
+use App\Services\TractorTaskService;
+use App\Services\DailyReportService;
+use App\Services\CacheService;
+use App\Services\ReportProcessingService;
 
 class GpsReportController extends Controller
 {
     public function __construct(
-        private ParseDataService $parseDataService
+        private ParseDataService $parseDataService,
+        private TractorTaskService $taskService,
+        private DailyReportService $dailyReportService,
+        private CacheService $cacheService
     ) {
         //
     }
@@ -38,7 +45,25 @@ class GpsReportController extends Controller
 
             $lastReportStatus = end($data)['status'];
 
-            $reportService = new LiveReportService($device, $data);
+            $taskService = new TractorTaskService($device->tractor);
+            $currentTask = $taskService->getCurrentTask();
+            $taskArea = $taskService->getTaskArea($currentTask);
+            $dailyReportService = new DailyReportService($device->tractor, $currentTask);
+            $reportService = new LiveReportService(
+                $device,
+                $data,
+                $taskService,
+                $dailyReportService,
+                $this->cacheService,
+                new ReportProcessingService(
+                    $device,
+                    $data,
+                    $currentTask,
+                    $taskArea,
+                    fn($report) => true,
+                    $this->cacheService
+                )
+            );
             $generatedReport = $reportService->generate();
 
             event(new ReportReceived($generatedReport, $device));
