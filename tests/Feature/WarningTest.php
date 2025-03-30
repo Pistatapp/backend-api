@@ -25,6 +25,7 @@ class WarningTest extends TestCase
         Storage::put('json/warnings.json', json_encode([
             'frost_warning' => [
                 'related-to' => 'garden',
+                'type' => 'schedule-based',
                 'setting-message' => 'Warn me :days days before a potential frost event.',
                 'setting-message-parameters' => ['days'],
                 'warning-message' => 'There is a risk of frost in your garden in the next :days days. Take precautions.',
@@ -32,6 +33,7 @@ class WarningTest extends TestCase
             ],
             'tractor_maintenance' => [
                 'related-to' => 'tractors',
+                'type' => 'schedule-based',
                 'setting-message' => 'Warn me when tractor needs maintenance after :hours hours.',
                 'setting-message-parameters' => ['hours'],
                 'warning-message' => 'Tractor needs maintenance after :hours hours of operation.',
@@ -60,7 +62,8 @@ class WarningTest extends TestCase
                         'setting_message',
                         'enabled',
                         'parameters',
-                        'setting_message_parameters'
+                        'setting_message_parameters',
+                        'type'
                     ]
                 ]
             ]);
@@ -80,7 +83,8 @@ class WarningTest extends TestCase
         $data = [
             'key' => 'frost_warning',
             'enabled' => true,
-            'parameters' => ['days' => '3']
+            'parameters' => ['days' => '3'],
+            'type' => 'schedule-based'
         ];
 
         $this->actingAs($this->user)
@@ -93,14 +97,16 @@ class WarningTest extends TestCase
                     'farm_id',
                     'key',
                     'enabled',
-                    'parameters'
+                    'parameters',
+                    'type'
                 ]
             ]);
 
         $this->assertDatabaseHas('warnings', [
             'farm_id' => $this->farm->id,
             'key' => 'frost_warning',
-            'enabled' => true
+            'enabled' => true,
+            'type' => 'schedule-based'
         ]);
     }
 
@@ -216,6 +222,22 @@ class WarningTest extends TestCase
             ->postJson('/api/v1/warnings', $data)
             ->assertStatus(422)
             ->assertJsonValidationErrors(['parameters']);
+    }
+
+    #[Test]
+    public function it_validates_warning_type(): void
+    {
+        $data = [
+            'key' => 'frost_warning',
+            'enabled' => true,
+            'parameters' => ['days' => '3'],
+            'type' => 'invalid-type'
+        ];
+
+        $this->actingAs($this->user)
+            ->postJson('/api/v1/warnings', $data)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['type']);
     }
 
     #[Test]

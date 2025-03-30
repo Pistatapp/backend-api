@@ -185,6 +185,5 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
 Route::post('/gps/reports', GpsReportController::class)->name('gps.reports');
 
 Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->prefix('v1')->group(function () {
-    Route::get('warnings', [WarningController::class, 'index']);
-    Route::post('warnings', [WarningController::class, 'store']);
+    Route::apiResource('warnings', WarningController::class)->only(['index', 'store']);
 });

@@ -27,6 +27,7 @@ class UpdateWarningRequest extends FormRequest
             'key' => ['required', 'string'],
             'enabled' => ['required', 'boolean'],
             'parameters' => ['array'],
+            'type' => ['sometimes', 'string', 'in:one-time,schedule-based,condition-based'],
         ];
 
         $key = $this->input('key');
@@ -35,8 +36,7 @@ class UpdateWarningRequest extends FormRequest
             $warningDefinition = $warningService->getWarningDefinition($key);
 
             if ($warningDefinition && isset($warningDefinition['setting-message-parameters'])) {
-                $requiredParams = $warningDefinition['setting-message-parameters'];
-                foreach ($requiredParams as $param) {
+                foreach ($warningDefinition['setting-message-parameters'] as $param) {
                     $rules["parameters.$param"] = ['required', 'string'];
                 }
             }

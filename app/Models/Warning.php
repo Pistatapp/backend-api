@@ -15,7 +15,8 @@ class Warning extends Model
         'farm_id',
         'key',
         'enabled',
-        'parameters'
+        'parameters',
+        'type'
     ];
 
     /**
@@ -28,6 +29,7 @@ class Warning extends Model
         return [
             'enabled' => 'boolean',
             'parameters' => 'array',
+            'type' => 'string'
         ];
     }
 

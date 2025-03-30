@@ -42,7 +42,7 @@ class TractorReportController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Tractor $tractor, TractorReport $tractorReport)
+    public function show(TractorReport $tractorReport)
     {
         return new TractorReportResource($tractorReport->load(['operation', 'field']));
     }
@@ -50,7 +50,7 @@ class TractorReportController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(UpdateTractorReportRequest $request, Tractor $tractor, TractorReport $tractorReport)
+    public function update(UpdateTractorReportRequest $request, TractorReport $tractorReport)
     {
         $validated = $request->validated();
         $tractorReport->update($validated);
@@ -60,7 +60,7 @@ class TractorReportController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Tractor $tractor, TractorReport $tractorReport)
+    public function destroy(TractorReport $tractorReport)
     {
         $tractorReport->delete();
         return response()->noContent();

@@ -40,7 +40,8 @@ class WarningController extends Controller
                 ),
                 'enabled' => $userWarning?->enabled ?? false,
                 'parameters' => $userWarning?->parameters ?? [],
-                'setting_message_parameters' => $warning['setting-message-parameters']
+                'setting_message_parameters' => $warning['setting-message-parameters'],
+                'type' => $warning['type'] ?? $userWarning?->type ?? 'one-time'
             ];
         })->values();
 
@@ -58,6 +59,8 @@ class WarningController extends Controller
             return response()->json(['message' => 'Invalid parameters provided'], 422);
         }
 
+        $warningDefinition = $this->warningService->getWarningDefinition($validated['key']);
+
         $warning = Warning::updateOrCreate(
             [
                 'farm_id' => $request->user()->preferences['working_environment'],
@@ -65,7 +68,8 @@ class WarningController extends Controller
             ],
             [
                 'enabled' => $validated['enabled'],
-                'parameters' => $validated['parameters'] ?? []
+                'parameters' => $validated['parameters'] ?? [],
+                'type' => $validated['type'] ?? $warningDefinition['type'] ?? 'one-time'
             ]
         );
 
