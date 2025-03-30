@@ -258,6 +258,20 @@ class MaintenanceReportControllerTest extends TestCase
         $response->assertOk();
 
         $this->assertCount(2, $response->json('data'));
+
+        $response->assertJsonStructure([
+            'data' => [
+                '*' => [
+                    'id',
+                    'maintenance' => ['id', 'name'],
+                    'maintainable' => ['id', 'name'],
+                    'maintained_by' => ['id', 'name'],
+                    'date',
+                    'description',
+                    'created_at'
+                ]
+            ]
+        ]);
     }
 
     #[Test]
