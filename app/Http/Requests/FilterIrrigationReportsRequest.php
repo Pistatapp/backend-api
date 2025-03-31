@@ -26,8 +26,8 @@ class FilterIrrigationReportsRequest extends FormRequest
             'field_id' => 'nullable|integer|exists:fields,id',
             'labour_id' => 'nullable|integer|exists:labours,id',
             'valve_id' => 'nullable|integer|exists:valves,id',
-            'from_date' => 'required|shamsi_date',
-            'to_date' => 'required|shamsi_date|after_or_equal:from_date'
+            'from_date' => 'required|date',
+            'to_date' => 'required|date|after_or_equal:from_date'
         ];
     }
 

@@ -22,7 +22,10 @@ class TractorStatus implements ShouldBroadcast
         private Tractor $tractor,
         private int $status
     ) {
-        $tractor->update(['is_working' => $status]);
+        $tractor->update([
+            'is_working' => $status,
+            'last_activity' => now()
+        ]);
     }
 
     /**

@@ -24,6 +24,17 @@ class GpsDailyReport extends Model
     public $timestamps = false;
 
     /**
+     * The attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts() {
+        return [
+            'last_activity' => 'datetime'
+        ];
+    }
+
+    /**
      * The attributes with default values.
      *
      * @var array<string, mixed>

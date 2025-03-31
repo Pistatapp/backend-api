@@ -23,6 +23,7 @@ class Tractor extends Model
         'expected_monthly_work_time',
         'expected_yearly_work_time',
         'is_working',
+        'last_activity',
     ];
 
     /**
@@ -34,6 +35,7 @@ class Tractor extends Model
     {
         return [
             'is_working' => 'boolean',
+            'last_activity' => 'datetime',
         ];
     }
 
