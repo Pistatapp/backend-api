@@ -34,7 +34,7 @@ class TractorInactivityNotification extends Notification implements ShouldQueue
      */
     private function prepareNotificationData(): void
     {
-        $this->message = __('Tractor name :tractor_name has been inactive for more than :days days since :time on :date. Please check the reason.', [
+        $this->message = __('Tractor :tractor_name has been inactive for more than :days days since :time on :date. Please check the reason.', [
             'tractor_name' => $this->tractor->name,
             'days' => $this->threshold,
             'time' => $this->lastActivity->format('H:i'),

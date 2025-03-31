@@ -127,11 +127,11 @@
     "Plan :name implementation started on :date in sections :fields.": "اجرای طرح :name در تاریخ :date در قطعات :fields آغاز شد.",
     "Plan :name implementation completed on :date in sections :fields.": "اجرای طرح :name در تاریخ :date در قطعات :fields به پایان رسید.",
     "Farm Plan Status Update": "به‌روزرسانی وضعیت طرح مزرعه",
-    "Tractor name :tractor_name has been stopped for more than :hours hours on :date. Please check the reason.": "تراکتور با نام :tractor_name بیش از :hours ساعت در تاریخ :date متوقف بوده است. لطفا دلیل آن را بررسی کنید.",
-    "Tractor name :tractor_name has been inactive for more than :days days. Please check the reason.": "تراکتور با نام :tractor_name بیش از :days روز غیرفعال بوده است. لطفا دلیل آن را بررسی کنید.",
+    "Tractor :tractor_name has been stopped for more than :hours hours on :date. Please check the reason.": "تراکتور با نام :tractor_name بیش از :hours ساعت در تاریخ :date متوقف بوده است. لطفا دلیل آن را بررسی کنید.",
+    "Tractor :tractor_name has been inactive for more than :days days. Please check the reason.": "تراکتور با نام :tractor_name بیش از :days روز غیرفعال بوده است. لطفا دلیل آن را بررسی کنید.",
     "Irrigation operation started on :start_date at :start_time in plot :plot and ended at :end_time.": "عملیات آبیاری در تاریخ :start_date ساعت :start_time در قطعه :plot شروع شد و در ساعت :end_time به پایان رسید.",
-    "There is a risk of frost in your garden in the next :days days. Take precautions.": "تا :days روز آینده احتمال سرمازدگی در باغ شما وجود دارد. اقدامات لازم را انجام دهید.",
+    "There is a risk of frost in your farm in the next :days days. Take precautions.": "تا :days روز آینده احتمال سرمازدگی در باغ شما وجود دارد. اقدامات لازم را انجام دهید.",
     "There is a risk of radiative frost on :date. Take precautions.": "احتمال سرمازدگی تشعشعی در تاریخ :date وجود دارد. اقدامات لازم را انجام دهید.",
-    "The chilling requirement in your garden from :start_date to :end_date was :hours hours. Please perform oil spraying.": "میزان نیاز سرمایی باغ از تاریخ :start_date تا تاریخ :end_date به میزان :hours ساعت بوده است. لطفا روغن‌پاشی را انجام دهید.",
+    "The chilling requirement in your farm from :start_date to :end_date was :hours hours. Please perform oil spraying.": "میزان نیاز سرمایی باغ از تاریخ :start_date تا تاریخ :end_date به میزان :hours ساعت بوده است. لطفا روغن‌پاشی را انجام دهید.",
     "The degree days for :pest pest from :start_date to :end_date was :degree_days.": "میزان درجه روز آفت :pest از تاریخ :start_date تا تاریخ :end_date کمتر از عدد :degree_days بوده است."
 }

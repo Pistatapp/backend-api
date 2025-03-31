@@ -32,7 +32,7 @@ class TractorStoppageNotification extends Notification implements ShouldQueue
      */
     private function prepareNotificationData(): void
     {
-        $this->message = __('Tractor name :tractor_name has been stopped for more than :hours hours on :date. Please check the reason.', [
+        $this->message = __('Tractor :tractor_name has been stopped for more than :hours hours on :date. Please check the reason.', [
             'tractor_name' => $this->tractor->name,
             'hours' => $this->threshold,
             'date' => jdate($this->date)->format('Y/m/d')
