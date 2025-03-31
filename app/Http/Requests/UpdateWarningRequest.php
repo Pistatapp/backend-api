@@ -26,7 +26,7 @@ class UpdateWarningRequest extends FormRequest
         $rules = [
             'key' => ['required', 'string'],
             'enabled' => ['required', 'boolean'],
-            'parameters' => ['array'],
+            'parameters' => ['required', 'array'],
             'type' => ['sometimes', 'string', 'in:one-time,schedule-based,condition-based'],
         ];
 
@@ -43,5 +43,21 @@ class UpdateWarningRequest extends FormRequest
         }
 
         return $rules;
+    }
+
+    /**
+     * Prepare the data for validation.
+     **/
+    protected function prepareForValidation()
+    {
+        if (isset($this->parameters['start_date']) && isset($this->parameters['end_date']) || isset($this->parameters['date'])) {
+            $this->merge([
+                'parameters' => array_merge($this->parameters, [
+                    'start_date' => jalali_to_carbon($this->parameters['start_date']) ?? null,
+                    'end_date' => jalali_to_carbon($this->parameters['end_date']) ?? null,
+                    'date' => jalali_to_carbon($this->parameters['date']) ?? null,
+                ])
+            ]);
+        }
     }
 }

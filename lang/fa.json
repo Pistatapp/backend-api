@@ -124,6 +124,7 @@
             "invalid_theme": "پوسته انتخاب شده معتبر نیست. گزینه‌های موجود: روشن، تاریک"
         }
     },
+    "Volk Oil Spray Warning": "هشدار روغن پاشی ولک",
     "Plan :name implementation started on :date in sections :fields.": "اجرای طرح :name در تاریخ :date در قطعات :fields آغاز شد.",
     "Plan :name implementation completed on :date in sections :fields.": "اجرای طرح :name در تاریخ :date در قطعات :fields به پایان رسید.",
     "Farm Plan Status Update": "به‌روزرسانی وضعیت طرح مزرعه",

@@ -2,6 +2,9 @@
 
 namespace App\Console;
 
+use App\Jobs\CheckFrostConditionsJob;
+use App\Jobs\CheckOilSprayConditionsJob;
+use App\Jobs\CheckRadiativeFrostConditionsJob;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 
@@ -25,6 +28,21 @@ class Kernel extends ConsoleKernel
         $schedule->command('tractors:check-inactivity')
             ->dailyAt('08:00')
             ->appendOutputTo(storage_path('logs/tractor-inactivity-check.log'));
+
+        // Check for frost conditions daily at 6 AM
+        $schedule->job(new CheckFrostConditionsJob)->dailyAt('06:00');
+
+        // Check for radiative frost conditions daily at 6 PM
+        $schedule->job(new CheckRadiativeFrostConditionsJob)->dailyAt('18:00');
+
+        // Check for oil spray conditions daily at midnight
+        $schedule->job(new CheckOilSprayConditionsJob)->dailyAt('00:00');
+
+        // Check for pest degree day conditions daily at 05:00 AM
+        $schedule->job(CheckFrostConditionsJob::class)->dailyAt('05:00');
+
+        // Check for crop type degree day conditions daily at 05:30 AM
+        $schedule->job(CheckFrostConditionsJob::class)->dailyAt('05:30');
     }
 
     /**

@@ -58,7 +58,7 @@ class WeatherApi
      * @param string|null $endDt
      * @return array
      */
-    public function history(string $location, string $startDt, string $endDt = null): array
+    public function history(string $location, string $startDt, string $endDt): array
     {
         $start = Carbon::parse($startDt);
         $end = $endDt ? Carbon::parse($endDt) : Carbon::now();

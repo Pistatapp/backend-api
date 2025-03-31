@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\Warning;
 use Illuminate\Support\Facades\Storage;
 
 class WarningService

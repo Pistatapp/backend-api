@@ -34,7 +34,6 @@ class Farm extends Model
     {
         return [
             'coordinates' => 'array',
-            'center' => 'array',
         ];
     }
 

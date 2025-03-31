@@ -16,6 +16,10 @@ class FarmFactory extends Factory
      */
     public function definition(): array
     {
+        // Generate random coordinates within reasonable bounds
+        $lat = $this->faker->latitude(25, 40); // Approximate latitude range for Iran
+        $lon = $this->faker->longitude(44, 64); // Approximate longitude range for Iran
+
         return [
             'name' => $this->faker->word,
             'coordinates' => [
@@ -25,7 +29,7 @@ class FarmFactory extends Factory
                 $this->faker->latitude . ',' . $this->faker->longitude
             ],
             'crop_id' => \App\Models\Crop::factory(),
-            'center' => $this->faker->latitude . ',' . $this->faker->longitude,
+            'center' => $lat . ',' . $lon,
             'zoom' => $this->faker->randomFloat(2, 1, 20),
             'area' => $this->faker->randomFloat(2, 1, 100),
         ];
