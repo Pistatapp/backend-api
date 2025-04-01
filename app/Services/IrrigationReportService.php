@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\Farm;
 use App\Models\Irrigation;
 use Carbon\Carbon;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 class IrrigationReportService

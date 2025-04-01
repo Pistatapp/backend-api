@@ -130,14 +130,17 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::apiResource('tractors.tractor_tasks', TractorTaskController::class)->shallow();
     Route::post('/tractors/filter_reports', [TractorTaskController::class, 'filterReports'])->name('tractor.reports.filter');
 
+    // Maintenance Routes
     Route::apiResource('farms.maintenances', MaintenanceController::class)->except('show')->shallow();
     Route::post('maintenance_reports/filter', [MaintenanceReportController::class, 'filter']);
     Route::apiResource('maintenance_reports', MaintenanceReportController::class);
+
     Route::apiResource('farms.teams', TeamController::class)->shallow();
     Route::apiResource('farms.labours', LabourController::class)->shallow();
     Route::apiResource('attachments', AttachmentController::class)->except('show', 'index');
     Route::apiResource('farms.operations', OprationController::class)->shallow();
 
+    // Irrigation Routes
     Route::post('/farms/{farm}/irrigations/reports', [IrrigationController::class, 'filterReports'])->name('irrigations.reports.filter');
     Route::get('/fields/{field}/irrigations', [IrrigationController::class, 'getIrrigationsForField'])->name('fields.irrigations');
     Route::get('/fields/{field}/irrigations/report', [IrrigationController::class, 'getIrrigationReportForField'])->name('fields.irrigations.report');
