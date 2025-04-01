@@ -100,12 +100,12 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
 
     Route::get('/farms/{farm}/set_working_environment', [FarmController::class, 'setWorkingEnvironment']);
     Route::apiResource('farms', FarmController::class);
-    Route::post('/farms/{farm}/attach-user', [FarmController::class, 'attachUserToFarm']);
-    Route::post('/farms/{farm}/detach-user', [FarmController::class, 'detachUserFromFarm']);
+    Route::post('/farms/{farm}/attach_user', [FarmController::class, 'attachUserToFarm']);
+    Route::post('/farms/{farm}/detach_user', [FarmController::class, 'detachUserFromFarm']);
 
-    Route::patch('farm-reports/{farmReport}/verify', [FarmReportsController::class, 'verify']);
-    Route::post('farms/{farm}/farm-reports/filter', [FarmReportsController::class, 'filter']);
-    Route::apiResource('farms.farm-reports', FarmReportsController::class)->shallow();
+    Route::patch('farm_reports/{farmReport}/verify', [FarmReportsController::class, 'verify']);
+    Route::post('farms/{farm}/farm_reports/filter', [FarmReportsController::class, 'filter']);
+    Route::apiResource('farms.farm_reports', FarmReportsController::class)->shallow();
 
     Route::apiResource('farms.fields', FieldController::class)->shallow();
     Route::apiResource('fields.rows', RowController::class)->except('update')->shallow();

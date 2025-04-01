@@ -182,7 +182,7 @@ class FarmControllerTest extends TestCase
     {
         $newUser = User::factory()->create();
 
-        $response = $this->postJson("/api/farms/{$this->farm->id}/attach-user", [
+        $response = $this->postJson("/api/farms/{$this->farm->id}/attach_user", [
             'user_id' => $newUser->id,
             'role' => 'operator'
         ]);
@@ -207,7 +207,7 @@ class FarmControllerTest extends TestCase
             'is_owner' => false
         ]);
 
-        $response = $this->postJson("/api/farms/{$this->farm->id}/detach-user", [
+        $response = $this->postJson("/api/farms/{$this->farm->id}/detach_user", [
             'user_id' => $otherUser->id
         ]);
 
@@ -229,7 +229,7 @@ class FarmControllerTest extends TestCase
 
         $newUser = User::factory()->create();
 
-        $response = $this->postJson("/api/farms/{$this->farm->id}/attach-user", [
+        $response = $this->postJson("/api/farms/{$this->farm->id}/attach_user", [
             'user_id' => $newUser->id,
             'role' => 'operator'
         ]);
@@ -242,7 +242,7 @@ class FarmControllerTest extends TestCase
     {
         $newUser = User::factory()->create();
 
-        $response = $this->postJson("/api/farms/{$this->farm->id}/attach-user", [
+        $response = $this->postJson("/api/farms/{$this->farm->id}/attach_user", [
             'user_id' => $newUser->id,
             'role' => 'admin'
         ]);
