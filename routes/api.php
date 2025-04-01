@@ -104,6 +104,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::post('/farms/{farm}/detach-user', [FarmController::class, 'detachUserFromFarm']);
 
     Route::patch('farm_reports/{farmReport}/verify', [FarmReportsController::class, 'verify']);
+    Route::post('farms/{farm}/farm_reports/filter', [FarmReportsController::class, 'filter']);
     Route::apiResource('farms.farm_reports', FarmReportsController::class)->shallow();
 
     Route::apiResource('farms.fields', FieldController::class)->shallow();

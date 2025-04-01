@@ -32,4 +32,14 @@ class StoreFarmReportRequest extends FormRequest
             'reportable_id' => 'required|integer',
         ];
     }
+
+    /**
+     * Prepare the data for validation.
+     */
+    protected function prepareForValidation()
+    {
+        $this->merge([
+            'date' => jalali_to_carbon($this->date),
+        ]);
+    }
 }

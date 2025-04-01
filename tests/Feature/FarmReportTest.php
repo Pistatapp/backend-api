@@ -62,7 +62,7 @@ class FarmReportTest extends TestCase
     public function it_can_store_farm_report()
     {
         $data = [
-            'date' => '2024-01-01',
+            'date' => '1404/01/12',
             'operation_id' => $this->operation->id,
             'labour_id' => $this->labour->id,
             'description' => 'Test farm report',
@@ -135,10 +135,11 @@ class FarmReportTest extends TestCase
             'reportable_type' => 'App\\Models\\Field',
             'reportable_id' => $this->field->id,
             'created_by' => $this->user->id,
+            'date' => '2025-04-01',
         ]);
 
         $data = [
-            'date' => '2024-01-02',
+            'date' => '1404/01/12',
             'operation_id' => $this->operation->id,
             'labour_id' => $this->labour->id,
             'description' => 'Updated farm report',

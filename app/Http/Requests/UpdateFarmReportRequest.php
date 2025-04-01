@@ -32,4 +32,14 @@ class UpdateFarmReportRequest extends FormRequest
             'verified' => 'boolean',
         ];
     }
+
+    /**
+     * Prepare the data for validation.
+     */
+    protected function prepareForValidation()
+    {
+        $this->merge([
+            'date' => jalali_to_carbon($this->input('date')),
+        ]);
+    }
 }

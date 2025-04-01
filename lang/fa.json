@@ -109,6 +109,7 @@
     "basic": "پایه",
     "professional": "پیشرفته",
     "enterprise": "سازمانی",
+    "The selected time overlaps with another report for the same tractor on the same date.": "زمان انتخاب شده با گزارش دیگری برای همان تراکتور در همان تاریخ تداخل دارد.",
     "You do not have permission to assign this role.": "شما اجازه تخصیص این نقش را ندارید.",
     "You do not have a working environment.": "شما محیط کاری ندارید.",
     "A task already exists for the vehicle within the selected time range.": "یک وظیفه برای خودرو در بازه زمانی انتخاب شده وجود دارد.",

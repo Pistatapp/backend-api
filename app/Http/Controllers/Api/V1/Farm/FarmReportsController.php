@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\Farm;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreFarmReportRequest;
 use App\Http\Requests\UpdateFarmReportRequest;
+use App\Http\Requests\FarmReportFilterRequest;
 use App\Http\Resources\FarmReportResource;
 use App\Models\Farm;
 use App\Models\FarmReport;
@@ -22,7 +23,10 @@ class FarmReportsController extends Controller
      */
     public function index(Farm $farm): ResourceCollection
     {
-        $reports = $farm->reports()->latest()->simplePaginate();
+        $reports = $farm->reports()
+            ->latest()
+            ->simplePaginate();
+
         return FarmReportResource::collection($reports);
     }
 
@@ -95,5 +99,33 @@ class FarmReportsController extends Controller
         $farmReport->update(['verified' => true]);
 
         return new FarmReportResource($farmReport->fresh());
+    }
+
+    /**
+     * Filter farm reports based on multiple criteria
+     */
+    /**
+     * Filter farm reports based on multiple criteria
+     */
+    public function filter(FarmReportFilterRequest $request, Farm $farm): ResourceCollection
+    {
+        $filters = $request->validated()['filters'];
+        $query = $farm->reports()->with(['operation', 'labour', 'reportable']);
+
+        // Apply filters dynamically
+        foreach ($filters as $key => $value) {
+            match ($key) {
+                'reportable_type' => $query->where('reportable_type', 'App\\Models\\' . ucfirst($value)),
+                'reportable_id' => $query->whereIn('reportable_id', $value),
+                'operation_ids' => $query->whereIn('operation_id', $value),
+                'labour_ids' => $query->whereIn('labour_id', $value),
+                'date_range' => $query->whereBetween('date', [$value['from'], $value['to']]),
+                default => null,
+            };
+        }
+
+        $reports = $query->latest()->simplePaginate();
+
+        return FarmReportResource::collection($reports);
     }
 }

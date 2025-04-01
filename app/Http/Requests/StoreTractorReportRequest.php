@@ -4,7 +4,6 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use App\Models\TractorReport;
-use Illuminate\Support\Facades\Log;
 
 class StoreTractorReportRequest extends FormRequest
 {
@@ -62,8 +61,8 @@ class StoreTractorReportRequest extends FormRequest
 
         if ($overlap) {
             throw \Illuminate\Validation\ValidationException::withMessages([
-                'start_time' => 'The selected time overlaps with another report for the same tractor on the same date.',
-                'end_time' => 'The selected time overlaps with another report for the same tractor on the same date.',
+                'start_time' => __('The selected time overlaps with another report for the same tractor on the same date.'),
+                'end_time' => __('The selected time overlaps with another report for the same tractor on the same date.'),
             ]);
         }
     }
