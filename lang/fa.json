@@ -135,5 +135,6 @@
     "There is a risk of frost in your farm in the next :days days. Take precautions.": "تا :days روز آینده احتمال سرمازدگی در باغ شما وجود دارد. اقدامات لازم را انجام دهید.",
     "There is a risk of radiative frost on :date. Take precautions.": "احتمال سرمازدگی تشعشعی در تاریخ :date وجود دارد. اقدامات لازم را انجام دهید.",
     "The chilling requirement in your farm from :start_date to :end_date was :hours hours. Please perform oil spraying.": "میزان نیاز سرمایی باغ از تاریخ :start_date تا تاریخ :end_date به میزان :hours ساعت بوده است. لطفا روغن‌پاشی را انجام دهید.",
-    "The degree days for :pest pest from :start_date to :end_date was :degree_days.": "میزان درجه روز آفت :pest از تاریخ :start_date تا تاریخ :end_date کمتر از عدد :degree_days بوده است."
+    "The degree days for :pest pest from :start_date to :end_date was :degree_days.": "میزان درجه روز آفت :pest از تاریخ :start_date تا تاریخ :end_date کمتر از عدد :degree_days بوده است.",
+    "The selected time overlaps with an existing report.": "زمان انتخاب شده با گزارشی که قبلا ثبت شده است تداخل دارد."
 }

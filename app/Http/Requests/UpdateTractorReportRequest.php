@@ -59,7 +59,7 @@ class UpdateTractorReportRequest extends FormRequest
 
         if ($overlap) {
             throw new \Illuminate\Validation\ValidationException(
-                'The selected time overlaps with an existing report.'
+                __('The selected time overlaps with an existing report.')
             );
         }
     }
