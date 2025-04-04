@@ -17,11 +17,11 @@ class TractorReportTest extends TestCase
 {
     use RefreshDatabase;
 
-    private $user;
-    private $farm;
-    private $tractor;
-    private $operation;
-    private $field;
+    protected User $user;
+    protected Farm $farm;
+    protected Tractor $tractor;
+    protected Operation $operation;
+    protected Field $field;
 
     protected function setUp(): void
     {
@@ -190,5 +190,124 @@ class TractorReportTest extends TestCase
 
         $response->assertNoContent();
         $this->assertDatabaseMissing('tractor_reports', ['id' => $report->id]);
+    }
+
+    #[Test]
+    public function it_can_filter_reports_by_date_range()
+    {
+        TractorReport::factory()->create([
+            'tractor_id' => $this->tractor->id,
+            'date' => jalali_to_carbon('1404/01/01'),
+        ]);
+        TractorReport::factory()->create([
+            'tractor_id' => $this->tractor->id,
+            'date' => jalali_to_carbon('1404/01/15'),
+        ]);
+        TractorReport::factory()->create([
+            'tractor_id' => $this->tractor->id,
+            'date' => jalali_to_carbon('1404/02/01'),
+        ]);
+
+        $response = $this->postJson("/api/tractor_reports/filter", [
+            'tractor_id' => $this->tractor->id,
+            'from_date' => '1404/01/01',
+            'to_date' => '1404/01/30'
+        ]);
+
+        $response->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.date', '1404/01/01')
+            ->assertJsonPath('data.1.date', '1404/01/15');
+    }
+
+    #[Test]
+    public function it_can_filter_reports_by_operation()
+    {
+        $operation2 = Operation::factory()->create(['farm_id' => $this->farm->id]);
+
+        TractorReport::factory()->create([
+            'tractor_id' => $this->tractor->id,
+            'operation_id' => $this->operation->id,
+        ]);
+        TractorReport::factory()->create([
+            'tractor_id' => $this->tractor->id,
+            'operation_id' => $operation2->id,
+        ]);
+
+        $response = $this->postJson("/api/tractor_reports/filter", [
+            'tractor_id' => $this->tractor->id,
+            'operation_id' => $this->operation->id
+        ]);
+
+        $response->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.operation.id', $this->operation->id);
+    }
+
+    #[Test]
+    public function it_can_filter_reports_by_field()
+    {
+        $field2 = Field::factory()->create(['farm_id' => $this->farm->id]);
+
+        TractorReport::factory()->create([
+            'tractor_id' => $this->tractor->id,
+            'field_id' => $this->field->id,
+        ]);
+        TractorReport::factory()->create([
+            'tractor_id' => $this->tractor->id,
+            'field_id' => $field2->id,
+        ]);
+
+        $response = $this->postJson("/api/tractor_reports/filter", [
+            'tractor_id' => $this->tractor->id,
+            'field_id' => $this->field->id
+        ]);
+
+        $response->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.field.id', $this->field->id);
+    }
+
+    #[Test]
+    public function it_can_combine_multiple_filters()
+    {
+        TractorReport::factory()->create([
+            'tractor_id' => $this->tractor->id,
+            'operation_id' => $this->operation->id,
+            'field_id' => $this->field->id,
+            'date' => jalali_to_carbon('1404/01/01'),
+        ]);
+        TractorReport::factory()->create([
+            'tractor_id' => $this->tractor->id,
+            'operation_id' => $this->operation->id,
+            'field_id' => $this->field->id,
+            'date' => jalali_to_carbon('1404/02/01'),
+        ]);
+
+        $response = $this->postJson("/api/tractor_reports/filter", [
+            'tractor_id' => $this->tractor->id,
+            'from_date' => '1404/01/01',
+            'to_date' => '1404/01/30',
+            'operation_id' => $this->operation->id,
+            'field_id' => $this->field->id,
+        ]);
+
+        $response->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.date', '1404/01/01')
+            ->assertJsonPath('data.0.operation.id', $this->operation->id)
+            ->assertJsonPath('data.0.field.id', $this->field->id);
+    }
+
+    #[Test]
+    public function it_validates_tractor_id_when_filtering()
+    {
+        $response = $this->postJson("/api/tractor_reports/filter", [
+            'from_date' => '1404/01/01',
+            'to_date' => '1404/01/30',
+        ]);
+
+        $response->assertUnprocessable()
+            ->assertJsonValidationErrors(['tractor_id']);
     }
 }

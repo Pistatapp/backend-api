@@ -127,6 +127,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::post('/tractors/{tractor}/unassign_device/{gps_device}', [TractorController::class, 'unassignDevice']);
     Route::apiSingleton('tractors.driver', DriverController::class)->creatable();
     Route::apiResource('/tractors.tractor_reports', TractorReportController::class)->shallow();
+    Route::post('/tractor_reports/filter', [TractorReportController::class, 'filter'])->name('tractor.reports.filter');
     Route::apiResource('tractors.tractor_tasks', TractorTaskController::class)->shallow();
     Route::post('/tractors/filter_reports', [TractorTaskController::class, 'filterReports'])->name('tractor.reports.filter');
 
@@ -163,8 +164,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
         Route::get('/nutrient_diagnosis/{request}', [CompositionalNutrientDiagnosisController::class, 'show']);
         Route::post('/nutrient_diagnosis', [CompositionalNutrientDiagnosisController::class, 'store']);
         Route::delete('/nutrient_diagnosis/{request}', [CompositionalNutrientDiagnosisController::class, 'destroy']);
-        Route::post('/nutrient_diagnosis/{request}/response', [CompositionalNutrientDiagnosisController::class, 'sendResponse'])
-            ->middleware('role:root');
+        Route::post('/nutrient_diagnosis/{request}/response', [CompositionalNutrientDiagnosisController::class, 'sendResponse']);
 
         Route::post('/load_estimation', [LoadEstimationController::class, 'estimate']);
         Route::post('/weather_forecast', WeatherForecastController::class)->name('farms.weather_forecast');
