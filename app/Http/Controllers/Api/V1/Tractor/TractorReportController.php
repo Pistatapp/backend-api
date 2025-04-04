@@ -77,18 +77,16 @@ class TractorReportController extends Controller
         $query = TractorReport::where('tractor_id', $validated['tractor_id'])
             ->with(['operation', 'field']);
 
-        if (isset($validated['from_date'], $validated['to_date'])) {
-            $query->whereBetween('date', [
-                $validated['from_date'],
-                $validated['to_date']
-            ]);
+        if ($request->filled(['from_date', 'to_date'])) {
+            $query->where('date', '>=', $validated['from_date'])
+              ->where('date', '<=', $validated['to_date']);
         }
 
-        if (isset($validated['operation_id'])) {
+        if ($request->filled('operation_id')) {
             $query->where('operation_id', $validated['operation_id']);
         }
 
-        if (isset($validated['field_id'])) {
+        if ($request->filled('field_id')) {
             $query->where('field_id', $validated['field_id']);
         }
 
