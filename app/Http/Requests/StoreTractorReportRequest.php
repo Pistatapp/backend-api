@@ -21,7 +21,7 @@ class StoreTractorReportRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'date' => 'required|shamsi_date',
+            'date' => 'required|date',
             'start_time' => 'required|date_format:H:i',
             'end_time' => 'required|date_format:H:i|after:start_time',
             'operation_id' => 'required|exists:operations,id',

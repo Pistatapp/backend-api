@@ -48,7 +48,7 @@ class TractorReportTest extends TestCase
     public function it_can_store_tractor_report()
     {
         $data = [
-            'date' => '1404/01/01',
+            'date' => '1404/01/16',
             'start_time' => '08:00',
             'end_time' => '16:00',
             'operation_id' => $this->operation->id,
