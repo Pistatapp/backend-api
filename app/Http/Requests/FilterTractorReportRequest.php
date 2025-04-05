@@ -23,8 +23,8 @@ class FilterTractorReportRequest extends FormRequest
     {
         return [
             'tractor_id' => 'required|exists:tractors,id',
-            'from_date' => 'nullable|required_with:to_date|shamsi_date',
-            'to_date' => 'nullable|required_with:from_date|shamsi_date|after_or_equal:from_date',
+            'from_date' => 'nullable|required_with:to_date',
+            'to_date' => 'nullable|required_with:from_date|after_or_equal:from_date',
             'operation_id' => 'nullable|exists:operations,id',
             'field_id' => 'nullable|exists:fields,id',
         ];
