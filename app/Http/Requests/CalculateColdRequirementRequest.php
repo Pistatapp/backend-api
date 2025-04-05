@@ -46,8 +46,8 @@ class CalculateColdRequirementRequest extends FormRequest
     protected function prepareForValidation()
     {
         $this->merge([
-            'start_dt' => $this->start_dt ? jalali_to_carbon($this->start_dt)->format('Y-m-d') : null,
-            'end_dt' => $this->end_dt ? jalali_to_carbon($this->end_dt)->format('Y-m-d') : null,
+            'start_dt' => jalali_to_carbon($this->start_dt),
+            'end_dt' => jalali_to_carbon($this->end_dt),
         ]);
     }
 }

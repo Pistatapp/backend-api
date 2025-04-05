@@ -26,6 +26,23 @@ class ColdRequirementController extends Controller
 
         $coldRequirement = $this->calculateColdRequirement($data, $minTemp, $maxTemp, $method);
 
+        $dailyDetails = collect($data['forecast']['forecastday'])->map(function ($day, $index) use ($minTemp, $maxTemp) {
+            $temperatures = collect($day['hour'])->pluck('temp_c');
+            $hoursInRange = collect($day['hour'])->filter(function ($hour) use ($minTemp, $maxTemp) {
+                $temp = $hour['temp_c'];
+                return $temp >= $minTemp && $temp <= $maxTemp;
+            })->count();
+
+            return [
+                'index' => $index + 1,
+                'date' => jdate($day['date'])->format('Y/m/d'),
+                'min_temp' => $temperatures->min(),
+                'avg_temp' => round($temperatures->avg(), 1),
+                'max_temp' => $temperatures->max(),
+                'hours_in_range' => $hoursInRange
+            ];
+        })->values()->all();
+
         return response()->json([
             'data' => [
                 'min_temp' => $minTemp,
@@ -34,6 +51,7 @@ class ColdRequirementController extends Controller
                 'end_dt' => jdate($request->end_dt)->format('Y/m/d'),
                 'num_days' => count($data['forecast']['forecastday']),
                 'satisfied_cp' => $coldRequirement,
+                'daily_details' => $dailyDetails,
             ],
         ]);
     }
