@@ -132,4 +132,32 @@ class GpsReportTest extends TestCase
 
         $this->assertGreaterThan($initialDistance, $updatedReport->traveled_distance);
     }
+
+    #[Test]
+    public function it_only_counts_reports_within_working_hours_when_no_task()
+    {
+        // Set working hours
+        $this->tractor->update([
+            'start_work_time' => '07:00',
+            'end_work_time' => '17:00'
+        ]);
+
+        // Send report outside working hours
+        $this->postJson('/api/gps/reports', [
+            ['data' => '+Hooshnic:V1.03,3453.04393,05035.9775,000,240124,060000,020,000,1,863070043386100']
+        ]);
+
+        $dailyReport = $this->tractor->gpsDailyReports()->first();
+        $this->assertEquals(0, $dailyReport->traveled_distance);
+        $this->assertEquals(0, $dailyReport->work_duration);
+
+        // Send report within working hours
+        $this->postJson('/api/gps/reports', [
+            ['data' => '+Hooshnic:V1.03,3453.04394,05035.9776,000,240124,080000,020,000,1,863070043386100']
+        ]);
+
+        $dailyReport = $this->tractor->gpsDailyReports()->first()->fresh();
+        $this->assertGreaterThan(0, $dailyReport->traveled_distance);
+        $this->assertGreaterThan(0, $dailyReport->work_duration);
+    }
 }

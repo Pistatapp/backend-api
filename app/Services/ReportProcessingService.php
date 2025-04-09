@@ -58,8 +58,12 @@ class ReportProcessingService
         $this->saveReport($report);
         $this->points[] = $report;
         $this->maxSpeed = $report['speed'];
-        if ($report['is_stopped'] && ($this->isWithinWorkingHours)($report)) {
-            $this->stoppageCount += 1;
+
+        // Check if report should be counted based on task or working hours
+        if ($this->shouldCountReport($report)) {
+            if ($report['is_stopped']) {
+                $this->stoppageCount += 1;
+            }
         }
     }
 
@@ -69,8 +73,11 @@ class ReportProcessingService
         $distanceDiff = calculate_distance($previousReport['coordinate'], $report['coordinate']);
         $timeDiff = $previousReport['date_time']->diffInSeconds($report['date_time']);
 
-        $transitionHandler = $this->getTransitionHandler($previousReport['is_stopped'], $report['is_stopped']);
-        $transitionHandler($report, $timeDiff, $distanceDiff);
+        // Only process transitions if report should be counted
+        if ($this->shouldCountReport($report)) {
+            $transitionHandler = $this->getTransitionHandler($previousReport['is_stopped'], $report['is_stopped']);
+            $transitionHandler($report, $timeDiff, $distanceDiff);
+        }
     }
 
     private function getTransitionHandler(bool $wasStopped, bool $isStopped): callable
@@ -124,13 +131,20 @@ class ReportProcessingService
         $this->saveReport($report);
     }
 
+    private function shouldCountReport(array $report): bool
+    {
+        // If there's a current task, only check if the point is within the task area
+        if ($this->currentTask && $this->taskArea) {
+            return is_point_in_polygon($report['coordinate'], $this->taskArea);
+        }
+
+        // If no task is defined, check if the report is within working hours
+        return !$this->currentTask && ($this->isWithinWorkingHours)($report);
+    }
+
     private function incrementTimingAndTraveledDistance(array $report, int $timeDiff, float $distanceDiff, bool $stopped = false, bool $incrementStoppage = false): void
     {
-        if ($this->currentTask && $this->taskArea) {
-            if (is_point_in_polygon($report['coordinate'], $this->taskArea)) {
-                $this->updateTimingAndDistance($timeDiff, $distanceDiff, $stopped, $incrementStoppage);
-            }
-        } elseif (!$this->currentTask && ($this->isWithinWorkingHours)($report)) {
+        if ($this->shouldCountReport($report)) {
             $this->updateTimingAndDistance($timeDiff, $distanceDiff, $stopped, $incrementStoppage);
         }
     }
