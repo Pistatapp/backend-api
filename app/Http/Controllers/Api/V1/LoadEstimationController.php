@@ -13,11 +13,10 @@ use Illuminate\Http\Request;
 
 class LoadEstimationController extends Controller
 {
-    private $loadEstimationService;
-
-    public function __construct(LoadEstimationService $loadEstimationService)
-    {
-        $this->loadEstimationService = $loadEstimationService;
+    public function __construct(
+        private LoadEstimationService $loadEstimationService
+    ) {
+        $this->middleware('role:root', ['only' => ['update']]);
     }
 
     /**

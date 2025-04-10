@@ -77,19 +77,9 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::apiResource('pests', PestController::class);
     Route::apiResource('sliders', SliderController::class);
 
-    Route::middleware('role:root')->group(function () {
+    Route::apiSingleton('crop_types.load_estimation', LoadEstimationController::class);
 
-        Route::controller(PhonologyGuideFileController::class)
-            ->prefix('phonology/guide_files/{model_type}/{model_id}')->group(function () {
-                Route::withoutMiddleware('role:root')->group(function () {
-                    Route::get('/', 'index');
-                });
-                Route::post('/', 'store');
-                Route::delete('/{id}', 'destroy');
-            });
-
-        Route::apiSingleton('crop_types.load_estimation', LoadEstimationController::class);
-    });
+    Route::apiResource('phonology_guide_files', PhonologyGuideFileController::class)->only(['index', 'store', 'destroy']);
 
     Route::withoutMiddleware('ensure.username')->group(function () {
         Route::patch('username', [ProfileController::class, 'setUsername']);

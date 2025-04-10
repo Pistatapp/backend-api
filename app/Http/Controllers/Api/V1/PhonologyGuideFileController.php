@@ -8,40 +8,39 @@ use App\Http\Resources\PhonologyGuideFileResource;
 
 class PhonologyGuideFileController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('role:root', ['only' => ['store', 'destroy']]);
+    }
+
     /**
      * Display a listing of the resource.
-     *
-     * @param string $model_type
-     * @param string $model_id
-     * @return \Illuminate\Http\Resources\Json\AnonymousResourceCollection
      */
-    public function index(string $model_type = null, string $model_id = null)
+    public function index(Request $request)
     {
-        abort_unless($model_type && $model_id, 404);
+        $request->validate([
+            'model_type' => 'required|string',
+            'model_id' => 'required'
+        ]);
 
-        $model = getModel($model_type, $model_id);
+        $model = getModel($request->model_type, $request->model_id);
 
         return PhonologyGuideFileResource::collection($model->phonologyGuideFiles);
     }
 
     /**
      * Store a newly created resource in storage.
-     *
-     * @param \Illuminate\Http\Request $request
-     * @param string $model_type
-     * @param string $model_id
-     * @return \Illuminate\Http\JsonResponse
      */
-    public function store(Request $request, string $model_type = null, string $model_id = null)
+    public function store(Request $request)
     {
-        abort_unless($model_type && $model_id, 404);
-
         $request->validate([
             'name' => 'required|string|max:255|unique:phonology_guide_files,name',
             'file' => 'required|file|max:10240',
+            'model_type' => 'required|string',
+            'model_id' => 'required'
         ]);
 
-        $model = getModel($model_type, $model_id);
+        $model = getModel($request->model_type, $request->model_id);
 
         $phonologyGuideFile = $model->phonologyGuideFiles()->create(
             $request->only('name') + ['created_by' => $request->user()->id]
@@ -54,21 +53,17 @@ class PhonologyGuideFileController extends Controller
 
     /**
      * Delete the specified resource in storage.
-     *
-     * @param string $model_type
-     * @param string $model_id
-     * @param string $id
-     * @return \Illuminate\Http\JsonResponse
      */
-    public function destroy(string $model_type = null, string $model_id = null, string $id)
+    public function destroy(Request $request, string $id)
     {
-        abort_unless($model_type && $model_id, 404);
+        $request->validate([
+            'model_type' => 'required|string',
+            'model_id' => 'required'
+        ]);
 
-        $model = getModel($model_type, $model_id);
+        $model = getModel($request->model_type, $request->model_id);
 
         $phonologyGuideFile = $model->phonologyGuideFiles()->findOrFail($id);
-
-        abort_if($phonologyGuideFile->user->id !== request()->user()->id, 403);
 
         $phonologyGuideFile->clearMediaCollection('phonology_guide_files');
 
