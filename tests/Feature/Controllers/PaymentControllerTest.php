@@ -36,7 +36,7 @@ class PaymentControllerTest extends TestCase
     #[Test]
     public function request_validates_required_fields(): void
     {
-        $response = $this->postJson('/api/payments/request', []);
+        $response = $this->postJson('/api/v1/payments/request', []);
 
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['amount', 'description', 'payable_type', 'payable_id']);
@@ -45,7 +45,7 @@ class PaymentControllerTest extends TestCase
     #[Test]
     public function request_validates_minimum_amount(): void
     {
-        $response = $this->postJson('/api/payments/request', [
+        $response = $this->postJson('/api/v1/payments/request', [
             'amount' => 500,
             'description' => 'Test payment',
             'payable_type' => Farm::class,
@@ -59,7 +59,7 @@ class PaymentControllerTest extends TestCase
     #[Test]
     public function request_validates_mobile_format(): void
     {
-        $response = $this->postJson('/api/payments/request', [
+        $response = $this->postJson('/api/v1/payments/request', [
             'amount' => 1000,
             'description' => 'Test payment',
             'payable_type' => Farm::class,
@@ -80,7 +80,7 @@ class PaymentControllerTest extends TestCase
 
         $this->mock_zarinpal_ip_mismatch();
 
-        $response = $this->postJson('/api/payments/request', [
+        $response = $this->postJson('/api/v1/payments/request', [
             'amount' => 10000,
             'description' => 'Test payment',
             'payable_type' => Farm::class,
@@ -109,7 +109,7 @@ class PaymentControllerTest extends TestCase
 
         $this->mock_zarinpal_success();
 
-        $response = $this->postJson('/api/payments/request', [
+        $response = $this->postJson('/api/v1/payments/request', [
             'amount' => 10000,
             'description' => 'Test payment',
             'payable_type' => Farm::class,
@@ -140,7 +140,7 @@ class PaymentControllerTest extends TestCase
     {
         $this->mock_zarinpal_failure();
 
-        $response = $this->postJson('/api/payments/request', [
+        $response = $this->postJson('/api/v1/payments/request', [
             'amount' => 10000,
             'description' => 'Test payment',
             'payable_type' => Farm::class,
@@ -169,7 +169,7 @@ class PaymentControllerTest extends TestCase
             'authority' => 'A00000-000-000-000-000000',
         ]);
 
-        $response = $this->getJson("/api/payments/verify?Authority={$payment->authority}&Status=NOK");
+        $response = $this->getJson("/api/v1/payments/verify?Authority={$payment->authority}&Status=NOK");
 
         $response->assertStatus(422)
             ->assertJson([
@@ -199,7 +199,7 @@ class PaymentControllerTest extends TestCase
 
         $this->mock_zarinpal_verification_ip_mismatch();
 
-        $response = $this->getJson("/api/payments/verify?Authority={$payment->authority}&Status=OK");
+        $response = $this->getJson("/api/v1/payments/verify?Authority={$payment->authority}&Status=OK");
 
         $response->assertStatus(422)
             ->assertJson([
@@ -230,7 +230,7 @@ class PaymentControllerTest extends TestCase
 
         $this->mock_zarinpal_verification_success();
 
-        $response = $this->getJson("/api/payments/verify?Authority={$payment->authority}&Status=OK");
+        $response = $this->getJson("/api/v1/payments/verify?Authority={$payment->authority}&Status=OK");
 
         $response->assertStatus(200)
             ->assertJson([
@@ -257,7 +257,7 @@ class PaymentControllerTest extends TestCase
 
         $this->mock_zarinpal_verification_failure();
 
-        $response = $this->getJson("/api/payments/verify?Authority={$payment->authority}&Status=OK");
+        $response = $this->getJson("/api/v1/payments/verify?Authority={$payment->authority}&Status=OK");
 
         $response->assertStatus(422)
             ->assertJson([
@@ -273,7 +273,7 @@ class PaymentControllerTest extends TestCase
     #[Test]
     public function verify_returns_404_for_invalid_authority(): void
     {
-        $response = $this->getJson("/api/payments/verify?Authority=invalid-authority&Status=OK");
+        $response = $this->getJson("/api/v1/payments/verify?Authority=invalid-authority&Status=OK");
 
         $response->assertStatus(404)
             ->assertJson([
