@@ -26,14 +26,13 @@ class CacheService
 
     public function getLatestStoredReport(): ?GpsReport
     {
-        $cacheKey = "latest_stored_report_id_{$this->device->id}";
-        $latestStoredReportId = Cache::get($cacheKey);
-        return GpsReport::find($latestStoredReportId);
+        $cacheKey = "latest_stored_report_{$this->device->id}";
+        return Cache::get($cacheKey);
     }
 
     public function setLatestStoredReport(GpsReport $report): void
     {
-        $cacheKey = "latest_stored_report_id_{$this->device->id}";
-        Cache::put($cacheKey, $report->id, now()->endOfDay());
+        $cacheKey = "latest_stored_report_{$this->device->id}";
+        Cache::put($cacheKey, $report, now()->endOfDay());
     }
 }

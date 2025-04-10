@@ -3,9 +3,12 @@
 namespace App\Services;
 
 use App\Models\GpsDevice;
+use App\Traits\TractorWorkingTime;
 
 class ReportProcessingService
 {
+    use TractorWorkingTime;
+
     private $totalTraveledDistance = 0;
     private $totalMovingTime = 0;
     private $totalStoppedTime = 0;
@@ -74,10 +77,8 @@ class ReportProcessingService
         $timeDiff = $previousReport['date_time']->diffInSeconds($report['date_time']);
 
         // Only process transitions if report should be counted
-        if ($this->shouldCountReport($report)) {
-            $transitionHandler = $this->getTransitionHandler($previousReport['is_stopped'], $report['is_stopped']);
-            $transitionHandler($report, $timeDiff, $distanceDiff);
-        }
+        $transitionHandler = $this->getTransitionHandler($previousReport['is_stopped'], $report['is_stopped']);
+        $transitionHandler($report, $timeDiff, $distanceDiff);
     }
 
     private function getTransitionHandler(bool $wasStopped, bool $isStopped): callable
@@ -164,5 +165,6 @@ class ReportProcessingService
         $report = $this->device->reports()->create($data);
         $this->latestStoredReport = $report;
         $this->cacheService->setLatestStoredReport($report);
+        // $this->setWorkingTimes($report);
     }
 }
