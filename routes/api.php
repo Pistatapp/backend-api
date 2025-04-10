@@ -44,6 +44,7 @@ use App\Http\Controllers\Api\V1\Farm\CompositionalNutrientDiagnosisController;
 use App\Http\Controllers\Api\V1\UserPreferenceController;
 use App\Http\Controllers\Api\V1\Tractor\TractorReportController;
 use App\Http\Controllers\Api\V1\WarningController;
+use App\Http\Controllers\Api\V1\PaymentController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -180,4 +181,8 @@ Route::post('/gps/reports', GpsReportController::class)->name('gps.reports');
 
 Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->prefix('v1')->group(function () {
     Route::apiResource('warnings', WarningController::class)->only(['index', 'store']);
+
+    // Payment routes
+    Route::post('/payments/request', [PaymentController::class, 'request'])->name('payment.request');
+    Route::get('/payments/verify', [PaymentController::class, 'verify'])->name('payment.verify');
 });

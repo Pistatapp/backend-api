@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "06426036ac7b09c9811f4458de9553ab",
+    "content-hash": "27f8b648404cc43e3e7be7b657a35911",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -4417,6 +4417,65 @@
                 }
             ],
             "time": "2024-12-14T21:12:59+00:00"
+        },
+        {
+            "name": "pishran/zarinpal",
+            "version": "v4.3.5",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/pishran/Zarinpal.git",
+                "reference": "dd2ee1cebf3d4628ea44805f19e7f1aedaeb62c9"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/pishran/Zarinpal/zipball/dd2ee1cebf3d4628ea44805f19e7f1aedaeb62c9",
+                "reference": "dd2ee1cebf3d4628ea44805f19e7f1aedaeb62c9",
+                "shasum": ""
+            },
+            "require": {
+                "laravel/framework": "^7.0|^8.0|^9.0|^10.0|^11.0|^12.0",
+                "php": "^7.2|^8.0"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Pishran\\Zarinpal\\ServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "files": [
+                    "src/helpers.php"
+                ],
+                "psr-4": {
+                    "Pishran\\Zarinpal\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Farid Aghili",
+                    "email": "farid@pishranit.ir",
+                    "homepage": "https://www.faridaghili.ir",
+                    "role": "Developer"
+                }
+            ],
+            "description": "Zarinpal library for Laravel.",
+            "homepage": "https://github.com/pishran/zarinpal",
+            "keywords": [
+                "laravel",
+                "payment",
+                "zarinpal"
+            ],
+            "support": {
+                "issues": "https://github.com/pishran/Zarinpal/issues",
+                "source": "https://github.com/pishran/Zarinpal/tree/v4.3.5"
+            },
+            "time": "2025-02-24T10:19:19+00:00"
         },
         {
             "name": "predis/predis",

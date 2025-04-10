@@ -4,7 +4,6 @@ namespace App\Providers;
 
 use App\Listeners\IrrigationEventSubscriber;
 use App\Services\WeatherApi;
-use App\Services\Zarinpal\Zarinpal;
 use App\Services\KalmanFilter;
 use App\Services\TractorReportService;
 use Illuminate\Database\Eloquent\Model;
@@ -35,8 +34,6 @@ class AppServiceProvider extends ServiceProvider
         Model::preventSilentlyDiscardingAttributes(! app()->isProduction());
 
         $this->app->singleton('weather-api', fn($app) => $app->make(WeatherApi::class));
-
-        $this->app->bind('zarinpal', fn($app) => $app->make(Zarinpal::class));
 
         Event::subscribe(IrrigationEventSubscriber::class);
 

@@ -191,4 +191,14 @@ class User extends Authenticatable implements HasMedia
             ->where('farms.id', $this->preferences['working_environment'] ?? null)
             ->first();
     }
+
+    /**
+     * Get the user's payments
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function payments()
+    {
+        return $this->hasMany(Payment::class);
+    }
 }

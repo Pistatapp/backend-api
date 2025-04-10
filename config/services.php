@@ -40,8 +40,17 @@ return [
         'key' => env('FCM_SERVER_KEY'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Zarinpal Payment Gateway
+    |--------------------------------------------------------------------------
+    |
+    | This is the configuration for Zarinpal payment gateway.
+    |
+    */
     'zarinpal' => [
-        'merchant_id' => env('ZARINPAL_MERCHANT_ID'),
+        'merchant_id' => env('ZARINPAL_MERCHANT_ID', '00000000-0000-0000-0000-000000000000'),
+        'currency' => env('ZARINPAL_CURRENCY', 'IRT'), // IRT for Toman, IRR for Rial
     ],
 
 ];

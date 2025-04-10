@@ -168,16 +168,6 @@ function getModel(string $model_type, string $model_id)
 }
 
 /**
- * Get the Zarinpal service
- *
- * @return \App\Services\Zarinpal\Zarinpal
- */
-function zarinpal()
-{
-    return app('zarinpal');
-}
-
-/**
  * Determine if a point is within a polygon
  *
  * @param array $point [x, y] coordinates of the point
