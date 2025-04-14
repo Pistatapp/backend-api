@@ -118,7 +118,7 @@ class IrrigationController extends Controller
     public function getIrrigationReportForField(Request $request, Field $field)
     {
         $date = $request->has('date') ? jalali_to_carbon($request->query('date')) : today();
-        $irrigations = $field->irrigations()->filter('completed')->with('valves')
+        $irrigations = $field->irrigations()->filter('finished')->with('valves')
             ->whereDate('date', $date)
             ->get();
 
@@ -140,6 +140,7 @@ class IrrigationController extends Controller
                 'total_duration' => to_time_format($totalDuration),
                 'total_volume' => $totalVolume, // In liters
                 'irrigation_count' => $irrigations->count(),
+                'status' => 'completed',
             ]
         ]);
     }

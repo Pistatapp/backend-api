@@ -48,7 +48,11 @@ class IrrigationReportService
                 $query->whereHas('valves', function ($query) use ($filters) {
                     $query->where('valves.id', $filters['valve_id']);
                 });
-            })->whereBetween('date', [$filters['from_date'], $filters['to_date']])
+            })->when($filters['from_date'] ?? null, function ($query) use ($filters) {
+                $query->where('date', '>=', $filters['from_date']);
+            })->when($filters['to_date'] ?? null, function ($query) use ($filters) {
+                $query->where('date', '<=', $filters['to_date']);
+            })
             ->with('fields', 'valves', 'labour', 'creator')
             ->get();
     }
