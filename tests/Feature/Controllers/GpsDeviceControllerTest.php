@@ -171,6 +171,92 @@ class GpsDeviceControllerTest extends TestCase
     }
 
     #[Test]
+    public function root_user_can_view_specific_gps_device(): void
+    {
+        // Create a device to view
+        $device = GpsDevice::factory()->create();
+
+        $response = $this->actingAs($this->rootUser)
+            ->getJson("/api/gps_devices/{$device->id}");
+
+        $response->assertOk()
+            ->assertJsonStructure([
+                'data' => ['id', 'name', 'imei', 'sim_number', 'user', 'can']
+            ])
+            ->assertJson([
+                'data' => [
+                    'id' => $device->id,
+                    'name' => $device->name,
+                    'imei' => $device->imei,
+                    'sim_number' => $device->sim_number,
+                    'user' => [
+                        'id' => $device->user->id
+                    ]
+                ]
+            ]);
+    }
+
+    #[Test]
+    public function user_can_view_their_own_gps_device(): void
+    {
+        // Create a device owned by the user
+        $device = GpsDevice::factory()->create([
+            'user_id' => $this->user->id
+        ]);
+
+        $response = $this->actingAs($this->user)
+            ->getJson("/api/gps_devices/{$device->id}");
+
+        $response->assertOk()
+            ->assertJsonStructure([
+                'data' => ['id', 'name', 'imei', 'sim_number', 'user', 'can']
+            ])
+            ->assertJson([
+                'data' => [
+                    'user' => [
+                        'id' => $this->user->id
+                    ]
+                ]
+            ]);
+    }
+
+    #[Test]
+    public function user_cannot_view_others_gps_device(): void
+    {
+        // Create a device owned by another user
+        $device = GpsDevice::factory()->create([
+            'user_id' => $this->rootUser->id
+        ]);
+
+        $response = $this->actingAs($this->user)
+            ->getJson("/api/gps_devices/{$device->id}");
+
+        $response->assertForbidden();
+    }
+
+    #[Test]
+    public function validates_unique_imei_and_sim_number_on_update(): void
+    {
+        // Create two devices
+        $device1 = GpsDevice::factory()->create();
+        $device2 = GpsDevice::factory()->create();
+
+        // Try to update device2 with device1's unique identifiers
+        $updateData = [
+            'user_id' => $this->user->id,
+            'name' => 'Updated Device',
+            'imei' => $device1->imei,
+            'sim_number' => $device1->sim_number,
+        ];
+
+        $response = $this->actingAs($this->rootUser)
+            ->putJson("/api/gps_devices/{$device2->id}", $updateData);
+
+        $response->assertUnprocessable()
+            ->assertJsonValidationErrors(['imei', 'sim_number']);
+    }
+
+    #[Test]
     public function root_user_can_view_all_gps_devices(): void
     {
         // Create devices for different users
