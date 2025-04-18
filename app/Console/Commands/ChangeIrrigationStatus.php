@@ -2,8 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Events\IrrigationFinished;
-use App\Events\IrrigationStarted;
+use App\Events\IrrigationEvent;
 use Illuminate\Console\Command;
 use App\Models\Irrigation;
 
@@ -48,11 +47,9 @@ class ChangeIrrigationStatus extends Command
             ->with(['valves.pump', 'creator', 'fields'])
             ->chunk(100, function ($irrigations) use ($newStatus) {
                 foreach ($irrigations as $irrigation) {
-                    if ($newStatus === 'in-progress') {
-                        IrrigationStarted::dispatch($irrigation, $newStatus);
-                    } else {
-                        IrrigationFinished::dispatch($irrigation, $newStatus);
-                    }
+                    // Use the merged IrrigationEvent with the appropriate eventType
+                    $eventType = $newStatus === 'in-progress' ? 'started' : 'finished';
+                    IrrigationEvent::dispatch($irrigation, $newStatus, $eventType);
                 }
             });
     }

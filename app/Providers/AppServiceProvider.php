@@ -2,13 +2,11 @@
 
 namespace App\Providers;
 
-use App\Listeners\IrrigationEventSubscriber;
 use App\Services\WeatherApi;
 use App\Services\KalmanFilter;
 use App\Services\TractorReportService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\App;
-use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Gate;
 
@@ -34,8 +32,6 @@ class AppServiceProvider extends ServiceProvider
         Model::preventSilentlyDiscardingAttributes(! app()->isProduction());
 
         $this->app->singleton('weather-api', fn($app) => $app->make(WeatherApi::class));
-
-        Event::subscribe(IrrigationEventSubscriber::class);
 
         Gate::before(function ($user, $ability) {
             return $user->hasRole('root') ? true : null;

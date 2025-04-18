@@ -11,7 +11,11 @@ use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class IrrigationFinished implements ShouldBroadcast
+/**
+ * This event handles both irrigation start and finish states
+ * It replaces the separate IrrigationStarted and IrrigationFinished events
+ */
+class IrrigationEvent implements ShouldBroadcast
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
@@ -20,7 +24,8 @@ class IrrigationFinished implements ShouldBroadcast
      */
     public function __construct(
         public Irrigation $irrigation,
-        private string $status,
+        public string $status,
+        public string $eventType, // 'started' or 'finished'
     ) {}
 
     /**
@@ -30,7 +35,7 @@ class IrrigationFinished implements ShouldBroadcast
      */
     public function broadcastAs(): string
     {
-        return 'irrigation.finished';
+        return 'irrigation.' . $this->eventType;
     }
 
     /**

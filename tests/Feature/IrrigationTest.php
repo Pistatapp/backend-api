@@ -21,7 +21,7 @@ class IrrigationTest extends TestCase
 {
     use RefreshDatabase, WithFaker;
 
-    private $user;
+    private User $user;
     private $tractor;
     private $farm;
     private $fields;

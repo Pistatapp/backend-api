@@ -2,29 +2,32 @@
 
 namespace App\Listeners;
 
-use App\Events\IrrigationStarted;
+use App\Events\IrrigationEvent;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Queue\InteractsWithQueue;
 use App\Notifications\IrrigationNotification;
-use Illuminate\Events\Dispatcher;
-use App\Events\IrrigationFinished;
 
-class IrrigationEventSubscriber
+class IrrigationEventListener
 {
     /**
-     * Handle irrigation started events.
+     * Create the event listener.
      */
-    public function handleIrrigationStarted(IrrigationStarted $event): void
+    public function __construct()
     {
-        $this->updateIrrigationStatus($event->irrigation, 'in-progress', 'opened');
+        //
     }
 
     /**
-     * Handle irrigation finished events.
+     * Handle the event.
      */
-    public function handleIrrigationFinished(IrrigationFinished $event): void
+    public function handle(IrrigationEvent $event): void
     {
-        $this->updateIrrigationStatus($event->irrigation, 'completed', 'closed');
+        $eventType = $event->eventType;
+        if ($eventType === 'started') {
+            $this->updateIrrigationStatus($event->irrigation, 'in-progress', 'opened');
+        } else if ($eventType === 'finished') {
+            $this->updateIrrigationStatus($event->irrigation, 'completed', 'closed');
+        }
     }
 
     /**
@@ -56,19 +59,5 @@ class IrrigationEventSubscriber
             $valve->save();
             $valve->pump->update(['is_active' => $valveStatus === 'opened']);
         }
-    }
-
-    /**
-     * Register the listeners for the subscriber.
-     *
-     * @param \Illuminate\Events\Dispatcher $events
-     * @return array<int, string>
-     */
-    public function subscribe(Dispatcher $events): array
-    {
-        return [
-            IrrigationStarted::class => 'handleIrrigationStarted',
-            IrrigationFinished::class => 'handleIrrigationFinished',
-        ];
     }
 }
