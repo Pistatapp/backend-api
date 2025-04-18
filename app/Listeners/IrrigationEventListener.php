@@ -26,7 +26,7 @@ class IrrigationEventListener
         if ($eventType === 'started') {
             $this->updateIrrigationStatus($event->irrigation, 'in-progress', 'opened');
         } else if ($eventType === 'finished') {
-            $this->updateIrrigationStatus($event->irrigation, 'completed', 'closed');
+            $this->updateIrrigationStatus($event->irrigation, 'finished', 'closed');
         }
     }
 
