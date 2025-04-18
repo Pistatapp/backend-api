@@ -21,11 +21,11 @@ class IrrigationReportTest extends TestCase
 {
     use RefreshDatabase, WithFaker;
 
-    private $user;
-    private $farm;
+    private User $user;
+    private Farm $farm;
     private $fields;
     private $valves;
-    private $pump;
+    private Pump $pump;
 
     /**
      * Set up test environment
