@@ -11,6 +11,11 @@ class TractorTaskService
         private Tractor $tractor
     ) {}
 
+    /**
+     * Get the current task for the tractor.
+     *
+     * @return TractorTask|null
+     */
     public function getCurrentTask(): ?TractorTask
     {
         return $this->tractor->tasks()
@@ -20,6 +25,12 @@ class TractorTaskService
             ->first();
     }
 
+    /**
+     * Get the area of the specified task.
+     *
+     * @param TractorTask|null $task
+     * @return array|null
+     */
     public function getTaskArea(?TractorTask $task): ?array
     {
         if (!$task) {

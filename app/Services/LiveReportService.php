@@ -3,17 +3,11 @@
 namespace App\Services;
 
 use App\Models\GpsDevice;
-use App\Traits\TractorWorkingTime;
 
 class LiveReportService
 {
-    use TractorWorkingTime;
-
     private $dailyReport;
-    private $latestStoredReport;
     private $tractor;
-    private $currentTask;
-    private $taskArea;
 
     public function __construct(
         private GpsDevice $device,
@@ -23,16 +17,8 @@ class LiveReportService
         private CacheService $cacheService,
         private ReportProcessingService $reportProcessingService
     ) {
-        $this->initialize();
-    }
-
-    private function initialize(): void
-    {
-        $this->tractor = $this->device->tractor;
-        $this->currentTask = $this->taskService->getCurrentTask();
-        $this->taskArea = $this->taskService->getTaskArea($this->currentTask);
         $this->dailyReport = $this->dailyReportService->fetchOrCreate();
-        $this->latestStoredReport = $this->cacheService->getLatestStoredReport();
+        $this->tractor = $this->device->tractor;
     }
 
     public function generate(): array

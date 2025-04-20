@@ -3,15 +3,29 @@
 namespace App\Traits;
 
 use App\Models\GpsReport;
+use App\Models\Tractor;
 use Illuminate\Support\Facades\Cache;
 use Carbon\Carbon;
 
 trait TractorWorkingTime
 {
+    /**
+     * The tractor associated with this device.
+     *
+     * @var Tractor|null
+     */
+    protected $tractor;
+
     private const SPEED_THRESHOLD = 5; // km/h, minimum speed to consider as movement
     private const WINDOW_SIZE = 3; // Number of reports to analyze in the sliding window
     private const CACHE_TTL = 1440; // 24 hours in minutes
 
+    /**
+     * Detect and set working times based on a GPS report
+     *
+     * @param GpsReport $report
+     * @return void
+     */
     public function setWorkingTimes(GpsReport $report): void
     {
         if ($this->isWithinWorkingHours($report)) {

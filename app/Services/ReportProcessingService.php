@@ -18,6 +18,16 @@ class ReportProcessingService
     private $latestStoredReport;
     private $lastProcessedReport = null;
 
+    /**
+     * Create a new report processing service instance.
+     *
+     * @param GpsDevice $device
+     * @param array $reports
+     * @param mixed $currentTask
+     * @param mixed $taskArea
+     * @param callable $isWithinWorkingHours
+     * @param CacheService $cacheService
+     */
     public function __construct(
         private GpsDevice $device,
         private array $reports,
@@ -27,8 +37,14 @@ class ReportProcessingService
         private CacheService $cacheService
     ) {
         $this->maxSpeed = 0;
+        $this->tractor = $this->device->tractor;
     }
 
+    /**
+     * Process the reports and calculate statistics.
+     *
+     * @return array The processed report data including total traveled distance, moving time, stopped time, etc.
+     */
     public function process(): array
     {
         $previousReport = $this->cacheService->getPreviousReport();
@@ -56,6 +72,14 @@ class ReportProcessingService
         ];
     }
 
+    /**
+     * Processes the first report by saving it, updating the max speed,
+     * and checking if it should be counted based on task or working hours.
+     *
+     * @param array $report The report data.
+     *
+     * @return void
+     */
     private function processFirstReport(array $report): void
     {
         $this->saveReport($report);
@@ -70,6 +94,15 @@ class ReportProcessingService
         }
     }
 
+    /**
+     * Processes subsequent reports by calculating the time difference and distance difference
+     * between the previous and current report, and updating the statistics accordingly.
+     *
+     * @param array $previousReport The previous report data.
+     * @param array $report The current report data.
+     *
+     * @return void
+     */
     private function processSubsequentReports(array $previousReport, array $report): void
     {
         $this->maxSpeed = max($this->maxSpeed, $report['speed']);
@@ -81,6 +114,14 @@ class ReportProcessingService
         $transitionHandler($report, $timeDiff, $distanceDiff);
     }
 
+    /**
+     * Returns the appropriate transition handler based on the previous and current report states.
+     *
+     * @param bool $wasStopped Indicates if the previous report was stopped.
+     * @param bool $isStopped  Indicates if the current report is stopped.
+     *
+     * @return callable The transition handler function.
+     */
     private function getTransitionHandler(bool $wasStopped, bool $isStopped): callable
     {
         return match (true) {
@@ -91,6 +132,15 @@ class ReportProcessingService
         };
     }
 
+    /**
+     * Handles the transition from stopped to stopped state.
+     *
+     * @param array $report The report data.
+     * @param int   $timeDiff The difference in time (in seconds) to add to the total stopped time.
+     * @param float $distanceDiff The distance difference (in kilometers/meters) to add to the total traveled distance.
+     *
+     * @return void
+     */
     private function handleStoppedToStopped(array $report, int $timeDiff, float $distanceDiff): void
     {
         $this->incrementTimingAndTraveledDistance($report, $timeDiff, $distanceDiff, true);
@@ -104,6 +154,15 @@ class ReportProcessingService
         }
     }
 
+    /**
+     * Handles the transition from stopped to moving state.
+     *
+     * @param array $report The report data.
+     * @param int   $timeDiff The difference in time (in seconds) to add to the total moving time.
+     * @param float $distanceDiff The distance difference (in kilometers/meters) to add to the total traveled distance.
+     *
+     * @return void
+     */
     private function handleStoppedToMoving(array $report, int $timeDiff, float $distanceDiff): void
     {
         $this->incrementTimingAndTraveledDistance($report, $timeDiff, $distanceDiff, true);
@@ -112,19 +171,36 @@ class ReportProcessingService
                 'stoppage_time' => $this->latestStoredReport->stoppage_time + $timeDiff,
             ]);
         }
-        $report['is_starting_point'] = true;
         $this->points[] = $report;
         $this->saveReport($report);
     }
 
+    /**
+     * Handles the transition from moving to stopped state.
+     *
+     * @param array $report The report data.
+     * @param int   $timeDiff The difference in time (in seconds) to add to the total stopped time.
+     * @param float $distanceDiff The distance difference (in kilometers/meters) to add to the total traveled distance.
+     *
+     * @return void
+     */
     private function handleMovingToStopped(array $report, int $timeDiff, float $distanceDiff): void
     {
         $this->incrementTimingAndTraveledDistance($report, $timeDiff, $distanceDiff, false, true);
-        $report['is_ending_point'] = true;
+        // Remove direct flag setting - let TractorWorkingTime trait handle it
         $this->points[] = $report;
         $this->saveReport($report);
     }
 
+    /**
+     * Handles the transition from moving to moving state.
+     *
+     * @param array $report The report data.
+     * @param int   $timeDiff The difference in time (in seconds) to add to the total moving time.
+     * @param float $distanceDiff The distance difference (in kilometers/meters) to add to the total traveled distance.
+     *
+     * @return void
+     */
     private function handleMovingToMoving(array $report, int $timeDiff, float $distanceDiff): void
     {
         $this->incrementTimingAndTraveledDistance($report, $timeDiff, $distanceDiff);
@@ -132,6 +208,13 @@ class ReportProcessingService
         $this->saveReport($report);
     }
 
+    /**
+     * Determines if the report should be counted based on the current task and working hours.
+     *
+     * @param array $report The report data.
+     *
+     * @return bool True if the report should be counted, false otherwise.
+     */
     private function shouldCountReport(array $report): bool
     {
         // If there's a current task, only check if the point is within the task area
@@ -143,6 +226,17 @@ class ReportProcessingService
         return !$this->currentTask && ($this->isWithinWorkingHours)($report);
     }
 
+    /**
+     * Increments the timing and traveled distance based on the report data.
+     *
+     * @param array $report The report data.
+     * @param int   $timeDiff The difference in time (in seconds) to add to the total stopped or moving time.
+     * @param float $distanceDiff The distance difference (in kilometers/meters) to add to the total traveled distance if moving.
+     * @param bool  $stopped Indicates whether the entity is currently stopped.
+     * @param bool  $incrementStoppage Whether to increment the stoppage count.
+     *
+     * @return void
+     */
     private function incrementTimingAndTraveledDistance(array $report, int $timeDiff, float $distanceDiff, bool $stopped = false, bool $incrementStoppage = false): void
     {
         if ($this->shouldCountReport($report)) {
@@ -150,6 +244,16 @@ class ReportProcessingService
         }
     }
 
+    /**
+     * Updates the timing and distance statistics based on the current state.
+     *
+     * @param int   $timeDiff           The difference in time (in seconds) to add to the total stopped or moving time.
+     * @param float $distanceDiff       The distance difference (in kilometers/meters) to add to the total traveled distance if moving.
+     * @param bool  $stopped            Indicates whether the entity is currently stopped.
+     * @param bool  $incrementStoppage  Whether to increment the stoppage count.
+     *
+     * @return void
+     */
     private function updateTimingAndDistance(int $timeDiff, float $distanceDiff, bool $stopped, bool $incrementStoppage): void
     {
         if ($incrementStoppage) {
@@ -160,11 +264,22 @@ class ReportProcessingService
         $this->totalTraveledDistance += ($stopped ? 0 : $distanceDiff);
     }
 
+    /**
+     * Saves a new report for the current device using the provided data.
+     *
+     * This method creates a new report record associated with the device,
+     * updates the latest stored report reference, caches the latest report,
+     * and sets the working times for the report.
+     *
+     * @param array $data The data to be used for creating the report.
+     *
+     * @return void
+     */
     private function saveReport(array $data): void
     {
         $report = $this->device->reports()->create($data);
         $this->latestStoredReport = $report;
         $this->cacheService->setLatestStoredReport($report);
-        // $this->setWorkingTimes($report);
+        $this->setWorkingTimes($report);
     }
 }

@@ -13,6 +13,11 @@ class DailyReportService
         private ?TractorTask $currentTask
     ) {}
 
+    /**
+     * Fetch or create a daily report for the tractor.
+     *
+     * @return GpsDailyReport
+     */
     public function fetchOrCreate(): GpsDailyReport
     {
         $taskId = $this->currentTask ? $this->currentTask->id : null;
@@ -24,6 +29,13 @@ class DailyReportService
         ]);
     }
 
+    /**
+     * Update the daily report with new data.
+     *
+     * @param GpsDailyReport $dailyReport
+     * @param array $data
+     * @return array
+     */
     public function update(GpsDailyReport $dailyReport, array $data): array
     {
         $efficiency = $this->calculateEfficiency($data['totalMovingTime']);
@@ -44,11 +56,24 @@ class DailyReportService
         return $updateData;
     }
 
+    /**
+     * Calculate the efficiency of the tractor.
+     *
+     * @param float $totalMovingTime
+     * @return float
+     */
     private function calculateEfficiency(float $totalMovingTime): float
     {
         return $totalMovingTime / ($this->tractor->expected_daily_work_time * 3600) * 100;
     }
 
+    /**
+     * Calculate the average speed of the tractor.
+     *
+     * @param GpsDailyReport $dailyReport
+     * @param float $totalTraveledDistance
+     * @return float
+     */
     private function calculateAverageSpeed(GpsDailyReport $dailyReport, float $totalTraveledDistance): float
     {
         return $dailyReport->work_duration > 0
