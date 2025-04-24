@@ -112,6 +112,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::get('/tractors/{tractor}/reports', [ActiveTractorController::class, 'reports']);
     Route::get('/tractors/{tractor}/path', [ActiveTractorController::class, 'getPath']);
     Route::get('/tractors/{tractor}/details', [ActiveTractorController::class, 'getDetails']);
+    Route::get('/farms/{farm}/tractors/available', [TractorController::class, 'getAvailableTractors']);
     Route::apiResource('farms.tractors', TractorController::class)->shallow();
     Route::get('/tractors/{tractor}/devices', [TractorController::class, 'getAvailableDevices']);
     Route::post('/tractors/{tractor}/assign_device/{gps_device}', [TractorController::class, 'assignDevice']);

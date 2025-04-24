@@ -25,10 +25,8 @@ class DriverController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'mobile' => 'required|ir_mobile',
+            'mobile' => 'required|ir_mobile|unique:drivers,mobile',
         ]);
-
-        throw_if($tractor->driver()->exists(), new \Exception('Driver already exists.'));
 
         $driver = $tractor->driver()->create([
             'name' => $request->name,
@@ -46,12 +44,10 @@ class DriverController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'mobile' => 'required|ir_mobile',
+            'mobile' => 'required|ir_mobile|unique:drivers,mobile,' . $tractor->driver->id,
         ]);
 
         $driver = $tractor->driver;
-
-        throw_unless($driver, new \Exception('Driver not found.'));
 
         $driver->update($request->only([
             'name',
@@ -66,8 +62,6 @@ class DriverController extends Controller
      */
     public function destroy(Tractor $tractor)
     {
-        throw_unless($tractor->driver()->exists(), 403, 'Driver not found.');
-
         $tractor->driver()->delete();
 
         return response()->noContent();

@@ -119,6 +119,22 @@ class TractorController extends Controller
     }
 
     /**
+     * Get the available tractors to assign a device to.
+     */
+    public function getAvailableTractors(Request $request, Farm $farm)
+    {
+        $tractors = $farm->tractors()->whereDoesntHave('gpsDevice')->get();
+        return response()->json([
+            'data' => $tractors->map(function ($tractor) {
+                return [
+                    'id' => $tractor->id,
+                    'name' => $tractor->name,
+                ];
+            }),
+        ]);
+    }
+
+    /**
      * Assign a device to a tractor.
      */
     public function assignDevice(Request $request, Tractor $tractor, GpsDevice $gpsDevice)
