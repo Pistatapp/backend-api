@@ -8,7 +8,6 @@ use App\Http\Requests\UpdateFarmRequest;
 use App\Http\Resources\FarmResource;
 use App\Models\Farm;
 use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
 use App\Models\User;
 
 class FarmController extends Controller
