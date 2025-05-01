@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\Tractor;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Log;
 use Morilog\Jalali\Jalalian;
 
 class TractorReportFilterService
@@ -19,15 +18,21 @@ class TractorReportFilterService
      */
     public function filter(array $filters): array
     {
+        // Find the tractor or fail
         $tractor = Tractor::findOrFail($filters['tractor_id']);
-        $query = $tractor->tasks()->with(['operation', 'field', 'gpsDailyReport'])->finished();
+        // Start query from GpsDailyReport, eager loading related task, operation, and field
+        $query = $tractor->gpsDailyReports()->with(['tractorTask.operation', 'tractorTask.field']);
 
+        // Apply date/period filters
         $this->applyDateFilters($query, $filters);
+        // Apply operation filter if present
         $this->applyOperationFilter($query, $filters);
 
+        // Get the filtered reports
         $this->tasks = $query->get();
 
-        $reports = $this->mapTasksToReports($this->tasks);
+        // Map to report format
+        $reports = $this->mapReportsToArray($this->tasks);
         $accumulated = $this->calculateAccumulatedValues($reports);
         $expectations = $this->calculateExpectations($accumulated['work_duration'], $tractor, $filters);
 
@@ -90,7 +95,10 @@ class TractorReportFilterService
     {
         // Only filter if 'operation' is set and not null
         if (array_key_exists('operation', $filters) && !is_null($filters['operation'])) {
-            $query->where('operation_id', $filters['operation']);
+            // Filter by operation_id on the related tractorTask
+            $query->whereHas('tractorTask', function ($q) use ($filters) {
+                $q->where('operation_id', $filters['operation']);
+            });
         }
     }
 
@@ -102,11 +110,6 @@ class TractorReportFilterService
     private function filterByGregorianMonth($query): void
     {
         $now = now();
-        Log::info('Filtering by month', [
-            'year' => $now->year,
-            'month' => $now->month,
-            'now' => $now->toDateTimeString()
-        ]);
         $query->whereYear('date', $now->year)
               ->whereMonth('date', $now->month);
     }
@@ -119,7 +122,9 @@ class TractorReportFilterService
     private function filterByGregorianYear($query): void
     {
         $now = now();
-        $query->whereBetween('date', [$now->startOfYear(), $now->copy()->endOfYear()]);
+        // Use explicit >= and <= instead of whereBetween for date range
+        $query->where('date', '>=', $now->startOfYear())
+              ->where('date', '<=', $now->copy()->endOfYear());
     }
 
     /**
@@ -138,7 +143,9 @@ class TractorReportFilterService
         $startDate = Jalalian::fromFormat('Y/m/d', sprintf('%d/%02d/01', $date->getYear(), $date->getMonth()))->toCarbon();
         $endDate = Jalalian::fromFormat('Y/m/d', sprintf('%d/%02d/%02d', $date->getYear(), $date->getMonth(), $date->getMonthDays()))->toCarbon();
 
-        $query->whereBetween('date', [$startDate, $endDate]);
+        // Use explicit >= and <= instead of whereBetween for date range
+        $query->where('date', '>=', $startDate)
+              ->where('date', '<=', $endDate);
     }
 
     /**
@@ -157,22 +164,24 @@ class TractorReportFilterService
         $startDate = Jalalian::fromFormat('Y/m/d', $year . '/01/01')->toCarbon();
         $endDate = Jalalian::fromFormat('Y/m/d', ($year + 1) . '/01/01')->toCarbon()->subDay();
 
-        $query->whereBetween('date', [$startDate, $endDate]);
+        // Use explicit >= and <= instead of whereBetween for date range
+        $query->where('date', '>=', $startDate)
+              ->where('date', '<=', $endDate);
     }
 
     /**
-     * Map tasks to report format.
+     * Map GpsDailyReports to report format.
      *
-     * @param Collection $tasks
+     * @param Collection $reports
      * @return Collection
      */
-    private function mapTasksToReports(Collection $tasks): Collection
+    private function mapReportsToArray(Collection $reports): Collection
     {
-        return $tasks->map(function ($task) {
-            $report = $task->gpsDailyReport;
+        return $reports->map(function ($report) {
+            $task = $report->tractorTask;
             return [
-                'operation_name' => $task->operation->name,
-                'filed_name' => $task->field->name,
+                'operation_name' => $task?->operation?->name,
+                'filed_name' => $task?->field?->name,
                 'traveled_distance' => $report->traveled_distance ?? 0,
                 'min_speed' => $report->min_speed ?? 0,
                 'max_speed' => $report->max_speed ?? 0,
