@@ -57,3 +57,24 @@ jobs:
       run: |
         php artisan config:clear
         php artisan test --parallel --stop-on-failure
+
+  deploy-production:
+    needs: laravel-tests
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to production server
+        uses: appleboy/ssh-action@master
+        with:
+          host: 'http://154.91.170.180/'
+          username: 'root'
+          key: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICaUHLDTd3RQuVvW2v9itdlx9POOlIXFzldFMv0TcbTx abbas.ajorlou1371@gmail.com'
+          script: |
+            cd public_html
+            git pull origin main
+            composer install --no-dev --optimize-autoloader
+            php artisan migrate --force
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+            php artisan queue:restart
