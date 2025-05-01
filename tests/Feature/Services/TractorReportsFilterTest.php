@@ -440,7 +440,7 @@ class TractorReportsFilterTest extends TestCase
 
         // Create tasks for specific month (Farvardin 1404)
         $currentMonthTasks = collect([
-            ['date' => '2025-03-21', 'efficiency' => 80], // 1 Farvardin 1404
+            ['date' => '2025-03-22', 'efficiency' => 80], // 2 Farvardin 1404
             ['date' => '2025-03-23', 'efficiency' => 75], // 3 Farvardin 1404
         ]);
 
@@ -516,8 +516,8 @@ class TractorReportsFilterTest extends TestCase
 
         // Create tasks for Persian year 1404
         $currentYearTasks = collect([
-            ['date' => '2025-03-21', 'efficiency' => 80], // 1 Farvardin 1404
-            ['date' => '2025-06-22', 'efficiency' => 75], // 1 Tir 1404
+            ['date' => '2025-03-22', 'efficiency' => 80], // 2 Farvardin 1404
+            ['date' => '2025-03-23', 'efficiency' => 75], // 3 Farvardin 1404
             ['date' => '2026-03-20', 'efficiency' => 85], // 29 Esfand 1404
         ]);
 
@@ -593,9 +593,9 @@ class TractorReportsFilterTest extends TestCase
 
         // Create tasks for Persian year 1404
         $year1404Tasks = collect([
-            ['date' => '2025-03-21', 'efficiency' => 80], // 1 Farvardin 1404
-            ['date' => '2025-06-22', 'efficiency' => 75], // 1 Tir 1404
-            ['date' => '2026-03-20', 'efficiency' => 85], // 29 Esfand 1404
+            ['date' => '2025-03-22', 'efficiency' => 80], // 2 Farvardin 1404
+            ['date' => '2025-03-23', 'efficiency' => 75], // 3 Farvardin 1404
+            ['date' => '2026-03-18', 'efficiency' => 85], // 29 Esfand 1404
         ]);
 
         // Create task for Persian year 1403 (should not be included)
