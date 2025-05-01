@@ -60,16 +60,6 @@ class TractorTask extends Model
     }
 
     /**
-     * Fetch the task area for the current task.
-     *
-     * @return array
-     */
-    public function fetchTaskArea(): array
-    {
-        return $this->field->coordinates;
-    }
-
-    /**
      * Get the tractor that owns the TractorTask
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo

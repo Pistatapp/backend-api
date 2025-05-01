@@ -49,4 +49,17 @@ class GpsReport extends Model
         return $this->belongsTo(GpsDevice::class);
     }
 
+    /**
+     * Increment the stoppage time by the given time difference.
+     *
+     * @param int $timeDiff The time difference to increment by.
+     * @return void
+     */
+    public function incrementStoppageTime(int $timeDiff): void
+    {
+        $this->update([
+            'stoppage_time' => $this->stoppage_time + $timeDiff,
+        ]);
+    }
+
 }

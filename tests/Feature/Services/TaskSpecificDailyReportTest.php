@@ -219,12 +219,12 @@ class TaskSpecificDailyReportTest extends TestCase
         // Verify task2's area matches field2's coordinates
         $this->assertEquals(
             $this->field2->coordinates,
-            $this->task2->fetchTaskArea(),
+            $this->task2->field->coordinates,
             'Task 2 area coordinates should match field 2 coordinates'
         );
 
         // Verify the coordinate format is correct (each point should be [latitude, longitude])
-        foreach ($this->task1->fetchTaskArea() as $point) {
+        foreach ($this->task1->field->coordinates as $point) {
             $this->assertCount(2, $point, 'Each coordinate point should have latitude and longitude');
             $this->assertIsFloat($point[0], 'Latitude should be a float');
             $this->assertIsFloat($point[1], 'Longitude should be a float');
@@ -233,7 +233,7 @@ class TaskSpecificDailyReportTest extends TestCase
         // Check if coordinates form a valid polygon (at least 3 points)
         $this->assertGreaterThanOrEqual(
             3,
-            count($this->task1->fetchTaskArea()),
+            count($this->task1->field->coordinates),
             'Task area should have at least 3 points to form a valid polygon'
         );
     }

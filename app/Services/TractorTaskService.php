@@ -19,7 +19,6 @@ class TractorTaskService
     public function getCurrentTask(): ?TractorTask
     {
         return $this->tractor->tasks()
-            ->with('field:id,coordinates')
             ->started()
             ->forDate(today())
             ->first();
@@ -37,8 +36,8 @@ class TractorTaskService
             return null;
         }
 
-        $task->load('field:id,coordinates');
+        $task->loadMissing('field:id,coordinates');
 
-        return $task->fetchTaskArea();
+        return $task->field->coordinates;
     }
 }
