@@ -22,14 +22,38 @@ function jalali_to_carbon(?string $jalaliDate): ?\Carbon\Carbon
 }
 
 /**
- * Check if a date is in Jalali format
+ * Check if a date is in valid Jalali format and year range
+ *
+ * Accepts only dates in the format YYYY/MM/DD where year is 13xx or 14xx (Jalali calendar)
  *
  * @param string $date
  * @return bool
  */
 function is_jalali_date(string $date): bool
 {
-    return preg_match('/^\d{4}\/\d{2}\/\d{2}$/', $date);
+    // Check for correct format: 4 digits/2 digits/2 digits
+    if (!preg_match('/^(13|14)\\d{2}\/\\d{2}\/\\d{2}$/', $date)) {
+        return false;
+    }
+    // Optionally, check for valid month and day ranges
+    [$year, $month, $day] = explode('/', $date);
+    $year = (int)$year;
+    $month = (int)$month;
+    $day = (int)$day;
+    // Jalali months: 1-12, days: 1-31 (1-6: 31 days, 7-11: 30 days, 12: 29 or 30)
+    if ($month < 1 || $month > 12 || $day < 1 || $day > 31) {
+        return false;
+    }
+    if ($month <= 6 && $day > 31) {
+        return false;
+    }
+    if ($month >= 7 && $month <= 11 && $day > 30) {
+        return false;
+    }
+    if ($month == 12 && $day > 30) {
+        return false;
+    }
+    return true;
 }
 
 /**

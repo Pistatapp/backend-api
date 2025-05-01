@@ -47,7 +47,7 @@ class TractorReportFilterService
     private function applyDateFilters($query, array $filters): void
     {
         if (isset($filters['date'])) {
-            $date = is_jalali_date($filters['date']) ? jalali_to_carbon($filters['date']) : $filters['date'];
+            $date = jalali_to_carbon($filters['date']);
             $query->whereDate('date', $date);
         } elseif (isset($filters['period'])) {
             $this->applyPeriodFilter($query, $filters);

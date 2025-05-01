@@ -21,6 +21,7 @@ class HelperFunctionsTest extends TestCase
         $this->assertTrue(is_jalali_date('1402/01/01'));
         $this->assertFalse(is_jalali_date('1402-01-01'));
         $this->assertFalse(is_jalali_date('invalid-date'));
+        $this->assertFalse(is_jalali_date('2025/01/01'));
     }
 
     public function test_time_to_hours()

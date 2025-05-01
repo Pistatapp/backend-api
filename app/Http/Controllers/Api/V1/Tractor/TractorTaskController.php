@@ -92,7 +92,7 @@ class TractorTaskController extends Controller
     {
         $validated = $request->validate([
             'tractor_id' => 'required|exists:tractors,id',
-            'date' => 'required_without:period|date',
+            'date' => 'required_without:period|shamsi_date',
             'period' => 'required_without:date|in:month,year,specific_month,persian_year',
             'month' => 'required_if:period,specific_month|shamsi_date',
             'year' => 'required_if:period,persian_year|regex:/^\d{4}$/',
