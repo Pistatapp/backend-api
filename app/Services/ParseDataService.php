@@ -129,6 +129,12 @@ class ParseDataService
     {
         $trimmedData = rtrim($jsonData, ".");
         $correctedData = $this->correctJsonFormat($trimmedData);
-        return json_decode($correctedData, true);
+        $decodedData = json_decode($correctedData, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new \JsonException('JSON decode error: ' . json_last_error_msg());
+        }
+
+        return $decodedData;
     }
 }
