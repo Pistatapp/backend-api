@@ -27,7 +27,7 @@ class StoreLabourRequest extends FormRequest
             'type' => 'required|string|in:daily_labourer,project_labourer,permanent_labourer',
             'fname' => 'required|string|max:255',
             'lname' => 'required|string|max:255',
-            'national_id' => 'required|ir_national_code|unique:labours,national_id',
+            'national_id' => 'required|unique:labours,national_id',
             'mobile' => 'required|ir_mobile|unique:labours,mobile',
             'position' => 'required|string|max:255',
             'project_start_date' => [

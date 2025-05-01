@@ -13,8 +13,8 @@ class TractorReportsFilterTest extends TestCase
 {
     use RefreshDatabase;
 
-    private $user;
-    private $tractor;
+    private User $user;
+    private Tractor $tractor;
 
     protected function setUp(): void
     {
@@ -670,5 +670,88 @@ class TractorReportsFilterTest extends TestCase
         // Calculate efficiency based on actual working days in the period
         $expectedEfficiency = (86400 / (28800 * 3)) * 100; // 3 working days in the test data
         $this->assertEquals($expectedEfficiency, $expectations['total_efficiency']);
+    }
+
+    /**
+     * Test that reports are not filtered by operation when operation is not set or is null.
+     */
+    #[Test]
+    public function it_returns_all_reports_when_operation_is_null(): void
+    {
+        $tractor = Tractor::factory()->create();
+        $gregorianDate = '2025-03-23';
+        $persianDate = '1404/01/03'; // equivalent to 2025-03-23
+
+        // Create operations and fields
+        $operation = Operation::factory()->create();
+        $otherOperation = Operation::factory()->create();
+        $fields = \App\Models\Field::factory()
+            ->count(3)
+            ->create(['farm_id' => $tractor->farm_id]);
+
+        // Create tasks with different operations
+        $startTime = strtotime('08:00');
+        $endTime = $startTime + 7200; // 2 hours interval
+
+        for ($i = 0; $i < 2; $i++) {
+            $task = $tractor->tasks()->create([
+                'operation_id' => $operation->id,
+                'field_id' => $fields[$i]->id,
+                'date' => $gregorianDate,
+                'start_time' => date('H:i', $startTime),
+                'end_time' => date('H:i', $endTime),
+                'created_by' => $this->user->id,
+                'status' => 'finished'
+            ]);
+            $task->gpsDailyReport()->create([
+                'tractor_id' => $tractor->id,
+                'traveled_distance' => 100 * ($i + 1),
+                'work_duration' => 3600 * ($i + 1),
+                'stoppage_count' => 5 * ($i + 1),
+                'stoppage_duration' => 1200 * ($i + 1),
+                'average_speed' => 20 * ($i + 1),
+                'max_speed' => 50 * ($i + 1),
+                'efficiency' => 80 - (($i + 1) * 5),
+                'date' => $gregorianDate,
+            ]);
+            $startTime = $endTime;
+            $endTime = $startTime + 7200;
+        }
+        // Create a task with a different operation
+        $task = $tractor->tasks()->create([
+            'operation_id' => $otherOperation->id,
+            'field_id' => $fields[2]->id,
+            'date' => $gregorianDate,
+            'start_time' => date('H:i', $startTime),
+            'end_time' => date('H:i', $endTime),
+            'created_by' => $this->user->id,
+            'status' => 'finished'
+        ]);
+        $task->gpsDailyReport()->create([
+            'tractor_id' => $tractor->id,
+            'traveled_distance' => 300,
+            'work_duration' => 10800,
+            'stoppage_count' => 15,
+            'stoppage_duration' => 3600,
+            'average_speed' => 60,
+            'max_speed' => 150,
+            'efficiency' => 70,
+            'date' => $gregorianDate,
+        ]);
+
+        // Filter reports by tractor and Persian date, without operation filter
+        $response = $this->postJson(route('tractor.reports.filter', [
+            'tractor_id' => $tractor->id,
+            'date' => $persianDate,
+        ]));
+        $response->assertStatus(200);
+        $responseData = $response->json('data');
+        $reports = $responseData['reports'];
+        // Should return all 3 reports (not filtered by operation)
+        $this->assertCount(3, $reports);
+        // Check that all operation names are present
+        $operationNames = collect($reports)->pluck('operation_name');
+        $this->assertTrue($operationNames->contains($operation->name));
+        $this->assertTrue($operationNames->contains($otherOperation->name));
     }
 }

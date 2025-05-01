@@ -81,12 +81,15 @@ class TractorReportFilterService
     /**
      * Apply operation filter to the query.
      *
+     * If the operation filter is not set or is null, do not filter by operation_id.
+     *
      * @param \Illuminate\Database\Eloquent\Builder $query
      * @param array $filters
      */
     private function applyOperationFilter($query, array $filters): void
     {
-        if (isset($filters['operation'])) {
+        // Only filter if 'operation' is set and not null
+        if (array_key_exists('operation', $filters) && !is_null($filters['operation'])) {
             $query->where('operation_id', $filters['operation']);
         }
     }

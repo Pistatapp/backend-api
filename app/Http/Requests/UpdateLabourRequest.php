@@ -27,7 +27,7 @@ class UpdateLabourRequest extends FormRequest
             'type' => 'required|string|max:255|in:daily_labourer,project_labourer,permanent_labourer',
             'fname' => 'required|string|max:255',
             'lname' => 'required|string|max:255',
-            'national_id' => 'required|ir_national_code|unique:labours,national_id,' . $this->labour->id,
+            'national_id' => 'required|unique:labours,national_id,' . $this->labour->id,
             'mobile' => 'required|ir_mobile|unique:labours,mobile,' . $this->labour->id,
             'position' => 'required|string|max:255',
             'project_start_date' => [
