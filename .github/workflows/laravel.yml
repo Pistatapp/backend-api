@@ -68,7 +68,7 @@ jobs:
         with:
           host: 'http://154.91.170.180/'
           username: 'root'
-          key: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICaUHLDTd3RQuVvW2v9itdlx9POOlIXFzldFMv0TcbTx abbas.ajorlou1371@gmail.com'
+          key: 'SHA256:6DF43FCbie3d9b8VXZLYYczBZWQNyI43pyMmTFAIcMk'
           script: |
             cd public_html
             git pull origin main
