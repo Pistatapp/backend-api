@@ -58,6 +58,6 @@ class RowController extends Controller
     {
         $row->delete();
 
-        return response()->json([], JsonResponse::HTTP_GONE);
+        return response()->noContent();
     }
 }

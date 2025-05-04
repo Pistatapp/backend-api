@@ -65,6 +65,6 @@ class VolkOilSprayController extends Controller
     {
         $volkOilSpray->delete();
 
-        return response()->json([], JsonResponse::HTTP_GONE);
+        return response()->noContent();
     }
 }
