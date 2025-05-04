@@ -152,6 +152,51 @@ DELETE /api/farms/{farm_id}/nutrient_diagnosis/{request_id}
 #### Response
 Returns 204 No Content on successful deletion
 
+### 6. Export Nutrient Diagnosis Samples (Excel)
+
+```http
+GET /api/farms/{farm_id}/nutrient_diagnosis/export
+```
+
+#### Access Control
+- Root users only
+
+#### Description
+Exports all compositional nutrient diagnosis samples for the specified farm as an Excel (.xlsx) file. The exported file includes all fields from the sample resource, as well as the username, mobile, and farm coordinates.
+
+#### Response
+- Returns an Excel file download (`application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`)
+- The file contains the following columns:
+  - ID
+  - Field ID
+  - Field Name
+  - Field Area
+  - Load Amount
+  - Nitrogen
+  - Phosphorus
+  - Potassium
+  - Calcium
+  - Magnesium
+  - Iron
+  - Copper
+  - Zinc
+  - Boron
+  - Username
+  - Mobile
+  - Farm Coordinates
+  - Farm Center
+
+#### Sample Response Headers
+```
+HTTP/1.1 200 OK
+Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+Content-Disposition: attachment; filename="nutrient_samples_{farm_id}.xlsx"
+```
+
+#### Notes
+- Only users with the `root` role can access this endpoint.
+- The file is generated dynamically and includes all samples for the farm.
+
 ## Status Values
 - `pending`: Initial state when request is created
 - `completed`: State after receiving response from root user
