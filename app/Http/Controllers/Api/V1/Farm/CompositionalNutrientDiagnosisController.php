@@ -120,4 +120,20 @@ class CompositionalNutrientDiagnosisController extends Controller
 
         return response()->json(['message' => 'Response sent successfully']);
     }
+
+    /**
+     * Export all compositional nutrient diagnosis samples for a farm as an Excel file.
+     * Only root users can access this endpoint.
+     *
+     * @param Farm $farm
+     * @return \Symfony\Component\HttpFoundation\BinaryFileResponse
+     */
+    public function export(Farm $farm)
+    {
+        $this->authorize('respond', [\App\Models\NutrientDiagnosisRequest::class, $farm]);
+        $export = new \App\Exports\NutrientSamplesExport($farm);
+        $filePath = $export->export();
+        $filename = __('nutrient_samples_') . $farm->id . '.xlsx';
+        return response()->download($filePath, $filename)->deleteFileAfterSend(true);
+    }
 }

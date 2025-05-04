@@ -157,6 +157,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
         Route::post('/nutrient_diagnosis', [CompositionalNutrientDiagnosisController::class, 'store']);
         Route::delete('/nutrient_diagnosis/{request}', [CompositionalNutrientDiagnosisController::class, 'destroy']);
         Route::post('/nutrient_diagnosis/{request}/response', [CompositionalNutrientDiagnosisController::class, 'sendResponse']);
+        Route::get('/nutrient_diagnosis/export', [CompositionalNutrientDiagnosisController::class, 'export']);
 
         Route::post('/load_estimation', [LoadEstimationController::class, 'estimate']);
         Route::post('/weather_forecast', WeatherForecastController::class)->name('farms.weather_forecast');
