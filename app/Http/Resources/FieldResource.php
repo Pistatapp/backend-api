@@ -21,12 +21,8 @@ class FieldResource extends JsonResource
             'coordinates' => $this->coordinates,
             'center' => $this->center,
             'area' => $this->area,
-            'crop_type' => $this->whenLoaded('cropType', function () {
-                return [
-                    'id' => $this->cropType->id,
-                    'name' => $this->cropType->name,
-                ];
-            }),
+            'crop_type' => new CropTypeResource($this->whenLoaded('cropType')),
+            'valves' => ValveResource::collection($this->whenLoaded('valves')),
             'rows_count' => $this->whenCounted('rows'),
             'blocks_count' => $this->whenCounted('blocks'),
             'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),

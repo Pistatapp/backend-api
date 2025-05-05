@@ -15,7 +15,7 @@ class FarmPlanControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected $user;
+    protected User $user;
     protected $farm;
     protected $treatment;
     protected $field;
@@ -74,8 +74,8 @@ class FarmPlanControllerTest extends TestCase
             'used_materials' => 'Test Materials',
             'evaluation_criteria' => 'Test Criteria',
             'description' => 'Test Description',
-            'start_date' => now()->format('Y/m/d'),
-            'end_date' => now()->addDays(30)->format('Y/m/d'),
+            'start_date' => jdate(now())->format('Y/m/d'),
+            'end_date' => jdate(now()->addDays(30))->format('Y/m/d'),
             'details' => [
                 [
                     'treatment_id' => $this->treatment->id,
@@ -157,8 +157,8 @@ class FarmPlanControllerTest extends TestCase
             'used_materials' => 'Updated Materials',
             'evaluation_criteria' => 'Updated Criteria',
             'description' => 'Updated Description',
-            'start_date' => now()->format('Y/m/d'),
-            'end_date' => now()->addDays(30)->format('Y/m/d'),
+            'start_date' => jdate(now())->format('Y/m/d'),
+            'end_date' => jdate(now()->addDays(30))->format('Y/m/d'),
             'details' => [
                 [
                     'treatment_id' => $this->treatment->id,

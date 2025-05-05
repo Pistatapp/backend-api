@@ -14,6 +14,10 @@ function jalali_to_carbon(?string $jalaliDate): ?\Carbon\Carbon
         return null; // Handle null input gracefully
     }
 
+    if(!is_jalali_date($jalaliDate)) {
+        throw new \InvalidArgumentException('Invalid Jalali date format');
+    }
+
     try {
         return Jalalian::fromFormat('Y/m/d', $jalaliDate)->toCarbon();
     } catch (\Exception $e) {

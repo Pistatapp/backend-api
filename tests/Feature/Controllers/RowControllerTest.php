@@ -14,7 +14,7 @@ class RowControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    private $user;
+    private User $user;
     private $field;
 
     protected function setUp(): void
@@ -95,7 +95,7 @@ class RowControllerTest extends TestCase
 
         $response = $this->deleteJson("/api/rows/{$row->id}");
 
-        $response->assertStatus(410);
+        $response->assertNoContent();
 
         $this->assertDatabaseMissing('rows', ['id' => $row->id]);
     }
