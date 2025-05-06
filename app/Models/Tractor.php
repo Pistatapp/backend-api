@@ -138,4 +138,15 @@ class Tractor extends Model
     {
         return $this->morphMany(MaintenanceReport::class, 'maintainable');
     }
+
+    /**
+     * Scope a query to only include active tractors.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeActive($query)
+    {
+        return $query->whereHas('gpsDevice')->whereHas('driver');
+    }
 }
