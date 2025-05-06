@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\GpsDevice;
 use App\Traits\TractorWorkingTime;
+use Illuminate\Support\Facades\Log;
 
 class ReportProcessingService
 {
@@ -49,6 +50,8 @@ class ReportProcessingService
     public function process(): array
     {
         $previousReport = $this->cacheService->getPreviousReport();
+        Log::info('Previous report', ['data' => json_encode($previousReport), 'imei' => $this->device->imei]);
+        Log::info('Latest stored report', ['data' => json_encode($this->latestStoredReport), 'imei' => $this->device->imei]);
 
         foreach ($this->reports as $report) {
             if (is_null($previousReport)) {
