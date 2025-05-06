@@ -142,7 +142,7 @@ class LiveReportServiceTest extends TestCase
         // Verify basic calculations
         $this->assertGreaterThan(0, $report['traveled_distance']);
         $this->assertEquals(0, $report['speed']); // Last non-zero speed
-        $this->assertEquals(2, $report['stoppage_count']); // Two points with speed 0
+        $this->assertEquals(1, $report['stoppage_count']); // Only stoppages > 60s are counted
         $this->assertCount(3, $report['points']);
     }
 
@@ -165,7 +165,7 @@ class LiveReportServiceTest extends TestCase
         // First and last points are stopped, middle point is moving
         // Total stoppage time should be around 120 seconds
         $this->assertGreaterThan(0, $report['stoppage_duration']);
-        $this->assertEquals(2, $report['stoppage_count']);
+        $this->assertEquals(1, $report['stoppage_count']);
     }
 
     #[Test]

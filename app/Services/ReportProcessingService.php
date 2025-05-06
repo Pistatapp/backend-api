@@ -50,8 +50,6 @@ class ReportProcessingService
     public function process(): array
     {
         $previousReport = $this->cacheService->getPreviousReport();
-        Log::info('Previous report', ['data' => json_encode($previousReport), 'imei' => $this->device->imei]);
-        Log::info('Latest stored report', ['data' => json_encode($this->latestStoredReport), 'imei' => $this->device->imei]);
 
         foreach ($this->reports as $report) {
             if (is_null($previousReport)) {
@@ -146,7 +144,8 @@ class ReportProcessingService
      */
     private function handleStoppedToStopped(array $report, int $timeDiff, float $distanceDiff): void
     {
-        $this->incrementTimingAndTraveledDistance($report, $timeDiff, $distanceDiff, true);
+        $incrementStoppage = $timeDiff > 60 ? true : false;
+        $this->incrementTimingAndTraveledDistance($report, $timeDiff, $distanceDiff, true, $incrementStoppage);
 
         $this->latestStoredReport->incrementStoppageTime($timeDiff);
     }
@@ -179,7 +178,8 @@ class ReportProcessingService
      */
     private function handleMovingToStopped(array $report, int $timeDiff, float $distanceDiff): void
     {
-        $this->incrementTimingAndTraveledDistance($report, $timeDiff, $distanceDiff, false, true);
+        $incrementStoppage = $timeDiff > 60 ? true : false;
+        $this->incrementTimingAndTraveledDistance($report, $timeDiff, $distanceDiff, false, $incrementStoppage);
         $this->points[] = $report;
         $this->saveReport($report);
     }
