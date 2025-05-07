@@ -17,16 +17,23 @@ class ActiveTractorResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
-            'gps_device' => [
-                'id' => $this->gpsDevice->id,
-                'imei' => $this->gpsDevice->imei,
-            ],
-            'driver' => [
-                'id' => $this->driver->id,
-                'name' => $this->driver->name,
-                'mobile' => $this->driver->mobile,
-            ],
+            'gps_device' => $this->whenLoaded('gpsDevice', function () {
+                return [
+                    'id' => $this->gpsDevice->id,
+                    'imei' => $this->gpsDevice->imei,
+                ];
+            }),
+            'driver' => $this->whenLoaded('driver', function () {
+                return [
+                    'id' => $this->driver->id,
+                    'name' => $this->driver->name,
+                    'mobile' => $this->driver->mobile,
+                ];
+            }),
             'status' => $this->is_working,
+            'start_working_time' => $this->whenLoaded('startWorkingTime', function () {
+                return $this->startWorkingTime->date_time->format('H:i:s');
+            }),
         ];
     }
 }

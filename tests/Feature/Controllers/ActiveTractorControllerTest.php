@@ -80,7 +80,8 @@ class ActiveTractorControllerTest extends TestCase
                             'name',
                             'mobile'
                         ],
-                        'status'
+                        'status',
+                        'start_working_time',
                     ]
                 ]
             ]);

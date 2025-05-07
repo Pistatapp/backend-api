@@ -24,7 +24,9 @@ class ActiveTractorController extends Controller
      */
     public function index(Farm $farm)
     {
-        $tractors = Tractor::whereBelongsTo($farm)->active()->with('gpsDevice', 'driver')->get();
+        $tractors = Tractor::whereBelongsTo($farm)->active()
+            ->with('gpsDevice', 'driver', 'startWorkingTime')
+            ->get();
 
         return ActiveTractorResource::collection($tractors);
     }

@@ -110,6 +110,26 @@ class Tractor extends Model
     }
 
     /**
+     * Get the start working time for the tractor.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasOneThrough
+     */
+    public function startWorkingTime()
+    {
+        return $this->hasOneThrough(GpsReport::class, GpsDevice::class)->where('is_starting_point', true);
+    }
+
+    /**
+     * Get the end working time for the tractor.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasOneThrough
+     */
+    public function endWorkingTime()
+    {
+        return $this->hasOneThrough(GpsReport::class, GpsDevice::class)->where('is_ending_point', true);
+    }
+
+    /**
      * Get the tasks for the tractor.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
