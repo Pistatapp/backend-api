@@ -23,6 +23,10 @@ class WeatherForecastRequest extends FormRequest
      */
     public function rules(): array
     {
+        Log::info('dates', [
+            'start_date' => $this->start_date,
+            'end_date' => $this->end_date,
+        ]);
         return [
             'type' => 'required|string|in:current,forecast,history',
             'start_date' => [
@@ -40,10 +44,6 @@ class WeatherForecastRequest extends FormRequest
             ],
         ];
 
-        Log::info('dates', [
-            'start_date' => $this->start_date,
-            'end_date' => $this->end_date,
-        ]);
     }
 
     /**
