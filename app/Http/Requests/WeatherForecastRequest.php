@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 
 class WeatherForecastRequest extends FormRequest
@@ -38,6 +39,11 @@ class WeatherForecastRequest extends FormRequest
                 Rule::when($this->type === 'history', ['before_or_equal:today', 'after_or_equal:' . now()->subDays(300)->toDateString()]),
             ],
         ];
+
+        Log::info('dates', [
+            'start_date' => $this->start_date,
+            'end_date' => $this->end_date,
+        ]);
     }
 
     /**
