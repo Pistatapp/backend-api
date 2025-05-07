@@ -23,10 +23,6 @@ class WeatherForecastRequest extends FormRequest
      */
     public function rules(): array
     {
-        Log::info('dates', [
-            'start_date' => $this->start_date,
-            'end_date' => $this->end_date,
-        ]);
         return [
             'type' => 'required|string|in:current,forecast,history',
             'start_date' => [
@@ -51,7 +47,7 @@ class WeatherForecastRequest extends FormRequest
      */
     protected function prepareForValidation()
     {
-        if (in_array($this->type, ['history'])) {
+        if (in_array($this->type, ['history', 'forecast'])) {
             $this->merge([
                 'start_date' => jalali_to_carbon($this->start_date)->format('Y-m-d'),
                 'end_date' => jalali_to_carbon($this->end_date)->format('Y-m-d'),
