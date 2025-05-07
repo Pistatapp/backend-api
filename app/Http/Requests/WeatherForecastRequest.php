@@ -47,8 +47,8 @@ class WeatherForecastRequest extends FormRequest
     {
         if (in_array($this->type, ['history'])) {
             $this->merge([
-                'start_date' => jalali_to_carbon($this->start_date),
-                'end_date' => jalali_to_carbon($this->end_date),
+                'start_date' => jalali_to_carbon($this->start_date)->format('Y-m-d'),
+                'end_date' => jalali_to_carbon($this->end_date)->format('Y-m-d'),
             ]);
         }
     }
