@@ -53,7 +53,8 @@ class Row extends Model
 
         return calculate_distance(
             [floatval($point1[0]), floatval($point1[1])],
-            [floatval($point2[0]), floatval($point2[1])]
+            [floatval($point2[0]), floatval($point2[1])],
+            'm'
         );
     }
 

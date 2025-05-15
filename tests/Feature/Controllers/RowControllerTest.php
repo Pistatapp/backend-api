@@ -127,7 +127,7 @@ class RowControllerTest extends TestCase
         $this->assertGreaterThan(0, $length, 'Length should be greater than zero');
 
         // 2. Likely to be around 0.14 km based on Haversine formula calculations
-        $this->assertGreaterThan(0.13, $length, 'Length should be greater than 0.13 km');
-        $this->assertLessThan(0.15, $length, 'Length should be less than 0.15 km');
+        $this->assertGreaterThan(130, $length, 'Length should be greater than 130');
+        $this->assertLessThan(150, $length, 'Length should be less than 150');
     }
 }
