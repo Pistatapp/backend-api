@@ -30,8 +30,8 @@ class TractorReportResource extends JsonResource
                 ];
             }),
             'date' => jdate($this->date)->format('Y/m/d'),
-            'start_time' => $this->start_time,
-            'end_time' => $this->end_time,
+            'start_time' => $this->start_time->format('H:i'),
+            'end_time' => $this->end_time->format('H:i'),
             'description' => $this->description,
             'created_by' => $this->created_by,
         ];
