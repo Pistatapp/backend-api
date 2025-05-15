@@ -13,8 +13,8 @@ class WeatherForecastControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    private $user;
-    private $farm;
+    private User $user;
+    private Farm $farm;
 
     protected function setUp(): void
     {

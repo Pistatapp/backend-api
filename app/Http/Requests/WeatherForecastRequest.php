@@ -3,7 +3,6 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 
 class WeatherForecastRequest extends FormRequest
@@ -49,8 +48,8 @@ class WeatherForecastRequest extends FormRequest
     {
         if (in_array($this->type, ['history', 'forecast'])) {
             $this->merge([
-                'start_date' => jalali_to_carbon($this->start_date)->format('Y-m-d'),
-                'end_date' => jalali_to_carbon($this->end_date)->format('Y-m-d'),
+                'start_date' => $this->start_date ? jalali_to_carbon($this->start_date)->format('Y-m-d') : null,
+                'end_date' => $this->end_date ? jalali_to_carbon($this->end_date)->format('Y-m-d') : null,
             ]);
         }
     }
