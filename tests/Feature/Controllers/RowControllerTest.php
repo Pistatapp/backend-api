@@ -99,4 +99,35 @@ class RowControllerTest extends TestCase
 
         $this->assertDatabaseMissing('rows', ['id' => $row->id]);
     }
+
+    #[Test]
+    public function it_correctly_calculates_row_length()
+    {
+        // Create a row with known coordinates that are close to each other
+        $lat1 = 35.123;
+        $lon1 = 51.456;
+        $lat2 = 35.124;
+        $lon2 = 51.457;
+
+        $row = Row::factory()->create([
+            'field_id' => $this->field->id,
+            'coordinates' => ["$lat1,$lon1", "$lat2,$lon2"]
+        ]);
+
+        // Get the row details from the API
+        $response = $this->getJson("/api/rows/{$row->id}");
+
+        $response->assertOk();
+
+        // Get the calculated length from the response
+        $length = $response->json('data.length');
+
+        // For the coordinates provided (close coordinates), the length should be:
+        // 1. Greater than zero
+        $this->assertGreaterThan(0, $length, 'Length should be greater than zero');
+
+        // 2. Likely to be around 0.14 km based on Haversine formula calculations
+        $this->assertGreaterThan(0.13, $length, 'Length should be greater than 0.13 km');
+        $this->assertLessThan(0.15, $length, 'Length should be less than 0.15 km');
+    }
 }

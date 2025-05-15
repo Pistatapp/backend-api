@@ -7,7 +7,6 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\RowResource;
 use App\Models\Field;
-use Illuminate\Http\JsonResponse;
 
 class RowController extends Controller
 {

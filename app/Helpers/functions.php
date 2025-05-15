@@ -230,9 +230,10 @@ function is_point_in_polygon(array $point, array $polygon): bool
  *
  * @param array $point1 [latitude, longitude] coordinates of the first point
  * @param array $point2 [latitude, longitude] coordinates of the second point
- * @return float The distance between the two points in kilometers
+ * @param string $unit Unit of distance ('km', 'm', 'cm', etc.). Default is 'km'
+ * @return float The distance between the two points in the specified unit
  */
-function calculate_distance(array $point1, array $point2): float
+function calculate_distance(array $point1, array $point2, string $unit = 'km'): float
 {
     $earthRadius = 6371; // Earth's radius in kilometers
 
@@ -249,7 +250,26 @@ function calculate_distance(array $point1, array $point2): float
 
     $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
 
-    return $earthRadius * $c;
+    $distance = $earthRadius * $c; // Distance in kilometers
+
+    // Convert to the requested unit
+    switch (strtolower($unit)) {
+        case 'm':
+            return $distance * 1000;
+        case 'cm':
+            return $distance * 100000;
+        case 'mm':
+            return $distance * 1000000;
+        case 'mi': // miles
+            return $distance * 0.621371;
+        case 'nmi': // nautical miles
+            return $distance * 0.539957;
+        case 'ft': // feet
+            return $distance * 3280.84;
+        case 'km':
+        default:
+            return $distance;
+    }
 }
 
 
