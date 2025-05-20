@@ -6,7 +6,7 @@ use App\Models\Tractor;
 use Carbon\Carbon;
 use App\Http\Resources\PointsResource;
 use App\Http\Resources\TractorTaskResource;
-
+use App\Http\Resources\DriverResource;
 /**
  * This constructor initializes the Kalman filter.
  *
@@ -73,6 +73,7 @@ class TractorReportService
         $reports = $tractor->gpsReports()->whereDate('date_time', $date)->orderBy('date_time')->get();
         $startWorkingTime = $this->getStartWorkingTime($reports);
         $currentTask = $this->getCurrentTask($tractor);
+        $tractor->load('driver');
 
         // Get last 7 days efficiency data
         $lastSevenDaysEfficiency = $tractor->gpsDailyReports()
@@ -100,6 +101,7 @@ class TractorReportService
             'efficiency' => number_format($dailyReport->efficiency ?? 0, 2),
             'current_task' => $currentTask ? new TractorTaskResource($currentTask) : null,
             'last_seven_days_efficiency' => $lastSevenDaysEfficiency,
+            'driver' => new DriverResource($tractor->driver),
         ];
     }
 
