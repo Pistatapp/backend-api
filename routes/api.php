@@ -121,7 +121,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::apiResource('/tractors.tractor_reports', TractorReportController::class)->shallow();
     Route::post('/tractor_reports/filter', [TractorReportController::class, 'filter'])->name('tractor.reports.filter');
     Route::apiResource('tractors.tractor_tasks', TractorTaskController::class)->shallow();
-    Route::post('/tractors/filter_reports', [TractorTaskController::class, 'filterReports'])->name('tractor.reports.filter');
+    Route::post('/tractors/filter_reports', [TractorTaskController::class, 'filterReports'])->name('tractor_reports.filter');
 
     // Maintenance Routes
     Route::apiResource('farms.maintenances', MaintenanceController::class)->except('show')->shallow();

@@ -72,7 +72,7 @@ class TractorReportsFilterTest extends TestCase
         }
 
         // Filter reports by tractor and Persian date
-        $response = $this->postJson(route('tractor.reports.filter', [
+        $response = $this->postJson(route('tractor_reports.filter', [
             'tractor_id' => $tractor->id,
             'date' => $persianDate,
         ]));
@@ -232,7 +232,7 @@ class TractorReportsFilterTest extends TestCase
         ]);
 
         // Filter reports by tractor, operation and Persian date
-        $response = $this->postJson(route('tractor.reports.filter', [
+        $response = $this->postJson(route('tractor_reports.filter', [
             'tractor_id' => $tractor->id,
             'operation' => $operation->id,
             'date' => $persianDate,
@@ -338,7 +338,7 @@ class TractorReportsFilterTest extends TestCase
         $this->travelTo($baseDate);
 
         // Test filtering by current month
-        $response = $this->postJson(route('tractor.reports.filter', [
+        $response = $this->postJson(route('tractor_reports.filter', [
             'tractor_id' => $tractor->id,
             'period' => 'month'
         ]));
@@ -412,7 +412,7 @@ class TractorReportsFilterTest extends TestCase
         $createTaskWithReport($lastYearTask);
 
         // Test filtering by current year
-        $response = $this->postJson(route('tractor.reports.filter', [
+        $response = $this->postJson(route('tractor_reports.filter', [
             'tractor_id' => $tractor->id,
             'period' => 'year'
         ]));
@@ -487,7 +487,7 @@ class TractorReportsFilterTest extends TestCase
         $createTaskWithReport($nextMonthTask);
 
         // Test filtering by specific month (Farvardin 1404)
-        $response = $this->postJson(route('tractor.reports.filter', [
+        $response = $this->postJson(route('tractor_reports.filter', [
             'tractor_id' => $tractor->id,
             'period' => 'specific_month',
             'month' => '1404/01/01' // First day of Farvardin 1404
@@ -564,7 +564,7 @@ class TractorReportsFilterTest extends TestCase
         $createTaskWithReport($nextYearTask);
 
         // Test filtering by Persian year 1404
-        $response = $this->postJson(route('tractor.reports.filter', [
+        $response = $this->postJson(route('tractor_reports.filter', [
             'tractor_id' => $tractor->id,
             'period' => 'persian_year',
             'year' => '1404'
@@ -641,7 +641,7 @@ class TractorReportsFilterTest extends TestCase
         $createTaskWithReport($year1405Task);
 
         // Test filtering by Persian year 1404
-        $response = $this->postJson(route('tractor.reports.filter', [
+        $response = $this->postJson(route('tractor_reports.filter', [
             'tractor_id' => $tractor->id,
             'period' => 'persian_year',
             'year' => '1404'
@@ -740,7 +740,7 @@ class TractorReportsFilterTest extends TestCase
         ]);
 
         // Filter reports by tractor and Persian date, without operation filter
-        $response = $this->postJson(route('tractor.reports.filter', [
+        $response = $this->postJson(route('tractor_reports.filter', [
             'tractor_id' => $tractor->id,
             'date' => $persianDate,
         ]));
