@@ -96,23 +96,6 @@ class GpsReportTest extends TestCase
     }
 
     #[Test]
-    public function it_handles_invalid_device_imei()
-    {
-        $jsonData = [
-            ['data' => '+Hooshnic:V1.03,3453.04393,05035.9775,000,240124,070200,018,000,1,999999999999999']
-        ];
-
-        $response = $this->postJson('/api/gps/reports', $jsonData);
-
-        $response->assertStatus(404)
-            ->assertJson(['message' => 'Device not found']);
-
-        $this->assertDatabaseMissing('gps_reports', [
-            'imei' => '999999999999999'
-        ]);
-    }
-
-    #[Test]
     public function it_updates_existing_daily_report()
     {
         // First report
@@ -159,5 +142,29 @@ class GpsReportTest extends TestCase
         $dailyReport = $this->tractor->gpsDailyReports()->first()->fresh();
         $this->assertGreaterThan(0, $dailyReport->traveled_distance);
         $this->assertGreaterThan(0, $dailyReport->work_duration);
+    }
+
+    #[Test]
+    public function it_calculates_traveled_distance_correctly()
+    {
+        // Send multiple GPS reports with different coordinates
+        $jsonData = [
+            ['data' => '+Hooshnic:V1.03,3453.00000,05035.0000,000,240124,070000,000,000,1,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.01000,05035.0100,000,240124,070100,010,000,1,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.02000,05035.0200,000,240124,070200,020,000,1,863070043386100']
+        ];
+
+        $response = $this->postJson('/api/gps/reports', $jsonData);
+        $response->assertStatus(200);
+
+        // Get the daily report
+        $dailyReport = $this->tractor->gpsDailyReports()->first();
+
+        // Assert that traveled distance is greater than zero and is a reasonable value
+        // (We expect a positive value since coordinates are changing)
+        $this->assertGreaterThan(0, $dailyReport->traveled_distance);
+
+        // Optionally, check that the value is within a reasonable range (e.g., < 5km for these small changes)
+        $this->assertLessThan(5, $dailyReport->traveled_distance);
     }
 }

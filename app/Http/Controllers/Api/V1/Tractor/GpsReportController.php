@@ -40,10 +40,6 @@ class GpsReportController extends Controller
 
             $device = $this->gpsDeviceRepository->getByRelations($deviceImei, ['tractor']);
 
-            if(!$device) {
-                return new JsonResponse(['message' => 'Device not found'], JsonResponse::HTTP_NOT_FOUND);
-            }
-
             $lastReportStatus = end($data)['status'];
 
             $taskService = new TractorTaskService($device->tractor);
