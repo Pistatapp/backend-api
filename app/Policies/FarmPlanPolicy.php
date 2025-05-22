@@ -21,7 +21,7 @@ class FarmPlanPolicy
      */
     public function view(User $user, FarmPlan $farmPlan): bool
     {
-        return $farmPlan->creator->is($user);
+        return $farmPlan->creator->is($user) || $farmPlan->farm->users->contains($user);
     }
 
     /**
