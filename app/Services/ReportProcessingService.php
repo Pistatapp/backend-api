@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\GpsDevice;
 use App\Traits\TractorWorkingTime;
-use Illuminate\Support\Facades\Log;
 
 class ReportProcessingService
 {
@@ -144,7 +143,7 @@ class ReportProcessingService
      */
     private function handleStoppedToStopped(array $report, int $timeDiff, float $distanceDiff): void
     {
-        $incrementStoppage = $timeDiff > 60 ? true : false;
+        $incrementStoppage = $timeDiff > 120 ? true : false;
         $this->incrementTimingAndTraveledDistance($report, $timeDiff, $distanceDiff, true, $incrementStoppage);
 
         $this->latestStoredReport->incrementStoppageTime($timeDiff);

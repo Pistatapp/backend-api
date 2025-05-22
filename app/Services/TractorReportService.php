@@ -101,7 +101,7 @@ class TractorReportService
             'efficiency' => number_format($dailyReport->efficiency ?? 0, 2),
             'current_task' => $currentTask ? new TractorTaskResource($currentTask) : null,
             'last_seven_days_efficiency' => $lastSevenDaysEfficiency,
-            'driver' => new DriverResource($tractor->driver),
+            'driver' => $tractor->driver ? new DriverResource($tractor->driver) : null,
         ];
     }
 
