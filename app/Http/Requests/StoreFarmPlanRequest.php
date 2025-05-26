@@ -3,7 +3,6 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-use App\Models\FarmPlan;
 
 class StoreFarmPlanRequest extends FormRequest
 {
@@ -33,32 +32,8 @@ class StoreFarmPlanRequest extends FormRequest
             'used_materials' => 'required|string|max:255',
             'evaluation_criteria' => 'required|string|max:255',
             'description' => 'required|string|max:2000',
-            'start_date' => [
-                'required',
-                'date',
-                function ($attribute, $value, $fail) {
-                    $planExists = FarmPlan::where('farm_id', $this->route('farm')->id)
-                        ->where('start_date', '<=', $value)
-                        ->where('end_date', '>=', $value)
-                        ->exists();
-                    if ($planExists) {
-                        $fail(__('The selected start date interferes with an existing plan.'));
-                    }
-                },
-            ],
-            'end_date' => [
-                'required',
-                'date',
-                function ($attribute, $value, $fail) {
-                    $planExists = FarmPlan::where('farm_id', $this->route('farm')->id)
-                        ->where('start_date', '<=', $value)
-                        ->where('end_date', '>=', $value)
-                        ->exists();
-                    if ($planExists) {
-                        $fail(__('The selected end date interferes with an existing plan.'));
-                    }
-                },
-            ],
+            'start_date' => 'required|date|before_or_equal:end_date',
+            'end_date' => 'required|date|after_or_equal:start_date',
             'details' => 'required|array|min:1',
             'details.*.treatment_id' => 'required|integer|exists:treatments,id',
             'details.*.treatables' => 'required|array|min:1',

@@ -3,7 +3,6 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-use App\Models\FarmPlan;
 
 class UpdateFarmPlanRequest extends FormRequest
 {
@@ -37,27 +36,18 @@ class UpdateFarmPlanRequest extends FormRequest
                 'required',
                 'date',
                 function ($attribute, $value, $fail) {
-                    $planExists = FarmPlan::where('farm_id', $this->route('farm_plan')->farm_id)
-                        ->where('id', '!=', $this->route('farm_plan')->id)
-                        ->where('start_date', '<=', $value)
-                        ->where('end_date', '>=', $value)
-                        ->exists();
-                    if ($planExists) {
-                        $fail('The selected start date interferes with an existing plan.');
+                    if ($this->end_date && $value > $this->end_date) {
+                        $fail('The start date must be before the end date.');
                     }
                 },
             ],
             'end_date' => [
                 'required',
                 'date',
+                'after_or_equal:start_date',
                 function ($attribute, $value, $fail) {
-                    $planExists = FarmPlan::where('farm_id', $this->route('farm_plan')->farm_id)
-                        ->where('id', '!=', $this->route('farm_plan')->id)
-                        ->where('start_date', '<=', $value)
-                        ->where('end_date', '>=', $value)
-                        ->exists();
-                    if ($planExists) {
-                        $fail('The selected end date interferes with an existing plan.');
+                    if ($this->start_date && $value < $this->start_date) {
+                        $fail('The end date must be after or equal to the start date.');
                     }
                 },
             ],
