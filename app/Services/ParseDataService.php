@@ -48,10 +48,6 @@ class ParseDataService
             'status' => (int)$dataFields[8],
             'date_time' => $dateTime,
             'imei' => $dataFields[9],
-            'is_stopped' => (int)$dataFields[6] == 0 || (int)$dataFields[8] == 0,
-            'stoppage_time' => 0,
-            'is_starting_point' => false,
-            'is_ending_point' => false,
         ];
     }
 

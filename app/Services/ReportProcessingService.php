@@ -17,6 +17,7 @@ class ReportProcessingService
     private $points = [];
     private $latestStoredReport;
     private $lastProcessedReport = null;
+    private $cacheService;
 
     /**
      * Create a new report processing service instance.
@@ -33,11 +34,10 @@ class ReportProcessingService
         private array $reports,
         private $currentTask,
         private $taskArea,
-        private $isWithinWorkingHours,
-        private CacheService $cacheService
     ) {
         $this->maxSpeed = 0;
-        $this->tractor = $this->device->tractor;
+        $this->tractor = $device->tractor;
+        $this->cacheService = new CacheService($device);
         $this->latestStoredReport = $this->cacheService->getLatestStoredReport();
     }
 
@@ -89,7 +89,8 @@ class ReportProcessingService
 
         // Check if report should be counted based on task or working hours
         if ($this->shouldCountReport($report)) {
-            if ($report['is_stopped']) {
+            $stopped = $this->determineStoppage($report);
+            if ($stopped) {
                 $this->stoppageCount += 1;
             }
         }
@@ -109,8 +110,10 @@ class ReportProcessingService
         $this->maxSpeed = max($this->maxSpeed, $report['speed']);
         $distanceDiff = calculate_distance($previousReport['coordinate'], $report['coordinate']);
         $timeDiff = $previousReport['date_time']->diffInSeconds($report['date_time']);
+        $previousReportStopped = $this->determineStoppage($previousReport);
+        $reportStopped = $this->determineStoppage($report, $previousReport, $timeDiff);
 
-        $transitionHandler = $this->getTransitionHandler($previousReport['is_stopped'], $report['is_stopped']);
+        $transitionHandler = $this->getTransitionHandler($previousReportStopped, $reportStopped);
         $transitionHandler($report, $timeDiff, $distanceDiff);
     }
 
@@ -143,7 +146,7 @@ class ReportProcessingService
      */
     private function handleStoppedToStopped(array $report, int $timeDiff, float $distanceDiff): void
     {
-        $incrementStoppage = $timeDiff > 120 ? true : false;
+        $incrementStoppage = true;
         $this->incrementTimingAndTraveledDistance($report, $timeDiff, $distanceDiff, true, $incrementStoppage);
 
         $this->latestStoredReport->incrementStoppageTime($timeDiff);
@@ -161,7 +164,6 @@ class ReportProcessingService
     private function handleStoppedToMoving(array $report, int $timeDiff, float $distanceDiff): void
     {
         $this->incrementTimingAndTraveledDistance($report, $timeDiff, $distanceDiff, true);
-        $this->latestStoredReport->incrementStoppageTime($timeDiff);
         $this->points[] = $report;
         $this->saveReport($report);
     }
@@ -177,7 +179,8 @@ class ReportProcessingService
      */
     private function handleMovingToStopped(array $report, int $timeDiff, float $distanceDiff): void
     {
-        $incrementStoppage = $timeDiff > 60 ? true : false;
+        $report['is_stopped'] = $timeDiff >= 60; // Considered stopped if the time difference is greater than 60 seconds
+        $incrementStoppage = $report['is_stopped'];
         $this->incrementTimingAndTraveledDistance($report, $timeDiff, $distanceDiff, false, $incrementStoppage);
         $this->points[] = $report;
         $this->saveReport($report);
@@ -214,7 +217,7 @@ class ReportProcessingService
         }
 
         // If no task is defined, check if the report is within working hours
-        return !$this->currentTask && ($this->isWithinWorkingHours)($report);
+        return !$this->currentTask && $this->isWithinWorkingHours($report);
     }
 
     /**
@@ -252,6 +255,11 @@ class ReportProcessingService
         }
 
         $this->{$stopped ? 'totalStoppedTime' : 'totalMovingTime'} += $timeDiff;
+
+        if($stopped) {
+            $this->latestStoredReport->incrementStoppageTime($timeDiff);
+        }
+
         $this->totalTraveledDistance += ($stopped ? 0 : $distanceDiff);
     }
 
@@ -272,5 +280,24 @@ class ReportProcessingService
         $this->latestStoredReport = $report;
         $this->cacheService->setLatestStoredReport($report);
         $this->setWorkingTimes($report);
+    }
+
+    /**
+     * Determines if the report indicates a stoppage based on speed and status.
+     *
+     * @param array $report The report data.
+     * @param array $previousReport The previous report data, if available.
+     * @param int $timeDiff The time difference in seconds since the last report.
+     *
+     * @return bool True if the report indicates a stoppage, false otherwise.
+     */
+    private function determineStoppage(array $report, array $previousReport = [], int $timeDiff = 0): bool
+    {
+        if (empty($previousReport)) {
+            return ($report['speed'] == 0 && $report['status'] == 1) || $report['status'] == 0;
+        }
+
+        $isStopped = ($report['speed'] == 0 && $report['status'] == 1) || $report['status'] == 0;
+        return $isStopped && $timeDiff >= 60;
     }
 }

@@ -5,7 +5,6 @@ namespace App\Traits;
 use App\Models\GpsReport;
 use App\Models\Tractor;
 use Illuminate\Support\Facades\Cache;
-use Carbon\Carbon;
 
 trait TractorWorkingTime
 {
@@ -33,6 +32,12 @@ trait TractorWorkingTime
         }
     }
 
+    /**
+     * Detect the start and end points of the tractor's working time based on the GPS report.
+     *
+     * @param GpsReport $report
+     * @return void
+     */
     private function detectStartEndPoints(GpsReport $report): void
     {
         $cacheKey = "tractor_points_{$this->tractor->id}_{$report->date_time->toDateString()}";
@@ -117,6 +122,12 @@ trait TractorWorkingTime
         }
     }
 
+    /**
+     * Check if the report has a starting point for today.
+     *
+     * @param GpsReport $report
+     * @return bool
+     */
     private function hasStartPointForToday(GpsReport $report): bool
     {
         $cacheKey = "start_point_{$this->tractor->id}_{$report->date_time->toDateString()}";
@@ -129,6 +140,12 @@ trait TractorWorkingTime
         });
     }
 
+    /**
+     * Check if there is an ending point for the tractor on the given date.
+     *
+     * @param GpsReport $report
+     * @return bool
+     */
     private function hasEndPointForToday(GpsReport $report): bool
     {
         $cacheKey = "end_point_{$this->tractor->id}_{$report->date_time->toDateString()}";
@@ -141,9 +158,15 @@ trait TractorWorkingTime
         });
     }
 
+    /**
+     * Check if the report's date_time is within the working hours of the tractor.
+     *
+     * @param GpsReport|array $report
+     * @return bool
+     */
     private function isWithinWorkingHours(GpsReport|array $report): bool
     {
-        $dateTime = is_array($report) ? Carbon::parse($report['date_time']) : $report->date_time;
+        $dateTime = $report['date_time'];
 
         $workingHoursCacheKey = "tractor_working_hours_{$this->tractor->id}_{$dateTime->toDateString()}";
 

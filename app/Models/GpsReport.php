@@ -40,6 +40,18 @@ class GpsReport extends Model
     }
 
     /**
+     * The default values for attributes.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'is_stopped' => false,
+        'is_starting_point' => false,
+        'is_ending_point' => false,
+        'stoppage_time' => 0,
+    ];
+
+    /**
      * Get the gpsDevice that owns the GpsReport
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo

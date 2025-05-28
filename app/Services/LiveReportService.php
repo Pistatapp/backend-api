@@ -10,23 +10,85 @@ class LiveReportService
     private $tractor;
 
     public function __construct(
-        private GpsDevice $device,
-        private array $reports,
         private TractorTaskService $taskService,
         private DailyReportService $dailyReportService,
-        private CacheService $cacheService,
-        private ReportProcessingService $reportProcessingService
     ) {
         $this->dailyReport = $this->dailyReportService->fetchOrCreate();
-        $this->tractor = $this->device->tractor;
     }
 
-    public function generate(): array
+    /**
+     * Generate the live report based on the provided GPS device and data.
+     *
+     * @param GpsDevice $device
+     * @param array $data
+     * @return array
+     */
+    public function generate(GpsDevice $device, array $data): array
     {
-        $processedData = $this->reportProcessingService->process();
+        $this->initializeTractor($device);
+        $processedData = $this->processReportData($device, $data);
+        $updatedData = $this->updateDailyReport($processedData);
 
+        return $this->prepareResponse($updatedData);
+    }
+
+    /**
+     * Initialize the tractor property using the GPS device.
+     *
+     * @param GpsDevice $device
+     * @return void
+     */
+    private function initializeTractor(GpsDevice $device): void
+    {
+        $this->tractor = $device->tractor;
+    }
+
+    /**
+     * Process the report data using the ReportProcessingService.
+     *
+     * @param GpsDevice $device
+     * @param array $data
+     * @return array
+     */
+    private function processReportData(GpsDevice $device, array $data): array
+    {
+        $currentTask = $this->taskService->getCurrentTask($this->tractor);
+        $taskArea = $this->taskService->getTaskArea($currentTask);
+
+        $reportProcessingService = new ReportProcessingService(
+            $device,
+            $data,
+            $currentTask,
+            $taskArea,
+        );
+
+        return $reportProcessingService->process();
+    }
+
+    /**
+     * Update the daily report with processed data.
+     *
+     * @param array $processedData
+     * @return array
+     */
+    private function updateDailyReport(array $processedData): array
+    {
         $data = $this->dailyReportService->update($this->dailyReport, $processedData);
 
+        $data['points'] = $processedData['points'];
+        $data['latestStoredReport'] = $processedData['latestStoredReport'];
+
+        return $data;
+    }
+
+    /**
+     * Prepare the response data for the live report.
+     *
+     * @param array $data
+     * @return array
+     */
+    private function prepareResponse(array $data): array
+    {
         return [
             'id' => $this->dailyReport->id,
             'tractor_id' => $this->tractor->id,
@@ -35,8 +97,8 @@ class LiveReportService
             'stoppage_duration' => $data['stoppage_duration'],
             'efficiency' => $data['efficiency'],
             'stoppage_count' => $data['stoppage_count'],
-            'speed' => $processedData['latestStoredReport']->speed ?? 0,
-            'points' => $processedData['points'],
+            'speed' => $data['latestStoredReport']->speed ?? 0,
+            'points' => $data['points'],
         ];
     }
 }

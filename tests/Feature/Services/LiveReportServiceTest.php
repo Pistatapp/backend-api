@@ -64,10 +64,6 @@ class LiveReportServiceTest extends TestCase
                 'status' => 1,
                 'date_time' => $now->copy()->subMinutes(2),
                 'imei' => '863070043386100',
-                'is_stopped' => true,
-                'stoppage_time' => 0,
-                'is_starting_point' => false,
-                'is_ending_point' => false,
             ],
             [
                 'coordinate' => [34.884066, 50.599626],
@@ -75,10 +71,6 @@ class LiveReportServiceTest extends TestCase
                 'status' => 1,
                 'date_time' => $now->copy()->subMinute(),
                 'imei' => '863070043386100',
-                'is_stopped' => false,
-                'stoppage_time' => 0,
-                'is_starting_point' => false,
-                'is_ending_point' => false,
             ],
             [
                 'coordinate' => [34.884067, 50.599627],
@@ -86,10 +78,6 @@ class LiveReportServiceTest extends TestCase
                 'status' => 1,
                 'date_time' => $now->copy(),
                 'imei' => '863070043386100',
-                'is_stopped' => true,
-                'stoppage_time' => 0,
-                'is_starting_point' => false,
-                'is_ending_point' => false,
             ]
         ];
 
@@ -106,12 +94,9 @@ class LiveReportServiceTest extends TestCase
         );
 
         $this->service = new LiveReportService(
-            $this->device,
-            $this->reports,
             $this->taskService,
             $this->dailyReportService,
-            $this->cacheService,
-            $this->reportProcessingService
+            $this->cacheService
         );
     }
 
@@ -127,7 +112,7 @@ class LiveReportServiceTest extends TestCase
     #[Test]
     public function it_calculates_live_report_metrics()
     {
-        $report = $this->service->generate();
+        $report = $this->service->generate($this->device, $this->reports);
 
         $this->assertArrayHasKey('id', $report);
         $this->assertArrayHasKey('tractor_id', $report);
@@ -142,14 +127,14 @@ class LiveReportServiceTest extends TestCase
         // Verify basic calculations
         $this->assertGreaterThan(0, $report['traveled_distance']);
         $this->assertEquals(0, $report['speed']); // Last non-zero speed
-        $this->assertEquals(1, $report['stoppage_count']); // Only stoppages > 60s are counted
+        $this->assertEquals(2, $report['stoppage_count']); // Only stoppages > 60s are counted
         $this->assertCount(3, $report['points']);
     }
 
     #[Test]
     public function it_calculates_efficiency_correctly()
     {
-        $report = $this->service->generate();
+        $report = $this->service->generate($this->device, $this->reports);
 
         // Moving time is 60 seconds out of 8 hours expected work time
         $expectedEfficiency = (60 / (8 * 3600)) * 100;
@@ -160,18 +145,20 @@ class LiveReportServiceTest extends TestCase
     #[Test]
     public function it_tracks_stoppage_time()
     {
-        $report = $this->service->generate();
+        $report = $this->service->generate($this->device, $this->reports);
+
+        // dump($report);
 
         // First and last points are stopped, middle point is moving
         // Total stoppage time should be around 120 seconds
-        $this->assertGreaterThan(0, $report['stoppage_duration']);
-        $this->assertEquals(1, $report['stoppage_count']);
+        $this->assertEquals(60, $report['stoppage_duration']);
+        $this->assertEquals(2, $report['stoppage_count']);
     }
 
     #[Test]
     public function it_calculates_traveled_distance()
     {
-        $report = $this->service->generate();
+        $report = $this->service->generate($this->device, $this->reports);
 
         // Distance between consecutive points should be calculated
         // using the Haversine formula
@@ -185,8 +172,8 @@ class LiveReportServiceTest extends TestCase
         $endTime = now()->addHours(8);
 
         $this->device->tractor->update([
-            'start_work_time' => $startTime,
-            'end_work_time' => $endTime,
+            'start_work_time' => $startTime->format('H:i'),
+            'end_work_time' => $endTime->format('H:i'),
         ]);
 
         $tractor = $this->device->tractor->fresh();
@@ -203,11 +190,11 @@ class LiveReportServiceTest extends TestCase
     public function it_does_not_calculate_metrics_if_tractor_is_not_in_task_field()
     {
         $this->device->tractor->update([
-            'start_work_time' => now()->addHours(2),
-            'end_work_time' => now()->addHours(10),
+            'start_work_time' => now()->addHours(2)->format('H:i'),
+            'end_work_time' => now()->addHours(10)->format('H:i'),
         ]);
 
-        $report = $this->service->generate();
+        $report = $this->service->generate($this->device, $this->reports);
 
         $this->assertEquals(0, $report['traveled_distance']);
         $this->assertEquals(0, $report['work_duration']);
@@ -242,10 +229,6 @@ class LiveReportServiceTest extends TestCase
                 'status' => 1,
                 'date_time' => $currentTime->copy(),
                 'imei' => '863070043386100',
-                'is_stopped' => true,
-                'stoppage_time' => 0,
-                'is_starting_point' => false,
-                'is_ending_point' => false,
             ];
             $currentTime->addSeconds(20);
         }
@@ -262,10 +245,6 @@ class LiveReportServiceTest extends TestCase
                 'status' => 1,
                 'date_time' => $currentTime->copy(),
                 'imei' => '863070043386100',
-                'is_stopped' => false,
-                'stoppage_time' => 0,
-                'is_starting_point' => false,
-                'is_ending_point' => false,
             ];
             $currentTime->addSeconds(20);
         }
@@ -283,10 +262,6 @@ class LiveReportServiceTest extends TestCase
                 'status' => 1,
                 'date_time' => $currentTime->copy(),
                 'imei' => '863070043386100',
-                'is_stopped' => true,
-                'stoppage_time' => 0,
-                'is_starting_point' => false,
-                'is_ending_point' => false,
             ];
             $currentTime->addSeconds(20);
         }
@@ -304,14 +279,11 @@ class LiveReportServiceTest extends TestCase
 
             $dailyReportService = new DailyReportService($this->device->tractor, null);
             $service = new LiveReportService(
-                $this->device,
-                [$report],
                 $this->taskService,
                 $dailyReportService,
-                $this->cacheService,
-                $reportProcessingService
+                $this->cacheService
             );
-            $service->generate();
+            $service->generate($this->device, [$report]);
         }
 
         // Get the processed reports
@@ -345,10 +317,6 @@ class LiveReportServiceTest extends TestCase
                 'status' => 1,
                 'date_time' => $now->copy()->subMinutes(3),
                 'imei' => $this->device->imei,
-                'is_stopped' => false,
-                'stoppage_time' => 0,
-                'is_starting_point' => false,
-                'is_ending_point' => false,
             ],
             // First stoppage (should be saved)
             [
@@ -357,10 +325,6 @@ class LiveReportServiceTest extends TestCase
                 'status' => 0,
                 'date_time' => $now->copy()->subMinutes(2),
                 'imei' => $this->device->imei,
-                'is_stopped' => true,
-                'stoppage_time' => 0,
-                'is_starting_point' => false,
-                'is_ending_point' => false,
             ],
             // Second stoppage (should NOT be saved, only stoppage_time incremented)
             [
@@ -369,10 +333,6 @@ class LiveReportServiceTest extends TestCase
                 'status' => 0,
                 'date_time' => $now->copy()->subMinute(),
                 'imei' => $this->device->imei,
-                'is_stopped' => true,
-                'stoppage_time' => 0,
-                'is_starting_point' => false,
-                'is_ending_point' => false,
             ],
             // Third stoppage (should NOT be saved, only stoppage_time incremented)
             [
@@ -381,30 +341,16 @@ class LiveReportServiceTest extends TestCase
                 'status' => 0,
                 'date_time' => $now,
                 'imei' => $this->device->imei,
-                'is_stopped' => true,
-                'stoppage_time' => 0,
-                'is_starting_point' => false,
-                'is_ending_point' => false,
             ],
         ];
 
         $service = new LiveReportService(
-            $this->device,
-            $reports,
             $this->taskService,
             $this->dailyReportService,
-            $this->cacheService,
-            new ReportProcessingService(
-                $this->device,
-                $reports,
-                null,
-                null,
-                fn($report) => true,
-                $this->cacheService
-            )
+            $this->cacheService
         );
 
-        $service->generate();
+        $service->generate($this->device, $reports);
 
         $savedReports = $this->device->reports()->get();
         $this->assertCount(2, $savedReports, 'Only movement and first stoppage should be saved');
@@ -427,10 +373,6 @@ class LiveReportServiceTest extends TestCase
                 'status' => 0,
                 'date_time' => $now->copy()->subMinutes(2),
                 'imei' => $this->device->imei,
-                'is_stopped' => true,
-                'stoppage_time' => 0,
-                'is_starting_point' => false,
-                'is_ending_point' => false,
             ],
             // Movement 1
             [
@@ -439,10 +381,6 @@ class LiveReportServiceTest extends TestCase
                 'status' => 1,
                 'date_time' => $now->copy()->subMinute(),
                 'imei' => $this->device->imei,
-                'is_stopped' => false,
-                'stoppage_time' => 0,
-                'is_starting_point' => false,
-                'is_ending_point' => false,
             ],
             // Movement 2
             [
@@ -451,30 +389,16 @@ class LiveReportServiceTest extends TestCase
                 'status' => 1,
                 'date_time' => $now,
                 'imei' => $this->device->imei,
-                'is_stopped' => false,
-                'stoppage_time' => 0,
-                'is_starting_point' => false,
-                'is_ending_point' => false,
             ],
         ];
 
         $service = new LiveReportService(
-            $this->device,
-            $reports,
             $this->taskService,
             $this->dailyReportService,
-            $this->cacheService,
-            new ReportProcessingService(
-                $this->device,
-                $reports,
-                null,
-                null,
-                fn($report) => true,
-                $this->cacheService
-            )
+            $this->cacheService
         );
 
-        $service->generate();
+        $service->generate($this->device, $reports);
 
         $savedReports = $this->device->reports()->get();
         $this->assertCount(3, $savedReports, 'All movement and first stoppage should be saved');
@@ -497,10 +421,6 @@ class LiveReportServiceTest extends TestCase
                 'status' => 1,
                 'date_time' => $now->copy()->subMinutes(3),
                 'imei' => $this->device->imei,
-                'is_stopped' => false,
-                'stoppage_time' => 0,
-                'is_starting_point' => false,
-                'is_ending_point' => false,
             ],
             // Stoppage 1 (should be saved)
             [
@@ -509,10 +429,6 @@ class LiveReportServiceTest extends TestCase
                 'status' => 0,
                 'date_time' => $now->copy()->subMinutes(2),
                 'imei' => $this->device->imei,
-                'is_stopped' => true,
-                'stoppage_time' => 0,
-                'is_starting_point' => false,
-                'is_ending_point' => false,
             ],
             // Stoppage 2 (should NOT be saved)
             [
@@ -521,30 +437,16 @@ class LiveReportServiceTest extends TestCase
                 'status' => 0,
                 'date_time' => $now->copy()->subMinute(),
                 'imei' => $this->device->imei,
-                'is_stopped' => true,
-                'stoppage_time' => 0,
-                'is_starting_point' => false,
-                'is_ending_point' => false,
             ],
         ];
 
         $service = new LiveReportService(
-            $this->device,
-            $reports,
             $this->taskService,
             $this->dailyReportService,
-            $this->cacheService,
-            new ReportProcessingService(
-                $this->device,
-                $reports,
-                null,
-                null,
-                fn($report) => true,
-                $this->cacheService
-            )
+            $this->cacheService
         );
 
-        $service->generate();
+        $service->generate($this->device, $reports);
 
         $savedReports = $this->device->reports()->get();
         $this->assertCount(2, $savedReports, 'Only movement and first stoppage should be saved');
@@ -566,10 +468,6 @@ class LiveReportServiceTest extends TestCase
                 'status' => 1,
                 'date_time' => $now->copy()->subSeconds(70),
                 'imei' => $this->device->imei,
-                'is_stopped' => false,
-                'stoppage_time' => 0,
-                'is_starting_point' => false,
-                'is_ending_point' => false,
             ],
             // Stoppage less than 60s
             [
@@ -578,10 +476,6 @@ class LiveReportServiceTest extends TestCase
                 'status' => 0,
                 'date_time' => $now->copy()->subSeconds(30),
                 'imei' => $this->device->imei,
-                'is_stopped' => true,
-                'stoppage_time' => 0,
-                'is_starting_point' => false,
-                'is_ending_point' => false,
             ],
             // Movement again
             [
@@ -590,30 +484,16 @@ class LiveReportServiceTest extends TestCase
                 'status' => 1,
                 'date_time' => $now,
                 'imei' => $this->device->imei,
-                'is_stopped' => false,
-                'stoppage_time' => 0,
-                'is_starting_point' => false,
-                'is_ending_point' => false,
             ],
         ];
 
         $service = new LiveReportService(
-            $this->device,
-            $reports,
             $this->taskService,
             $this->dailyReportService,
-            $this->cacheService,
-            new ReportProcessingService(
-                $this->device,
-                $reports,
-                null,
-                null,
-                fn($report) => true,
-                $this->cacheService
-            )
+            $this->cacheService
         );
 
-        $service->generate();
+        $service->generate($this->device, $reports);
 
         $savedReports = $this->device->reports()->get();
         $this->assertCount(3, $savedReports, 'All transitions should be saved');

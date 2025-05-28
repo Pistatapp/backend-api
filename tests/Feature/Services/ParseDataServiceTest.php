@@ -36,10 +36,6 @@ class ParseDataServiceTest extends TestCase
             'speed' => 18,
             'status' => 1,
             'imei' => '863070043386100',
-            'is_stopped' => false,
-            'stoppage_time' => 0,
-            'is_starting_point' => false,
-            'is_ending_point' => false,
             'date_time' => Carbon::createFromFormat('ymdHis', '240421070200')->addHours(3)->addMinutes(30),
         ], $result[0]);
     }
@@ -134,10 +130,6 @@ class ParseDataServiceTest extends TestCase
             'speed' => 0,
             'status' => 0,
             'imei' => '863070043386100',
-            'is_stopped' => true,
-            'stoppage_time' => 0,
-            'is_starting_point' => false,
-            'is_ending_point' => false,
             'date_time' => Carbon::createFromFormat('ymdHis', '240421070000')->addHours(3)->addMinutes(30),
         ], $result[0]);
 
@@ -151,12 +143,6 @@ class ParseDataServiceTest extends TestCase
         $statusIndex = 1; // Index for the 070100 entry with status 0
         $this->assertEquals(0, $result[$statusIndex]['status']);
         $this->assertEquals('103100', $result[$statusIndex]['date_time']->format('His'));
-
-        // Verify is_stopped flag logic
-        $this->assertTrue($result[0]['is_stopped']); // Speed=0, status=0
-        $this->assertTrue($result[1]['is_stopped']); // Speed=0, status=0
-        $this->assertTrue($result[7]['is_stopped']); // Speed=0, status=1
-        $this->assertFalse($result[$speedIndex]['is_stopped']); // Speed=18, status=1
 
         // Verify coordinates are consistent across entries
         foreach ($result as $entry) {
