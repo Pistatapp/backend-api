@@ -13,7 +13,6 @@ class LiveReportService
         private TractorTaskService $taskService,
         private DailyReportService $dailyReportService,
     ) {
-        $this->dailyReport = $this->dailyReportService->fetchOrCreate();
     }
 
     /**
@@ -52,6 +51,7 @@ class LiveReportService
      */
     private function processReportData(GpsDevice $device, array $data): array
     {
+        $this->dailyReport = $this->dailyReportService->fetchOrCreate();
         $currentTask = $this->taskService->getCurrentTask($this->tractor);
         $taskArea = $this->taskService->getTaskArea($currentTask);
 
