@@ -37,7 +37,8 @@ class GpsReportController extends Controller
 
             Log::info('Received GPS data', [
                 'device_imei' => $deviceImei,
-                'data' => $data
+                'data' => $data,
+                'device_id' => $device->id ?? null,
             ]);
 
             $lastReportStatus = end($data)['status'];
