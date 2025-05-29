@@ -47,13 +47,13 @@ interface GpsDeviceRepositoryInterface
     public function getWithRelations(int $id): ?GpsDevice;
 
     /**
-     * Get GPS device by relations
+     * Find GPS device by relations
      *
      * @param string $imei
      * @param array $relations
      * @return GpsDevice|null
      */
-    public function getByRelations(string $imei, array $relations = []): ?GpsDevice;
+    public function findByRelations(string $imei, array $relations = []): ?GpsDevice;
 
     /**
      * Create a new GPS device

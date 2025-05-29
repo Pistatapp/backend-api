@@ -103,7 +103,7 @@ class GpsDeviceRepository implements GpsDeviceRepositoryInterface
     /**
      * {@inheritDoc}
      */
-    public function getByRelations(string $imei, array $relations = []): ?GpsDevice
+    public function findByRelations(string $imei, array $relations = []): ?GpsDevice
     {
         $model = $this->model->where('imei', $imei);
 
