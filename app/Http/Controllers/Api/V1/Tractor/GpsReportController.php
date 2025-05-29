@@ -36,6 +36,7 @@ class GpsReportController extends Controller
             $device = $this->gpsDeviceRepository->findByRelations($deviceImei, ['tractor']);
 
             throw_if(!$device, \Exception::class, 'Device not found for IMEI: ' . $deviceImei);
+            throw_if(!$device->tractor, \Exception::class, 'Tractor not associated with device IMEI: ' . $deviceImei);
 
             $lastReportStatus = end($data)['status'];
 
@@ -45,6 +46,7 @@ class GpsReportController extends Controller
             event(new TractorStatus($device->tractor, $lastReportStatus));
         } catch (\Exception $e) {
             $this->logErroredData($request);
+            Log::error('GpsReportController error: ' . $e->getMessage());
         }
 
         return new JsonResponse([], JsonResponse::HTTP_OK);

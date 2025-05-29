@@ -51,9 +51,14 @@ class LiveReportService
      */
     private function processReportData(GpsDevice $device, array $data): array
     {
-        $this->dailyReport = $this->dailyReportService->fetchOrCreate();
-        $currentTask = $this->taskService->getCurrentTask($this->tractor);
+        // Set the tractor in TractorTaskService
+        $this->taskService = new TractorTaskService($this->tractor);
+        $currentTask = $this->taskService->getCurrentTask();
         $taskArea = $this->taskService->getTaskArea($currentTask);
+
+        // Set the tractor and task in DailyReportService
+        $this->dailyReportService = new DailyReportService($this->tractor, $currentTask);
+        $this->dailyReport = $this->dailyReportService->fetchOrCreate();
 
         $reportProcessingService = new ReportProcessingService(
             $device,
