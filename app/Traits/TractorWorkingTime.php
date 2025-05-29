@@ -15,9 +15,10 @@ trait TractorWorkingTime
      */
     protected $tractor;
 
-    private const SPEED_THRESHOLD = 5; // km/h, minimum speed to consider as movement
-    private const WINDOW_SIZE = 3; // Number of reports to analyze in the sliding window
+    private const SPEED_THRESHOLD = 2; // km/h
+    private const WINDOW_SIZE = 3; // Reports to analyze in sliding window
     private const CACHE_TTL = 1440; // 24 hours in minutes
+    private const SHORT_CACHE_TTL = 5; // 5 minutes
 
     /**
      * Detect and set working times based on a GPS report
@@ -27,99 +28,166 @@ trait TractorWorkingTime
      */
     public function setWorkingTimes(GpsReport $report): void
     {
-        if ($this->isWithinWorkingHours($report)) {
-            $this->detectStartEndPoints($report);
+        // Skip processing if not within working hours
+        if (!$this->isWithinWorkingHours($report)) {
+            return;
         }
+
+        $this->detectStartEndPoints($report);
     }
 
     /**
-     * Detect the start and end points of the tractor's working time based on the GPS report.
+     * Detect the start and end points of the tractor's working time
      *
      * @param GpsReport $report
      * @return void
      */
     private function detectStartEndPoints(GpsReport $report): void
     {
-        $cacheKey = "tractor_points_{$this->tractor->id}_{$report->date_time->toDateString()}";
+        $dateString = $report->date_time->toDateString();
+        $tractorId = $this->tractor->id;
 
-        $points = Cache::remember($cacheKey, now()->addMinutes(self::CACHE_TTL), function () use ($report) {
-            return [
-                'start' => $this->hasStartPointForToday($report),
-                'end' => $this->hasEndPointForToday($report)
-            ];
-        });
+        // Use a single cache key for all points data
+        $cacheKey = "tractor_points_{$tractorId}_{$dateString}";
+        $points = Cache::get($cacheKey, ['start' => false, 'end' => false]);
 
+        // If we already have both points, exit early
         if ($points['start'] && $points['end']) {
             return;
         }
 
-        $reportsCacheKey = "tractor_reports_{$this->tractor->id}_{$report->date_time->toDateString()}";
-        $surroundingReports = Cache::remember($reportsCacheKey, now()->addMinutes(5), function () use ($report) {
+        // Check if we need to load cache from database
+        if (!$points['start']) {
+            $points['start'] = $this->hasStartPointForToday($report);
+        }
+
+        if (!$points['end']) {
+            $points['end'] = $this->hasEndPointForToday($report);
+        }
+
+        // Exit if both points are already set
+        if ($points['start'] && $points['end']) {
+            Cache::put($cacheKey, $points, now()->addMinutes(self::CACHE_TTL));
+            return;
+        }
+
+        $reportsCacheKey = "tractor_reports_{$tractorId}_{$dateString}";
+        $surroundingReports = Cache::remember($reportsCacheKey, now()->addMinutes(self::SHORT_CACHE_TTL), function () use ($report) {
             return $this->device->reports()
                 ->whereDate('date_time', $report->date_time->toDateString())
                 ->orderBy('date_time')
+                ->select(['id', 'date_time', 'speed']) // Only select needed fields
                 ->get();
         });
 
+        // Add current report if not in collection
         if (!$surroundingReports->contains('id', $report->id)) {
             $surroundingReports->push($report);
             $surroundingReports = $surroundingReports->sortBy('date_time')->values();
-            Cache::put($reportsCacheKey, $surroundingReports, now()->addMinutes(5));
+            Cache::put($reportsCacheKey, $surroundingReports, now()->addMinutes(self::SHORT_CACHE_TTL));
         }
 
-        $currentIndex = $surroundingReports->search(function ($item) use ($report) {
-            return $item->id === $report->id;
-        });
+        $currentIndex = $surroundingReports->search(fn($item) => $item->id === $report->id);
 
-        if ($currentIndex !== false) {
-            if (!$points['start'] && $currentIndex >= 1) {
-                for ($i = 1; $i < $surroundingReports->count(); $i++) {
-                    $prevReport = $surroundingReports[$i - 1];
-                    $currReport = $surroundingReports[$i];
+        if ($currentIndex === false) {
+            return;
+        }
 
-                    $isTransitionToMoving = $prevReport->speed < self::SPEED_THRESHOLD &&
-                        $currReport->speed >= self::SPEED_THRESHOLD;
+        $updated = false;
 
-                    if ($isTransitionToMoving) {
-                        $sustainedMovement = true;
-                        for ($j = 1; $j < self::WINDOW_SIZE && ($i + $j) < $surroundingReports->count(); $j++) {
-                            if ($surroundingReports[$i + $j]->speed < self::SPEED_THRESHOLD) {
-                                $sustainedMovement = false;
-                                break;
-                            }
-                        }
+        // Check for start point
+        if (!$points['start'] && $currentIndex >= 1) {
+            $updated = $this->detectStartPoint($surroundingReports, $points) || $updated;
+        }
 
-                        if ($sustainedMovement) {
-                            $currReport->update(['is_starting_point' => true]);
-                            Cache::put($cacheKey, [
-                                'start' => true,
-                                'end' => $points['end']
-                            ], now()->addMinutes(self::CACHE_TTL));
-                            break;
-                        }
+        // Check for end point
+        if (!$points['end'] && $currentIndex >= self::WINDOW_SIZE - 1) {
+            $updated = $this->detectEndPoint($surroundingReports, $currentIndex, $report, $points) || $updated;
+        }
+
+        // Update cache if needed
+        if ($updated) {
+            Cache::put($cacheKey, $points, now()->addMinutes(self::CACHE_TTL));
+        }
+    }
+
+    /**
+     * Detect a start point in the reports
+     *
+     * @param \Illuminate\Support\Collection $reports
+     * @param array &$points
+     * @return bool
+     */
+    private function detectStartPoint($reports, array &$points): bool
+    {
+        $count = $reports->count();
+
+        if ($count < self::WINDOW_SIZE) {
+            return false;
+        }
+        $reports = $reports->values(); // Reset keys for index access
+
+        for ($i = 1; $i < $count; $i++) {
+            $prevReport = $reports[$i - 1];
+            $currReport = $reports[$i];
+
+            if ($prevReport->speed < self::SPEED_THRESHOLD &&
+                $currReport->speed >= self::SPEED_THRESHOLD) {
+
+                // Check for sustained movement
+                $sustainedMovement = true;
+                for ($j = 1; $j < self::WINDOW_SIZE && ($i + $j) < $count; $j++) {
+                    if ($reports[$i + $j]->speed < self::SPEED_THRESHOLD) {
+                        $sustainedMovement = false;
+                        break;
                     }
                 }
-            }
 
-            if (!$points['end']) {
-                if ($currentIndex >= self::WINDOW_SIZE - 1) {
-                    $window = $surroundingReports->slice($currentIndex - self::WINDOW_SIZE + 1, self::WINDOW_SIZE);
-
-                    $isEndPoint = $window->slice(0, -1)->every(function ($r) {
-                        return $r->speed >= self::SPEED_THRESHOLD;
-                    }) &&
-                        $window->last()->speed < self::SPEED_THRESHOLD;
-
-                    if ($isEndPoint) {
-                        $report->update(['is_ending_point' => true]);
-                        Cache::put($cacheKey, [
-                            'start' => $points['start'],
-                            'end' => true
-                        ], now()->addMinutes(self::CACHE_TTL));
-                    }
+                if ($sustainedMovement) {
+                    $currReport->update(['is_starting_point' => true]);
+                    $points['start'] = true;
+                    return true;
                 }
             }
         }
+        return false;
+    }
+
+    /**
+     * Detect an end point in the reports
+     *
+     * @param \Illuminate\Support\Collection $reports
+     * @param int $currentIndex
+     * @param GpsReport $report
+     * @param array &$points
+     * @return bool
+     */
+    private function detectEndPoint($reports, $currentIndex, $report, array &$points): bool
+    {
+        $window = $reports->slice($currentIndex - self::WINDOW_SIZE + 1, self::WINDOW_SIZE)->values();
+
+        // Guard: Ensure window has enough elements
+        if ($window->count() < self::WINDOW_SIZE) {
+            return false;
+        }
+
+        $isEndPoint = true;
+        for ($i = 0; $i < self::WINDOW_SIZE - 1; $i++) {
+            if ($window[$i]->speed < self::SPEED_THRESHOLD) {
+                $isEndPoint = false;
+                break;
+            }
+        }
+
+        $isEndPoint = $isEndPoint && $window->last()->speed < self::SPEED_THRESHOLD;
+
+        if ($isEndPoint) {
+            $report->update(['is_ending_point' => true]);
+            $points['end'] = true;
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -130,36 +198,38 @@ trait TractorWorkingTime
      */
     private function hasStartPointForToday(GpsReport $report): bool
     {
-        $cacheKey = "start_point_{$this->tractor->id}_{$report->date_time->toDateString()}";
+        $dateString = $report->date_time->toDateString();
+        $cacheKey = "start_point_{$this->tractor->id}_{$dateString}";
 
-        return Cache::remember($cacheKey, now()->addMinutes(self::CACHE_TTL), function () use ($report) {
+        return Cache::remember($cacheKey, now()->addMinutes(self::CACHE_TTL), function () use ($dateString) {
             return $this->device->reports()
-                ->whereDate('date_time', $report->date_time->toDateString())
+                ->whereDate('date_time', $dateString)
                 ->where('is_starting_point', true)
                 ->exists();
         });
     }
 
     /**
-     * Check if there is an ending point for the tractor on the given date.
+     * Check if there is an ending point for today.
      *
      * @param GpsReport $report
      * @return bool
      */
     private function hasEndPointForToday(GpsReport $report): bool
     {
-        $cacheKey = "end_point_{$this->tractor->id}_{$report->date_time->toDateString()}";
+        $dateString = $report->date_time->toDateString();
+        $cacheKey = "end_point_{$this->tractor->id}_{$dateString}";
 
-        return Cache::remember($cacheKey, now()->addMinutes(self::CACHE_TTL), function () use ($report) {
+        return Cache::remember($cacheKey, now()->addMinutes(self::CACHE_TTL), function () use ($dateString) {
             return $this->device->reports()
-                ->whereDate('date_time', $report->date_time->toDateString())
+                ->whereDate('date_time', $dateString)
                 ->where('is_ending_point', true)
                 ->exists();
         });
     }
 
     /**
-     * Check if the report's date_time is within the working hours of the tractor.
+     * Check if the report's date_time is within working hours.
      *
      * @param GpsReport|array $report
      * @return bool
@@ -167,10 +237,9 @@ trait TractorWorkingTime
     private function isWithinWorkingHours(GpsReport|array $report): bool
     {
         $dateTime = $report['date_time'];
+        $cacheKey = "tractor_working_hours_{$this->tractor->id}";
 
-        $workingHoursCacheKey = "tractor_working_hours_{$this->tractor->id}_{$dateTime->toDateString()}";
-
-        $workingHours = Cache::remember($workingHoursCacheKey, now()->addMinutes(self::CACHE_TTL), function () {
+        $workingHours = Cache::remember($cacheKey, now()->addMinutes(self::CACHE_TTL), function () {
             return [
                 'start' => today()->setTimeFromTimeString($this->tractor->start_work_time),
                 'end' => today()->setTimeFromTimeString($this->tractor->end_work_time)
