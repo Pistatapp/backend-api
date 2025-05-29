@@ -107,13 +107,14 @@ class GpsDeviceRepository implements GpsDeviceRepositoryInterface
     {
         $model = $this->model->where('imei', $imei);
 
+        foreach ($relations as $relation) {
+            $model = $model->whereHas($relation);
+        }
+
         if (!empty($relations)) {
             $model = $model->with($relations);
         }
 
-        foreach ($relations as $relation) {
-            $model = $model->whereHas($relation);
-        }
 
         return $model->first();
     }
