@@ -35,16 +35,16 @@ class GpsReportController extends Controller
 
             $device = $this->gpsDeviceRepository->findByRelations($deviceImei, ['tractor']);
 
+            Log::info('GPS Report generated', [
+                'device_id' => $device->id,
+                'imei' => $deviceImei,
+                'device' => $device->toArray(),
+            ]);
+
             $lastReportStatus = end($data)['status'];
 
             $generatedReport = $this->liveReportService->generate($device, $data);
 
-            Log::info('GPS Report generated', [
-                'device_id' => $device->id,
-                'imei' => $deviceImei,
-                'report' => $generatedReport,
-                'device' => $device->toArray(),
-            ]);
 
             event(new ReportReceived($generatedReport, $device));
             event(new TractorStatus($device->tractor, $lastReportStatus));
