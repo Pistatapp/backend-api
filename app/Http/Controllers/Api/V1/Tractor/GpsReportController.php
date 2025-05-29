@@ -35,11 +35,7 @@ class GpsReportController extends Controller
 
             $device = $this->gpsDeviceRepository->findByRelations($deviceImei, ['tractor']);
 
-            Log::info('Received GPS data', [
-                'device_imei' => $deviceImei,
-                'data' => $data,
-                'device_id' => $device->id ?? null,
-            ]);
+            throw_if(!$device, \Exception::class, 'Device not found for IMEI: ' . $deviceImei);
 
             $lastReportStatus = end($data)['status'];
 
