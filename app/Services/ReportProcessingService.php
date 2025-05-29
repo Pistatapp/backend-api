@@ -90,6 +90,7 @@ class ReportProcessingService
         // Check if report should be counted based on task or working hours
         if ($this->shouldCountReport($report)) {
             $stopped = $this->determineStoppage($report);
+            $report['is_stopped'] = $stopped;
             if ($stopped) {
                 $this->stoppageCount += 1;
             }
@@ -112,6 +113,7 @@ class ReportProcessingService
         $timeDiff = $previousReport['date_time']->diffInSeconds($report['date_time']);
         $previousReportStopped = $this->determineStoppage($previousReport);
         $reportStopped = $this->determineStoppage($report, $previousReport, $timeDiff);
+        $report['is_stopped'] = $reportStopped;
 
         $transitionHandler = $this->getTransitionHandler($previousReportStopped, $reportStopped);
         $transitionHandler($report, $timeDiff, $distanceDiff);
