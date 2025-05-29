@@ -10,7 +10,6 @@ use App\Services\LiveReportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Repositories\GpsDeviceRepository;
-use Illuminate\Support\Facades\Log;
 
 class GpsReportController extends Controller
 {
@@ -34,12 +33,6 @@ class GpsReportController extends Controller
             $deviceImei = $data[0]['imei'];
 
             $device = $this->gpsDeviceRepository->findByRelations($deviceImei, ['tractor']);
-
-            Log::info('GPS Report generated', [
-                'device_id' => $device->id,
-                'imei' => $deviceImei,
-                'device' => $device->toArray(),
-            ]);
 
             $lastReportStatus = end($data)['status'];
 
