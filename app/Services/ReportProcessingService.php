@@ -16,7 +16,7 @@ class ReportProcessingService
     private $maxSpeed;
     private $points = [];
     private $latestStoredReport;
-    private $lastProcessedReport = null;
+    private $lastProcessedReport;
     private $cacheService;
 
     /**
@@ -111,7 +111,7 @@ class ReportProcessingService
         $this->maxSpeed = max($this->maxSpeed, $report['speed']);
         $distanceDiff = calculate_distance($previousReport['coordinate'], $report['coordinate']);
         $timeDiff = $previousReport['date_time']->diffInSeconds($report['date_time']);
-        $previousReportStopped = $this->determineStoppage($previousReport);
+        $previousReportStopped = $this->latestStoredReport['is_stopped'] ?? false;
         $reportStopped = $this->determineStoppage($report, $previousReport, $timeDiff);
         $report['is_stopped'] = $reportStopped;
 
@@ -181,8 +181,8 @@ class ReportProcessingService
      */
     private function handleMovingToStopped(array $report, int $timeDiff, float $distanceDiff): void
     {
-        $report['is_stopped'] = $timeDiff >= 60; // Considered stopped if the time difference is greater than 60 seconds
-        $incrementStoppage = $report['is_stopped'];
+        $stopped = $this->determineStoppage($report, $this->latestStoredReport, $timeDiff);
+        $incrementStoppage = $report['is_stopped'] = $stopped;
         $this->incrementTimingAndTraveledDistance($report, $timeDiff, $distanceDiff, false, $incrementStoppage);
         $this->points[] = $report;
         $this->saveReport($report);
@@ -293,7 +293,7 @@ class ReportProcessingService
      *
      * @return bool True if the report indicates a stoppage, false otherwise.
      */
-    private function determineStoppage(array $report, array $previousReport = [], int $timeDiff = 0): bool
+    private function determineStoppage(array $report, mixed $previousReport = [], int $timeDiff = 0): bool
     {
         if (empty($previousReport)) {
             return ($report['speed'] == 0 && $report['status'] == 1) || $report['status'] == 0;
