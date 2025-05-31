@@ -181,7 +181,7 @@ class ReportProcessingService
      */
     private function handleMovingToStopped(array $report, int $timeDiff, float $distanceDiff): void
     {
-        $stopped = $this->determineStoppage($report);
+        $stopped = $this->determineStoppage($report, $this->latestStoredReport, $timeDiff);
         $incrementStoppage = $report['is_stopped'] = $stopped;
         $this->incrementTimingAndTraveledDistance($report, $timeDiff, $distanceDiff, false, $incrementStoppage);
         $this->points[] = $report;
@@ -295,13 +295,8 @@ class ReportProcessingService
      */
     private function determineStoppage(array $report, mixed $previousReport = [], int $timeDiff = 0): bool
     {
-        // if (empty($previousReport)) {
-        //     return ($report['speed'] == 0 && $report['status'] == 1) || $report['status'] == 0;
-        // }
-
         $isStopped = ($report['speed'] == 0 && $report['status'] == 1) || $report['status'] == 0;
 
-        return $isStopped;
-        // return $isStopped && $timeDiff >= 60;
+        return !empty($previousReport) ? ($isStopped && $timeDiff >= 60) : $isStopped;
     }
 }

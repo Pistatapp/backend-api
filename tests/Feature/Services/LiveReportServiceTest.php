@@ -147,8 +147,6 @@ class LiveReportServiceTest extends TestCase
     {
         $report = $this->service->generate($this->device, $this->reports);
 
-        // dump($report);
-
         // First and last points are stopped, middle point is moving
         // Total stoppage time should be around 120 seconds
         $this->assertEquals(60, $report['stoppage_duration']);
