@@ -21,7 +21,8 @@ class IrrigationPolicy
      */
     public function view(User $user, Irrigation $irrigation): bool
     {
-        return $irrigation->creator->is($user);
+        return $irrigation->creator->is($user)
+            || $irrigation->farm->users->contains($user);
     }
 
     /**

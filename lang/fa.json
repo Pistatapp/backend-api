@@ -1,6 +1,6 @@
 {
     "started": "شروع شد",
-    "completed": "تکمیل شده",
+    "finished": "تکمیل شده",
     "cancelled": "لغو شد",
     "pending": "در انتظار",
     "approved": "تایید شد",
@@ -30,6 +30,7 @@
     "Load prediction table updated successfully": "جدول پیش بینی بار با موفقیت به روز شد",
     "Failed to fetch weather data.": "دریافت اطلاعات هواشناسی با شکست مواجه شد.",
     "The selected field's irrigation time overlaps with another irrigation time.": "زمان آبیاری مزرعه انتخاب شده با زمان آبیاری دیگری همپوشانی دارد.",
+    "An irrigation report has already been stored for these valves within this time range.": "یک گزارش آبیاری برای این شیر فلکه ها در این بازه زمانی ذخیره شده است.",
     "Load estimation table updated successfully.": "جدول تخمین بار با موفقیت به روز شد.",
     "Volk Oil Spray Notification": "اعلان روغن پاشی ولک",
     "Cold requirement not met for Volk Oil Spray. Calculated: ": "نیاز سرمایی برای روغن پاشی ولک برآورده نشده است. محاسبه شده: ",

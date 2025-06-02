@@ -103,7 +103,11 @@ class IrrigationController extends Controller
                 $query->where('date', jalali_to_carbon(request()->query('date')));
             }, function ($query) {
                 $query->whereDate('date', today());
-            })->latest()->get();
+            })
+            ->when(request()->has('status'), function ($query) {
+                $query->filter(request()->query('status'));
+            })
+            ->latest()->get();
 
         return IrrigationResource::collection($irrigations);
     }
