@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Api\V1\Tractor;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\DriverResource;
 use App\Http\Resources\TractorResource;
 use App\Models\Farm;
 use App\Models\GpsDevice;
 use App\Models\Tractor;
+use App\Models\Driver;
 use Illuminate\Http\Request;
 
 class TractorController extends Controller
@@ -103,7 +105,7 @@ class TractorController extends Controller
     /**
      * Get devices of the user which are not assigned to any tractor.
      */
-    public function getAvailableDevices(Request $request, Tractor $tractor)
+    public function getAvailableDevices(Request $request)
     {
         $gpsDevices = $request->user()->gpsDevices()->whereDoesntHave('tractor')->get();
 
@@ -123,37 +125,51 @@ class TractorController extends Controller
      */
     public function getAvailableTractors(Request $request, Farm $farm)
     {
-        $tractors = $farm->tractors()->whereDoesntHave('gpsDevice')->get();
+        $tractors = $farm->tractors()->with('driver')->whereDoesntHave('gpsDevice')->get();
         return response()->json([
             'data' => $tractors->map(function ($tractor) {
                 return [
                     'id' => $tractor->id,
                     'name' => $tractor->name,
+                    'driver' => new DriverResource($tractor->driver),
                 ];
             }),
         ]);
     }
 
     /**
-     * Assign a device to a tractor.
+     * Assign a driver and GPS device to a tractor.
+     * This will replace any existing assignments.
+     *
+     * @param Request $request
+     * @param Tractor $tractor
+     * @return \Illuminate\Http\JsonResponse
      */
-    public function assignDevice(Request $request, Tractor $tractor, GpsDevice $gpsDevice)
+    public function assignments(Request $request, Tractor $tractor)
     {
-        $this->authorize('assignDevice', [$tractor, $gpsDevice]);
+        $request->validate([
+            'driver_id' => 'required|exists:drivers,id',
+            'gps_device_id' => 'required|exists:gps_devices,id',
+        ]);
 
-        $gpsDevice->tractor()->associate($tractor)->save();
+        // Get the new driver and GPS device
+        $driver = Driver::findOrFail($request->driver_id);
+        $device = GpsDevice::findOrFail($request->gps_device_id);
 
-        return response()->noContent();
-    }
+        // Authorize the assignments
+        $this->authorize('makeAssignments', [$tractor, $device, $driver]);
 
-    /**
-     * Unassign a device from a tractor.
-     */
-    public function unassignDevice(Request $request, Tractor $tractor, GpsDevice $gpsDevice)
-    {
-        $this->authorize('update', $tractor);
+        // Remove existing assignments first
+        if ($tractor->driver) {
+            $tractor->driver->update(['tractor_id' => null]);
+        }
+        if ($tractor->gpsDevice) {
+            $tractor->gpsDevice->update(['tractor_id' => null]);
+        }
 
-        $gpsDevice->tractor()->disassociate()->save();
+        // Make new assignments
+        $driver->update(['tractor_id' => $tractor->id]);
+        $device->update(['tractor_id' => $tractor->id]);
 
         return response()->noContent();
     }

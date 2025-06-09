@@ -267,4 +267,14 @@ class Farm extends Model
     {
         return $this->hasMany(Warning::class);
     }
+
+    /**
+     * Get the drivers of the farm.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function drivers()
+    {
+        return $this->hasMany(Driver::class);
+    }
 }

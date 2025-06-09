@@ -24,30 +24,11 @@ class ActiveTractorController extends Controller
      */
     public function index(Farm $farm)
     {
-        $tractors = Tractor::whereBelongsTo($farm)->active()
-            ->with('gpsDevice', 'driver', 'startWorkingTime')
+        $tractors = $farm->tractors()->active()
+            ->with(['gpsDevice', 'driver', 'startWorkingTime'])
             ->get();
 
         return ActiveTractorResource::collection($tractors);
-    }
-
-    /**
-     * Get reports for a specific tractor
-     *
-     * @param Request $request
-     * @param Tractor $tractor
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function reports(Request $request, Tractor $tractor)
-    {
-        $request->validate([
-            'date' => 'required|shamsi_date'
-        ]);
-
-        $date = jalali_to_carbon($request->date);
-        $reportData = $this->tractorReportService->getDailyReport($tractor, $date);
-
-        return response()->json(['data' => $reportData]);
     }
 
     /**

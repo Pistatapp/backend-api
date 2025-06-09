@@ -6,6 +6,7 @@ use App\Models\Farm;
 use App\Models\GpsDevice;
 use App\Models\Tractor;
 use App\Models\User;
+use App\Models\Driver;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
@@ -19,6 +20,7 @@ class TractorControllerTest extends TestCase
     private Farm $farm;
     private Tractor $tractor;
     private GpsDevice $gpsDevice;
+    private Driver $driver;
 
     protected function setUp(): void
     {
@@ -44,6 +46,12 @@ class TractorControllerTest extends TestCase
         // Create GPS device belonging to the user but not assigned to any tractor
         $this->gpsDevice = GpsDevice::factory()->create([
             'user_id' => $this->user->id,
+            'tractor_id' => null,
+        ]);
+
+        // Create a driver belonging to the farm but not assigned to any tractor
+        $this->driver = Driver::factory()->create([
+            'farm_id' => $this->farm->id,
             'tractor_id' => null,
         ]);
     }
@@ -156,10 +164,10 @@ class TractorControllerTest extends TestCase
     }
 
     #[Test]
-    public function it_lists_available_devices_for_tractor(): void
+    public function it_lists_available_devices_for_farm(): void
     {
         $response = $this->actingAs($this->user)
-            ->getJson("/api/tractors/{$this->tractor->id}/devices");
+            ->getJson("/api/farms/{$this->farm->id}/gps-devices/available");
 
         $response->assertOk()
             ->assertJsonStructure([
@@ -171,86 +179,153 @@ class TractorControllerTest extends TestCase
     }
 
     #[Test]
-    public function it_assigns_device_to_tractor(): void
+    public function it_assigns_driver_and_gps_device_to_tractor(): void
     {
         $response = $this->actingAs($this->user)
-            ->postJson("/api/tractors/{$this->tractor->id}/assign_device/{$this->gpsDevice->id}");
+            ->postJson("/api/tractors/{$this->tractor->id}/assignments", [
+                'driver_id' => $this->driver->id,
+                'gps_device_id' => $this->gpsDevice->id
+            ]);
 
         $response->assertNoContent();
 
+        $this->assertDatabaseHas('drivers', [
+            'id' => $this->driver->id,
+            'tractor_id' => $this->tractor->id
+        ]);
+
         $this->assertDatabaseHas('gps_devices', [
             'id' => $this->gpsDevice->id,
+            'tractor_id' => $this->tractor->id
+        ]);
+    }
+
+    #[Test]
+    public function it_replaces_existing_driver_and_gps_device_assignments(): void
+    {
+        // Create and assign initial driver and GPS device
+        $initialDriver = Driver::factory()->create([
+            'farm_id' => $this->farm->id,
             'tractor_id' => $this->tractor->id,
         ]);
-    }
 
-    #[Test]
-    public function it_unassigns_device_from_tractor(): void
-    {
-        // First assign the device to the tractor
-        $this->gpsDevice->tractor()->associate($this->tractor)->save();
+        $initialGpsDevice = GpsDevice::factory()->create([
+            'user_id' => $this->user->id,
+            'tractor_id' => $this->tractor->id,
+        ]);
 
+        // Assign new driver and GPS device
         $response = $this->actingAs($this->user)
-            ->postJson("/api/tractors/{$this->tractor->id}/unassign_device/{$this->gpsDevice->id}");
+            ->postJson("/api/tractors/{$this->tractor->id}/assignments", [
+                'driver_id' => $this->driver->id,
+                'gps_device_id' => $this->gpsDevice->id
+            ]);
 
         $response->assertNoContent();
 
+        // Check that new assignments are set
+        $this->assertDatabaseHas('drivers', [
+            'id' => $this->driver->id,
+            'tractor_id' => $this->tractor->id
+        ]);
+
         $this->assertDatabaseHas('gps_devices', [
             'id' => $this->gpsDevice->id,
-            'tractor_id' => null,
+            'tractor_id' => $this->tractor->id
+        ]);
+
+        // Check that old assignments are removed
+        $this->assertDatabaseHas('drivers', [
+            'id' => $initialDriver->id,
+            'tractor_id' => null
+        ]);
+
+        $this->assertDatabaseHas('gps_devices', [
+            'id' => $initialGpsDevice->id,
+            'tractor_id' => null
         ]);
     }
 
     #[Test]
-    public function it_prevents_unauthorized_device_assignment(): void
+    public function it_validates_required_fields(): void
     {
-        // Create another user's device
+        $response = $this->actingAs($this->user)
+            ->postJson("/api/tractors/{$this->tractor->id}/assignments", []);
+
+        $response->assertUnprocessable()
+            ->assertJsonValidationErrors(['driver_id', 'gps_device_id'])
+            ->assertJson([
+                'message' => 'The driver id field is required. (and 1 more error)',
+                'errors' => [
+                    'driver_id' => ['The driver id field is required.'],
+                    'gps_device_id' => ['The gps device id field is required.']
+                ]
+            ]);
+    }
+
+    #[Test]
+    public function it_validates_user_must_be_admin(): void
+    {
+        // Create a non-admin user and a GPS device owned by them
+        $nonAdminUser = User::factory()->create();
+        $nonAdminDevice = GpsDevice::factory()->create([
+            'user_id' => $nonAdminUser->id,
+            'tractor_id' => null,
+        ]);
+
+        $response = $this->actingAs($nonAdminUser)
+            ->postJson("/api/tractors/{$this->tractor->id}/assignments", [
+                'driver_id' => $this->driver->id,
+                'gps_device_id' => $nonAdminDevice->id
+            ]);
+
+        $response->assertForbidden()
+            ->assertJson([
+                'message' => 'User must be an admin.'
+            ]);
+    }
+
+    #[Test]
+    public function it_validates_user_must_own_gps_device(): void
+    {
+        // Create another user's GPS device
         $otherUser = User::factory()->create();
-        $otherDevice = GpsDevice::factory()->create([
+        $otherUserDevice = GpsDevice::factory()->create([
             'user_id' => $otherUser->id,
             'tractor_id' => null,
         ]);
 
         $response = $this->actingAs($this->user)
-            ->postJson("/api/tractors/{$this->tractor->id}/assign_device/{$otherDevice->id}");
+            ->postJson("/api/tractors/{$this->tractor->id}/assignments", [
+                'driver_id' => $this->driver->id,
+                'gps_device_id' => $otherUserDevice->id
+            ]);
 
-        $response->assertForbidden();
-
-        $this->assertDatabaseHas('gps_devices', [
-            'id' => $otherDevice->id,
-            'tractor_id' => null,
-        ]);
+        $response->assertForbidden()
+            ->assertJson([
+                'message' => 'User must own the GPS device.'
+            ]);
     }
 
     #[Test]
-    public function it_prevents_assigning_device_to_tractor_already_having_device(): void
+    public function it_validates_driver_must_belong_to_same_farm(): void
     {
-        // First assign a device to the tractor
-        $existingDevice = GpsDevice::factory()->create([
-            'user_id' => $this->user->id,
-            'tractor_id' => $this->tractor->id,
-        ]);
-
-        // Try to assign another device
-        $anotherDevice = GpsDevice::factory()->create([
-            'user_id' => $this->user->id,
+        // Create a driver from another farm
+        $otherFarm = Farm::factory()->create();
+        $otherFarmDriver = Driver::factory()->create([
+            'farm_id' => $otherFarm->id,
             'tractor_id' => null,
         ]);
 
         $response = $this->actingAs($this->user)
-            ->postJson("/api/tractors/{$this->tractor->id}/assign_device/{$anotherDevice->id}");
+            ->postJson("/api/tractors/{$this->tractor->id}/assignments", [
+                'driver_id' => $otherFarmDriver->id,
+                'gps_device_id' => $this->gpsDevice->id
+            ]);
 
-        $response->assertForbidden();
-
-        // Verify the original device is still assigned and the new one isn't
-        $this->assertDatabaseHas('gps_devices', [
-            'id' => $existingDevice->id,
-            'tractor_id' => $this->tractor->id,
-        ]);
-
-        $this->assertDatabaseHas('gps_devices', [
-            'id' => $anotherDevice->id,
-            'tractor_id' => null,
-        ]);
+        $response->assertForbidden()
+            ->assertJson([
+                'message' => 'Driver must belong to the same farm as the tractor.'
+            ]);
     }
 }

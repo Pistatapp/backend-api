@@ -12,7 +12,7 @@ use App\Http\Controllers\Api\V1\Farm\BlockController;
 use App\Http\Controllers\Api\V1\Farm\PumpController;
 use App\Http\Controllers\Api\V1\Farm\ValveController;
 use App\Http\Controllers\Api\V1\Management\TeamController;
-use App\Http\Controllers\Api\V1\Tractor\DriverController;
+use App\Http\Controllers\Api\V1\Farm\DriverController;
 use App\Http\Controllers\Api\V1\Tractor\GpsReportController;
 use App\Http\Controllers\Api\V1\Tractor\TractorController;
 use App\Http\Controllers\Api\V1\Management\LabourController;
@@ -109,18 +109,21 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
 
     // Tractors Routes
     Route::get('/farms/{farm}/tractors/active', [ActiveTractorController::class, 'index']);
-    Route::get('/tractors/{tractor}/reports', [ActiveTractorController::class, 'reports']);
     Route::get('/tractors/{tractor}/path', [ActiveTractorController::class, 'getPath']);
     Route::get('/tractors/{tractor}/details', [ActiveTractorController::class, 'getDetails']);
-    Route::get('/farms/{farm}/tractors/available', [TractorController::class, 'getAvailableTractors']);
     Route::apiResource('farms.tractors', TractorController::class)->shallow();
-    Route::get('/tractors/{tractor}/devices', [TractorController::class, 'getAvailableDevices']);
-    Route::post('/tractors/{tractor}/assign_device/{gps_device}', [TractorController::class, 'assignDevice']);
-    Route::post('/tractors/{tractor}/unassign_device/{gps_device}', [TractorController::class, 'unassignDevice']);
-    Route::apiSingleton('tractors.driver', DriverController::class)->creatable();
     Route::apiResource('/tractors.tractor_reports', TractorReportController::class)->shallow();
     Route::post('/tractor_reports/filter', [TractorReportController::class, 'filter'])->name('tractor.reports.filter');
     Route::apiResource('tractors.tractor_tasks', TractorTaskController::class)->shallow();
+
+    // Tractors gps device and driver assignment routes
+    Route::get('/farms/{farm}/gps-devices/available', [TractorController::class, 'getAvailableDevices']);
+    Route::get('/farms/{farm}/tractors/available', [TractorController::class, 'getAvailableTractors']);
+    Route::get('/farms/{farm}/drivers/available', [DriverController::class, 'getAvailableDrivers']);
+    Route::post('/tractors/{tractor}/assignments', [TractorController::class, 'assignments']);
+
+    // Drivers Routes
+    Route::apiResource('farms.drivers', DriverController::class)->shallow();
     Route::post('/tractors/filter_reports', [TractorTaskController::class, 'filterReports'])->name('tractor_reports.filter');
 
     // Maintenance Routes

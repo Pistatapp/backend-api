@@ -16,6 +16,7 @@ class Driver extends Model
      */
     protected $fillable = [
         'tractor_id',
+        'farm_id',
         'name',
         'mobile',
         'employee_code',
@@ -46,5 +47,15 @@ class Driver extends Model
     public function tractor()
     {
         return $this->belongsTo(Tractor::class);
+    }
+
+    /**
+     * Get the farm that owns the Driver
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
+    public function farm()
+    {
+        return $this->belongsTo(Farm::class);
     }
 }

@@ -16,7 +16,18 @@ class DriverResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'tractor_id' => $this->tractor_id,
+            'tractor' => $this->whenLoaded('tractor', function () {
+                return [
+                    'id' => $this->tractor->id,
+                    'name' => $this->tractor->name,
+                ];
+            }),
+            'farm' => $this->whenLoaded('farm', function () {
+                return [
+                    'id' => $this->farm->id,
+                    'name' => $this->farm->name,
+                ];
+            }),
             'name' => $this->name,
             'mobile' => $this->mobile,
             'employee_code' => $this->employee_code,

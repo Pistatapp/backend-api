@@ -88,87 +88,6 @@ class ActiveTractorControllerTest extends TestCase
     }
 
     #[Test]
-    public function it_applies_kalman_filter_to_gps_coordinates()
-    {
-        // Create some GPS reports with slightly noisy coordinates
-        $reports = [
-            [
-                'coordinate' => [34.884065, 50.599625],
-                'speed' => 20,
-                'status' => 1,
-                'date_time' => now()->subMinutes(2),
-            ],
-            [
-                'coordinate' => [34.884067, 50.599627], // Slightly noisy
-                'speed' => 20,
-                'status' => 1,
-                'date_time' => now()->subMinute(),
-            ],
-            [
-                'coordinate' => [34.884066, 50.599626], // More noise
-                'speed' => 20,
-                'status' => 1,
-                'date_time' => now(),
-            ]
-        ];
-
-        foreach ($reports as $report) {
-            GpsReport::create(array_merge($report, [
-                'gps_device_id' => $this->device->id,
-                'imei' => $this->device->imei,
-                'is_stopped' => false,
-                'stoppage_time' => 0,
-                'is_starting_point' => false,
-                'is_ending_point' => false,
-            ]));
-        }
-
-        $response = $this->getJson("/api/tractors/{$this->tractor->id}/reports?date=" . jdate(today())->format('Y/m/d'));
-
-        $response->assertStatus(200)
-            ->assertJsonStructure([
-                'data' => [
-                    'id',
-                    'name',
-                    'speed',
-                    'status',
-                    'start_working_time',
-                    'traveled_distance',
-                    'work_duration',
-                    'stoppage_count',
-                    'stoppage_duration',
-                    'efficiency',
-                    'points' => [
-                        '*' => [
-                            'latitude',
-                            'longitude',
-                            'speed',
-                            'status',
-                            'is_starting_point',
-                            'is_ending_point',
-                            'is_stopped'
-                        ]
-                    ],
-                    'current_task'
-                ]
-            ]);
-
-        $points = $response->json('data.points');
-
-        // Check that coordinates were smoothed
-        // The middle point should have coordinates between its neighbors
-        $this->assertCount(3, $points);
-        $this->assertNotEquals(34.884067, $points[1]['latitude']);
-        $this->assertNotEquals(50.599627, $points[1]['longitude']);
-
-        // Verify the smoothed coordinates are between the original values
-        $this->assertGreaterThan(34.884065, $points[1]['latitude']);
-        $this->assertLessThan(34.884067, $points[1]['latitude']);
-        $this->assertGreaterThan(50.599625, $points[1]['longitude']);
-        $this->assertLessThan(50.599627, $points[1]['longitude']);
-    }
-
-    #[Test]
     public function it_can_get_tractor_path()
     {
         GpsReport::create([
@@ -222,29 +141,5 @@ class ActiveTractorControllerTest extends TestCase
                     ]
                 ]
             ]);
-    }
-
-    #[Test]
-    public function it_validates_date_parameter()
-    {
-        $response = $this->getJson("/api/tractors/{$this->tractor->id}/reports");
-        $response->assertUnprocessable()->assertJsonValidationErrors(['date']);
-
-        $response = $this->getJson("/api/tractors/{$this->tractor->id}/path");
-        $response->assertUnprocessable()->assertJsonValidationErrors(['date']);
-
-        $response = $this->getJson("/api/tractors/{$this->tractor->id}/details");
-        $response->assertUnprocessable()->assertJsonValidationErrors(['date']);
-    }
-
-    #[Test]
-    public function it_returns_empty_points_when_no_reports_exist()
-    {
-        GpsReport::where('gps_device_id', $this->device->id)->delete();
-
-        $response = $this->getJson("/api/tractors/{$this->tractor->id}/reports?date=" . jdate(today())->format('Y/m/d'));
-
-        $response->assertOk()
-            ->assertJsonPath('data.points', []);
     }
 }
