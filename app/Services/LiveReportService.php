@@ -12,6 +12,7 @@ class LiveReportService
     public function __construct(
         private TractorTaskService $taskService,
         private DailyReportService $dailyReportService,
+        private CacheService $cacheService,
     ) {
     }
 

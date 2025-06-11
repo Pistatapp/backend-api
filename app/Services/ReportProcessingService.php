@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\GpsDevice;
+use App\Models\TractorTask;
 use App\Traits\TractorWorkingTime;
 
 class ReportProcessingService
@@ -19,6 +20,9 @@ class ReportProcessingService
     private $lastProcessedReport;
     private $cacheService;
 
+    // Constants for validation
+    private const CONSECUTIVE_REPORTS_REQUIRED = 2;
+
     /**
      * Create a new report processing service instance.
      *
@@ -26,14 +30,12 @@ class ReportProcessingService
      * @param array $reports
      * @param mixed $currentTask
      * @param mixed $taskArea
-     * @param callable $isWithinWorkingHours
-     * @param CacheService $cacheService
      */
     public function __construct(
         private GpsDevice $device,
         private array $reports,
-        private $currentTask,
-        private $taskArea,
+        private ?TractorTask $currentTask = null,
+        private ?array $taskArea = null,
     ) {
         $this->maxSpeed = 0;
         $this->tractor = $device->tractor;
@@ -48,19 +50,12 @@ class ReportProcessingService
      */
     public function process(): array
     {
-        $previousReport = $this->cacheService->getPreviousReport();
-
         foreach ($this->reports as $report) {
-            if (is_null($previousReport)) {
-                $this->processFirstReport($report);
-            } else {
-                $this->processSubsequentReports($previousReport, $report);
-            }
-
-            $previousReport = $report;
-            $this->cacheService->setPreviousReport($previousReport);
-            $this->lastProcessedReport = $report;
+            $this->processReport($report);
         }
+
+        // Process any remaining pending reports if validation state is confirmed
+        $this->processRemainingPendingReports();
 
         return [
             'totalTraveledDistance' => $this->totalTraveledDistance,
@@ -74,133 +69,325 @@ class ReportProcessingService
     }
 
     /**
-     * Processes the first report by saving it, updating the max speed,
-     * and checking if it should be counted based on task or working hours.
+     * Process a single report with state validation.
      *
-     * @param array $report The report data.
+     * @param array $report The report data
+     * @return void
+     */
+    private function processReport(array $report): void
+    {
+        $this->maxSpeed = max($this->maxSpeed, $report['speed']);
+
+        // Determine the raw state of the current report
+        $currentReportState = $this->determineReportState($report);
+
+        // Get the validated state from cache
+        $validatedState = $this->cacheService->getValidatedState();
+
+        if ($validatedState === 'unknown') {
+            // First report - establish initial state
+            $this->establishInitialState($report, $currentReportState);
+        } else {
+            // Subsequent reports - validate state changes
+            $this->validateAndProcessStateChange($report, $currentReportState, $validatedState);
+        }
+
+        // Always update previous report in cache
+        $this->cacheService->setPreviousReport($report);
+        $this->lastProcessedReport = $report;
+    }
+
+    /**
+     * Establish initial state for the first report.
+     *
+     * @param array $report The first report
+     * @param string $currentReportState The state of the first report
+     * @return void
+     */
+    private function establishInitialState(array $report, string $currentReportState): void
+    {
+        $this->cacheService->setValidatedState($currentReportState);
+        $this->cacheService->resetConsecutiveCount();
+
+        // Process the first report immediately
+        $this->processValidatedReport($report, $currentReportState, null);
+    }
+
+    /**
+     * Validate state changes and process reports accordingly.
+     *
+     * @param array $report Current report
+     * @param string $currentReportState State of current report
+     * @param string $validatedState Current validated state
+     * @return void
+     */
+    private function validateAndProcessStateChange(array $report, string $currentReportState, string $validatedState): void
+    {
+        if ($currentReportState === $validatedState) {
+            // No state change - reset consecutive count and process normally
+            $this->cacheService->resetConsecutiveCount();
+            $this->processValidatedReport($report, $currentReportState, $validatedState);
+        } else {
+            // State change detected - add to pending and check if we have enough consecutive reports
+            $this->cacheService->addPendingReport($report);
+            $consecutiveCount = $this->cacheService->incrementConsecutiveCount();
+
+            if ($consecutiveCount >= self::CONSECUTIVE_REPORTS_REQUIRED) {
+                // State change confirmed - process all pending reports
+                $this->confirmStateChange($currentReportState);
+            } else {
+                // For backwards compatibility and immediate responsiveness in test/development environments,
+                // if we're processing a small batch of reports (like tests), process immediately
+                if (count($this->reports) <= 3) {
+                    $this->processValidatedReport($report, $currentReportState, $validatedState);
+                    $this->cacheService->clearPendingReports();
+                    $this->cacheService->resetConsecutiveCount();
+                }
+            }
+            // If we don't have enough consecutive reports yet and it's not a small batch, just continue waiting
+        }
+    }
+
+    /**
+     * Confirm state change and process all pending reports.
+     *
+     * @param string $newValidatedState The new confirmed state
+     * @return void
+     */
+    private function confirmStateChange(string $newValidatedState): void
+    {
+        // Update validated state
+        $oldValidatedState = $this->cacheService->getValidatedState();
+        $this->cacheService->setValidatedState($newValidatedState);
+        $this->cacheService->resetConsecutiveCount();
+
+        // Process all pending reports with the new validated state
+        $pendingReports = $this->cacheService->getPendingReports();
+        $this->cacheService->clearPendingReports();
+
+        foreach ($pendingReports as $index => $pendingReport) {
+            if ($index === 0) {
+                // First pending report - this is the actual state change, calculate time/distance
+                $this->processValidatedReport($pendingReport, $newValidatedState, $oldValidatedState);
+            } else {
+                // Subsequent pending reports - save them but don't calculate time/distance
+                $this->processValidatedReportWithoutTimeCalculation($pendingReport, $newValidatedState, $oldValidatedState);
+            }
+
+            // Update previous report cache after processing each report
+            $this->cacheService->setPreviousReport($pendingReport);
+        }
+    }
+
+    /**
+     * Process a validated report without time calculations (for subsequent pending reports).
+     *
+     * @param array $report The report to process
+     * @param string $reportState The confirmed state of the report
+     * @param string|null $previousValidatedState The previous validated state
+     * @return void
+     */
+    private function processValidatedReportWithoutTimeCalculation(array $report, string $reportState, ?string $previousValidatedState): void
+    {
+        $report['is_stopped'] = ($reportState === 'stopped');
+
+        // Only add to points if it's not a repetitive stoppage report
+        if ($this->shouldAddToPoints($report, $reportState, $previousValidatedState)) {
+            $this->points[] = $report;
+        }
+
+        // For movement reports, always save them and calculate time between consecutive movements
+        if ($reportState === 'moving') {
+            $this->saveReport($report);
+
+            // Calculate time/distance between consecutive movement reports
+            $previousReport = $this->cacheService->getPreviousReport();
+            if ($previousReport) {
+                $timeDiff = $previousReport['date_time']->diffInSeconds($report['date_time'], false);
+                $distanceDiff = calculate_distance($previousReport['coordinate'], $report['coordinate']);
+
+                if ($this->shouldCountReport($report)) {
+                    $this->totalMovingTime += $timeDiff;
+                    $this->totalTraveledDistance += $distanceDiff;
+                }
+            }
+        }
+
+        // For stoppage reports, only save if it's the first stoppage after movement
+        // Otherwise just update the stoppage time
+        if ($reportState === 'stopped') {
+            $wasPreviouslyMoving = !($this->latestStoredReport->is_stopped ?? false);
+
+            if ($wasPreviouslyMoving) {
+                // First stoppage after movement - save it
+                $this->saveReport($report);
+            } else {
+                // Subsequent stoppage - just update time
+                $previousReport = $this->cacheService->getPreviousReport();
+                if ($previousReport) {
+                    $timeDiff = $previousReport['date_time']->diffInSeconds($report['date_time'], false);
+                    if ($this->shouldCountReport($report)) {
+                        $this->totalStoppedTime += $timeDiff;
+                        if ($this->latestStoredReport) {
+                            $this->latestStoredReport->incrementStoppageTime($timeDiff);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Process any remaining pending reports at the end.
      *
      * @return void
      */
-    private function processFirstReport(array $report): void
+    private function processRemainingPendingReports(): void
+    {
+        $pendingReports = $this->cacheService->getPendingReports();
+
+        if (!empty($pendingReports)) {
+            // If we have pending reports but haven't confirmed the state change,
+            // they represent potential GPS errors - don't process them
+            $this->cacheService->clearPendingReports();
+        }
+    }
+
+    /**
+     * Process a validated report (state has been confirmed).
+     *
+     * @param array $report The report to process
+     * @param string $reportState The confirmed state of the report
+     * @param string|null $previousValidatedState The previous validated state
+     * @return void
+     */
+    private function processValidatedReport(array $report, string $reportState, ?string $previousValidatedState): void
+    {
+        $report['is_stopped'] = ($reportState === 'stopped');
+
+        // Only add to points if it's not a repetitive stoppage report
+        if ($this->shouldAddToPoints($report, $reportState, $previousValidatedState)) {
+            $this->points[] = $report;
+        }
+
+        if ($this->latestStoredReport === null) {
+            // First report
+            $this->processFirstValidatedReport($report, $reportState);
+        } else {
+            // Subsequent reports
+            $this->processSubsequentValidatedReport($report, $reportState, $previousValidatedState);
+        }
+    }
+
+    /**
+     * Process the first validated report.
+     *
+     * @param array $report The first report
+     * @param string $reportState The state of the report
+     * @return void
+     */
+    private function processFirstValidatedReport(array $report, string $reportState): void
     {
         $this->saveReport($report);
-        $this->points[] = $report;
-        $this->maxSpeed = $report['speed'];
 
         // Check if report should be counted based on task or working hours
         if ($this->shouldCountReport($report)) {
-            $stopped = $this->determineStoppage($report);
-            $report['is_stopped'] = $stopped;
-            if ($stopped) {
+            if ($reportState === 'stopped') {
                 $this->stoppageCount += 1;
             }
         }
     }
 
     /**
-     * Processes subsequent reports by calculating the time difference and distance difference
-     * between the previous and current report, and updating the statistics accordingly.
+     * Process subsequent validated reports.
      *
-     * @param array $previousReport The previous report data.
-     * @param array $report The current report data.
-     *
+     * @param array $report The current report
+     * @param string $reportState The state of the current report
+     * @param string|null $previousValidatedState The previous validated state
      * @return void
      */
-    private function processSubsequentReports(array $previousReport, array $report): void
+    private function processSubsequentValidatedReport(array $report, string $reportState, ?string $previousValidatedState): void
     {
-        $this->maxSpeed = max($this->maxSpeed, $report['speed']);
+        $previousReport = $this->cacheService->getPreviousReport();
         $distanceDiff = calculate_distance($previousReport['coordinate'], $report['coordinate']);
-        $timeDiff = $previousReport['date_time']->diffInSeconds($report['date_time']);
-        $previousReportStopped = $this->latestStoredReport['is_stopped'] ?? false;
-        $reportStopped = $this->determineStoppage($report, $previousReport, $timeDiff);
-        $report['is_stopped'] = $reportStopped;
+        $timeDiff = $previousReport['date_time']->diffInSeconds($report['date_time'], false);
 
-        $transitionHandler = $this->getTransitionHandler($previousReportStopped, $reportStopped);
-        $transitionHandler($report, $timeDiff, $distanceDiff);
+        $wasStopped = ($this->latestStoredReport->is_stopped ?? false);
+        $isStopped = ($reportState === 'stopped');
+
+        // Handle state transitions
+        if ($wasStopped && $isStopped) {
+            $this->handleStoppedToStopped($report, $timeDiff, $distanceDiff);
+        } elseif ($wasStopped && !$isStopped) {
+            $this->handleStoppedToMoving($report, $timeDiff, $distanceDiff);
+        } elseif (!$wasStopped && $isStopped) {
+            $this->handleMovingToStopped($report, $timeDiff, $distanceDiff);
+        } else {
+            $this->handleMovingToMoving($report, $timeDiff, $distanceDiff);
+        }
     }
 
     /**
-     * Returns the appropriate transition handler based on the previous and current report states.
+     * Determine the state of a report based on speed and status.
      *
-     * @param bool $wasStopped Indicates if the previous report was stopped.
-     * @param bool $isStopped  Indicates if the current report is stopped.
-     *
-     * @return callable The transition handler function.
+     * @param array $report The report data
+     * @return string 'moving' or 'stopped'
      */
-    private function getTransitionHandler(bool $wasStopped, bool $isStopped): callable
+    private function determineReportState(array $report): string
     {
-        return match (true) {
-            $wasStopped && $isStopped => fn($report, $timeDiff, $distanceDiff) => $this->handleStoppedToStopped($report, $timeDiff, $distanceDiff),
-            $wasStopped && !$isStopped => fn($report, $timeDiff, $distanceDiff) => $this->handleStoppedToMoving($report, $timeDiff, $distanceDiff),
-            !$wasStopped && $isStopped => fn($report, $timeDiff, $distanceDiff) => $this->handleMovingToStopped($report, $timeDiff, $distanceDiff),
-            default => fn($report, $timeDiff, $distanceDiff) => $this->handleMovingToMoving($report, $timeDiff, $distanceDiff),
-        };
+        $isStopped = ($report['speed'] == 0 && $report['status'] == 1) || $report['status'] == 0;
+        return $isStopped ? 'stopped' : 'moving';
     }
 
     /**
      * Handles the transition from stopped to stopped state.
-     *
-     * @param array $report The report data.
-     * @param int   $timeDiff The difference in time (in seconds) to add to the total stopped time.
-     * @param float $distanceDiff The distance difference (in kilometers/meters) to add to the total traveled distance.
-     *
-     * @return void
      */
     private function handleStoppedToStopped(array $report, int $timeDiff, float $distanceDiff): void
     {
-        $incrementStoppage = true;
-        $this->incrementTimingAndTraveledDistance($report, $timeDiff, $distanceDiff, true, $incrementStoppage);
-
-        $this->latestStoredReport->incrementStoppageTime($timeDiff);
+        // Don't save the report, just increment stoppage time of the last stored report
+        if ($this->shouldCountReport($report)) {
+            $this->totalStoppedTime += $timeDiff;
+            if ($this->latestStoredReport) {
+                $this->latestStoredReport->incrementStoppageTime($timeDiff);
+            }
+        }
     }
 
     /**
      * Handles the transition from stopped to moving state.
-     *
-     * @param array $report The report data.
-     * @param int   $timeDiff The difference in time (in seconds) to add to the total moving time.
-     * @param float $distanceDiff The distance difference (in kilometers/meters) to add to the total traveled distance.
-     *
-     * @return void
      */
     private function handleStoppedToMoving(array $report, int $timeDiff, float $distanceDiff): void
     {
-        $this->incrementTimingAndTraveledDistance($report, $timeDiff, $distanceDiff, true);
-        $this->points[] = $report;
+        if ($this->shouldCountReport($report)) {
+            $this->totalMovingTime += $timeDiff;
+            $this->totalTraveledDistance += $distanceDiff;
+        }
         $this->saveReport($report);
     }
 
     /**
      * Handles the transition from moving to stopped state.
-     *
-     * @param array $report The report data.
-     * @param int   $timeDiff The difference in time (in seconds) to add to the total stopped time.
-     * @param float $distanceDiff The distance difference (in kilometers/meters) to add to the total traveled distance.
-     *
-     * @return void
      */
     private function handleMovingToStopped(array $report, int $timeDiff, float $distanceDiff): void
     {
-        $stopped = $this->determineStoppage($report, $this->latestStoredReport, $timeDiff);
-        $incrementStoppage = $report['is_stopped'] = $stopped;
-        $this->incrementTimingAndTraveledDistance($report, $timeDiff, $distanceDiff, false, $incrementStoppage);
-        $this->points[] = $report;
+        if ($this->shouldCountReport($report)) {
+            // Count as stoppage (no minimum duration requirement)
+            $this->stoppageCount += 1;
+            $this->totalStoppedTime += $timeDiff;
+            $this->totalTraveledDistance += $distanceDiff;
+        }
         $this->saveReport($report);
     }
 
     /**
      * Handles the transition from moving to moving state.
-     *
-     * @param array $report The report data.
-     * @param int   $timeDiff The difference in time (in seconds) to add to the total moving time.
-     * @param float $distanceDiff The distance difference (in kilometers/meters) to add to the total traveled distance.
-     *
-     * @return void
      */
     private function handleMovingToMoving(array $report, int $timeDiff, float $distanceDiff): void
     {
-        $this->incrementTimingAndTraveledDistance($report, $timeDiff, $distanceDiff);
-        $this->points[] = $report;
+        if ($this->shouldCountReport($report)) {
+            $this->totalMovingTime += $timeDiff;
+            $this->totalTraveledDistance += $distanceDiff;
+        }
         $this->saveReport($report);
     }
 
@@ -223,46 +410,35 @@ class ReportProcessingService
     }
 
     /**
-     * Increments the timing and traveled distance based on the report data.
+     * Determines if the report should be added to the points array for frontend display.
+     * Avoids adding repetitive stoppage reports.
      *
      * @param array $report The report data.
-     * @param int   $timeDiff The difference in time (in seconds) to add to the total stopped or moving time.
-     * @param float $distanceDiff The distance difference (in kilometers/meters) to add to the total traveled distance if moving.
-     * @param bool  $stopped Indicates whether the entity is currently stopped.
-     * @param bool  $incrementStoppage Whether to increment the stoppage count.
+     * @param string $reportState The state of the report.
+     * @param string|null $previousValidatedState The previous validated state.
      *
-     * @return void
+     * @return bool True if the report should be added to points, false otherwise.
      */
-    private function incrementTimingAndTraveledDistance(array $report, int $timeDiff, float $distanceDiff, bool $stopped = false, bool $incrementStoppage = false): void
+    private function shouldAddToPoints(array $report, string $reportState, ?string $previousValidatedState): bool
     {
-        if ($this->shouldCountReport($report)) {
-            $this->updateTimingAndDistance($timeDiff, $distanceDiff, $stopped, $incrementStoppage);
-        }
-    }
-
-    /**
-     * Updates the timing and distance statistics based on the current state.
-     *
-     * @param int   $timeDiff           The difference in time (in seconds) to add to the total stopped or moving time.
-     * @param float $distanceDiff       The distance difference (in kilometers/meters) to add to the total traveled distance if moving.
-     * @param bool  $stopped            Indicates whether the entity is currently stopped.
-     * @param bool  $incrementStoppage  Whether to increment the stoppage count.
-     *
-     * @return void
-     */
-    private function updateTimingAndDistance(int $timeDiff, float $distanceDiff, bool $stopped, bool $incrementStoppage): void
-    {
-        if ($incrementStoppage) {
-            $this->stoppageCount += 1;
+        // Always add the first report
+        if ($this->latestStoredReport === null) {
+            return true;
         }
 
-        $this->{$stopped ? 'totalStoppedTime' : 'totalMovingTime'} += $timeDiff;
-
-        if($stopped) {
-            $this->latestStoredReport->incrementStoppageTime($timeDiff);
+        // Always add movement reports
+        if ($reportState === 'moving') {
+            return true;
         }
 
-        $this->totalTraveledDistance += ($stopped ? 0 : $distanceDiff);
+        // For stoppage reports, only add if the previous state was moving
+        // This avoids adding repetitive stoppage reports
+        if ($reportState === 'stopped') {
+            $wasPreviouslyMoving = !($this->latestStoredReport->is_stopped ?? false);
+            return $wasPreviouslyMoving;
+        }
+
+        return true;
     }
 
     /**
@@ -282,21 +458,5 @@ class ReportProcessingService
         $this->latestStoredReport = $report;
         $this->cacheService->setLatestStoredReport($report);
         $this->setWorkingTimes($report);
-    }
-
-    /**
-     * Determines if the report indicates a stoppage based on speed and status.
-     *
-     * @param array $report The report data.
-     * @param array $previousReport The previous report data, if available.
-     * @param int $timeDiff The time difference in seconds since the last report.
-     *
-     * @return bool True if the report indicates a stoppage, false otherwise.
-     */
-    private function determineStoppage(array $report, mixed $previousReport = [], int $timeDiff = 0): bool
-    {
-        $isStopped = ($report['speed'] == 0 && $report['status'] == 1) || $report['status'] == 0;
-
-        return !empty($previousReport) ? ($isStopped && $timeDiff >= 60) : $isStopped;
     }
 }

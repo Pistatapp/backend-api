@@ -81,16 +81,12 @@ class LiveReportServiceTest extends TestCase
             ]
         ];
 
-        $this->taskService = new TractorTaskService($this->tractor);
         $this->dailyReportService = new DailyReportService($this->tractor, null);
         $this->cacheService = new CacheService($this->device);
+        $this->taskService = new TractorTaskService($this->tractor);
         $this->reportProcessingService = new ReportProcessingService(
             $this->device,
             $this->reports,
-            null,
-            null,
-            fn($report) => $this->isWithinWorkingHours($report),
-            $this->cacheService
         );
 
         $this->service = new LiveReportService(
@@ -266,19 +262,9 @@ class LiveReportServiceTest extends TestCase
 
         // Process each report
         foreach ($reports as $report) {
-            $reportProcessingService = new ReportProcessingService(
-                $this->device,
-                [$report],
-                null,
-                null,
-                fn($report) => $this->isWithinWorkingHours($report),
-                $this->cacheService
-            );
-
-            $dailyReportService = new DailyReportService($this->device->tractor, null);
             $service = new LiveReportService(
                 $this->taskService,
-                $dailyReportService,
+                $this->dailyReportService,
                 $this->cacheService
             );
             $service->generate($this->device, [$report]);
@@ -302,6 +288,7 @@ class LiveReportServiceTest extends TestCase
 
     /**
      * Test: Only the first stoppage after movement is saved, repeated stoppages only increment stoppage_time.
+     * Also, repetitive stoppage reports should not be added to the points array.
      */
     #[Test]
     public function it_saves_only_first_stoppage_and_increments_stoppage_time_for_repeated_stoppages()
@@ -348,12 +335,16 @@ class LiveReportServiceTest extends TestCase
             $this->cacheService
         );
 
-        $service->generate($this->device, $reports);
+        $liveReport = $service->generate($this->device, $reports);
 
         $savedReports = $this->device->reports()->get();
         $this->assertCount(2, $savedReports, 'Only movement and first stoppage should be saved');
         $this->assertTrue($savedReports[1]->is_stopped, 'Second report should be stoppage');
         $this->assertGreaterThan(0, $savedReports[1]->stoppage_time, 'Stoppage time should be incremented for repeated stoppages');
+
+        // Check that points array doesn't contain repetitive stoppage reports
+        $stoppagePoints = array_filter($liveReport['points'], fn($point) => $point['is_stopped']);
+        $this->assertCount(1, $stoppagePoints, 'Should only have one stoppage point in the points array');
     }
 
     /**
@@ -452,10 +443,10 @@ class LiveReportServiceTest extends TestCase
     }
 
     /**
-     * Test: Stoppages less than 60 seconds are not counted as real stoppages.
+     * Test: Short stoppages are now counted since MINIMUM_STOPPAGE_DURATION constraint was removed.
      */
     #[Test]
-    public function it_does_not_count_stoppages_less_than_60_seconds()
+    public function it_counts_all_stoppages_regardless_of_duration()
     {
         $now = now();
         $reports = [
@@ -467,7 +458,7 @@ class LiveReportServiceTest extends TestCase
                 'date_time' => $now->copy()->subSeconds(70),
                 'imei' => $this->device->imei,
             ],
-            // Stoppage less than 60s
+            // Stoppage (any duration)
             [
                 'coordinate' => [34.884065, 50.599625],
                 'speed' => 0,
@@ -485,6 +476,67 @@ class LiveReportServiceTest extends TestCase
             ],
         ];
 
+        $this->service->generate($this->device, $reports);
+
+        $savedReports = $this->device->reports()->get();
+        $this->assertCount(3, $savedReports, 'All transitions should be saved');
+        $dailyReport = $this->tractor->gpsDailyReports()->where('date', today())->first();
+        $this->assertEquals(1, $dailyReport->stoppage_count, 'Stoppage should be counted regardless of duration');
+    }
+
+    /**
+     * Test: GPS device error - single movement report between stoppage reports should be ignored.
+     * According to algorithm: "We should implement a mechanism to detect and make sure the tractor is actually moving
+     * then proceed with our movement distance and movement duration calculation process. We may set a condition in our
+     * algorithm to check if we get 3 continues movement report, we consider the 4 report an actual movement."
+     */
+    #[Test]
+    public function it_ignores_single_movement_report_between_stoppages_as_gps_error()
+    {
+        $now = now();
+        $reports = [
+            // Stoppage 1
+            [
+                'coordinate' => [34.884065, 50.599625],
+                'speed' => 0,
+                'status' => 0,
+                'date_time' => $now->copy()->subMinutes(5),
+                'imei' => $this->device->imei,
+            ],
+            // Stoppage 2
+            [
+                'coordinate' => [34.884065, 50.599625],
+                'speed' => 0,
+                'status' => 0,
+                'date_time' => $now->copy()->subMinutes(4),
+                'imei' => $this->device->imei,
+            ],
+            // Single movement report (GPS error)
+            [
+                'coordinate' => [34.884066, 50.599626],
+                'speed' => 15,
+                'status' => 1,
+                'date_time' => $now->copy()->subMinutes(3),
+                'imei' => $this->device->imei,
+            ],
+            // Stoppage 3 - back to stopping
+            [
+                'coordinate' => [34.884065, 50.599625],
+                'speed' => 0,
+                'status' => 0,
+                'date_time' => $now->copy()->subMinutes(2),
+                'imei' => $this->device->imei,
+            ],
+            // Stoppage 4
+            [
+                'coordinate' => [34.884065, 50.599625],
+                'speed' => 0,
+                'status' => 0,
+                'date_time' => $now->copy()->subMinute(),
+                'imei' => $this->device->imei,
+            ],
+        ];
+
         $service = new LiveReportService(
             $this->taskService,
             $this->dailyReportService,
@@ -494,8 +546,247 @@ class LiveReportServiceTest extends TestCase
         $service->generate($this->device, $reports);
 
         $savedReports = $this->device->reports()->get();
-        $this->assertCount(3, $savedReports, 'All transitions should be saved');
+
+        // Should only save first stoppage report and not process the single movement as error
+        $this->assertCount(1, $savedReports, 'Only first stoppage should be saved, movement error should be ignored');
+        $this->assertTrue($savedReports[0]->is_stopped, 'First report should be stoppage');
+
+        // Daily report should show no movement
         $dailyReport = $this->tractor->gpsDailyReports()->where('date', today())->first();
-        $this->assertEquals(0, $dailyReport->stoppage_count, 'Stoppage less than 60s should not be counted');
+        $this->assertEquals(0, $dailyReport->traveled_distance, 'No distance should be traveled due to GPS error');
+        $this->assertEquals(0, $dailyReport->work_duration, 'No work duration should be recorded due to GPS error');
+    }
+
+    /**
+     * Test: GPS device error - single stoppage report between movement reports should be ignored.
+     * According to algorithm: "The opposite might be possible, sometimes devices is sending movement reports,
+     * suddenly sends an stoppage report then keeps sending movement reports. This stoppage is not a real one,
+     * we should implement a mechanism to check if we get at least 3 stoppage reports, it is considered an actual stoppage."
+     */
+    #[Test]
+    public function it_ignores_single_stoppage_report_between_movements_as_gps_error()
+    {
+        $now = now();
+        $reports = [
+            // Movement 1
+            [
+                'coordinate' => [34.884065, 50.599625],
+                'speed' => 15,
+                'status' => 1,
+                'date_time' => $now->copy()->subMinutes(5),
+                'imei' => $this->device->imei,
+            ],
+            // Movement 2
+            [
+                'coordinate' => [34.884066, 50.599626],
+                'speed' => 18,
+                'status' => 1,
+                'date_time' => $now->copy()->subMinutes(4),
+                'imei' => $this->device->imei,
+            ],
+            // Single stoppage report (GPS error)
+            [
+                'coordinate' => [34.884067, 50.599627],
+                'speed' => 0,
+                'status' => 0,
+                'date_time' => $now->copy()->subMinutes(3),
+                'imei' => $this->device->imei,
+            ],
+            // Movement 3 - back to moving
+            [
+                'coordinate' => [34.884068, 50.599628],
+                'speed' => 20,
+                'status' => 1,
+                'date_time' => $now->copy()->subMinutes(2),
+                'imei' => $this->device->imei,
+            ],
+            // Movement 4
+            [
+                'coordinate' => [34.884069, 50.599629],
+                'speed' => 22,
+                'status' => 1,
+                'date_time' => $now->copy()->subMinute(),
+                'imei' => $this->device->imei,
+            ],
+        ];
+
+        $service = new LiveReportService(
+            $this->taskService,
+            $this->dailyReportService,
+            $this->cacheService
+        );
+
+        $service->generate($this->device, $reports);
+
+        $savedReports = $this->device->reports()->get();
+
+        // All movement reports should be saved, single stoppage should be ignored
+        $this->assertCount(4, $savedReports, 'All movement reports should be saved, stoppage error ignored');
+        $this->assertFalse($savedReports[0]->is_stopped, 'First report should be movement');
+        $this->assertFalse($savedReports[1]->is_stopped, 'Second report should be movement');
+        $this->assertFalse($savedReports[2]->is_stopped, 'Third report should be movement');
+        $this->assertFalse($savedReports[3]->is_stopped, 'Fourth report should be movement');
+
+        // Daily report should show continuous movement
+        $dailyReport = $this->tractor->gpsDailyReports()->where('date', today())->first();
+        $this->assertGreaterThan(0, $dailyReport->traveled_distance, 'Distance should be traveled');
+        $this->assertGreaterThan(0, $dailyReport->work_duration, 'Work duration should be recorded');
+        $this->assertEquals(0, $dailyReport->stoppage_count, 'No stoppage should be counted due to GPS error');
+    }
+
+    /**
+     * Test: Valid state change - 3 consecutive movement reports after stoppage should be processed.
+     * This represents actual movement after the tractor was stopped.
+     */
+    #[Test]
+    public function it_processes_valid_movement_after_consecutive_movements()
+    {
+        $now = now();
+        $reports = [
+            // Initial stoppage
+            [
+                'coordinate' => [34.884065, 50.599625],
+                'speed' => 0,
+                'status' => 0,
+                'date_time' => $now->copy()->subMinutes(6),
+                'imei' => $this->device->imei,
+            ],
+            // Movement 1 (pending)
+            [
+                'coordinate' => [34.884066, 50.599626],
+                'speed' => 15,
+                'status' => 1,
+                'date_time' => $now->copy()->subMinutes(5),
+                'imei' => $this->device->imei,
+            ],
+            // Movement 2 (pending)
+            [
+                'coordinate' => [34.884067, 50.599627],
+                'speed' => 18,
+                'status' => 1,
+                'date_time' => $now->copy()->subMinutes(4),
+                'imei' => $this->device->imei,
+            ],
+            // Movement 3 (confirms state change)
+            [
+                'coordinate' => [34.884068, 50.599628],
+                'speed' => 20,
+                'status' => 1,
+                'date_time' => $now->copy()->subMinutes(3),
+                'imei' => $this->device->imei,
+            ],
+            // Movement 4 (normal processing)
+            [
+                'coordinate' => [34.884069, 50.599629],
+                'speed' => 22,
+                'status' => 1,
+                'date_time' => $now->copy()->subMinutes(2),
+                'imei' => $this->device->imei,
+            ],
+        ];
+
+        $service = new LiveReportService(
+            $this->taskService,
+            $this->dailyReportService,
+            $this->cacheService
+        );
+
+        $service->generate($this->device, $reports);
+
+        $savedReports = $this->device->reports()->get();
+
+        // Should save: stoppage + 4 movement reports
+        $this->assertCount(5, $savedReports, 'Should save stoppage and all movement reports after validation');
+        $this->assertTrue($savedReports[0]->is_stopped, 'First report should be stoppage');
+        $this->assertFalse($savedReports[1]->is_stopped, 'Second report should be movement');
+        $this->assertFalse($savedReports[2]->is_stopped, 'Third report should be movement');
+        $this->assertFalse($savedReports[3]->is_stopped, 'Fourth report should be movement');
+        $this->assertFalse($savedReports[4]->is_stopped, 'Fifth report should be movement');
+
+        // Daily report should show movement metrics
+        $dailyReport = $this->tractor->gpsDailyReports()->where('date', today())->first();
+        $this->assertGreaterThan(0, $dailyReport->traveled_distance, 'Distance should be traveled');
+        $this->assertGreaterThan(0, $dailyReport->work_duration, 'Work duration should be recorded');
+    }
+
+    /**
+     * Test: Valid state change - 3 consecutive stoppage reports after movement should be processed.
+     * This represents actual stoppage after the tractor was moving.
+     * Only the first stoppage report should be counted, and repetitive stoppages should not be added to points.
+     */
+    #[Test]
+    public function it_processes_valid_stoppage_after_consecutive_stoppages()
+    {
+        // Clear cache to ensure clean state
+        \Illuminate\Support\Facades\Cache::flush();
+
+        $now = now();
+        $reports = [
+            // Initial movement
+            [
+                'coordinate' => [34.884065, 50.599625],
+                'speed' => 20,
+                'status' => 1,
+                'date_time' => $now->copy()->subMinutes(8),
+                'imei' => $this->device->imei,
+            ],
+            // Stoppage 1 (pending) - 2 minutes after movement
+            [
+                'coordinate' => [34.884066, 50.599626],
+                'speed' => 0,
+                'status' => 0,
+                'date_time' => $now->copy()->subMinutes(6),
+                'imei' => $this->device->imei,
+            ],
+            // Stoppage 2 (pending)
+            [
+                'coordinate' => [34.884066, 50.599626],
+                'speed' => 0,
+                'status' => 0,
+                'date_time' => $now->copy()->subMinutes(5),
+                'imei' => $this->device->imei,
+            ],
+            // Stoppage 3 (confirms state change)
+            [
+                'coordinate' => [34.884066, 50.599626],
+                'speed' => 0,
+                'status' => 0,
+                'date_time' => $now->copy()->subMinutes(4),
+                'imei' => $this->device->imei,
+            ],
+            // Stoppage 4 (normal processing - should not create new record or add to points)
+            [
+                'coordinate' => [34.884066, 50.599626],
+                'speed' => 0,
+                'status' => 0,
+                'date_time' => $now->copy()->subMinutes(3),
+                'imei' => $this->device->imei,
+            ],
+        ];
+
+        $service = new LiveReportService(
+            $this->taskService,
+            $this->dailyReportService,
+            $this->cacheService
+        );
+
+        $liveReport = $service->generate($this->device, $reports);
+
+        $savedReports = $this->device->reports()->get();
+
+        // Should save: movement + first stoppage (subsequent stoppages just increment time)
+        $this->assertCount(2, $savedReports, 'Should save movement and first stoppage only');
+        $this->assertFalse($savedReports[0]->is_stopped, 'First report should be movement');
+        $this->assertTrue($savedReports[1]->is_stopped, 'Second report should be stoppage');
+
+        // Daily report should show stoppage metrics
+        $dailyReport = $this->tractor->gpsDailyReports()->where('date', today())->first();
+
+        $this->assertEquals(1, $dailyReport->stoppage_count, 'Should count one stoppage');
+        $this->assertGreaterThan(0, $dailyReport->stoppage_duration, 'Should have stoppage duration');
+
+        // Check that points array doesn't contain repetitive stoppage reports
+        $stoppagePoints = array_filter($liveReport['points'], fn($point) => $point['is_stopped']);
+        $this->assertCount(1, $stoppagePoints, 'Should only have one stoppage point in the points array');
     }
 }

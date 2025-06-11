@@ -13,9 +13,21 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('drivers', function (Blueprint $table) {
-            // Drop foreign key if exists
+            // Handle foreign key dropping based on database driver
             if (Schema::hasColumn('drivers', 'tractor_id')) {
-                $table->dropForeign(['tractor_id']);
+                $driverName = DB::getDriverName();
+
+                if ($driverName === 'mysql') {
+                    // For MySQL, drop the specific constraint name
+                    $table->dropForeign('drivers_trucktor_id_foreign');
+                } elseif ($driverName === 'sqlite') {
+                    // For SQLite, use the column array method
+                    try {
+                        $table->dropForeign(['tractor_id']);
+                    } catch (\Exception $e) {
+                        // If it fails, continue - SQLite might not have the constraint
+                    }
+                }
             }
 
             // Make tractor_id nullable
@@ -49,8 +61,18 @@ return new class extends Migration
             // Make tractor_id required again
             $table->unsignedBigInteger('tractor_id')->nullable(false)->change();
 
-            // Re-add foreign key constraint
-            $table->foreign('tractor_id')->references('id')->on('tractors')->onDelete('cascade');
+            // Re-add foreign key constraint based on database driver
+            $driverName = DB::getDriverName();
+
+            if ($driverName === 'mysql') {
+                // For MySQL, specify the constraint name
+                $table->foreign('tractor_id', 'drivers_trucktor_id_foreign')
+                      ->references('id')->on('tractors')->onDelete('cascade');
+            } else {
+                // For other databases (SQLite), use standard method
+                $table->foreign('tractor_id')
+                      ->references('id')->on('tractors')->onDelete('cascade');
+            }
 
             // Drop farm_id column
             $table->dropForeign(['farm_id']);
