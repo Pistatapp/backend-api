@@ -77,6 +77,8 @@ class FrostbiteCalculationController extends Controller
             'avgtemp_c' => number_format($avgTemp, 2),
             'mintemp_c' => $day['day']['mintemp_c'],
             'warning' => $temp1 < 0 || $temp2 < 0,
+            'T1' => $temp1,
+            'T2' => $temp2,
         ];
     }
 
