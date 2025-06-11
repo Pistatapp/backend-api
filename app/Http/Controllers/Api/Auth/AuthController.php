@@ -144,10 +144,65 @@ class AuthController extends Controller
 
         $user->tokens()->delete();
 
+        [$roleName, $permissions] = $this->getUserRoleAndPermissions($user);
+
         return response()->json([
-            'token' => $user->createToken('mobile', expiresAt: now()->addDay())->plainTextToken,
-            'permissions' => $user->getAllPermissions()->pluck('name'),
+            'token' => $user->createToken('mobile')->plainTextToken,
+            'role' => $roleName,
+            'permissions' => $permissions,
         ]);
+    }
+
+    /**
+     * Get permissions of the authenticated user.
+     *
+     * @param \Illuminate\Http\Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function permissions(Request $request)
+    {
+        $user = $request->user();
+
+        [$roleName, $permissions] = $this->getUserRoleAndPermissions($user);
+
+        return response()->json([
+            'role' => $roleName,
+            'permissions' => $permissions,
+        ]);
+    }
+
+    /**
+     * Get the role name and permissions for a user based on working environment.
+     *
+     * @param \App\Models\User $user
+     * @return array
+     */
+    protected function getUserRoleAndPermissions(User $user)
+    {
+        if ($user->hasRole('root')) {
+            return [
+                'root',
+                $user->getAllPermissions()->pluck('name'),
+            ];
+        }
+
+        $workingEnvironment = $user->workingEnvironment();
+
+        if ($workingEnvironment && $workingEnvironment->pivot && $workingEnvironment->pivot->role) {
+            $role = Role::where('name', $workingEnvironment->pivot->role)
+                ->with('permissions')
+                ->first();
+
+            return [
+                $role?->name,
+                $role?->permissions?->pluck('name') ?? collect(),
+            ];
+        }
+
+        return [
+            $user->getRoleNames()->first(),
+            $user->getAllPermissions()->pluck('name'),
+        ];
     }
 
     /**
@@ -188,38 +243,5 @@ class AuthController extends Controller
     protected function username()
     {
         return 'mobile';
-    }
-
-    /**
-     * Get permissions of the authenticated user.
-     *
-     * @param \Illuminate\Http\Request $request
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function permissions(Request $request)
-    {
-        $user = $request->user();
-
-        if ($user->hasRole('root')) {
-            $roleName = 'root';
-            $permissions = $user->getAllPermissions()->pluck('name');
-        } else {
-            $workingEnvironment = $user->workingEnvironment();
-
-            if ($workingEnvironment) {
-                $pivotRole = $workingEnvironment->pivot->role;
-                $role = Role::where('name', $pivotRole)->with('permissions')->first();
-                $roleName = $role->name;
-                $permissions = $role->permissions->pluck('name');
-            } else {
-                $roleName = $user->getRoleNames()->first();
-                $permissions = $user->getAllPermissions()->pluck('name');
-            }
-        }
-
-        return response()->json([
-            'role' => $roleName,
-            'permissions' => $permissions,
-        ]);
     }
 }

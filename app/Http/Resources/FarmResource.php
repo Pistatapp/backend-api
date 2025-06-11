@@ -29,7 +29,17 @@ class FarmResource extends JsonResource
             'plans_count' => $this->whenCounted('plans'),
             'is_working_environment' => $this->isWorkingEnvironment(),
             'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),
-            'users' => UserResource::collection($this->whenLoaded('users')),
+            'users' => $this->whenLoaded('users', function () {
+                return $this->users->map(function ($user) {
+                    $role = $user->pivot->role;
+                    return [
+                        'id' => $user->id,
+                        'name' => $user->username,
+                        'mobile' => $user->mobile,
+                        'role' => $role,
+                    ];
+                });
+            }),
         ];
     }
 }

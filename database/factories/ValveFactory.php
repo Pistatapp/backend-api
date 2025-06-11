@@ -22,6 +22,7 @@ class ValveFactory extends Factory
             'name' => $this->faker->name,
             'location' => $this->faker->latitude . ',' . $this->faker->longitude,
             'flow_rate' => $this->faker->randomFloat(2, 0, 100),
+            'irrigated_area' => $this->faker->randomFloat(2, 0.5, 10.0), // Random area between 0.5 and 10 hectares
         ];
 
     }

@@ -28,6 +28,7 @@ class ValveController extends Controller
             'location' => 'required|string',
             'flow_rate' => 'required|integer|min:0|max:100',
             'field_id' => 'required|exists:fields,id',
+            'irrigated_area' => 'required|numeric|min:0',
         ]);
 
         $valve = $pump->valves()->create($request->all());
@@ -53,6 +54,7 @@ class ValveController extends Controller
             'location' => 'required|string',
             'flow_rate' => 'required|integer|min:0|max:100',
             'field_id' => 'required|exists:fields,id',
+            'irrigated_area' => 'required|numeric|min:0',
         ]);
 
         $valve->update($request->all());

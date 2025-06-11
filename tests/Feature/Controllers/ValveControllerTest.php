@@ -65,7 +65,8 @@ class ValveControllerTest extends TestCase
                         'location',
                         'flow_rate',
                         'field_id',
-                        'is_open'
+                        'is_open',
+                        'irrigated_area'
                     ]
                 ]
             ]);
@@ -78,7 +79,8 @@ class ValveControllerTest extends TestCase
             'name' => 'Test Valve',
             'location' => '35.7219,51.3347',
             'flow_rate' => 50,
-            'field_id' => $this->field->id
+            'field_id' => $this->field->id,
+            'irrigated_area' => 2.5
         ];
 
         $response = $this->actingAs($this->user)
@@ -87,7 +89,8 @@ class ValveControllerTest extends TestCase
         $response->assertStatus(201)
             ->assertJsonFragment([
                 'name' => 'Test Valve',
-                'flow_rate' => 50
+                'flow_rate' => 50,
+                'irrigated_area' => 2.5
             ]);
 
         $this->assertDatabaseHas('valves', [
@@ -128,7 +131,8 @@ class ValveControllerTest extends TestCase
             'name' => 'Updated Valve Name',
             'location' => '35.7219,51.3347',
             'flow_rate' => 75,
-            'field_id' => $this->field->id
+            'field_id' => $this->field->id,
+            'irrigated_area' => 3.5
         ];
 
         $response = $this->actingAs($this->user)
@@ -137,7 +141,8 @@ class ValveControllerTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonFragment([
                 'name' => 'Updated Valve Name',
-                'flow_rate' => 75
+                'flow_rate' => 75,
+                'irrigated_area' => 3.5
             ]);
 
         $this->assertDatabaseHas('valves', [
@@ -168,7 +173,7 @@ class ValveControllerTest extends TestCase
             ->postJson("/api/pumps/{$this->pump->id}/valves", []);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['name', 'location', 'flow_rate', 'field_id']);
+            ->assertJsonValidationErrors(['name', 'location', 'flow_rate', 'field_id', 'irrigated_area']);
     }
 
     #[Test]
@@ -186,5 +191,31 @@ class ValveControllerTest extends TestCase
 
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['flow_rate']);
+    }
+
+    #[Test]
+    public function validate_irrigated_area_range()
+    {
+        $valveData = [
+            'name' => 'Test Valve',
+            'location' => '35.7219,51.3347',
+            'flow_rate' => 50,
+            'field_id' => $this->field->id,
+            'irrigated_area' => -1 // Invalid negative value
+        ];
+
+        $response = $this->actingAs($this->user)
+            ->postJson("/api/pumps/{$this->pump->id}/valves", $valveData);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['irrigated_area']);
+
+        // Test non-numeric value
+        $valveData['irrigated_area'] = 'not-a-number';
+        $response = $this->actingAs($this->user)
+            ->postJson("/api/pumps/{$this->pump->id}/valves", $valveData);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['irrigated_area']);
     }
 }

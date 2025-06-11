@@ -21,6 +21,7 @@ class Valve extends Model
         'flow_rate',
         'field_id',
         'is_open',
+        'irrigated_area',
     ];
 
     /**
@@ -33,6 +34,7 @@ class Valve extends Model
         return  [
             'flow_rate' => 'float',
             'location' => 'array',
+            'irrigated_area' => 'float',
         ];
     }
 
