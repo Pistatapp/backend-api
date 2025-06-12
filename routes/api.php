@@ -131,8 +131,11 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::post('maintenance_reports/filter', [MaintenanceReportController::class, 'filter']);
     Route::apiResource('maintenance_reports', MaintenanceReportController::class);
 
+    // Teams and Labours Routes
     Route::apiResource('farms.teams', TeamController::class)->shallow();
     Route::apiResource('farms.labours', LabourController::class)->shallow();
+
+    // Attachments Routes
     Route::apiResource('attachments', AttachmentController::class)->except('show', 'index');
     Route::apiResource('farms.operations', OprationController::class)->shallow();
 

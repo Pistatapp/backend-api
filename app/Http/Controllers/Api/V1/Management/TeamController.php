@@ -21,7 +21,7 @@ class TeamController extends Controller
             $teams = $teams->where('name', 'like', '%' . request()->search . '%')
                 ->get();
         } else {
-            $teams = $teams->simplePaginate(10);
+            $teams = $teams->with('supervisor')->simplePaginate(10);
         }
         return TeamResource::collection($teams);
     }
