@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
-class Block extends Model implements HasMedia
+class Plot extends Model implements HasMedia
 {
     use HasFactory, InteractsWithMedia;
 
@@ -17,9 +17,10 @@ class Block extends Model implements HasMedia
      * @var array<string>
      */
     protected $fillable = [
-        'field_id',
         'name',
         'coordinates',
+        'area',
+        'field_id',
     ];
 
     /**
@@ -35,7 +36,7 @@ class Block extends Model implements HasMedia
     }
 
     /**
-     * Get the field that owns the block.
+     * Get the field that owns the plot.
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
@@ -45,9 +46,19 @@ class Block extends Model implements HasMedia
     }
 
     /**
-     * Get the rows for the block.
+     * Get the rows for the plot.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function rows()
+    {
+        return $this->hasMany(Row::class);
+    }
+
+    /**
+     * Get the attachments for the plot.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\MorphMany
      */
     public function attachments()
     {

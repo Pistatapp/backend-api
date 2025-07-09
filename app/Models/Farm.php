@@ -79,13 +79,13 @@ class Farm extends Model
     }
 
     /**
-     * Get blocks of the farm.
+     * Get plots of the farm.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasManyThrough
      */
-    public function blocks()
+    public function plots()
     {
-        return $this->hasManyThrough(Block::class, Field::class);
+        return $this->hasManyThrough(Plot::class, Field::class);
     }
 
     /**

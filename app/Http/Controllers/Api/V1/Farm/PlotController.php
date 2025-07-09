@@ -3,19 +3,19 @@
 namespace App\Http\Controllers\Api\V1\Farm;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\BlockResource;
-use App\Models\Block;
+use App\Http\Resources\PlotResource;
+use App\Models\Plot;
 use App\Models\Field;
 use Illuminate\Http\Request;
 
-class BlockController extends Controller
+class PlotController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
     public function index(Field $field)
     {
-        return BlockResource::collection($field->blocks);
+        return PlotResource::collection($field->plots);
     }
 
     /**
@@ -26,50 +26,52 @@ class BlockController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'coordinates' => 'required|array',
-            'coordinates.*' => 'required|string',
+            'area' => 'required|numeric',
         ]);
 
-        $block = $field->blocks()->create($request->only([
+        $plot = $field->plots()->create($request->only([
             'name',
             'coordinates',
+            'area',
         ]));
 
-        return new BlockResource($block);
+        return new PlotResource($plot);
     }
 
     /**
      * Display the specified resource.
      */
-    public function show(Block $block)
+    public function show(Plot $plot)
     {
-        return new BlockResource($block->load('attachments'));
+        return new PlotResource($plot->load('attachments'));
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Block $block)
+    public function update(Request $request, Plot $plot)
     {
         $request->validate([
             'name' => 'required|string|max:255',
             'coordinates' => 'required|array',
-            'coordinates.*' => 'required|string',
+            'area' => 'required|numeric',
         ]);
 
-        $block->update($request->only([
+        $plot->update($request->only([
             'name',
             'coordinates',
+            'area',
         ]));
 
-        return new BlockResource($block->fresh());
+        return new PlotResource($plot->fresh());
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Block $block)
+    public function destroy(Plot $plot)
     {
-        $block->delete();
+        $plot->delete();
 
         return response()->noContent();
     }

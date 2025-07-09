@@ -5,7 +5,7 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class BlockResource extends JsonResource
+class PlotResource extends JsonResource
 {
     /**
      * Transform the resource into an array.
@@ -16,10 +16,11 @@ class BlockResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'field_id' => $this->field_id,
             'name' => $this->name,
             'coordinates' => $this->coordinates,
-            'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),
+            'area' => $this->area,
+            'field_id' => $this->field_id,
+            'created_at' => jdate($this->created_at)->format('Y/m/d'),
             'attachments' => AttachmentResource::collection($this->whenLoaded('attachments')),
         ];
     }

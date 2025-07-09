@@ -2,9 +2,10 @@
 
 namespace Tests\Feature\Controllers;
 
-use App\Models\User;
 use App\Models\Farm;
-use App\Models\Block;
+use App\Models\Field;
+use App\Models\Plot;
+use App\Models\User;
 use App\Models\Attachment;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -21,7 +22,8 @@ class AttachmentControllerTest extends TestCase
 
     protected User $user;
     protected Farm $farm;
-    protected Block $block;
+    protected Field $field;
+    protected Plot $plot;
 
     public function setUp(): void
     {
@@ -32,14 +34,16 @@ class AttachmentControllerTest extends TestCase
         /** @var User $user */
         $this->user = User::factory()->create();
         $this->farm = Farm::factory()->create();
-        $this->block = Block::factory()->create([
-            'field_id' => \App\Models\Field::factory()->create([
-                'farm_id' => $this->farm->id
-            ])
+        $this->field = Field::factory()->create([
+            'farm_id' => $this->farm->id,
         ]);
 
         // Associate user with farm
         $this->farm->users()->attach($this->user->id, ['is_owner' => true]);
+
+        $this->plot = Plot::factory()->create([
+            'field_id' => $this->field->id,
+        ]);
     }
 
     #[Test]
@@ -53,8 +57,8 @@ class AttachmentControllerTest extends TestCase
             'name' => 'Test Document',
             'description' => 'This is a test document',
             'file' => $file,
-            'attachable_type' => 'Block',
-            'attachable_id' => $this->block->id
+            'attachable_type' => 'Plot',
+            'attachable_id' => $this->plot->id
         ]);
 
         $response->assertStatus(201)
@@ -73,8 +77,8 @@ class AttachmentControllerTest extends TestCase
             'name' => 'Test Document',
             'description' => 'This is a test document',
             'user_id' => $this->user->id,
-            'attachable_type' => 'App\\Models\\Block',
-            'attachable_id' => $this->block->id
+            'attachable_type' => 'App\\Models\\Plot',
+            'attachable_id' => $this->plot->id
         ]);
     }
 
@@ -85,8 +89,8 @@ class AttachmentControllerTest extends TestCase
 
         $attachment = Attachment::factory()->create([
             'user_id' => $this->user->id,
-            'attachable_type' => 'App\\Models\\Block',
-            'attachable_id' => $this->block->id
+            'attachable_type' => 'App\\Models\\Plot',
+            'attachable_id' => $this->plot->id
         ]);
         $attachment->addMedia(UploadedFile::fake()->create('old.pdf'))->toMediaCollection('attachments');
 
@@ -124,8 +128,8 @@ class AttachmentControllerTest extends TestCase
 
         $attachment = Attachment::factory()->create([
             'user_id' => $this->user->id,
-            'attachable_type' => 'App\\Models\\Block',
-            'attachable_id' => $this->block->id
+            'attachable_type' => 'App\\Models\\Plot',
+            'attachable_id' => $this->plot->id
         ]);
         $attachment->addMedia(UploadedFile::fake()->create('document.pdf'))->toMediaCollection('attachments');
 
@@ -145,8 +149,8 @@ class AttachmentControllerTest extends TestCase
 
         $attachment = Attachment::factory()->create([
             'user_id' => $this->user->id,
-            'attachable_type' => 'App\\Models\\Block',
-            'attachable_id' => $this->block->id
+            'attachable_type' => 'App\\Models\\Plot',
+            'attachable_id' => $this->plot->id
         ]);
 
         $response = $this->putJson("/api/attachments/{$attachment->id}", [

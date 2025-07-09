@@ -8,7 +8,7 @@ use App\Http\Controllers\Api\V1\Farm\FarmController;
 use App\Http\Controllers\Api\V1\Farm\FieldController;
 use App\Http\Controllers\Api\V1\Farm\RowController;
 use App\Http\Controllers\Api\V1\Farm\TreeController;
-use App\Http\Controllers\Api\V1\Farm\BlockController;
+use App\Http\Controllers\Api\V1\Farm\PlotController;
 use App\Http\Controllers\Api\V1\Farm\PumpController;
 use App\Http\Controllers\Api\V1\Farm\ValveController;
 use App\Http\Controllers\Api\V1\Management\TeamController;
@@ -102,7 +102,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::apiResource('fields.rows', RowController::class)->except('update')->shallow();
     Route::post('rows/{row}/trees/batch_store', [TreeController::class, 'batchStore']);
     Route::apiResource('rows.trees', TreeController::class)->shallow();
-    Route::apiResource('fields.blocks', BlockController::class)->shallow();
+    Route::apiResource('fields.plots', PlotController::class)->shallow();
     Route::apiResource('farms.pumps', PumpController::class)->shallow();
     Route::get('/fields/{field}/valves', [FieldController::class, 'getValvesForField']);
     Route::apiResource('pumps.valves', ValveController::class)->shallow();

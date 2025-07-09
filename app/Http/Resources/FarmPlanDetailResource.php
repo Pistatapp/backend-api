@@ -33,7 +33,7 @@ class FarmPlanDetailResource extends JsonResource
             'App\Models\Field' => new FieldResource($this->whenLoaded('treatable')),
             'App\Models\Row' => new RowResource($this->whenLoaded('treatable')),
             'App\Models\Tree' => new TreeResource($this->whenLoaded('treatable')),
-            'App\Models\Block' => new BlockResource($this->whenLoaded('treatable')),
+            'App\Models\Plot' => new PlotResource($this->whenLoaded('treatable')),
             default => null,
         };
     }

@@ -78,13 +78,13 @@ class Field extends Model
     }
 
     /**
-     * Get the blocks for the field.
+     * Get the plots for the field.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
-    public function blocks()
+    public function plots()
     {
-        return $this->hasMany(Block::class);
+        return $this->hasMany(Plot::class);
     }
 
     /**
