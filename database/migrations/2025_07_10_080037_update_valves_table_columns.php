@@ -14,7 +14,7 @@ return new class extends Migration
     {
         Schema::table('valves', function (Blueprint $table) {
             // Add new columns
-            $table->foreignId('plot_id')->constrained()->onDelete('cascade');
+            $table->unsignedBigInteger('plot_id')->nullable();
 
             // Before dropping field_id, attach each valve to the first plot of its field (if any)
             DB::table('valves')->orderBy('id')->chunk(100, function ($valves) {
