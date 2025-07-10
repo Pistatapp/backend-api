@@ -126,14 +126,16 @@ function calculate_polygon_center(array $points): array
 /**
  * Convert hours to a time format
  *
- * @param float $hours
+ * @param int $seconds
  * @return string
  */
-function to_time_format(int $minutes): string
+function to_time_format(int $seconds): string
 {
-    $hours = floor($minutes / 60);
-    $remainingMinutes = $minutes % 60;
-    return sprintf('%02d:%02d', $hours, $remainingMinutes);
+    $hours = floor($seconds / 3600);
+    $remainingSeconds = $seconds % 3600;
+    $minutes = floor($remainingSeconds / 60);
+    $remainingSeconds = $remainingSeconds % 60;
+    return sprintf('%02d:%02d:%02d', $hours, $minutes, $remainingSeconds);
 }
 
 /**

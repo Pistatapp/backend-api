@@ -57,7 +57,6 @@ class IrrigationEventListener
 
             $valve->is_open = $valveStatus === 'opened';
             $valve->save();
-            $valve->pump->update(['is_active' => $valveStatus === 'opened']);
         }
     }
 }

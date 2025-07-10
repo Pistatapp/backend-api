@@ -50,9 +50,9 @@ class IrrigationEvent implements ShouldBroadcast
                 'id' => $this->irrigation->id,
                 'status' => $this->status,
                 'duration' => $this->irrigation->duration,
-                'fields' => $this->irrigation->fields->map(fn ($field) => [
-                    'id' => $field->id,
-                    'name' => $field->name,
+                'plots' => $this->irrigation->plots->map(fn ($plot) => [
+                    'id' => $plot->id,
+                    'name' => $plot->name,
                 ]),
                 'valves' => $this->irrigation->valves->map(fn ($valve) => [
                     'id' => $valve->id,

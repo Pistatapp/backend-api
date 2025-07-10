@@ -2,6 +2,9 @@
 
 This document outlines the available API endpoints for managing valves in the irrigation system.
 
+## Overview
+Valves are essential components of the irrigation system that control water flow to specific areas. Each valve has properties that are used for calculating irrigation volumes, including dripper count, flow rate, and irrigation area.
+
 ## List Valves
 
 Retrieve a list of valves for a specific plot.
@@ -211,13 +214,47 @@ DELETE /api/valves/{valve}
 HTTP/1.1 204 No Content
 ```
 
+## Irrigation Volume Calculations
+
+Valves are integral to irrigation volume calculations. The system uses the following valve properties:
+
+### Key Properties for Calculations
+- **dripper_count**: Number of drippers connected to the valve
+- **dripper_flow_rate**: Flow rate per dripper in liters per hour
+- **irrigation_area**: Area covered by the valve in hectares
+
+### Volume Calculation Formula
+```
+Volume (liters) = dripper_count × dripper_flow_rate × duration_in_hours
+Volume per hectare = Volume / irrigation_area
+```
+
+### Example Calculation
+For a valve with:
+- 500 drippers
+- 4.5 liters/hour flow rate per dripper
+- 2.5 hectares irrigation area
+- 2 hours irrigation duration
+
+```
+Volume = 500 × 4.5 × 2 = 4,500 liters
+Volume per hectare = 4,500 / 2.5 = 1,800 liters/hectare
+```
+
+## Valve Naming in Reports
+
+When valves are used in irrigation reports:
+- If a valve has a `name`, it will be used as the key in valve-specific reports
+- If a valve has no `name`, the system will use the format `"valve{id}"` as the key
+- This ensures consistent identification of valves across different report types
+
 ## Validation Rules
 
 - `name`: Required, string, maximum 255 characters
-- `location`: Required, must be an array with lat and lng coordinates
-- `irrigation_area`: Required, numeric, minimum 0
+- `location`: Required, must be an object with lat and lng coordinates
+- `irrigation_area`: Required, numeric, minimum 0 (in hectares)
 - `dripper_count`: Required, integer, minimum 0
-- `dripper_flow_rate`: Required, numeric, minimum 0
+- `dripper_flow_rate`: Required, numeric, minimum 0 (liters/hour per dripper)
 - `is_open`: Optional, boolean
 
 ## Error Responses
@@ -243,7 +280,32 @@ Returned when the request data fails validation.
         ],
         "location": [
             "The location field is required."
+        ],
+        "irrigation_area": [
+            "The irrigation area field is required."
+        ],
+        "dripper_count": [
+            "The dripper count field is required."
+        ],
+        "dripper_flow_rate": [
+            "The dripper flow rate field is required."
         ]
     }
 }
-``` 
+```
+
+## Integration with Irrigation System
+
+Valves are tightly integrated with the irrigation system:
+
+1. **Irrigation Creation**: When creating irrigations, valves must be specified to calculate water usage
+2. **Volume Calculations**: All irrigation volume calculations depend on valve specifications
+3. **Report Generation**: Valve-specific reports show individual valve performance and usage
+4. **Filtering**: Irrigation reports can be filtered by specific valves to analyze performance
+
+## Best Practices
+
+1. **Accurate Specifications**: Ensure dripper_count, dripper_flow_rate, and irrigation_area are accurate for proper volume calculations
+2. **Meaningful Names**: Use descriptive names for valves to make reports more readable
+3. **Location Tracking**: Maintain accurate location data for field management
+4. **Regular Updates**: Update valve specifications when physical changes are made to the irrigation system 

@@ -8,8 +8,8 @@ use App\Http\Requests\StoreIrrigationRequest;
 use App\Http\Requests\UpdateIrrigationRequest;
 use App\Http\Resources\IrrigationResource;
 use App\Models\Farm;
-use App\Models\Field;
 use App\Models\Irrigation;
+use App\Models\Plot;
 use App\Services\IrrigationReportService;
 use Illuminate\Http\Request;
 
@@ -93,34 +93,12 @@ class IrrigationController extends Controller
     }
 
     /**
-     * Get irrigations for a field.
-     *
-     * @param  \App\Models\Field  $field
-     * @return \App\Http\Resources\IrrigationResource
-     */
-    public function getIrrigationsForField(Field $field)
-    {
-        $irrigations = $field->irrigations()->with(['labour', 'valves', 'creator'])
-            ->when(request()->has('date'), function ($query) {
-                $query->where('date', jalali_to_carbon(request()->query('date')));
-            }, function ($query) {
-                $query->whereDate('date', today());
-            })
-            ->when(request()->has('status'), function ($query) {
-                $query->filter(request()->query('status'));
-            })
-            ->latest()->get();
-
-        return IrrigationResource::collection($irrigations);
-    }
-
-    /**
      * Get irrigations for a plot.
      *
      * @param  \App\Models\Plot  $plot
      * @return \App\Http\Resources\IrrigationResource
      */
-    public function getIrrigationsForPlot(\App\Models\Plot $plot)
+    public function getIrrigationsForPlot(Plot $plot)
     {
         $irrigations = $plot->irrigations()->with(['labour', 'valves', 'creator'])
             ->when(request()->has('date'), function ($query) {
@@ -137,28 +115,29 @@ class IrrigationController extends Controller
     }
 
     /**
-     * Get brief irrigation report for a field.
+     * Get brief irrigation report for a plot.
      *
      * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Models\Field  $field
+     * @param  \App\Models\Plot  $plot
      * @return \Illuminate\Http\JsonResponse
      */
-    public function getIrrigationReportForField(Request $request, Field $field)
+    public function getIrrigationReportForPlot(Request $request, Plot $plot)
     {
         $date = $request->has('date') ? jalali_to_carbon($request->query('date')) : today();
-        $irrigations = $field->irrigations()->filter('finished')->with('valves')
-            ->whereDate('date', $date)
-            ->get();
+        $irrigations = $plot->irrigations()->filter('finished')->with('valves')->whereDate('date', $date)->get();
 
         $totalDuration = 0;
         $totalVolume = 0;
+        $totalVolumePerHectare = 0;
 
         foreach ($irrigations as $irrigation) {
-            $durationInMinutes = $irrigation->start_time->diffInMinutes($irrigation->end_time);
-            $totalDuration += $durationInMinutes;
+            $durationInSeconds = $irrigation->start_time->diffInSeconds($irrigation->end_time);
+            $totalDuration += $durationInSeconds;
 
             foreach ($irrigation->valves as $valve) {
-                $totalVolume += $valve->flow_rate * $durationInMinutes;
+                $volume = ($valve->dripper_count * $valve->dripper_flow_rate) * ($durationInSeconds / 3600);
+                $totalVolume += $volume;
+                $totalVolumePerHectare += $volume / $valve->irrigation_area;
             }
         }
 
@@ -166,9 +145,9 @@ class IrrigationController extends Controller
             'data' => [
                 'date' => jdate($date)->format('Y/m/d'),
                 'total_duration' => to_time_format($totalDuration),
-                'total_volume' => $totalVolume, // In liters
-                'irrigation_count' => $irrigations->count(),
-                'status' => 'completed',
+                'total_volume' => $totalVolume,
+                'total_volume_per_hectare' => $totalVolumePerHectare,
+                'total_count' => $irrigations->count(),
             ]
         ]);
     }
@@ -179,14 +158,15 @@ class IrrigationController extends Controller
     public function filterReports(FilterIrrigationReportsRequest $request, Farm $farm)
     {
         $filters = [
-            'field_id' => $request->field_id,
             'labour_id' => $request->labour_id,
-            'valve_id' => $request->valve_id,
+            'valves' => $request->valves,
             'from_date' => $request->from_date,
             'to_date' => $request->to_date,
         ];
 
-        $reports = $this->irrigationReportService->filterReports($farm, $filters);
+        $plot = $farm->plots()->findOrFail($request->plot_id);
+
+        $reports = $this->irrigationReportService->filterReports($plot, $filters);
 
         return response()->json([
             'data' => $reports

@@ -7,12 +7,15 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
 use Tests\TestCase;
-use Database\Seeders\RolePermissionSeeder;
 use App\Models\Farm;
 use App\Models\Labour;
-use App\Models\Field;
 use App\Models\Valve;
 use App\Models\Pump;
+use App\Models\Plot;
+use App\Models\Field;
+use App\Services\IrrigationReportService;
+use Carbon\Carbon;
+use PHPUnit\Framework\Attributes\Test;
 
 /**
  * Test class focused on irrigation report functionality
@@ -23,9 +26,11 @@ class IrrigationReportTest extends TestCase
 
     private User $user;
     private Farm $farm;
+    private $plots;
     private $fields;
     private $valves;
     private Pump $pump;
+    private IrrigationReportService $irrigationReportService;
 
     /**
      * Set up test environment
@@ -36,67 +41,68 @@ class IrrigationReportTest extends TestCase
 
         $this->user = User::factory()->create();
 
-        $this->seed(RolePermissionSeeder::class);
-
-        $this->user->assignRole('admin');
-
-        $this->farm = Farm::factory()->create();
-
-        $this->fields = Field::factory(3)->create([
-            'farm_id' => $this->farm->id
-        ]);
-
-        $this->pump = Pump::factory()->create([
-            'farm_id' => $this->farm->id
-        ]);
-
-        $this->valves = Valve::factory(3)->create([
-            'pump_id' => $this->pump->id,
-            'field_id' => $this->fields->first()->id
-        ]);
+        $this->farm = Farm::factory()
+            ->has(Field::factory()->has(Plot::factory(3)))
+            ->create();
 
         $this->farm->users()->attach($this->user, [
             'role' => 'owner',
             'is_owner' => true
         ]);
 
+        $this->plots = $this->farm->fields->first()->plots;
+        $this->fields = $this->farm->fields;
+
+        $this->pump = Pump::factory()->create([
+            'farm_id' => $this->farm->id
+        ]);
+
+        $this->valves = Valve::factory(3)->create([
+            'plot_id' => $this->plots->first()->id
+        ]);
+
         Labour::factory(3)->create([
             'farm_id' => $this->farm->id
         ]);
+
+        $this->irrigationReportService = new IrrigationReportService();
 
         $this->actingAs($this->user);
     }
 
     /**
      * Test if user can get irrigation report for a field and verify calculations.
-     * Checks that the total_duration is correctly formatted as HH:MM by to_time_format.
+     * Checks that the total_duration is correctly formatted as HH:MM:SS by to_time_format.
      */
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function test_user_can_get_irrigation_report_for_field(): void
+    #[Test]
+    public function test_user_can_get_irrigation_report_for_plot(): void
     {
-        $field = $this->fields->first();
+        $plot = $this->plots->first();
         $today = now()->format('Y-m-d');
 
-        // Create valves with specific flow rates
+        // Create valves with specific dripper counts and flow rates
         $valve1 = Valve::factory()->create([
-            'pump_id' => $this->pump->id,
-            'field_id' => $field->id,
-            'flow_rate' => 10, // 10 liters per minute
+            'plot_id' => $plot->id,
+            'dripper_count' => 100,
+            'dripper_flow_rate' => 2.0, // 2 liters per hour per dripper
+            'irrigation_area' => 1.0, // 1 hectare
         ]);
 
         $valve2 = Valve::factory()->create([
-            'pump_id' => $this->pump->id,
-            'field_id' => $field->id,
-            'flow_rate' => 15, // 15 liters per minute
+            'plot_id' => $plot->id,
+            'dripper_count' => 150,
+            'dripper_flow_rate' => 3.0, // 3 liters per hour per dripper
+            'irrigation_area' => 1.5, // 1.5 hectares
         ]);
 
         $valve3 = Valve::factory()->create([
-            'pump_id' => $this->pump->id,
-            'field_id' => $field->id,
-            'flow_rate' => 5, // 5 liters per minute
+            'plot_id' => $plot->id,
+            'dripper_count' => 80,
+            'dripper_flow_rate' => 1.5, // 1.5 liters per hour per dripper
+            'irrigation_area' => 0.8, // 0.8 hectares
         ]);
 
-        // First irrigation: 2 hours (8:00 - 10:00) - 120 minutes
+        // First irrigation: 2 hours (8:00 - 10:00)
         $irrigation1 = Irrigation::factory()->create([
             'created_by' => $this->user->id,
             'farm_id' => $this->farm->id,
@@ -105,11 +111,11 @@ class IrrigationReportTest extends TestCase
             'end_time' => '10:00:00',
             'status' => 'finished',
         ]);
-        // Attach field and valve to irrigation
-        $irrigation1->fields()->attach($field);
+        // Attach plot and valve to irrigation
+        $irrigation1->plots()->attach($plot);
         $irrigation1->valves()->attach($valve1);
 
-        // Second irrigation: 3 hours (13:00 - 16:00) - 180 minutes
+        // Second irrigation: 3 hours (13:00 - 16:00)
         $irrigation2 = Irrigation::factory()->create([
             'created_by' => $this->user->id,
             'farm_id' => $this->farm->id,
@@ -118,11 +124,11 @@ class IrrigationReportTest extends TestCase
             'end_time' => '16:00:00',
             'status' => 'finished',
         ]);
-        // Attach field and valve to irrigation
-        $irrigation2->fields()->attach($field);
+        // Attach plot and valve to irrigation
+        $irrigation2->plots()->attach($plot);
         $irrigation2->valves()->attach($valve2);
 
-        // Third irrigation: 1 hour (18:00 - 19:00) - 60 minutes
+        // Third irrigation: 1 hour (18:00 - 19:00)
         $irrigation3 = Irrigation::factory()->create([
             'created_by' => $this->user->id,
             'farm_id' => $this->farm->id,
@@ -131,22 +137,27 @@ class IrrigationReportTest extends TestCase
             'end_time' => '19:00:00',
             'status' => 'finished',
         ]);
-        // Attach field and valve to irrigation
-        $irrigation3->fields()->attach($field);
+        // Attach plot and valve to irrigation
+        $irrigation3->plots()->attach($plot);
         $irrigation3->valves()->attach($valve3);
 
         // Calculate expected values
         $expectedCount = 3;
-        $rawTotalDuration = 360; // 120 + 180 + 60 minutes
-        $expectedTotalDuration = '06:00'; // to_time_format converts 360 minutes to "06:00"
+        $totalDurationInSeconds = (2 * 3600) + (3 * 3600) + (1 * 3600); // 6 hours = 21600 seconds
+        $expectedTotalDuration = '06:00:00'; // to_time_format converts 21600 seconds to "06:00:00"
 
-        // Volume calculation: duration in minutes * flow rate
-        $volume1 = 120 * 10; // 1200 liters
-        $volume2 = 180 * 15; // 2700 liters
-        $volume3 = 60 * 5;   // 300 liters
-        $expectedTotalVolume = $volume1 + $volume2 + $volume3; // 4200 liters
+        // Volume calculation: (dripper_count * dripper_flow_rate) * hours
+        $volume1 = (100 * 2.0) * 2; // 200 * 2 = 400 liters
+        $volume2 = (150 * 3.0) * 3; // 450 * 3 = 1350 liters
+        $volume3 = (80 * 1.5) * 1;  // 120 * 1 = 120 liters
+        $expectedTotalVolume = $volume1 + $volume2 + $volume3; // 1870 liters
 
-        $response = $this->getJson('api/fields/'. $field->id.'/irrigations/report');
+        $volumePerHectare1 = $volume1 / $valve1->irrigation_area;
+        $volumePerHectare2 = $volume2 / $valve2->irrigation_area;
+        $volumePerHectare3 = $volume3 / $valve3->irrigation_area;
+        $expectedTotalVolumePerHectare = $volumePerHectare1 + $volumePerHectare2 + $volumePerHectare3; // 1870 liters
+
+        $response = $this->getJson('api/plots/' . $plot->id . '/irrigations/report');
 
         $response->assertStatus(200);
         $response->assertJsonStructure([
@@ -154,239 +165,521 @@ class IrrigationReportTest extends TestCase
                 'date',
                 'total_duration',
                 'total_volume',
-                'irrigation_count',
+                'total_volume_per_hectare',
+                'total_count',
             ],
         ]);
 
         // Validate the calculated values
         $data = $response->json('data');
-        $this->assertEquals($expectedCount, $data['irrigation_count'], 'Irrigation count calculation is incorrect');
+        $this->assertEquals($expectedCount, $data['total_count'], 'Irrigation count calculation is incorrect');
         $this->assertEquals($expectedTotalDuration, $data['total_duration'], 'Total duration formatting is incorrect');
         $this->assertEquals($expectedTotalVolume, $data['total_volume'], 'Total volume calculation is incorrect');
+        $this->assertEquals($expectedTotalVolumePerHectare, $data['total_volume_per_hectare'], 'Total volume per hectare calculation is incorrect');
     }
 
     /**
-     * Test if user can filter irrigation reports by field and verify report calculations.
-     * Validates that duration, volume, and count calculations are correct.
+     * Test irrigation report service for date range reports
+     * Tests scenario 1: User chooses a plot and a date range
      */
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function test_user_can_filter_irrigation_reports_by_field(): void
+    #[Test]
+    public function test_irrigation_report_service_date_range_reports(): void
     {
-        $field = $this->fields->first();
+        $plot = $this->plots->first();
+        $fromDate = Carbon::now()->subDays(2);
+        $toDate = Carbon::now();
 
-        // Current date for testing
-        $date = now();
-        $formattedDate = $date->format('Y-m-d');
-        $jalaliDate = jdate($date)->format('Y/m/d');
-
-        // Create valves with specific flow rates for testing
+        // Create valves with specific properties
         $valve1 = Valve::factory()->create([
-            'pump_id' => $this->pump->id,
-            'field_id' => $field->id,
-            'flow_rate' => 12, // 12 liters per minute
+            'plot_id' => $plot->id,
+            'dripper_count' => 100,
+            'dripper_flow_rate' => 2.0,
+            'irrigation_area' => 1.0,
         ]);
 
         $valve2 = Valve::factory()->create([
-            'pump_id' => $this->pump->id,
-            'field_id' => $field->id,
-            'flow_rate' => 8,  // 8 liters per minute
+            'plot_id' => $plot->id,
+            'dripper_count' => 150,
+            'dripper_flow_rate' => 3.0,
+            'irrigation_area' => 1.5,
         ]);
 
-        // First irrigation: 1.5 hours (7:30 - 9:00) - 90 minutes
+        // Create irrigations across multiple days
+        // Day 1: 2 irrigations
+        $day1Date = $fromDate->format('Y-m-d');
+        $day2Date = $fromDate->copy()->addDay()->format('Y-m-d');
+
+
+
         $irrigation1 = Irrigation::factory()->create([
             'created_by' => $this->user->id,
             'farm_id' => $this->farm->id,
-            'date' => $formattedDate,
-            'start_time' => '07:30:00',
-            'end_time' => '09:00:00',
+            'date' => $day1Date,
+            'start_time' => '08:00:00',
+            'end_time' => '10:00:00', // 2 hours
             'status' => 'finished',
         ]);
-        // Attach field and valve to irrigation
-        $irrigation1->fields()->attach($field);
+        $irrigation1->plots()->attach($plot);
         $irrigation1->valves()->attach($valve1);
 
-        // Second irrigation: 2 hours (14:00 - 16:00) - 120 minutes
+
         $irrigation2 = Irrigation::factory()->create([
             'created_by' => $this->user->id,
             'farm_id' => $this->farm->id,
-            'date' => $formattedDate,
+            'date' => $day1Date,
             'start_time' => '14:00:00',
-            'end_time' => '16:00:00',
+            'end_time' => '16:00:00', // 2 hours
             'status' => 'finished',
         ]);
-        // Attach field and valve to irrigation
-        $irrigation2->fields()->attach($field);
+        $irrigation2->plots()->attach($plot);
         $irrigation2->valves()->attach($valve2);
 
-        // Calculate expected values
-        $expectedCount = 2;
-        $rawTotalDuration = 90 + 120; // 210 minutes
-        $expectedTotalDuration = '03:30'; // to_time_format converts 210 minutes to "03:30"
 
-        // Volume calculation: duration in minutes * flow rate
-        $volume1 = 90 * 12; // 1080 liters
-        $volume2 = 120 * 8; // 960 liters
-        $expectedTotalVolume = $volume1 + $volume2; // 2040 liters
-
-        // Using direct URL instead of named route
-        $response = $this->postJson("/api/farms/{$this->farm->id}/irrigations/reports", [
-            'field_id' => $field->id,
-            'from_date' => $jalaliDate,
-            'to_date' => $jalaliDate,
-        ]);
-
-        $response->assertStatus(200);
-        $response->assertJsonStructure(['data' => [['date', 'total_duration', 'total_volume', 'irrigation_count']]]);
-
-        // Validate the calculated values in the report
-        $reportData = $response->json('data')[0]; // Get the first day's report
-        $this->assertEquals($expectedCount, $reportData['irrigation_count'], 'Irrigation count calculation is incorrect');
-        $this->assertEquals($expectedTotalDuration, $reportData['total_duration'], 'Total duration formatting is incorrect');
-        $this->assertEquals($expectedTotalVolume, $reportData['total_volume'], 'Total volume calculation is incorrect');
-    }
-
-    /**
-     * Test if user can filter irrigation reports by valve and verify report calculations.
-     * Validates that duration, volume, and count calculations are correct for valve-based reports.
-     */
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function test_user_can_filter_irrigation_reports_by_valve(): void
-    {
-        // Get a valve for testing
-        $valve = $this->valves->first();
-
-        // Current date for testing
-        $date = now();
-        $formattedDate = $date->format('Y-m-d');
-        $jalaliDate = jdate($date)->format('Y/m/d');
-
-        // Update the flow rate of the valve to a known value for predictable calculations
-        $valve->update([
-            'flow_rate' => 20, // 20 liters per minute
-        ]);
-
-        // First irrigation: 2.5 hours (06:00 - 08:30) - 150 minutes
-        $irrigation1 = Irrigation::factory()->create([
-            'created_by' => $this->user->id,
-            'farm_id' => $this->farm->id,
-            'date' => $formattedDate,
-            'start_time' => '06:00:00',
-            'end_time' => '08:30:00',
-            'status' => 'finished', // Changed from 'completed' to 'finished'
-        ]);
-        // Attach valve to irrigation
-        $irrigation1->valves()->attach($valve);
-
-        // Second irrigation: 1 hour (14:00 - 15:00) - 60 minutes
-        $irrigation2 = Irrigation::factory()->create([
-            'created_by' => $this->user->id,
-            'farm_id' => $this->farm->id,
-            'date' => $formattedDate,
-            'start_time' => '14:00:00',
-            'end_time' => '15:00:00',
-            'status' => 'finished', // Changed from 'completed' to 'finished'
-        ]);
-        // Attach valve to irrigation
-        $irrigation2->valves()->attach($valve);
-
-        // Create another irrigation with a different valve (should not be counted)
-        $otherValve = Valve::factory()->create([
-            'pump_id' => $this->pump->id,
-            'field_id' => $this->fields->first()->id,
-        ]);
-
+        // Day 2: 1 irrigation
         $irrigation3 = Irrigation::factory()->create([
             'created_by' => $this->user->id,
             'farm_id' => $this->farm->id,
-            'date' => $formattedDate,
-            'start_time' => '16:00:00',
-            'end_time' => '17:30:00',
-            'status' => 'finished', // Changed from 'completed' to 'finished'
-        ]);
-        $irrigation3->valves()->attach($otherValve);
-
-        // Calculate expected values
-        $expectedCount = 2;
-        $rawTotalDuration = 150 + 60; // 210 minutes
-        $expectedTotalDuration = '03:30'; // to_time_format converts 210 minutes to "03:30"
-
-        // Volume calculation: duration in minutes * flow rate
-        $volume1 = 150 * 20; // 3000 liters
-        $volume2 = 60 * 20;  // 1200 liters
-        $expectedTotalVolume = $volume1 + $volume2; // 4200 liters
-
-        // Send request to filter reports by valve
-        $response = $this->postJson("/api/farms/{$this->farm->id}/irrigations/reports", [
-            'valve_id' => $valve->id,
-            'from_date' => $jalaliDate,
-            'to_date' => $jalaliDate,
-        ]);
-
-        $response->assertStatus(200);
-        $response->assertJsonStructure(['data' => [['date', 'total_duration', 'total_volume', 'irrigation_count']]]);
-
-        // Validate the calculated values in the report
-        $reportData = $response->json('data')[0]; // Get the first day's report
-        $this->assertEquals($expectedCount, $reportData['irrigation_count'], 'Irrigation count calculation is incorrect');
-        $this->assertEquals($expectedTotalDuration, $reportData['total_duration'], 'Total duration formatting is incorrect');
-        $this->assertEquals($expectedTotalVolume, $reportData['total_volume'], 'Total volume calculation is incorrect');
-    }
-
-    /**
-     * Test if user can filter irrigation reports by labour.
-     */
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function test_user_can_filter_irrigation_reports_by_labour(): void
-    {
-        $labour = Labour::where('farm_id', $this->farm->id)->first();
-
-        $date = now(); // Use current date
-        $jalaliDate = jdate($date)->format('Y/m/d');
-
-        // Create some irrigations for the labour with specific duration
-        $irrigation = Irrigation::factory()->create([
-            'created_by' => $this->user->id,
-            'labour_id' => $labour->id,
-            'date' => $date->format('Y-m-d'),
-            'start_time' => '08:00',
-            'end_time' => '10:00',
+            'date' => $day2Date,
+            'start_time' => '09:00:00',
+            'end_time' => '12:00:00', // 3 hours
             'status' => 'finished',
         ]);
+        $irrigation3->plots()->attach($plot);
+        $irrigation3->valves()->attach($valve1);
 
-        $response = $this->postJson("/api/farms/{$this->farm->id}/irrigations/reports", [
-            'labour_id' => $labour->id,
-            'from_date' => $jalaliDate,
-            'to_date' => $jalaliDate,
-        ]);
 
-        $response->assertStatus(200);
-        $response->assertJsonStructure(['data' => [['date', 'total_duration', 'total_volume', 'irrigation_count']]]);
+        $result = $this->irrigationReportService->getDateRangeReports($plot, $fromDate, $toDate);
+
+
+
+        // Verify structure
+        $this->assertArrayHasKey('irrigations', $result);
+        $this->assertArrayHasKey('accumulated', $result);
+
+        // Verify irrigations array structure
+        $this->assertIsArray($result['irrigations']);
+        $this->assertCount(3, $result['irrigations']); // 3 days in range
+
+        // Verify each day has correct structure
+        foreach ($result['irrigations'] as $dayReport) {
+            $this->assertArrayHasKey('date', $dayReport);
+            $this->assertArrayHasKey('total_duration', $dayReport);
+            $this->assertArrayHasKey('total_volume', $dayReport);
+            $this->assertArrayHasKey('total_volume_per_hectare', $dayReport);
+            $this->assertArrayHasKey('total_count', $dayReport);
+        }
+
+        // Verify accumulated structure
+        $this->assertArrayHasKey('total_duration', $result['accumulated']);
+        $this->assertArrayHasKey('total_volume', $result['accumulated']);
+        $this->assertArrayHasKey('total_volume_per_hectare', $result['accumulated']);
+        $this->assertArrayHasKey('total_count', $result['accumulated']);
+
+        // Verify calculations for first day (2 irrigations)
+        $day1Report = $result['irrigations'][0];
+        $this->assertEquals(2, $day1Report['total_count']);
+        $this->assertEquals('04:00:00', $day1Report['total_duration']); // 2 + 2 hours
+
+        // Day 1 volume calculations:
+        // Irrigation 1: 100 * 2.0 * 2 = 400 liters
+        // Irrigation 2: 150 * 3.0 * 2 = 900 liters
+        // Total: 1300 liters
+        $this->assertEquals(1300, $day1Report['total_volume']);
+
+        // Verify calculations for second day (1 irrigation)
+        $day2Report = $result['irrigations'][1];
+        $this->assertEquals(1, $day2Report['total_count']);
+        $this->assertEquals('03:00:00', $day2Report['total_duration']); // 3 hours
+
+        // Day 2 volume calculation:
+        // Irrigation 3: 100 * 2.0 * 3 = 600 liters
+        $this->assertEquals(600, $day2Report['total_volume']);
+
+        // Verify accumulated totals
+        $this->assertEquals(3, $result['accumulated']['total_count']); // 2 + 1 + 0
+        $this->assertEquals('07:00:00', $result['accumulated']['total_duration']); // 4 + 3 + 0 hours
+        $this->assertEquals(1900, $result['accumulated']['total_volume']); // 1300 + 600 + 0
     }
 
     /**
-     * Test if user can filter irrigation reports for the whole farm.
+     * Test irrigation report service for valve-specific reports
+     * Tests scenario 2: User chooses a plot and specific valves
      */
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function test_user_can_filter_irrigation_reports_for_whole_farm(): void
+    #[Test]
+    public function test_irrigation_report_service_valve_specific_reports(): void
     {
-        $date = now(); // Use current date
-        $jalaliDate = jdate($date)->format('Y/m/d');
+        $plot = $this->plots->first();
+        $fromDate = Carbon::now()->subDays(1);
+        $toDate = Carbon::now();
 
-        // Create some irrigations for the farm with specific duration
-        $irrigation = Irrigation::factory()->for($this->farm)->create([
+        // Create 3 valves with different properties
+        $valve1 = Valve::factory()->create([
+            'plot_id' => $plot->id,
+            'dripper_count' => 100,
+            'dripper_flow_rate' => 2.0,
+            'irrigation_area' => 1.0,
+        ]);
+
+        $valve2 = Valve::factory()->create([
+            'plot_id' => $plot->id,
+            'dripper_count' => 150,
+            'dripper_flow_rate' => 3.0,
+            'irrigation_area' => 1.5,
+        ]);
+
+        $valve3 = Valve::factory()->create([
+            'plot_id' => $plot->id,
+            'dripper_count' => 80,
+            'dripper_flow_rate' => 1.5,
+            'irrigation_area' => 0.8,
+        ]);
+
+        // Create irrigations for different valves
+        // Irrigation 1: Uses valve1 and valve2
+        $irrigation1 = Irrigation::factory()->create([
             'created_by' => $this->user->id,
-            'date' => $date->format('Y-m-d'),
-            'start_time' => '08:00',
-            'end_time' => '10:00',
-            'status' => 'finished', // Added status 'finished'
+            'farm_id' => $this->farm->id,
+            'date' => $fromDate->format('Y-m-d'),
+            'start_time' => '08:00:00',
+            'end_time' => '10:00:00', // 2 hours
+            'status' => 'finished',
+        ]);
+        $irrigation1->plots()->attach($plot);
+        $irrigation1->valves()->attach([$valve1->id, $valve2->id]);
+
+        // Irrigation 2: Uses valve2 and valve3
+        $irrigation2 = Irrigation::factory()->create([
+            'created_by' => $this->user->id,
+            'farm_id' => $this->farm->id,
+            'date' => $fromDate->format('Y-m-d'),
+            'start_time' => '14:00:00',
+            'end_time' => '16:00:00', // 2 hours
+            'status' => 'finished',
+        ]);
+        $irrigation2->plots()->attach($plot);
+        $irrigation2->valves()->attach([$valve2->id, $valve3->id]);
+
+        // Test with specific valves
+        $valveIds = [$valve1->id, $valve2->id, $valve3->id];
+        $result = $this->irrigationReportService->getValveSpecificReports($plot, $valveIds, $fromDate, $toDate);
+
+        // Verify structure
+        $this->assertArrayHasKey('irrigations', $result);
+        $this->assertArrayHasKey('accumulated', $result);
+
+        // Verify irrigations array structure
+        $this->assertIsArray($result['irrigations']);
+        $this->assertCount(2, $result['irrigations']); // 2 days in range
+
+        // Verify each day has correct structure
+        foreach ($result['irrigations'] as $dayReport) {
+            $this->assertArrayHasKey('date', $dayReport);
+            $this->assertArrayHasKey('irrigation_per_valve', $dayReport);
+
+            // Verify valve-specific structure
+            $this->assertArrayHasKey($valve1->name, $dayReport['irrigation_per_valve']);
+            $this->assertArrayHasKey($valve2->name, $dayReport['irrigation_per_valve']);
+            $this->assertArrayHasKey($valve3->name, $dayReport['irrigation_per_valve']);
+
+            // Verify each valve report has correct structure
+            foreach ($dayReport['irrigation_per_valve'] as $valveReport) {
+                $this->assertArrayHasKey('total_duration', $valveReport);
+                $this->assertArrayHasKey('total_volume', $valveReport);
+                $this->assertArrayHasKey('total_volume_per_hectare', $valveReport);
+                $this->assertArrayHasKey('total_count', $valveReport);
+            }
+        }
+
+        // Verify accumulated structure
+        $this->assertArrayHasKey('total_duration', $result['accumulated']);
+        $this->assertArrayHasKey('total_volume', $result['accumulated']);
+        $this->assertArrayHasKey('total_volume_per_hectare', $result['accumulated']);
+        $this->assertArrayHasKey('total_count', $result['accumulated']);
+
+        // Verify calculations for first day
+        $day1Report = $result['irrigations'][0];
+
+        // Valve 1: Used in irrigation1 (2 hours)
+        $valve1Report = $day1Report['irrigation_per_valve'][$valve1->name];
+        $this->assertEquals(1, $valve1Report['total_count']);
+        $this->assertEquals('02:00:00', $valve1Report['total_duration']);
+        $this->assertEquals(400, $valve1Report['total_volume']); // 100 * 2.0 * 2
+
+        // Valve 2: Used in irrigation1 and irrigation2 (2 + 2 hours)
+        $valve2Report = $day1Report['irrigation_per_valve'][$valve2->name];
+        $this->assertEquals(2, $valve2Report['total_count']);
+        $this->assertEquals('04:00:00', $valve2Report['total_duration']);
+        $this->assertEquals(1800, $valve2Report['total_volume']); // 150 * 3.0 * 2 + 150 * 3.0 * 2
+
+        // Valve 3: Used in irrigation2 (2 hours)
+        $valve3Report = $day1Report['irrigation_per_valve'][$valve3->name];
+        $this->assertEquals(1, $valve3Report['total_count']);
+        $this->assertEquals('02:00:00', $valve3Report['total_duration']);
+        $this->assertEquals(240, $valve3Report['total_volume']); // 80 * 1.5 * 2
+
+        // Verify accumulated totals
+        $this->assertEquals(4, $result['accumulated']['total_count']); // 1 + 2 + 1
+        $this->assertEquals('08:00:00', $result['accumulated']['total_duration']); // 2 + 4 + 2
+        $this->assertEquals(2440, $result['accumulated']['total_volume']); // 400 + 1800 + 240
+    }
+
+    /**
+     * Test irrigation report service for labour-specific reports
+     * Tests scenario 3: User chooses a plot, date range, and specific labour
+     */
+    #[Test]
+    public function test_irrigation_report_service_labour_specific_reports(): void
+    {
+        $plot = $this->plots->first();
+        $fromDate = Carbon::today()->subDays(2);
+        $toDate = Carbon::today();
+
+        // Create labour
+        $labour1 = Labour::factory()->create(['farm_id' => $this->farm->id]);
+        $labour2 = Labour::factory()->create(['farm_id' => $this->farm->id]);
+
+        // Create valve
+        $valve1 = Valve::factory()->create([
+            'plot_id' => $plot->id,
+            'dripper_count' => 100,
+            'dripper_flow_rate' => 2.0,
+            'irrigation_area' => 1.0,
         ]);
 
-        $response = $this->postJson("/api/farms/{$this->farm->id}/irrigations/reports", [
-            'from_date' => $jalaliDate,
-            'to_date' => $jalaliDate,
+        $valve2 = Valve::factory()->create([
+            'plot_id' => $plot->id,
+            'dripper_count' => 150,
+            'dripper_flow_rate' => 3.0,
+            'irrigation_area' => 1.5,
         ]);
 
-        $response->assertStatus(200);
-        $response->assertJsonStructure(['data' => [['date', 'total_duration', 'total_volume', 'irrigation_count']]]);
+        // Create irrigations for specific labour
+        // Day 1: 2 irrigations by labour1
+        $irrigation1 = Irrigation::factory()->create([
+            'created_by' => $this->user->id,
+            'farm_id' => $this->farm->id,
+            'labour_id' => $labour1->id,
+            'date' => $fromDate->format('Y-m-d'),
+            'start_time' => '08:00:00',
+            'end_time' => '10:00:00', // 2 hours
+            'status' => 'finished',
+        ]);
+        $irrigation1->plots()->attach($plot);
+        $irrigation1->valves()->attach($valve1);
+
+        $irrigation2 = Irrigation::factory()->create([
+            'created_by' => $this->user->id,
+            'farm_id' => $this->farm->id,
+            'labour_id' => $labour1->id,
+            'date' => $fromDate->format('Y-m-d'),
+            'start_time' => '14:00:00',
+            'end_time' => '16:00:00', // 2 hours
+            'status' => 'finished',
+        ]);
+        $irrigation2->plots()->attach($plot);
+        $irrigation2->valves()->attach($valve2);
+
+        // Day 2: 1 irrigation by labour2 (should not be included)
+        $day2Date = $fromDate->copy()->addDay();
+        $irrigation3 = Irrigation::factory()->create([
+            'created_by' => $this->user->id,
+            'farm_id' => $this->farm->id,
+            'labour_id' => $labour2->id,
+            'date' => $day2Date->format('Y-m-d'),
+            'start_time' => '09:00:00',
+            'end_time' => '12:00:00', // 3 hours
+            'status' => 'finished',
+        ]);
+        $irrigation3->plots()->attach($plot);
+        $irrigation3->valves()->attach($valve1);
+
+        // Day 3: 1 irrigation by labour1
+        $day3Date = $fromDate->copy()->addDays(2);
+        $irrigation4 = Irrigation::factory()->create([
+            'created_by' => $this->user->id,
+            'farm_id' => $this->farm->id,
+            'labour_id' => $labour1->id,
+            'date' => $day3Date->format('Y-m-d'),
+            'start_time' => '10:00:00',
+            'end_time' => '11:00:00', // 1 hour
+            'status' => 'finished',
+        ]);
+        $irrigation4->plots()->attach($plot);
+        $irrigation4->valves()->attach($valve1);
+
+                $result = $this->irrigationReportService->getLabourSpecificReports($plot, $labour1->id, $fromDate, $toDate);
+
+        // Verify structure
+        $this->assertArrayHasKey('irrigations', $result);
+        $this->assertArrayHasKey('accumulated', $result);
+
+        // Verify irrigations array structure
+        $this->assertIsArray($result['irrigations']);
+        $this->assertCount(3, $result['irrigations']); // 3 days in range
+
+        // Verify each day has correct structure
+        foreach ($result['irrigations'] as $dayReport) {
+            $this->assertArrayHasKey('date', $dayReport);
+            $this->assertArrayHasKey('total_duration', $dayReport);
+            $this->assertArrayHasKey('total_volume', $dayReport);
+            $this->assertArrayHasKey('total_volume_per_hectare', $dayReport);
+            $this->assertArrayHasKey('total_count', $dayReport);
+        }
+
+        // Verify accumulated structure
+        $this->assertArrayHasKey('total_duration', $result['accumulated']);
+        $this->assertArrayHasKey('total_volume', $result['accumulated']);
+        $this->assertArrayHasKey('total_volume_per_hectare', $result['accumulated']);
+        $this->assertArrayHasKey('total_count', $result['accumulated']);
+
+        // Verify calculations for first day (2 irrigations by labour1)
+        $day1Report = $result['irrigations'][0];
+        $this->assertEquals(2, $day1Report['total_count']);
+        $this->assertEquals('04:00:00', $day1Report['total_duration']); // 2 + 2 hours
+
+        // Day 1 volume calculations:
+        // Irrigation 1: 100 * 2.0 * 2 = 400 liters
+        // Irrigation 2: 150 * 3.0 * 2 = 900 liters
+        // Total: 1300 liters
+        $this->assertEquals(1300, $day1Report['total_volume']);
+
+        // Verify calculations for second day (0 irrigations by labour1, 1 by labour2 - should be 0)
+        $day2Report = $result['irrigations'][1];
+        $this->assertEquals(0, $day2Report['total_count']);
+        $this->assertEquals('00:00:00', $day2Report['total_duration']);
+        $this->assertEquals(0, $day2Report['total_volume']);
+
+        // Verify calculations for third day (1 irrigation by labour1)
+        $day3Report = $result['irrigations'][2];
+        $this->assertEquals(1, $day3Report['total_count']);
+        $this->assertEquals('01:00:00', $day3Report['total_duration']); // 1 hour
+
+        // Day 3 volume calculation:
+        // Irrigation 4: 100 * 2.0 * 1 = 200 liters
+        $this->assertEquals(200, $day3Report['total_volume']);
+
+        // Verify accumulated totals (only labour1's irrigations)
+        $this->assertEquals(3, $result['accumulated']['total_count']); // 2 + 0 + 1
+        $this->assertEquals('05:00:00', $result['accumulated']['total_duration']); // 4 + 0 + 1 hours
+        $this->assertEquals(1500, $result['accumulated']['total_volume']); // 1300 + 0 + 200
+    }
+
+    /**
+     * Test edge case: empty date range
+     */
+    #[Test]
+    public function test_irrigation_report_service_empty_date_range(): void
+    {
+        $plot = $this->plots->first();
+        $fromDate = Carbon::now()->addDays(10); // Future date with no data
+        $toDate = Carbon::now()->addDays(12);
+
+        $result = $this->irrigationReportService->getDateRangeReports($plot, $fromDate, $toDate);
+
+        // Verify structure exists
+        $this->assertArrayHasKey('irrigations', $result);
+        $this->assertArrayHasKey('accumulated', $result);
+
+        // Verify all days have zero values
+        $this->assertCount(3, $result['irrigations']); // 3 days in range
+        foreach ($result['irrigations'] as $dayReport) {
+            $this->assertEquals(0, $dayReport['total_count']);
+            $this->assertEquals('00:00:00', $dayReport['total_duration']);
+            $this->assertEquals(0, $dayReport['total_volume']);
+            $this->assertEquals(0, $dayReport['total_volume_per_hectare']);
+        }
+
+        // Verify accumulated totals are zero
+        $this->assertEquals(0, $result['accumulated']['total_count']);
+        $this->assertEquals('00:00:00', $result['accumulated']['total_duration']);
+        $this->assertEquals(0, $result['accumulated']['total_volume']);
+        $this->assertEquals(0, $result['accumulated']['total_volume_per_hectare']);
+    }
+
+    /**
+     * Test edge case: non-existent valves
+     */
+    #[Test]
+    public function test_irrigation_report_service_non_existent_valves(): void
+    {
+        $plot = $this->plots->first();
+        $fromDate = Carbon::now()->subDays(1);
+        $toDate = Carbon::now();
+
+        // Use non-existent valve IDs
+        $nonExistentValveIds = [9999, 9998, 9997];
+
+        $result = $this->irrigationReportService->getValveSpecificReports($plot, $nonExistentValveIds, $fromDate, $toDate);
+
+        // Verify structure exists
+        $this->assertArrayHasKey('irrigations', $result);
+        $this->assertArrayHasKey('accumulated', $result);
+
+        // Verify all valve reports have zero values
+        foreach ($result['irrigations'] as $dayReport) {
+            foreach ($nonExistentValveIds as $valveId) {
+                $valveReport = $dayReport['irrigation_per_valve']["valve{$valveId}"];
+                $this->assertEquals(0, $valveReport['total_count']);
+                $this->assertEquals('00:00:00', $valveReport['total_duration']);
+                $this->assertEquals(0, $valveReport['total_volume']);
+                $this->assertEquals(0, $valveReport['total_volume_per_hectare']);
+            }
+        }
+
+        // Verify accumulated totals are zero
+        $this->assertEquals(0, $result['accumulated']['total_count']);
+        $this->assertEquals('00:00:00', $result['accumulated']['total_duration']);
+        $this->assertEquals(0, $result['accumulated']['total_volume']);
+        $this->assertEquals(0, $result['accumulated']['total_volume_per_hectare']);
+    }
+
+    /**
+     * Test edge case: non-existent labour
+     */
+    #[Test]
+    public function test_irrigation_report_service_non_existent_labour(): void
+    {
+        $plot = $this->plots->first();
+        $fromDate = Carbon::now()->subDays(1);
+        $toDate = Carbon::now();
+
+        // Create some irrigations with different labour
+        $labour = Labour::factory()->create(['farm_id' => $this->farm->id]);
+        $valve = Valve::factory()->create(['plot_id' => $plot->id]);
+
+        $irrigation = Irrigation::factory()->create([
+            'created_by' => $this->user->id,
+            'farm_id' => $this->farm->id,
+            'labour_id' => $labour->id,
+            'date' => $fromDate->format('Y-m-d'),
+            'start_time' => '08:00:00',
+            'end_time' => '10:00:00',
+            'status' => 'finished',
+        ]);
+        $irrigation->plots()->attach($plot);
+        $irrigation->valves()->attach($valve);
+
+        // Use non-existent labour ID
+        $nonExistentLabourId = 9999;
+
+        $result = $this->irrigationReportService->getLabourSpecificReports($plot, $nonExistentLabourId, $fromDate, $toDate);
+
+        // Verify structure exists
+        $this->assertArrayHasKey('irrigations', $result);
+        $this->assertArrayHasKey('accumulated', $result);
+
+        // Verify all days have zero values
+        foreach ($result['irrigations'] as $dayReport) {
+            $this->assertEquals(0, $dayReport['total_count']);
+            $this->assertEquals('00:00:00', $dayReport['total_duration']);
+            $this->assertEquals(0, $dayReport['total_volume']);
+            $this->assertEquals(0, $dayReport['total_volume_per_hectare']);
+        }
+
+        // Verify accumulated totals are zero
+        $this->assertEquals(0, $result['accumulated']['total_count']);
+        $this->assertEquals('00:00:00', $result['accumulated']['total_duration']);
+        $this->assertEquals(0, $result['accumulated']['total_volume']);
+        $this->assertEquals(0, $result['accumulated']['total_volume_per_hectare']);
     }
 }

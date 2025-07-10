@@ -88,8 +88,15 @@ class HelperFunctionsTest extends TestCase
         // Test with floating point coordinates
         $floatingPoints = [[0.5,0.5], [1.5,0.5], [1.5,1.5], [0.5,1.5]];
         $this->assertEquals(1.0, calculate_polygon_area($floatingPoints));
+    }
 
-        $this->assertEquals('00:30', to_time_format(30));
+    public function test_to_time_format()
+    {
+        $this->assertEquals('00:00:30', to_time_format(30));
+        $this->assertEquals('00:01:00', to_time_format(60));
+        $this->assertEquals('01:00:00', to_time_format(3600));
+        $this->assertEquals('01:30:45', to_time_format(5445));
+        $this->assertEquals('00:00:00', to_time_format(0));
     }
 
     public function test_calculate_polygon_center()
