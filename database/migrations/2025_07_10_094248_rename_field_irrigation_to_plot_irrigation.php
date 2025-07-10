@@ -15,7 +15,7 @@ return new class extends Migration
 
         Schema::table('irrigation_plot', function (Blueprint $table) {
             $table->renameColumn('field_id', 'plot_id');
-            $table->dropForeign(['field_id']);
+            $table->dropIndex(['field_id']);
         });
     }
 
@@ -26,7 +26,6 @@ return new class extends Migration
     {
         Schema::table('irrigation_plot', function (Blueprint $table) {
             $table->renameColumn('plot_id', 'field_id');
-            $table->foreign('field_id')->references('id')->on('fields')->onDelete('cascade');
         });
 
         Schema::rename('irrigation_plot', 'field_irrigation');
