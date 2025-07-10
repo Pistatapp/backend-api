@@ -17,6 +17,7 @@ class Irrigation extends Model
     protected $fillable = [
         'labour_id',
         'farm_id',
+        'pump_id',
         'date',
         'start_time',
         'end_time',
@@ -91,13 +92,13 @@ class Irrigation extends Model
     }
 
     /**
-     * Get the fields for the Irrigation
+     * Get the plots for the Irrigation
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
      */
-    public function fields()
+    public function plots()
     {
-        return $this->belongsToMany(Field::class);
+        return $this->belongsToMany(Plot::class);
     }
 
     /**
@@ -108,6 +109,16 @@ class Irrigation extends Model
     public function farm()
     {
         return $this->belongsTo(Farm::class);
+    }
+
+    /**
+     * Get the pump that owns the Irrigation
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
+    public function pump()
+    {
+        return $this->belongsTo(Pump::class);
     }
 
     /**

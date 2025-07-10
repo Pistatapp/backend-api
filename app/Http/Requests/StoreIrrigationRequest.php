@@ -24,20 +24,21 @@ class StoreIrrigationRequest extends FormRequest
     {
         return [
             'labour_id' => 'required|exists:labours,id',
+            'pump_id' => 'required|exists:pumps,id',
             'date' => 'required|shamsi_date',
             'start_time' => [
                 'required',
                 new \App\Rules\ValveTimeOverLap(),
-                new \App\Rules\FieldIrrigationTimeOverLap(),
+                new \App\Rules\PlotIrrigationTimeOverLap(),
             ],
             'end_time' => [
                 'required',
                 'after:start_time',
                 new \App\Rules\ValveTimeOverLap(),
-                new \App\Rules\FieldIrrigationTimeOverLap(),
+                new \App\Rules\PlotIrrigationTimeOverLap(),
             ],
-            'fields' => 'required|array',
-            'fields.*' => 'required|integer|exists:fields,id',
+            'plots' => 'required|array',
+            'plots.*' => 'required|integer|exists:plots,id',
             'valves' => 'required|array',
             'valves.*' => 'required|integer|exists:valves,id',
             'note' => 'nullable|string|max:500',

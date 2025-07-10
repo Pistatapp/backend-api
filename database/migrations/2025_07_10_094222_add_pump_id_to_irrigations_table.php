@@ -11,8 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('valves', function (Blueprint $table) {
-            $table->float('irrigated_area')->default(0)->after('flow_rate')->comment('Area in hectares that this valve can irrigate');
+        Schema::table('irrigations', function (Blueprint $table) {
+            $table->foreignId('pump_id')->nullable()->constrained()->nullOnDelete();
         });
     }
 
@@ -21,8 +21,9 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('valves', function (Blueprint $table) {
-            $table->dropColumn('irrigated_area');
+        Schema::table('irrigations', function (Blueprint $table) {
+            $table->dropForeign(['pump_id']);
+            $table->dropColumn('pump_id');
         });
     }
 };

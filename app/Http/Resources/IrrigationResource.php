@@ -25,6 +25,12 @@ class IrrigationResource extends JsonResource
             'date' => jdate($this->date)->format('Y/m/d'),
             'start_time' => $this->start_time->format('H:i'),
             'end_time' => $this->end_time->format('H:i'),
+            'pump' => $this->whenLoaded('pump', function () {
+                return [
+                    'id' => $this->pump->id,
+                    'name' => $this->pump->name,
+                ];
+            }),
             'valves' => $this->whenLoaded('valves', function () {
                 return $this->valves->map(function ($valve) {
                     return [
@@ -36,11 +42,11 @@ class IrrigationResource extends JsonResource
                     ];
                 });
             }),
-            'fields' => $this->whenLoaded('fields', function () {
-                return $this->fields->map(function ($field) {
+            'plots' => $this->whenLoaded('plots', function () {
+                return $this->plots->map(function ($plot) {
                     return [
-                        'id' => $field->id,
-                        'name' => $field->name,
+                        'id' => $plot->id,
+                        'name' => $plot->name,
                     ];
                 });
             }),

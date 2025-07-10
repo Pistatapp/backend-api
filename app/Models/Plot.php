@@ -74,4 +74,14 @@ class Plot extends Model implements HasMedia
     {
         return $this->hasMany(Valve::class);
     }
+
+    /**
+     * Get the irrigations for the plot.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
+     */
+    public function irrigations()
+    {
+        return $this->belongsToMany(Irrigation::class);
+    }
 }

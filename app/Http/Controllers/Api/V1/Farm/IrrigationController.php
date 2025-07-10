@@ -38,6 +38,7 @@ class IrrigationController extends Controller
     {
         $irrigation = $farm->irrigations()->create([
             'labour_id' => $request->labour_id,
+            'pump_id' => $request->pump_id,
             'date' => $request->date,
             'start_time' => $request->start_time,
             'end_time' => $request->end_time,
@@ -45,7 +46,7 @@ class IrrigationController extends Controller
             'note' => $request->note,
         ]);
 
-        $irrigation->fields()->attach($request->fields);
+        $irrigation->plots()->attach($request->plots);
         $irrigation->valves()->attach($request->valves);
 
         return new IrrigationResource($irrigation);
@@ -56,7 +57,7 @@ class IrrigationController extends Controller
      */
     public function show(Irrigation $irrigation)
     {
-        $irrigation->load(['labour', 'valves', 'creator', 'fields']);
+        $irrigation->load(['labour', 'valves', 'creator', 'plots', 'pump']);
 
         return new IrrigationResource($irrigation);
     }
@@ -68,13 +69,14 @@ class IrrigationController extends Controller
     {
         $irrigation->update([
             'labour_id' => $request->labour_id,
+            'pump_id' => $request->pump_id,
             'date' => $request->date,
             'start_time' => $request->start_time,
             'end_time' => $request->end_time,
             'note' => $request->note,
         ]);
 
-        $irrigation->fields()->sync($request->fields);
+        $irrigation->plots()->sync($request->plots);
         $irrigation->valves()->sync($request->valves);
 
         return new IrrigationResource($irrigation->fresh());
@@ -99,6 +101,28 @@ class IrrigationController extends Controller
     public function getIrrigationsForField(Field $field)
     {
         $irrigations = $field->irrigations()->with(['labour', 'valves', 'creator'])
+            ->when(request()->has('date'), function ($query) {
+                $query->where('date', jalali_to_carbon(request()->query('date')));
+            }, function ($query) {
+                $query->whereDate('date', today());
+            })
+            ->when(request()->has('status'), function ($query) {
+                $query->filter(request()->query('status'));
+            })
+            ->latest()->get();
+
+        return IrrigationResource::collection($irrigations);
+    }
+
+    /**
+     * Get irrigations for a plot.
+     *
+     * @param  \App\Models\Plot  $plot
+     * @return \App\Http\Resources\IrrigationResource
+     */
+    public function getIrrigationsForPlot(\App\Models\Plot $plot)
+    {
+        $irrigations = $plot->irrigations()->with(['labour', 'valves', 'creator'])
             ->when(request()->has('date'), function ($query) {
                 $query->where('date', jalali_to_carbon(request()->query('date')));
             }, function ($query) {

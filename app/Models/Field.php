@@ -98,16 +98,6 @@ class Field extends Model
     }
 
     /**
-     * Get the field's irrigations.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
-     */
-    public function irrigations()
-    {
-        return $this->belongsToMany(Irrigation::class);
-    }
-
-    /**
      * Get the field's treatments.
      *
      * @return \Illuminate\Database\Eloquent\Relations\MorphMany
