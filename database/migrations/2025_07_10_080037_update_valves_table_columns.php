@@ -13,6 +13,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('valves', function (Blueprint $table) {
+            // Add new columns
+            $table->foreignId('plot_id')->constrained()->onDelete('cascade');
+
             // Before dropping field_id, attach each valve to the first plot of its field (if any)
             DB::table('valves')->orderBy('id')->chunk(100, function ($valves) {
                 foreach ($valves as $valve) {
@@ -31,8 +34,6 @@ return new class extends Migration
             // Drop old columns
             $table->dropColumn(['flow_rate', 'field_id', 'irrigated_area']);
 
-            // Add new columns
-            $table->foreignId('plot_id')->constrained()->onDelete('cascade');
             $table->float('irrigation_area');
             $table->integer('dripper_count');
             $table->float('dripper_flow_rate');
