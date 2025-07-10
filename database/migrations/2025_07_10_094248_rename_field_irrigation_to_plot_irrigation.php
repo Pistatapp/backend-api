@@ -31,11 +31,6 @@ return new class extends Migration
             }
         }
 
-        // Drop foreign key first before renaming
-        Schema::table('field_irrigation', function (Blueprint $table) {
-            $table->dropForeign(['field_id']);
-        });
-
         // Rename the table to irrigation_plot (Laravel convention for many-to-many)
         Schema::rename('field_irrigation', 'irrigation_plot');
 
