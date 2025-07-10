@@ -12,6 +12,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        Schema::table('field_irrigation', function (Blueprint $table) {
+            $table->dropForeign(['field_id']);
+        });
+
         // First update field_id values to corresponding plot_id
         $fieldIrrigations = DB::table('field_irrigation')->get();
         foreach ($fieldIrrigations as $fieldIrrigation) {
