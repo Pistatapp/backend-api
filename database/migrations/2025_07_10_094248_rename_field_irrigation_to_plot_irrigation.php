@@ -15,7 +15,6 @@ return new class extends Migration
 
         Schema::table('irrigation_plot', function (Blueprint $table) {
             $table->renameColumn('field_id', 'plot_id');
-            $table->dropIndex(['field_id']);
         });
     }
 
