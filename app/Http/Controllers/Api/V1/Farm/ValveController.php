@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api\V1\Farm;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ValveResource;
-use App\Models\Pump;
+use App\Models\Plot;
 use App\Models\Valve;
 use Illuminate\Http\Request;
 
@@ -13,25 +13,26 @@ class ValveController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(Pump $pump)
+    public function index(Plot $plot)
     {
-        return ValveResource::collection($pump->valves);
+        return ValveResource::collection($plot->valves);
     }
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request, Pump $pump)
+    public function store(Request $request, Plot $plot)
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'location' => 'required|string',
-            'flow_rate' => 'required|integer|min:0|max:100',
-            'field_id' => 'required|exists:fields,id',
-            'irrigated_area' => 'required|numeric|min:0',
+            'location' => 'required|array',
+            'is_open' => 'boolean',
+            'irrigation_area' => 'required|numeric|min:0',
+            'dripper_count' => 'required|integer|min:0',
+            'dripper_flow_rate' => 'required|numeric|min:0',
         ]);
 
-        $valve = $pump->valves()->create($request->all());
+        $valve = $plot->valves()->create($request->all());
 
         return new ValveResource($valve);
     }
@@ -51,10 +52,11 @@ class ValveController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'location' => 'required|string',
-            'flow_rate' => 'required|integer|min:0|max:100',
-            'field_id' => 'required|exists:fields,id',
-            'irrigated_area' => 'required|numeric|min:0',
+            'location' => 'required|array',
+            'is_open' => 'boolean',
+            'irrigation_area' => 'required|numeric|min:0',
+            'dripper_count' => 'required|integer|min:0',
+            'dripper_flow_rate' => 'required|numeric|min:0',
         ]);
 
         $valve->update($request->all());

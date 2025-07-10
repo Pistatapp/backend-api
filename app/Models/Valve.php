@@ -15,13 +15,13 @@ class Valve extends Model
      * @var array<string>
      */
     protected $fillable = [
-        'pump_id',
+        'plot_id',
         'name',
         'location',
-        'flow_rate',
-        'field_id',
         'is_open',
-        'irrigated_area',
+        'irrigation_area',
+        'dripper_count',
+        'dripper_flow_rate',
     ];
 
     /**
@@ -32,9 +32,10 @@ class Valve extends Model
     protected function casts(): array
     {
         return  [
-            'flow_rate' => 'float',
             'location' => 'array',
-            'irrigated_area' => 'float',
+            'irrigation_area' => 'float',
+            'dripper_count' => 'integer',
+            'dripper_flow_rate' => 'float',
         ];
     }
 
@@ -59,12 +60,12 @@ class Valve extends Model
     }
 
     /**
-     * Get the field that owns the valve.
+     * Get the plot that owns the valve.
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
-    public function field()
+    public function plot()
     {
-        return $this->belongsTo(Field::class);
+        return $this->belongsTo(Plot::class);
     }
 }

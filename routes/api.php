@@ -103,9 +103,9 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::post('rows/{row}/trees/batch_store', [TreeController::class, 'batchStore']);
     Route::apiResource('rows.trees', TreeController::class)->shallow();
     Route::apiResource('fields.plots', PlotController::class)->shallow();
+    Route::apiResource('plots.valves', ValveController::class)->shallow();
     Route::apiResource('farms.pumps', PumpController::class)->shallow();
     Route::get('/fields/{field}/valves', [FieldController::class, 'getValvesForField']);
-    Route::apiResource('pumps.valves', ValveController::class)->shallow();
 
     // Tractors Routes
     Route::get('/farms/{farm}/tractors/active', [ActiveTractorController::class, 'index']);

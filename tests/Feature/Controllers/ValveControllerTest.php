@@ -4,7 +4,7 @@ namespace Tests\Feature\Controllers;
 
 use App\Models\Farm;
 use App\Models\Field;
-use App\Models\Pump;
+use App\Models\Plot;
 use App\Models\User;
 use App\Models\Valve;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -17,8 +17,8 @@ class ValveControllerTest extends TestCase
 
     protected $user;
     protected $farm;
-    protected $pump;
     protected $field;
+    protected $plot;
 
     protected function setUp(): void
     {
@@ -34,12 +34,12 @@ class ValveControllerTest extends TestCase
             'role' => 'admin'
         ]);
 
-        $this->pump = Pump::factory()->create([
+        $this->field = Field::factory()->create([
             'farm_id' => $this->farm->id
         ]);
 
-        $this->field = Field::factory()->create([
-            'farm_id' => $this->farm->id
+        $this->plot = Plot::factory()->create([
+            'field_id' => $this->field->id
         ]);
     }
 
@@ -47,12 +47,11 @@ class ValveControllerTest extends TestCase
     public function user_can_list_valves()
     {
         $valves = Valve::factory()->count(3)->create([
-            'pump_id' => $this->pump->id,
-            'field_id' => $this->field->id
+            'plot_id' => $this->plot->id
         ]);
 
         $response = $this->actingAs($this->user)
-            ->getJson("/api/pumps/{$this->pump->id}/valves");
+            ->getJson("/api/plots/{$this->plot->id}/valves");
 
         $response->assertStatus(200)
             ->assertJsonCount(3, 'data')
@@ -60,13 +59,13 @@ class ValveControllerTest extends TestCase
                 'data' => [
                     '*' => [
                         'id',
-                        'pump_id',
+                        'plot_id',
                         'name',
                         'location',
-                        'flow_rate',
-                        'field_id',
                         'is_open',
-                        'irrigated_area'
+                        'irrigation_area',
+                        'dripper_count',
+                        'dripper_flow_rate'
                     ]
                 ]
             ]);
@@ -77,25 +76,31 @@ class ValveControllerTest extends TestCase
     {
         $valveData = [
             'name' => 'Test Valve',
-            'location' => '35.7219,51.3347',
-            'flow_rate' => 50,
-            'field_id' => $this->field->id,
-            'irrigated_area' => 2.5
+            'location' => [
+                'lat' => 35.7219,
+                'lng' => 51.3347
+            ],
+            'is_open' => false,
+            'irrigation_area' => 2.5,
+            'dripper_count' => 500,
+            'dripper_flow_rate' => 4.5
         ];
 
         $response = $this->actingAs($this->user)
-            ->postJson("/api/pumps/{$this->pump->id}/valves", $valveData);
+            ->postJson("/api/plots/{$this->plot->id}/valves", $valveData);
 
         $response->assertStatus(201)
             ->assertJsonFragment([
                 'name' => 'Test Valve',
-                'flow_rate' => 50,
-                'irrigated_area' => 2.5
+                'irrigation_area' => 2.5,
+                'dripper_count' => 500,
+                'dripper_flow_rate' => 4.5
             ]);
 
         $this->assertDatabaseHas('valves', [
             'name' => 'Test Valve',
-            'pump_id' => $this->pump->id
+            'plot_id' => $this->plot->id,
+            'dripper_count' => 500
         ]);
     }
 
@@ -103,8 +108,7 @@ class ValveControllerTest extends TestCase
     public function user_can_view_single_valve()
     {
         $valve = Valve::factory()->create([
-            'pump_id' => $this->pump->id,
-            'field_id' => $this->field->id
+            'plot_id' => $this->plot->id
         ]);
 
         $response = $this->actingAs($this->user)
@@ -114,7 +118,8 @@ class ValveControllerTest extends TestCase
             ->assertJson([
                 'data' => [
                     'id' => $valve->id,
-                    'name' => $valve->name
+                    'name' => $valve->name,
+                    'plot_id' => $this->plot->id
                 ]
             ]);
     }
@@ -123,16 +128,19 @@ class ValveControllerTest extends TestCase
     public function user_can_update_valve()
     {
         $valve = Valve::factory()->create([
-            'pump_id' => $this->pump->id,
-            'field_id' => $this->field->id
+            'plot_id' => $this->plot->id
         ]);
 
         $updatedData = [
             'name' => 'Updated Valve Name',
-            'location' => '35.7219,51.3347',
-            'flow_rate' => 75,
-            'field_id' => $this->field->id,
-            'irrigated_area' => 3.5
+            'location' => [
+                'lat' => 35.7219,
+                'lng' => 51.3347
+            ],
+            'is_open' => true,
+            'irrigation_area' => 3.5,
+            'dripper_count' => 600,
+            'dripper_flow_rate' => 5.5
         ];
 
         $response = $this->actingAs($this->user)
@@ -141,13 +149,15 @@ class ValveControllerTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonFragment([
                 'name' => 'Updated Valve Name',
-                'flow_rate' => 75,
-                'irrigated_area' => 3.5
+                'irrigation_area' => 3.5,
+                'dripper_count' => 600,
+                'dripper_flow_rate' => 5.5
             ]);
 
         $this->assertDatabaseHas('valves', [
             'id' => $valve->id,
-            'name' => 'Updated Valve Name'
+            'name' => 'Updated Valve Name',
+            'dripper_count' => 600
         ]);
     }
 
@@ -155,8 +165,7 @@ class ValveControllerTest extends TestCase
     public function user_can_delete_valve()
     {
         $valve = Valve::factory()->create([
-            'pump_id' => $this->pump->id,
-            'field_id' => $this->field->id
+            'plot_id' => $this->plot->id
         ]);
 
         $response = $this->actingAs($this->user)
@@ -170,52 +179,51 @@ class ValveControllerTest extends TestCase
     public function validate_required_fields_when_creating_valve()
     {
         $response = $this->actingAs($this->user)
-            ->postJson("/api/pumps/{$this->pump->id}/valves", []);
+            ->postJson("/api/plots/{$this->plot->id}/valves", []);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['name', 'location', 'flow_rate', 'field_id', 'irrigated_area']);
+            ->assertJsonValidationErrors(['name', 'location', 'irrigation_area', 'dripper_count', 'dripper_flow_rate']);
     }
 
     #[Test]
-    public function validate_flow_rate_range()
+    public function validate_dripper_count_minimum()
     {
         $valveData = [
             'name' => 'Test Valve',
-            'location' => '35.7219,51.3347',
-            'flow_rate' => 101,
-            'field_id' => $this->field->id
+            'location' => [
+                'lat' => 35.7219,
+                'lng' => 51.3347
+            ],
+            'irrigation_area' => 2.5,
+            'dripper_count' => -1,
+            'dripper_flow_rate' => 4.5
         ];
 
         $response = $this->actingAs($this->user)
-            ->postJson("/api/pumps/{$this->pump->id}/valves", $valveData);
+            ->postJson("/api/plots/{$this->plot->id}/valves", $valveData);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['flow_rate']);
+            ->assertJsonValidationErrors(['dripper_count']);
     }
 
     #[Test]
-    public function validate_irrigated_area_range()
+    public function validate_irrigation_area_minimum()
     {
         $valveData = [
             'name' => 'Test Valve',
-            'location' => '35.7219,51.3347',
-            'flow_rate' => 50,
-            'field_id' => $this->field->id,
-            'irrigated_area' => -1 // Invalid negative value
+            'location' => [
+                'lat' => 35.7219,
+                'lng' => 51.3347
+            ],
+            'irrigation_area' => -1,
+            'dripper_count' => 500,
+            'dripper_flow_rate' => 4.5
         ];
 
         $response = $this->actingAs($this->user)
-            ->postJson("/api/pumps/{$this->pump->id}/valves", $valveData);
+            ->postJson("/api/plots/{$this->plot->id}/valves", $valveData);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['irrigated_area']);
-
-        // Test non-numeric value
-        $valveData['irrigated_area'] = 'not-a-number';
-        $response = $this->actingAs($this->user)
-            ->postJson("/api/pumps/{$this->pump->id}/valves", $valveData);
-
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['irrigated_area']);
+            ->assertJsonValidationErrors(['irrigation_area']);
     }
 }

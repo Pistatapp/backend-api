@@ -64,4 +64,14 @@ class Plot extends Model implements HasMedia
     {
         return $this->morphMany(Attachment::class, 'attachable');
     }
+
+    /**
+     * Get the valves for the plot.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function valves()
+    {
+        return $this->hasMany(Valve::class);
+    }
 }

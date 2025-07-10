@@ -16,14 +16,14 @@ class ValveResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'pump_id' => $this->pump_id,
+            'plot_id' => $this->plot_id,
             'name' => $this->name,
             'location' => $this->location,
-            'flow_rate' => $this->flow_rate,
-            'field_id' => $this->field_id,
             'is_open' => $this->is_open,
-            'irrigated_area' => $this->irrigated_area,
-            'field' => new FieldResource($this->whenLoaded('field')),
+            'irrigation_area' => $this->irrigation_area,
+            'dripper_count' => $this->dripper_count,
+            'dripper_flow_rate' => $this->dripper_flow_rate,
+            'plot' => new PlotResource($this->whenLoaded('plot')),
         ];
     }
 }

@@ -3,7 +3,7 @@
 namespace Database\Factories;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
-use App\Models\Pump;
+use App\Models\Plot;
 
 /**
  * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Valve>
@@ -18,24 +18,28 @@ class ValveFactory extends Factory
     public function definition(): array
     {
         return [
-            'pump_id' => Pump::factory(),
+            'plot_id' => Plot::factory(),
             'name' => $this->faker->name,
-            'location' => $this->faker->latitude . ',' . $this->faker->longitude,
-            'flow_rate' => $this->faker->randomFloat(2, 0, 100),
-            'irrigated_area' => $this->faker->randomFloat(2, 0.5, 10.0), // Random area between 0.5 and 10 hectares
+            'location' => [
+                'lat' => $this->faker->latitude,
+                'lng' => $this->faker->longitude
+            ],
+            'is_open' => false,
+            'irrigation_area' => $this->faker->randomFloat(2, 0.5, 10.0),
+            'dripper_count' => $this->faker->numberBetween(100, 1000),
+            'dripper_flow_rate' => $this->faker->randomFloat(2, 1, 10),
         ];
-
     }
 
     /**
-     * Indicate that the model's is_open is false.
+     * Indicate that the valve is open.
      *
      * @return static
      */
     public function open(): static
     {
         return $this->state(fn (array $attributes) => [
-            'is_open' => false,
+            'is_open' => true,
         ]);
     }
 }
