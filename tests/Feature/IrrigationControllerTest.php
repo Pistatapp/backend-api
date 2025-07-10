@@ -66,6 +66,7 @@ class IrrigationControllerTest extends TestCase
     #[Test]
     public function test_user_can_create_irrigation(): void
     {
+        $this->withoutExceptionHandling();
         $response = $this->postJson(route('farms.irrigations.store', ['farm' => $this->farm]), [
             'labour_id' => $this->labour->id,
             'pump_id' => $this->pump->id,
