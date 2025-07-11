@@ -215,4 +215,121 @@ class FarmReportTest extends TestCase
         $response->assertOk();
         $this->assertTrue($report->fresh()->verified);
     }
+
+        #[Test]
+    public function only_report_creator_or_farm_admins_can_update_report()
+    {
+                // Create the report creator (different from the test user)
+        /** @var User $creator */
+        $creator = User::factory()->create();
+        $creator->assignRole('operator');
+
+        // Create a farm admin (different from creator and test user)
+        /** @var User $farmAdmin */
+        $farmAdmin = User::factory()->create();
+        $farmAdmin->assignRole('operator');
+
+        // Create a regular user who is not the creator or farm admin
+        /** @var User $regularUser */
+        $regularUser = User::factory()->create();
+        $regularUser->assignRole('viewer');
+
+        // Create another farm and its admin to test cross-farm access
+        $otherFarm = Farm::factory()->create();
+        /** @var User $otherFarmAdmin */
+        $otherFarmAdmin = User::factory()->create();
+        $otherFarmAdmin->assignRole('operator');
+
+        // Attach users to farms with appropriate roles
+        $creator->farms()->attach($this->farm->id, ['role' => 'operator', 'is_owner' => false]);
+        $farmAdmin->farms()->attach($this->farm->id, ['role' => 'admin', 'is_owner' => false]);
+        $regularUser->farms()->attach($this->farm->id, ['role' => 'viewer', 'is_owner' => false]);
+        $otherFarmAdmin->farms()->attach($otherFarm->id, ['role' => 'admin', 'is_owner' => true]);
+
+        // Create a farm report by the creator
+        $report = FarmReport::factory()->create([
+            'farm_id' => $this->farm->id,
+            'operation_id' => $this->operation->id,
+            'labour_id' => $this->labour->id,
+            'reportable_type' => 'App\\Models\\Field',
+            'reportable_id' => $this->field->id,
+            'created_by' => $creator->id,
+            'description' => 'Original description',
+            'value' => 10.0,
+        ]);
+
+        $updateData = [
+            'date' => '1404/01/12',
+            'operation_id' => $this->operation->id,
+            'labour_id' => $this->labour->id,
+            'description' => 'Updated description',
+            'value' => 20.0,
+            'reportable_type' => 'field',
+            'reportable_id' => $this->field->id,
+        ];
+
+        // Test 1: Creator can update their own report
+        $this->actingAs($creator);
+        $response = $this->putJson("/api/farm_reports/{$report->id}", $updateData);
+        $response->assertOk();
+
+        // Verify the update was successful
+        $this->assertDatabaseHas('farm_reports', [
+            'id' => $report->id,
+            'description' => 'Updated description',
+            'value' => 20.0,
+        ]);
+
+        // Test 2: Farm admin can update the report
+        $this->actingAs($farmAdmin);
+        $updateData['description'] = 'Updated by farm admin';
+        $updateData['value'] = 30.0;
+        $response = $this->putJson("/api/farm_reports/{$report->id}", $updateData);
+        $response->assertOk();
+
+        // Verify the update was successful
+        $this->assertDatabaseHas('farm_reports', [
+            'id' => $report->id,
+            'description' => 'Updated by farm admin',
+            'value' => 30.0,
+        ]);
+
+        // Test 3: Regular user (not creator, not farm admin) cannot update
+        $this->actingAs($regularUser);
+        $updateData['description'] = 'Should not be updated';
+        $response = $this->putJson("/api/farm_reports/{$report->id}", $updateData);
+        $response->assertForbidden();
+
+        // Verify the update was NOT successful
+        $this->assertDatabaseMissing('farm_reports', [
+            'id' => $report->id,
+            'description' => 'Should not be updated',
+        ]);
+
+        // Test 4: Admin of another farm cannot update
+        $this->actingAs($otherFarmAdmin);
+        $updateData['description'] = 'Should not be updated by other farm admin';
+        $response = $this->putJson("/api/farm_reports/{$report->id}", $updateData);
+        $response->assertForbidden();
+
+        // Verify the update was NOT successful
+        $this->assertDatabaseMissing('farm_reports', [
+            'id' => $report->id,
+            'description' => 'Should not be updated by other farm admin',
+        ]);
+
+        // Test 5: System admin can update (current test user is admin)
+        $this->actingAs($this->user); // This user has admin role from setUp
+        $updateData['description'] = 'Updated by system admin';
+        $updateData['value'] = 40.0;
+        $response = $this->putJson("/api/farm_reports/{$report->id}", $updateData);
+        $response->assertOk();
+
+        // Verify the update was successful
+        $this->assertDatabaseHas('farm_reports', [
+            'id' => $report->id,
+            'description' => 'Updated by system admin',
+            'value' => 40.0,
+        ]);
+    }
 }

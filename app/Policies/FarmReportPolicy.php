@@ -37,7 +37,7 @@ class FarmReportPolicy
      */
     public function update(User $user, FarmReport $farmReport): bool
     {
-        return $farmReport->creator->is($user);
+        return $farmReport->creator->is($user) || $farmReport->farm->admins->contains($user);
     }
 
     /**

@@ -69,6 +69,16 @@ class Farm extends Model
     }
 
     /**
+     * Get the admins of the farm.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
+     */
+    public function admins()
+    {
+        return $this->belongsToMany(User::class)->wherePivot('role', 'admin');
+    }
+
+    /**
      * Get fields of the farm.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
