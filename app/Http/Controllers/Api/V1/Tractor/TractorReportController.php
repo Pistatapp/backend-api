@@ -77,17 +77,22 @@ class TractorReportController extends Controller
         $query = TractorReport::where('tractor_id', $validated['tractor_id'])
             ->with(['operation', 'field']);
 
-        if ($request->filled(['from_date', 'to_date'])) {
-            $query->where('date', '>=', $validated['from_date'])
-              ->where('date', '<=', $validated['to_date']);
-        }
+        $filters = [
+            'from_date',
+            'to_date',
+            'operation_id',
+            'field_id',
+        ];
 
-        if ($request->filled('operation_id')) {
-            $query->where('operation_id', $validated['operation_id']);
-        }
-
-        if ($request->filled('field_id')) {
-            $query->where('field_id', $validated['field_id']);
+        foreach ($filters as $filter) {
+            if ($request->filled($filter)) {
+                match ($filter) {
+                    'from_date' => $query->where('date', '>=', $validated['from_date']),
+                    'to_date' => $query->where('date', '<=', $validated['to_date']),
+                    'operation_id' => $query->where('operation_id', $validated['operation_id']),
+                    'field_id' => $query->where('field_id', $validated['field_id']),
+                };
+            }
         }
 
         $reports = $query->latest()->get();

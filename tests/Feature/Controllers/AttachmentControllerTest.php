@@ -12,6 +12,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 use PHPUnit\Framework\Attributes\Test;
+use Illuminate\Support\Facades\Artisan;
 
 /**
  * @method void actingAs(\Illuminate\Contracts\Auth\Authenticatable $user, string|null $guard = null)
@@ -28,8 +29,6 @@ class AttachmentControllerTest extends TestCase
     public function setUp(): void
     {
         parent::setUp();
-
-        Storage::fake('public');
 
         /** @var User $user */
         $this->user = User::factory()->create();
@@ -159,5 +158,51 @@ class AttachmentControllerTest extends TestCase
         ]);
 
         $response->assertStatus(403);
+    }
+
+    #[Test]
+    public function attachment_url_should_be_accessible()
+    {
+        $this->actingAs($this->user);
+
+        // Create and upload a file through the API
+        $pdfContent = '%PDF-1.4
+1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj
+2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj
+3 0 obj<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R>>endobj
+xref
+0 4
+0000000000 65535 f
+0000000009 00000 n
+0000000052 00000 n
+0000000101 00000 n
+trailer<</Size 4/Root 1 0 R>>
+startxref
+178
+%%EOF';
+
+        $file = UploadedFile::fake()->createWithContent('test.pdf', $pdfContent);
+
+        $response = $this->postJson('/api/attachments', [
+            'name' => 'Test Document',
+            'description' => 'This is a test document',
+            'file' => $file,
+            'attachable_type' => 'Plot',
+            'attachable_id' => $this->plot->id
+        ]);
+
+        $response->assertStatus(201);
+
+        // Get the attachment from database
+        $attachment = Attachment::first();
+        $this->assertNotNull($attachment, 'Attachment should be created');
+
+        // Get the media
+        $media = $attachment->getFirstMedia('attachments');
+        $this->assertNotNull($media, 'Media should be attached');
+
+        // Assert that file exists in storage
+        $this->assertTrue($media->exists(), 'Media file should exist in storage');
+        $this->assertEquals('application/pdf', $media->mime_type, 'File should be a PDF');
     }
 }

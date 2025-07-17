@@ -14,8 +14,8 @@ class TeamControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    private $farm;
-    private $user;
+    private Farm $farm;
+    private User $user;
 
     protected function setUp(): void
     {
@@ -124,5 +124,24 @@ class TeamControllerTest extends TestCase
         $response->assertStatus(200);
         $response->assertJsonCount(1, 'data');
         $response->assertJsonPath('data.0.name', 'Alpha Team');
+    }
+
+    #[Test]
+    public function it_can_show_a_team()
+    {
+        $team = Team::factory()
+        ->create(['farm_id' => $this->farm->id]);
+        $supervisor = Labour::factory()->create(['farm_id' => $this->farm->id]);
+        $team->update(['supervisor_id' => $supervisor->id]);
+
+        Labour::factory(2)->hasAttached($team)->for($this->farm)->create();
+
+        $response = $this->getJson("/api/teams/{$team->id}");
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('data.id', $team->id);
+        $response->assertJsonPath('data.name', $team->name);
+        $response->assertJsonPath('data.supervisor.id', $team->supervisor_id);
+        $response->assertJsonPath('data.labours.*.id', $team->labours->pluck('id')->toArray());
     }
 }

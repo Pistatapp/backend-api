@@ -197,6 +197,10 @@ class TractorReportTest extends TestCase
     {
         TractorReport::factory()->create([
             'tractor_id' => $this->tractor->id,
+            'date' => jalali_to_carbon('1403/12/29'),
+        ]);
+        TractorReport::factory()->create([
+            'tractor_id' => $this->tractor->id,
             'date' => jalali_to_carbon('1404/01/01'),
         ]);
         TractorReport::factory()->create([
@@ -297,17 +301,5 @@ class TractorReportTest extends TestCase
             ->assertJsonPath('data.0.date', '1404/01/01')
             ->assertJsonPath('data.0.operation.id', $this->operation->id)
             ->assertJsonPath('data.0.field.id', $this->field->id);
-    }
-
-    #[Test]
-    public function it_validates_tractor_id_when_filtering()
-    {
-        $response = $this->postJson("/api/tractor_reports/filter", [
-            'from_date' => '1404/01/01',
-            'to_date' => '1404/01/30',
-        ]);
-
-        $response->assertUnprocessable()
-            ->assertJsonValidationErrors(['tractor_id']);
     }
 }

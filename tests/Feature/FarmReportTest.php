@@ -332,4 +332,82 @@ class FarmReportTest extends TestCase
             'value' => 40.0,
         ]);
     }
+
+    #[Test]
+    public function it_can_filter_farm_reports_by_date_range()
+    {
+        // Create reports with different dates, with a small delay between each
+        // to ensure proper ordering since we use latest()
+        $report1 = FarmReport::factory()->create([
+            'farm_id' => $this->farm->id,
+            'operation_id' => $this->operation->id,
+            'labour_id' => $this->labour->id,
+            'created_by' => $this->user->id,
+            'date' => '2023-01-01'  // 1401/10/11 in Jalali
+        ]);
+
+        usleep(1000); // 1ms delay
+
+        $report2 = FarmReport::factory()->create([
+            'farm_id' => $this->farm->id,
+            'operation_id' => $this->operation->id,
+            'labour_id' => $this->labour->id,
+            'created_by' => $this->user->id,
+            'date' => '2023-02-01'  // 1401/11/12 in Jalali
+        ]);
+
+        usleep(1000); // 1ms delay
+
+        $report3 = FarmReport::factory()->create([
+            'farm_id' => $this->farm->id,
+            'operation_id' => $this->operation->id,
+            'labour_id' => $this->labour->id,
+            'created_by' => $this->user->id,
+            'date' => '2023-03-01'  // 1401/12/10 in Jalali
+        ]);
+
+        // Test filtering with date range that includes reports 1 and 2
+        $response = $this->postJson("/api/farms/{$this->farm->id}/farm_reports/filter", [
+            'filters' => [
+                'date_range' => [
+                    'from' => '1401/10/01',  // Before 2023-01-01
+                    'to' => '1401/11/30'     // After 2023-02-01
+                ]
+            ]
+        ]);
+
+        $response->assertOk()
+            ->assertJsonCount(2, 'data');
+
+        $data = json_decode($response->getContent(), true)['data'];
+        $this->assertEquals([$report2->id, $report1->id], array_column($data, 'id'),
+            'Records should be ordered by creation time (newest first)');
+
+        // Test filtering with date range that includes only report 3
+        $response = $this->postJson("/api/farms/{$this->farm->id}/farm_reports/filter", [
+            'filters' => [
+                'date_range' => [
+                    'from' => '1401/12/01',  // Before 2023-03-01
+                    'to' => '1401/12/29'     // After 2023-03-01
+                ]
+            ]
+        ]);
+
+        $response->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $report3->id);
+
+        // Test filtering with no results (future date range)
+        $response = $this->postJson("/api/farms/{$this->farm->id}/farm_reports/filter", [
+            'filters' => [
+                'date_range' => [
+                    'from' => '1402/01/01',  // Future date
+                    'to' => '1402/01/30'     // Future date
+                ]
+            ]
+        ]);
+
+        $response->assertOk()
+            ->assertJsonCount(0, 'data');
+    }
 }
