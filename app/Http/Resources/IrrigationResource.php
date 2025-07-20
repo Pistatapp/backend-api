@@ -42,14 +42,7 @@ class IrrigationResource extends JsonResource
                     ];
                 });
             }),
-            'plots' => $this->whenLoaded('plots', function () {
-                return $this->plots->map(function ($plot) {
-                    return [
-                        'id' => $plot->id,
-                        'name' => $plot->name,
-                    ];
-                });
-            }),
+            'plots' => PlotResource::collection($this->whenLoaded('plots')),
             'created_by' => $this->whenLoaded('creator', function () {
                 return [
                     'id' => $this->creator->id,
@@ -58,9 +51,7 @@ class IrrigationResource extends JsonResource
             }),
             'note' => $this->note,
             'status' => $this->status,
-            'duration' => $this->when($this->status === 'completed', function () {
-                return $this->duration;
-            }),
+            'duration' => $this->duration,
             'can' => [
                 'delete' => $request->user()->can('delete', $this->resource),
                 'update' => $request->user()->can('update', $this->resource),

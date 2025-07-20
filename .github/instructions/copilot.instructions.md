@@ -14,3 +14,4 @@
 - Use Laravel's built-in features (queues, events, notifications, etc.) when applicable.
 - Ensure code is testable and write example unit or feature tests if requested.
 - Do not include credentials, API keys, or secrets in code.
+- Use Artisan commands for generating code scaffolding.

@@ -153,11 +153,111 @@ class IrrigationControllerTest extends TestCase
      * Test if user can view irrigations.
      */
     #[Test]
-    public function test_user_can_view_irrigations(): void
+    public function test_user_can_list_irrigations(): void
     {
-        $response = $this->get(route('farms.irrigations.index', ['farm' => $this->farm]));
+        // Create specific dates for testing
+        $todayDate = now(); // Today's date
+        $yesterdayDate = now()->subDay(); // Yesterday's date
 
-        $response->assertStatus(200);
+        // Create irrigations for different dates and statuses
+        $todayIrrigation = Irrigation::factory()->create([
+            'farm_id' => $this->farm->id,
+            'created_by' => $this->user->id,
+            'pump_id' => $this->pump->id,
+            'date' => $todayDate,
+            'status' => 'active',
+        ]);
+        $todayIrrigation->plots()->attach($this->plots->first());
+
+        $yesterdayIrrigation = Irrigation::factory()->create([
+            'farm_id' => $this->farm->id,
+            'created_by' => $this->user->id,
+            'pump_id' => $this->pump->id,
+            'date' => $yesterdayDate,
+            'status' => 'finished',
+        ]);
+        $yesterdayIrrigation->plots()->attach($this->plots->first());
+
+        $finishedTodayIrrigation = Irrigation::factory()->create([
+            'farm_id' => $this->farm->id,
+            'created_by' => $this->user->id,
+            'pump_id' => $this->pump->id,
+            'date' => $todayDate,
+            'status' => 'finished',
+        ]);
+        $finishedTodayIrrigation->plots()->attach($this->plots->first());
+
+        // Test default behavior (today's irrigations, all statuses)
+        $response = $this->getJson(route('farms.irrigations.index', ['farm' => $this->farm]));
+
+        $response->assertStatus(200)
+            ->assertJsonStructure([
+                'data' => [
+                    '*' => [
+                        'id',
+                        'date',
+                        'start_time',
+                        'end_time',
+                        'status',
+                        'duration',
+                        'note',
+                        'plots',
+                        'created_by' => [
+                            'id',
+                            'name'
+                        ],
+                        'can' => [
+                            'delete',
+                            'update'
+                        ]
+                    ]
+                ]
+            ])
+            ->assertJsonCount(2, 'data'); // Should return 2 irrigations for today
+
+        // Test date filtering
+        $yesterdayJalali = jdate($yesterdayDate)->format('Y/m/d'); // Convert to Jalali format
+        $response = $this->getJson(route('farms.irrigations.index', [
+            'farm' => $this->farm,
+            'date' => $yesterdayJalali
+        ]));
+
+        $response->assertStatus(200)
+            ->assertJsonCount(1, 'data'); // Should return 1 irrigation for yesterday
+
+        // Test status filtering
+        $response = $this->getJson(route('farms.irrigations.index', [
+            'farm' => $this->farm,
+            'status' => 'active'
+        ]));
+
+        $response->assertStatus(200)
+            ->assertJsonCount(1, 'data'); // Should return 1 active irrigation for today
+
+        $response = $this->getJson(route('farms.irrigations.index', [
+            'farm' => $this->farm,
+            'status' => 'finished'
+        ]));
+
+        $response->assertStatus(200)
+            ->assertJsonCount(1, 'data'); // Should return 1 finished irrigation for today
+
+        // Test combined date and status filtering
+        $response = $this->getJson(route('farms.irrigations.index', [
+            'farm' => $this->farm,
+            'date' => $yesterdayJalali,
+            'status' => 'finished'
+        ]));
+
+        $response->assertStatus(200)
+            ->assertJsonCount(1, 'data'); // Should return 1 finished irrigation for yesterday
+
+        // Test that creator and plots relationships are loaded
+        $response = $this->getJson(route('farms.irrigations.index', ['farm' => $this->farm]));
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.0.created_by.name', $this->user->username)
+            ->assertJsonPath('data.0.plots.0.id', $this->plots->first()->id);
     }
 
     /**

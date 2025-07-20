@@ -24,10 +24,16 @@ class IrrigationController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(Farm $farm)
+    public function index(Request $request, Farm $farm)
     {
+        $date = $request->has('date') ? jalali_to_carbon($request->query('date')) : today();
+        $status = $request->query('status', 'all');
+
         $irrigations = Irrigation::whereBelongsTo($farm)
-            ->with('creator')->latest()->simplePaginate(10);
+            ->whereDate('date', $date)
+            ->when($status !== 'all', function ($query) use ($status) {
+                $query->filter($status);
+            })->with('creator', 'plots')->latest()->get();
         return IrrigationResource::collection($irrigations);
     }
 

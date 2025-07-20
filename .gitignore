@@ -21,3 +21,4 @@ yarn-error.log
 worker.log
 /.cursor/*
 deploy.sh
+/.github/instructions/*
