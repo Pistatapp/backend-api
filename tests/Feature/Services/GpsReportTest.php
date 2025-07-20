@@ -46,7 +46,7 @@ class GpsReportTest extends TestCase
         Event::fake([ReportReceived::class, TractorStatus::class]);
 
         $jsonData = [
-            ['data' => '+Hooshnic:V1.03,3453.04393,05035.9775,000,240124,070200,018,000,1,863070043386100']
+            ['data' => '+Hooshnic:V1.03,3453.04393,05035.9775,000,240124,070200,018,000,1,090,863070043386100']
         ];
 
         $response = $this->postJson('/api/gps/reports', $jsonData);
@@ -59,6 +59,7 @@ class GpsReportTest extends TestCase
             'imei' => '863070043386100',
             'speed' => 18,
             'status' => 1,
+            'direction' => 90,
             'is_stopped' => 0
         ]);
 
@@ -77,9 +78,9 @@ class GpsReportTest extends TestCase
     public function it_calculates_travel_metrics_for_multiple_reports()
     {
         $jsonData = [
-            ['data' => '+Hooshnic:V1.03,3453.04393,05035.9775,000,240124,070000,000,000,1,863070043386100'],
-            ['data' => '+Hooshnic:V1.03,3453.04393,05035.9775,000,240124,070100,020,000,1,863070043386100'],
-            ['data' => '+Hooshnic:V1.03,3453.04394,05035.9776,000,240124,070200,000,000,1,863070043386100']
+            ['data' => '+Hooshnic:V1.03,3453.04393,05035.9775,000,240124,070000,000,000,1,090,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.04393,05035.9775,000,240124,070100,020,000,1,180,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.04394,05035.9776,000,240124,070200,000,000,1,270,863070043386100']
         ];
 
         $response = $this->postJson('/api/gps/reports', $jsonData);
@@ -100,7 +101,7 @@ class GpsReportTest extends TestCase
     {
         // First report
         $this->postJson('/api/gps/reports', [
-            ['data' => '+Hooshnic:V1.03,3453.04393,05035.9775,000,240124,070000,020,000,1,863070043386100']
+            ['data' => '+Hooshnic:V1.03,3453.04393,05035.9775,000,240124,070000,020,000,1,090,863070043386100']
         ]);
 
         $initialReport = $this->tractor->gpsDailyReports()->first();
@@ -108,7 +109,7 @@ class GpsReportTest extends TestCase
 
         // Second report
         $this->postJson('/api/gps/reports', [
-            ['data' => '+Hooshnic:V1.03,3453.04394,05035.9776,000,240124,070100,020,000,1,863070043386100']
+            ['data' => '+Hooshnic:V1.03,3453.04394,05035.9776,000,240124,070100,020,000,1,180,863070043386100']
         ]);
 
         $updatedReport = $this->tractor->gpsDailyReports()->first()->fresh();
@@ -127,7 +128,7 @@ class GpsReportTest extends TestCase
 
         // Send report outside working hours
         $this->postJson('/api/gps/reports', [
-            ['data' => '+Hooshnic:V1.03,3453.04393,05035.9775,000,240124,060000,020,000,1,863070043386100']
+            ['data' => '+Hooshnic:V1.03,3453.04393,05035.9775,000,240124,060000,020,000,1,090,863070043386100']
         ]);
 
         $dailyReport = $this->tractor->gpsDailyReports()->first();
@@ -136,7 +137,7 @@ class GpsReportTest extends TestCase
 
         // Send report within working hours
         $this->postJson('/api/gps/reports', [
-            ['data' => '+Hooshnic:V1.03,3453.04394,05035.9776,000,240124,080000,020,000,1,863070043386100']
+            ['data' => '+Hooshnic:V1.03,3453.04394,05035.9776,000,240124,080000,020,000,1,180,863070043386100']
         ]);
 
         $dailyReport = $this->tractor->gpsDailyReports()->first()->fresh();
@@ -149,9 +150,9 @@ class GpsReportTest extends TestCase
     {
         // Send multiple GPS reports with different coordinates
         $jsonData = [
-            ['data' => '+Hooshnic:V1.03,3453.00000,05035.0000,000,240124,070000,000,000,1,863070043386100'],
-            ['data' => '+Hooshnic:V1.03,3453.01000,05035.0100,000,240124,070100,010,000,1,863070043386100'],
-            ['data' => '+Hooshnic:V1.03,3453.02000,05035.0200,000,240124,070200,020,000,1,863070043386100']
+            ['data' => '+Hooshnic:V1.03,3453.00000,05035.0000,000,240124,070000,000,000,1,000,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.01000,05035.0100,000,240124,070100,010,000,1,090,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.02000,05035.0200,000,240124,070200,020,000,1,180,863070043386100']
         ];
 
         $response = $this->postJson('/api/gps/reports', $jsonData);

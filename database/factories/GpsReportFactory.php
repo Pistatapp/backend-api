@@ -27,6 +27,7 @@ class GpsReportFactory extends Factory
             ],
             'speed' => fake()->numberBetween(0, 40),
             'status' => fake()->boolean(),
+            'direction' => fake()->numberBetween(0, 359),
             'is_stopped' => false,
             'stoppage_time' => 0,
             'is_starting_point' => false,

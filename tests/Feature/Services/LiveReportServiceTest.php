@@ -62,6 +62,7 @@ class LiveReportServiceTest extends TestCase
                 'coordinate' => [34.884065, 50.599625],
                 'speed' => 0,
                 'status' => 1,
+                'direction' => 180,
                 'date_time' => $now->copy()->subMinutes(2),
                 'imei' => '863070043386100',
             ],
@@ -69,6 +70,7 @@ class LiveReportServiceTest extends TestCase
                 'coordinate' => [34.884066, 50.599626],
                 'speed' => 20,
                 'status' => 1,
+                'direction' => 90,
                 'date_time' => $now->copy()->subMinute(),
                 'imei' => '863070043386100',
             ],
@@ -76,6 +78,7 @@ class LiveReportServiceTest extends TestCase
                 'coordinate' => [34.884067, 50.599627],
                 'speed' => 0,
                 'status' => 1,
+                'direction' => 45,
                 'date_time' => $now->copy(),
                 'imei' => '863070043386100',
             ]

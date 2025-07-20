@@ -54,6 +54,7 @@ class ReportReceived implements ShouldBroadcast
                     'longitude' => $point['coordinate'][1],
                     'speed' => $point['speed'],
                     'status' => $point['status'],
+                    'direction' => $point['direction'],
                     'is_starting_point' => $point['is_starting_point'] ?? false,
                     'is_ending_point' => $point['is_ending_point'] ?? false,
                     'is_stopped' => $point['is_stopped'],

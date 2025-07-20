@@ -96,7 +96,7 @@ class TaskSpecificDailyReportTest extends TestCase
 
         // Send GPS reports for first task area - coordinates within field1
         $this->postJson('/api/gps/reports', [[
-            'data' => '+Hooshnic:V1.03,3453.04393,05035.9775,000,240124,070000,020,000,1,863070043386100'
+            'data' => '+Hooshnic:V1.03,3453.04393,05035.9775,000,240124,070000,020,000,1,090,863070043386100'
         ]]);
 
         // Assert first daily report was created
@@ -117,7 +117,7 @@ class TaskSpecificDailyReportTest extends TestCase
 
         // Send GPS reports for second task area - coordinates within field2
         $this->postJson('/api/gps/reports', [[
-            'data' => '+Hooshnic:V1.03,3453.04485,05035.9777,000,240124,110000,020,000,1,863070043386100'
+            'data' => '+Hooshnic:V1.03,3453.04485,05035.9777,000,240124,110000,020,000,1,180,863070043386100'
         ]]);
 
         // Assert second daily report was created
@@ -136,7 +136,7 @@ class TaskSpecificDailyReportTest extends TestCase
     {
         // Send GPS report way outside any task area
         $this->postJson('/api/gps/reports', [[
-            'data' => '+Hooshnic:V1.03,3553.05000,05135.9800,000,240124,070000,020,000,1,863070043386100'
+            'data' => '+Hooshnic:V1.03,3553.05000,05135.9800,000,240124,070000,020,000,1,270,863070043386100'
         ]]);
 
         // Verify no task-specific daily reports were created
@@ -165,8 +165,8 @@ class TaskSpecificDailyReportTest extends TestCase
 
         // Send multiple GPS reports for first task - coordinates within field1
         $this->postJson('/api/gps/reports', [
-            ['data' => '+Hooshnic:V1.03,3453.04393,05035.9775,000,240124,070000,015,000,1,863070043386100'],
-            ['data' => '+Hooshnic:V1.03,3453.04394,05035.9776,000,240124,070100,015,000,1,863070043386100']
+            ['data' => '+Hooshnic:V1.03,3453.04393,05035.9775,000,240124,070000,015,000,1,090,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.04394,05035.9776,000,240124,070100,015,000,1,180,863070043386100']
         ]);
 
         $firstTaskReport = $this->tractor->gpsDailyReports()
@@ -187,8 +187,8 @@ class TaskSpecificDailyReportTest extends TestCase
 
         // Send multiple GPS reports for second task - coordinates within field2
         $this->postJson('/api/gps/reports', [
-            ['data' => '+Hooshnic:V1.03,3453.06888,05035.9862,015,240124,143000,015,000,1,863070043386100'],
-            ['data' => '+Hooshnic:V1.03,3453.06890,05035.9865,015,240124,143100,015,000,1,863070043386100']
+            ['data' => '+Hooshnic:V1.03,3453.06888,05035.9862,015,240124,143000,015,000,1,270,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.06890,05035.9865,015,240124,143100,015,000,1,000,863070043386100']
         ]);
 
         // Refresh first task report and verify its metrics haven't changed

@@ -36,6 +36,7 @@ class GpsReport extends Model
             'is_ending_point' => 'boolean',
             'date_time' => 'datetime',
             'coordinate' => 'array',
+            'direction' => 'integer',
         ];
     }
 

@@ -46,8 +46,9 @@ class ParseDataService
             'coordinate' => $coordinate,
             'speed' => (int)$dataFields[6],
             'status' => (int)$dataFields[8],
+            'direction' => (int)$dataFields[9],
             'date_time' => $dateTime,
-            'imei' => $dataFields[9],
+            'imei' => $dataFields[10],
         ];
     }
 
@@ -99,7 +100,7 @@ class ParseDataService
      */
     private function isValidFormat(string $data): bool
     {
-        $pattern = '/^\+Hooshnic:V\d+\.\d{2},\d{4}\.\d{5},\d{5}\.\d{4},\d{3},\d{6},\d{6},\d{3},\d{3},\d,\d{15}$/';
+        $pattern = '/^\+Hooshnic:V\d+\.\d{2},\d{4}\.\d{5},\d{5}\.\d{4},\d{3},\d{6},\d{6},\d{3},\d{3},\d,\d{3},\d{15}$/';
         return preg_match($pattern, $data) === 1;
     }
 
