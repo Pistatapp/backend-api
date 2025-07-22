@@ -19,7 +19,6 @@ class Plot extends Model implements HasMedia
     protected $fillable = [
         'name',
         'coordinates',
-        'area',
         'field_id',
     ];
 

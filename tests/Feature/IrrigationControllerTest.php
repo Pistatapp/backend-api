@@ -40,18 +40,14 @@ class IrrigationControllerTest extends TestCase
                 'role' => 'admin',
                 'is_owner' => true
             ])
-            ->has(Labour::factory())
-            ->has(Pump::factory())
             ->create();
 
-        $this->farm = $this->user->farms()->first();
+        $this->pump = Pump::factory()->create(['farm_id' => $this->farm->id]);
+        $this->labour = Labour::factory()->create(['farm_id' => $this->farm->id]);
 
         // Create fields with plots
         $field = Field::factory()->create(['farm_id' => $this->farm->id]);
         $this->plots = Plot::factory()->count(3)->create(['field_id' => $field->id]);
-
-        $this->pump = $this->farm->pumps->first();
-        $this->labour = $this->farm->labours->first();
 
         $this->valves = Valve::factory(3)->create([
             'plot_id' => $this->plots->first()->id
@@ -94,6 +90,7 @@ class IrrigationControllerTest extends TestCase
         $irrigation = Irrigation::factory()->for($this->farm)->create([
             'created_by' => $this->user->id,
             'pump_id' => $this->pump->id,
+            'labour_id' => $this->labour->id,
         ]);
 
         $response = $this->putJson(route('irrigations.update', $irrigation), [

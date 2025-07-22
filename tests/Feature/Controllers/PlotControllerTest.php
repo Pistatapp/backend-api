@@ -55,7 +55,6 @@ class PlotControllerTest extends TestCase
                         'id',
                         'name',
                         'coordinates',
-                        'area',
                         'field_id',
                         'created_at',
                     ],
@@ -72,7 +71,6 @@ class PlotControllerTest extends TestCase
                 [1.23, 4.56],
                 [7.89, 10.11],
             ],
-            'area' => 100.5,
         ];
 
         $response = $this->postJson("/api/fields/{$this->field->id}/plots", $data);
@@ -83,7 +81,6 @@ class PlotControllerTest extends TestCase
                     'id',
                     'name',
                     'coordinates',
-                    'area',
                     'field_id',
                     'created_at',
                 ],
@@ -101,7 +98,7 @@ class PlotControllerTest extends TestCase
         $response = $this->postJson("/api/fields/{$this->field->id}/plots", []);
 
         $response->assertUnprocessable()
-            ->assertJsonValidationErrors(['name', 'coordinates', 'area']);
+            ->assertJsonValidationErrors(['name', 'coordinates']);
     }
 
     #[Test]
@@ -119,7 +116,6 @@ class PlotControllerTest extends TestCase
                     'id',
                     'name',
                     'coordinates',
-                    'area',
                     'field_id',
                     'created_at',
                 ],
@@ -139,7 +135,6 @@ class PlotControllerTest extends TestCase
                 [1.23, 4.56],
                 [7.89, 10.11],
             ],
-            'area' => 150.75,
         ];
 
         $response = $this->putJson("/api/plots/{$plot->id}", $data);
@@ -150,7 +145,6 @@ class PlotControllerTest extends TestCase
                     'id',
                     'name',
                     'coordinates',
-                    'area',
                     'field_id',
                     'created_at',
                 ],
@@ -172,7 +166,7 @@ class PlotControllerTest extends TestCase
         $response = $this->putJson("/api/plots/{$plot->id}", []);
 
         $response->assertUnprocessable()
-            ->assertJsonValidationErrors(['name', 'coordinates', 'area']);
+            ->assertJsonValidationErrors(['name', 'coordinates']);
     }
 
     #[Test]

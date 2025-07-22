@@ -29,7 +29,6 @@ class PlotFactory extends Factory
                 [$this->faker->latitude, $this->faker->longitude],
                 [$this->faker->latitude, $this->faker->longitude],
             ],
-            'area' => $this->faker->randomFloat(2, 100, 1000),
             'field_id' => Field::factory(),
         ];
     }

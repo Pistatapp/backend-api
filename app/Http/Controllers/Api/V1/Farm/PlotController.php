@@ -26,13 +26,11 @@ class PlotController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'coordinates' => 'required|array',
-            'area' => 'required|numeric',
         ]);
 
         $plot = $field->plots()->create($request->only([
             'name',
             'coordinates',
-            'area',
         ]));
 
         return new PlotResource($plot);
@@ -54,13 +52,11 @@ class PlotController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'coordinates' => 'required|array',
-            'area' => 'required|numeric',
         ]);
 
         $plot->update($request->only([
             'name',
             'coordinates',
-            'area',
         ]));
 
         return new PlotResource($plot->fresh());
