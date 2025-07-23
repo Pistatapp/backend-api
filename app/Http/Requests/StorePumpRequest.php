@@ -34,14 +34,14 @@ class StorePumpRequest extends FormRequest
             'serial_number' => 'required|string|max:255',
             'model' => 'required|string|max:255',
             'manufacturer' => 'required|string|max:255',
-            'horsepower' => 'required|numeric|min:0',
-            'phase' => 'required|numeric|min:1',
-            'voltage' => 'required|numeric|min:0',
-            'ampere' => 'required|numeric|min:0',
-            'rpm' => 'required|numeric|min:0',
-            'pipe_size' => 'required|numeric|min:0',
-            'debi' => 'required|numeric|min:0',
-            'location' => 'required|string',
+            'horsepower' => 'required|numeric|min:0|max:1000',
+            'phase' => 'required|numeric|min:1|max:3',
+            'voltage' => 'required|numeric|min:0|max:10000',
+            'ampere' => 'required|numeric|min:0|max:1000',
+            'rpm' => 'required|numeric|min:0|max:10000',
+            'pipe_size' => 'required|numeric|min:0|max:1000',
+            'debi' => 'required|numeric|min:0|max:10000',
+            'location' => 'required|string|max:255',
         ];
     }
 }
