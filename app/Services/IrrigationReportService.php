@@ -379,8 +379,8 @@ class IrrigationReportService
             $irrigationReports[] = [
                 'date' => jdate($currentDate)->format('Y/m/d'),
                 'total_duration' => to_time_format($totalDuration),
-                'total_volume' => $totalVolume,
-                'total_volume_per_hectare' => $totalVolumePerHectare,
+                'total_volume' => $totalVolume / 1000, // Convert to cubic meters
+                'total_volume_per_hectare' => $totalVolumePerHectare / 1000, // Convert to cubic meters per hectare
                 'irrigation_count' => $dailyIrrigations->count()
             ];
 

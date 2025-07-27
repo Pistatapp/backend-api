@@ -36,7 +36,8 @@ class GpsReport extends Model
             'is_ending_point' => 'boolean',
             'date_time' => 'datetime',
             'coordinate' => 'array',
-            'direction' => 'integer',
+            'ew_direction' => 'integer',
+            'ns_direction' => 'integer',
         ];
     }
 
@@ -50,6 +51,8 @@ class GpsReport extends Model
         'is_starting_point' => false,
         'is_ending_point' => false,
         'stoppage_time' => 0,
+        'ew_direction' => 0,
+        'ns_direction' => 0,
     ];
 
     /**
