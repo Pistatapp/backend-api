@@ -13,6 +13,7 @@ use App\Models\Field;
 use App\Models\Plot;
 use App\Models\Valve;
 use App\Models\Pump;
+use Illuminate\Support\Facades\Log;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
@@ -62,7 +63,6 @@ class IrrigationControllerTest extends TestCase
     #[Test]
     public function test_user_can_create_irrigation(): void
     {
-        $this->withoutExceptionHandling();
         $response = $this->postJson(route('farms.irrigations.store', ['farm' => $this->farm]), [
             'labour_id' => $this->labour->id,
             'pump_id' => $this->pump->id,

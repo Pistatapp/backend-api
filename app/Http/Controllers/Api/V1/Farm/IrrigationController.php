@@ -12,6 +12,7 @@ use App\Models\Irrigation;
 use App\Models\Plot;
 use App\Services\IrrigationReportService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class IrrigationController extends Controller
 {
@@ -42,20 +43,22 @@ class IrrigationController extends Controller
      */
     public function store(StoreIrrigationRequest $request, Farm $farm)
     {
-        $irrigation = $farm->irrigations()->create([
-            'labour_id' => $request->labour_id,
-            'pump_id' => $request->pump_id,
-            'date' => $request->date,
-            'start_time' => $request->start_time,
-            'end_time' => $request->end_time,
-            'created_by' => $request->user()->id,
-            'note' => $request->note,
-        ]);
+        return DB::transaction(function () use ($request, $farm) {
+            $irrigation = $farm->irrigations()->create([
+                'labour_id' => $request->labour_id,
+                'pump_id' => $request->pump_id,
+                'date' => $request->date,
+                'start_time' => $request->start_time,
+                'end_time' => $request->end_time,
+                'created_by' => $request->user()->id,
+                'note' => $request->note,
+            ]);
 
-        $irrigation->plots()->attach($request->plots);
-        $irrigation->valves()->attach($request->valves);
+            $irrigation->plots()->attach($request->plots);
+            $irrigation->valves()->attach($request->valves);
 
-        return new IrrigationResource($irrigation);
+            return new IrrigationResource($irrigation);
+        });
     }
 
     /**
