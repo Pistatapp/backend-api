@@ -33,7 +33,7 @@ class DirectionFieldTest extends TestCase
 
         // Send GPS report with specific direction value
         $response = $this->postJson('/api/gps/reports', [
-            ['data' => '+Hooshnic:V1.03,3453.04393,05035.9775,000,240124,070000,020,000,1,270,863070043386100']
+            ['data' => '+Hooshnic:V1.03,3453.04393,05035.9775,000,240124,070000,020,000,1,270,0,863070043386100']
         ]);
 
         $response->assertStatus(200);
@@ -41,7 +41,7 @@ class DirectionFieldTest extends TestCase
         // Verify the GPS report was created with the correct direction
         $gpsReport = GpsReport::where('imei', '863070043386100')->first();
         $this->assertNotNull($gpsReport);
-        $this->assertEquals(270, $gpsReport->direction);
+        $this->assertEquals(270, $gpsReport->ew_direction);
         $this->assertEquals('863070043386100', $gpsReport->imei);
         $this->assertEquals(1, $gpsReport->status);
         $this->assertEquals(20, $gpsReport->speed);
@@ -60,10 +60,10 @@ class DirectionFieldTest extends TestCase
 
         // Send multiple GPS reports with different direction values
         $response = $this->postJson('/api/gps/reports', [
-            ['data' => '+Hooshnic:V1.03,3453.04393,05035.9775,000,240124,070000,020,000,1,000,863070043386100'],
-            ['data' => '+Hooshnic:V1.03,3453.04394,05035.9776,000,240124,070100,020,000,1,090,863070043386100'],
-            ['data' => '+Hooshnic:V1.03,3453.04395,05035.9777,000,240124,070200,020,000,1,180,863070043386100'],
-            ['data' => '+Hooshnic:V1.03,3453.04396,05035.9778,000,240124,070300,020,000,1,270,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.04393,05035.9775,000,240124,070000,020,000,1,000,0,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.04394,05035.9776,000,240124,070100,020,000,1,090,0,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.04395,05035.9777,000,240124,070200,020,000,1,180,0,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.04396,05035.9778,000,240124,070300,020,000,1,270,0,863070043386100'],
         ]);
 
         $response->assertStatus(200);
@@ -72,9 +72,9 @@ class DirectionFieldTest extends TestCase
         $reports = GpsReport::where('imei', '863070043386100')->orderBy('created_at')->get();
 
         $this->assertCount(4, $reports);
-        $this->assertEquals(0, $reports[0]->direction);
-        $this->assertEquals(90, $reports[1]->direction);
-        $this->assertEquals(180, $reports[2]->direction);
-        $this->assertEquals(270, $reports[3]->direction);
+        $this->assertEquals(0, $reports[0]->ew_direction);
+        $this->assertEquals(90, $reports[1]->ew_direction);
+        $this->assertEquals(180, $reports[2]->ew_direction);
+        $this->assertEquals(270, $reports[3]->ew_direction);
     }
 }

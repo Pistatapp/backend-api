@@ -170,9 +170,9 @@ class IrrigationController extends Controller
             'to_date' => $request->to_date,
         ];
 
-        $plot = $farm->plots()->findOrFail($request->plot_id);
+        $plotIds = $request->plot_ids;
 
-        $reports = $this->irrigationReportService->filterReports($plot, $filters);
+        $reports = $this->irrigationReportService->filterReports($plotIds, $filters);
 
         return response()->json([
             'data' => $reports

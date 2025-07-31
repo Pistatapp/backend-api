@@ -22,7 +22,8 @@ class FilterIrrigationReportsRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'plot_id' => 'required|integer|exists:plots,id',
+            'plot_ids' => 'nullable|array|min:1',
+            'plot_ids.*' => 'integer|exists:plots,id',
             'valves' => 'nullable|array|min:1',
             'valves.*' => 'nullable|integer|exists:valves,id',
             'labour_id' => 'nullable|integer|exists:labours,id',

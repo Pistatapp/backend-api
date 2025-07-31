@@ -25,7 +25,7 @@ class StoreIrrigationRequest extends FormRequest
         return [
             'labour_id' => 'required|exists:labours,id',
             'pump_id' => 'required|exists:pumps,id',
-            'date' => 'required|shamsi_date',
+            'date' => 'required|date',
             'start_time' => [
                 'required',
                 new \App\Rules\ValveTimeOverLap(),

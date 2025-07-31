@@ -13,13 +13,13 @@ class IrrigationReportService
     /**
      * Filter irrigation reports based on given criteria
      *
-     * @param Plot $plot
+     * @param array $plotIds
      * @param array $filters
      * @return array
      */
-    public function filterReports(Plot $plot, array $filters): array
+    public function filterReports(array $plotIds, array $filters): array
     {
-        $irrigations = $this->getFilteredIrrigations($plot, $filters);
+        $irrigations = $this->getFilteredIrrigations($plotIds, $filters);
 
         return $this->generateIrrigationReports($irrigations, $filters['from_date'], $filters['to_date']);
     }
@@ -27,14 +27,14 @@ class IrrigationReportService
     /**
      * Get irrigation reports for a plot within a date range
      *
-     * @param Plot $plot
+     * @param array $plotIds
      * @param Carbon $fromDate
      * @param Carbon $toDate
      * @return array
      */
-    public function getDateRangeReports(Plot $plot, Carbon $fromDate, Carbon $toDate): array
+    public function getDateRangeReports(array $plotIds, Carbon $fromDate, Carbon $toDate): array
     {
-        $irrigations = $this->getFilteredIrrigations($plot, [
+        $irrigations = $this->getFilteredIrrigations($plotIds, [
             'from_date' => $fromDate,
             'to_date' => $toDate
         ]);
@@ -51,15 +51,15 @@ class IrrigationReportService
     /**
      * Get irrigation reports for a plot with specific valves
      *
-     * @param Plot $plot
+     * @param array $plotIds
      * @param array $valveIds
      * @param Carbon $fromDate
      * @param Carbon $toDate
      * @return array
      */
-    public function getValveSpecificReports(Plot $plot, array $valveIds, Carbon $fromDate, Carbon $toDate): array
+    public function getValveSpecificReports(array $plotIds, array $valveIds, Carbon $fromDate, Carbon $toDate): array
     {
-        $irrigations = $this->getFilteredIrrigations($plot, [
+        $irrigations = $this->getFilteredIrrigations($plotIds, [
             'valves' => $valveIds,
             'from_date' => $fromDate,
             'to_date' => $toDate
@@ -77,15 +77,15 @@ class IrrigationReportService
     /**
      * Get irrigation reports for a plot with specific labour
      *
-     * @param Plot $plot
+     * @param array $plotIds
      * @param int $labourId
      * @param Carbon $fromDate
      * @param Carbon $toDate
      * @return array
      */
-    public function getLabourSpecificReports(Plot $plot, int $labourId, Carbon $fromDate, Carbon $toDate): array
+    public function getLabourSpecificReports(array $plotIds, int $labourId, Carbon $fromDate, Carbon $toDate): array
     {
-        $irrigations = $this->getFilteredIrrigations($plot, [
+        $irrigations = $this->getFilteredIrrigations($plotIds, [
             'labour_id' => $labourId,
             'from_date' => $fromDate,
             'to_date' => $toDate
@@ -103,14 +103,14 @@ class IrrigationReportService
     /**
      * Get filtered irrigations query
      *
-     * @param Plot $plot
+     * @param array $plotIds
      * @param array $filters
      * @return Collection
      */
-    private function getFilteredIrrigations(Plot $plot, array $filters): Collection
+    private function getFilteredIrrigations(array $plotIds, array $filters): Collection
     {
-        $query = Irrigation::whereHas('plots', function ($query) use ($plot) {
-                $query->where('plots.id', $plot->id);
+        $query = Irrigation::whereHas('plots', function ($query) use ($plotIds) {
+                $query->whereIn('plots.id', $plotIds);
             })
             ->filter('finished')
             ->when($filters['labour_id'] ?? null, function ($query) use ($filters) {

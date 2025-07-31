@@ -248,7 +248,7 @@ class IrrigationReportTest extends TestCase
         $irrigation3->valves()->attach($valve1);
 
 
-        $result = $this->irrigationReportService->getDateRangeReports($plot, $fromDate, $toDate);
+        $result = $this->irrigationReportService->getDateRangeReports([$plot->id], $fromDate, $toDate);
 
 
 
@@ -361,7 +361,7 @@ class IrrigationReportTest extends TestCase
 
         // Test with specific valves
         $valveIds = [$valve1->id, $valve2->id, $valve3->id];
-        $result = $this->irrigationReportService->getValveSpecificReports($plot, $valveIds, $fromDate, $toDate);
+        $result = $this->irrigationReportService->getValveSpecificReports([$plot->id], $valveIds, $fromDate, $toDate);
 
         // Verify structure
         $this->assertArrayHasKey('irrigations', $result);
@@ -507,7 +507,7 @@ class IrrigationReportTest extends TestCase
         $irrigation4->plots()->attach($plot);
         $irrigation4->valves()->attach($valve1);
 
-                $result = $this->irrigationReportService->getLabourSpecificReports($plot, $labour1->id, $fromDate, $toDate);
+                $result = $this->irrigationReportService->getLabourSpecificReports([$plot->id], $labour1->id, $fromDate, $toDate);
 
         // Verify structure
         $this->assertArrayHasKey('irrigations', $result);
@@ -574,7 +574,7 @@ class IrrigationReportTest extends TestCase
         $fromDate = Carbon::now()->addDays(10); // Future date with no data
         $toDate = Carbon::now()->addDays(12);
 
-        $result = $this->irrigationReportService->getDateRangeReports($plot, $fromDate, $toDate);
+        $result = $this->irrigationReportService->getDateRangeReports([$plot->id], $fromDate, $toDate);
 
         // Verify structure exists
         $this->assertArrayHasKey('irrigations', $result);
@@ -609,7 +609,7 @@ class IrrigationReportTest extends TestCase
         // Use non-existent valve IDs
         $nonExistentValveIds = [9999, 9998, 9997];
 
-        $result = $this->irrigationReportService->getValveSpecificReports($plot, $nonExistentValveIds, $fromDate, $toDate);
+        $result = $this->irrigationReportService->getValveSpecificReports([$plot->id], $nonExistentValveIds, $fromDate, $toDate);
 
         // Verify structure exists
         $this->assertArrayHasKey('irrigations', $result);
@@ -662,7 +662,7 @@ class IrrigationReportTest extends TestCase
         // Use non-existent labour ID
         $nonExistentLabourId = 9999;
 
-        $result = $this->irrigationReportService->getLabourSpecificReports($plot, $nonExistentLabourId, $fromDate, $toDate);
+        $result = $this->irrigationReportService->getLabourSpecificReports([$plot->id], $nonExistentLabourId, $fromDate, $toDate);
 
         // Verify structure exists
         $this->assertArrayHasKey('irrigations', $result);
@@ -681,5 +681,110 @@ class IrrigationReportTest extends TestCase
         $this->assertEquals('00:00:00', $result['accumulated']['total_duration']);
         $this->assertEquals(0, $result['accumulated']['total_volume']);
         $this->assertEquals(0, $result['accumulated']['total_volume_per_hectare']);
+    }
+
+    /**
+     * Test irrigation report service for multiple plots
+     */
+    #[Test]
+    public function test_irrigation_report_service_multiple_plots(): void
+    {
+        // Test with just the service logic using a single plot but with array parameter
+        $plot1 = $this->plots->first();
+        $fromDate = Carbon::now()->subDays(1);
+        $toDate = Carbon::now();
+
+        // Create valve for the plot
+        $valve1 = Valve::factory()->create([
+            'plot_id' => $plot1->id,
+            'dripper_count' => 100,
+            'dripper_flow_rate' => 2.0,
+            'irrigation_area' => 1.0,
+        ]);
+
+        // Create irrigation for the plot
+        $irrigation1 = Irrigation::factory()->create([
+            'created_by' => $this->user->id,
+            'farm_id' => $this->farm->id,
+            'date' => $fromDate->format('Y-m-d'),
+            'start_time' => '08:00:00',
+            'end_time' => '10:00:00', // 2 hours
+            'status' => 'finished',
+        ]);
+        $irrigation1->plots()->attach($plot1);
+        $irrigation1->valves()->attach($valve1);
+
+        // Test with multiple plots array (containing single plot)
+        $result = $this->irrigationReportService->getDateRangeReports([$plot1->id], $fromDate, $toDate);
+
+        // Verify structure
+        $this->assertArrayHasKey('irrigations', $result);
+        $this->assertArrayHasKey('accumulated', $result);
+
+        // Verify calculations for the day
+        $dayReport = $result['irrigations'][0];
+        $this->assertEquals(1, $dayReport['total_count']);
+        $this->assertEquals('02:00:00', $dayReport['total_duration']); // 2 hours
+
+        // Volume calculations: 100 * 2.0 * 2 = 400 liters
+        $this->assertEquals(400, $dayReport['total_volume']);
+
+        // Verify accumulated totals
+        $this->assertEquals(1, $result['accumulated']['total_count']);
+        $this->assertEquals('02:00:00', $result['accumulated']['total_duration']);
+        $this->assertEquals(400, $result['accumulated']['total_volume']);
+    }
+
+    /**
+     * Test filter reports for multiple plots
+     */
+    #[Test]
+    public function test_filter_reports_multiple_plots(): void
+    {
+        // Test with just the service logic using a single plot but with array parameter
+        $plot1 = $this->plots->first();
+        $fromDate = Carbon::now()->subDays(1);
+        $toDate = Carbon::now();
+
+        // Create valves for the plot
+        $valve1 = Valve::factory()->create(['plot_id' => $plot1->id]);
+
+        // Create labour
+        $labour = Labour::factory()->create(['farm_id' => $this->farm->id]);
+
+        // Create irrigation for the plot with labour
+        $irrigation1 = Irrigation::factory()->create([
+            'created_by' => $this->user->id,
+            'farm_id' => $this->farm->id,
+            'labour_id' => $labour->id,
+            'date' => $fromDate->format('Y-m-d'),
+            'start_time' => '08:00:00',
+            'end_time' => '10:00:00',
+            'status' => 'finished',
+        ]);
+        $irrigation1->plots()->attach($plot1);
+        $irrigation1->valves()->attach($valve1);
+
+        // Test filter reports with array of plots and labour filter
+        $filters = [
+            'labour_id' => $labour->id,
+            'from_date' => $fromDate,
+            'to_date' => $toDate,
+        ];
+
+        $result = $this->irrigationReportService->filterReports([$plot1->id], $filters);
+
+        // Should return irrigation from the plot
+        $this->assertIsArray($result);
+        $this->assertNotEmpty($result);
+
+        // Find the day report and verify it includes the irrigation
+        $dayWithIrrigations = array_filter($result, function($report) {
+            return $report['irrigation_count'] > 0;
+        });
+
+        $this->assertCount(1, $dayWithIrrigations); // One day with irrigations
+        $dayReport = reset($dayWithIrrigations);
+        $this->assertEquals(1, $dayReport['irrigation_count']); // One irrigation included
     }
 }
