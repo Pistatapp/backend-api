@@ -115,6 +115,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::apiResource('/tractors.tractor_reports', TractorReportController::class)->shallow();
     Route::post('/tractor_reports/filter', [TractorReportController::class, 'filter'])->name('tractor.reports.filter');
     Route::apiResource('tractors.tractor_tasks', TractorTaskController::class)->shallow();
+    Route::patch('/tractor_tasks/{tractor_task}/data', [TractorTaskController::class, 'patchData']);
 
     // Tractors gps device and driver assignment routes
     Route::get('/farms/{farm}/gps-devices/available', [TractorController::class, 'getAvailableDevices']);

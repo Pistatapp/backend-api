@@ -23,9 +23,18 @@ class TractorTaskController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(Tractor $tractor)
+    public function index(Request $request, Tractor $tractor)
     {
-        $tasks = $tractor->tasks()->latest()->simplePaginate();
+        $query = $tractor->tasks()->latest();
+
+        if ($request->has('date')) {
+            $date = jalali_to_carbon($request->query('date'))->toDateString();
+            $query->forDate($date);
+
+            return TractorTaskResource::collection($query->get());
+        }
+
+        $tasks = $query->simplePaginate();
 
         return TractorTaskResource::collection($tasks);
     }
@@ -64,13 +73,52 @@ class TractorTaskController extends Controller
     {
         $validated = $request->validated();
 
-        $tractorTask->update([
+        $updateData = [
             'operation_id' => $validated['operation_id'],
             'field_id' => $validated['field_id'],
             'date' => $validated['date'],
             'start_time' => $validated['start_time'],
             'end_time' => $validated['end_time'],
+        ];
+
+        // Apply base updates first
+        $tractorTask->update($updateData);
+
+        // Apply JSON data fields using dot-notation so it respects fillable keys
+        if (array_key_exists('data', $validated) && is_array($validated['data'])) {
+            $dataUpdates = [];
+            foreach ($validated['data'] as $key => $value) {
+                $dataUpdates["data->{$key}"] = $value;
+            }
+            if (!empty($dataUpdates)) {
+                $tractorTask->update($dataUpdates);
+            }
+        }
+
+        return new TractorTaskResource($tractorTask->fresh());
+    }
+
+    /**
+     * Partially update the data attributes of a tractor task.
+     */
+    public function patchData(Request $request, TractorTask $tractorTask)
+    {
+        $this->authorize('update', $tractorTask);
+
+        $validated = $request->validate([
+            'consumed_water' => 'nullable|numeric|min:0',
+            'consumed_fertilizer' => 'nullable|numeric|min:0',
+            'consumed_poison' => 'nullable|numeric|min:0',
+            'operation_area' => 'nullable|numeric|min:0',
+            'workers_count' => 'nullable|integer|min:0',
         ]);
+
+        // Update JSON attributes via dot-notation to match fillable keys
+        $dataUpdates = [];
+        foreach ($validated as $key => $value) {
+            $dataUpdates["data->{$key}"] = $value;
+        }
+        $tractorTask->update($dataUpdates);
 
         return new TractorTaskResource($tractorTask->fresh());
     }

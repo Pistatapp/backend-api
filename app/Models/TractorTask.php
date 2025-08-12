@@ -23,6 +23,11 @@ class TractorTask extends Model
         'end_time',
         'status',
         'created_by',
+        'data->consumed_water',
+        'data->consumed_fertilizer',
+        'data->consumed_poison',
+        'data->operation_area',
+        'data->workers_count'
     ];
 
     /**
@@ -46,6 +51,7 @@ class TractorTask extends Model
             'start_time' => 'datetime:H:i',
             'end_time' => 'datetime:H:i',
             'created_by' => 'integer',
+            'data' => 'array',
         ];
     }
 

@@ -50,7 +50,7 @@ class TractorTaskStatusChanged implements ShouldBroadcast
             ],
             'start_time' => $this->task->start_time,
             'end_time' => $this->task->end_time,
-            'updated_at' => now()->toIso8601String(),
+            'created_at' => now()->toIso8601String(),
         ];
     }
 

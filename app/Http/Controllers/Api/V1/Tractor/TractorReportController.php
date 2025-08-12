@@ -10,7 +10,6 @@ use Illuminate\Http\Request;
 use App\Http\Resources\TractorReportResource;
 use App\Http\Requests\StoreTractorReportRequest;
 use App\Http\Requests\FilterTractorReportRequest;
-use Illuminate\Support\Facades\Auth;
 
 class TractorReportController extends Controller
 {
@@ -24,7 +23,10 @@ class TractorReportController extends Controller
      */
     public function index(Tractor $tractor)
     {
-        $reports = $tractor->reports()->with(['operation', 'field'])->latest()->simplePaginate();
+        $reports = $tractor->reports()
+            ->with(['operation', 'field'])
+            ->latest()
+            ->simplePaginate();
         return TractorReportResource::collection($reports);
     }
 
@@ -35,7 +37,7 @@ class TractorReportController extends Controller
     {
         $validated = $request->validated();
         $validated['tractor_id'] = $tractor->id;
-        $validated['created_by'] = Auth::id();
+        $validated['created_by'] = $request->user()->id;
 
         $report = TractorReport::create($validated);
         return new TractorReportResource($report->load(['operation', 'field']));

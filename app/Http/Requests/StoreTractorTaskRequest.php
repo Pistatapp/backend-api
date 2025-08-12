@@ -26,10 +26,7 @@ class StoreTractorTaskRequest extends FormRequest
         return [
             'operation_id' => 'required|integer|exists:operations,id',
             'field_id' => 'required|integer|exists:fields,id',
-            'date' => [
-                'required',
-                'shamsi_date',
-            ],
+            'date' => 'required|date',
             'start_time' => [
                 'required',
                 'date_format:H:i',
@@ -54,14 +51,8 @@ class StoreTractorTaskRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
-        try {
-            $this->merge([
-                'date' => $this->date ? jalali_to_carbon($this->date) : null,
-            ]);
-        } catch (\InvalidArgumentException $e) {
-            $this->merge([
-                'date' => null,
-            ]);
-        }
+        $this->merge([
+            'date' => jalali_to_carbon($this->date),
+        ]);
     }
 }

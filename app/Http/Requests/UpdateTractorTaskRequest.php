@@ -44,6 +44,12 @@ class UpdateTractorTaskRequest extends FormRequest
                     }
                 },
             ],
+            'data' => 'nullable|array',
+            'data.consumed_water' => 'nullable|numeric|min:0',
+            'data.consumed_fertilizer' => 'nullable|numeric|min:0',
+            'data.consumed_poison' => 'nullable|numeric|min:0',
+            'data.operation_area' => 'nullable|numeric|min:0',
+            'data.workers_count' => 'nullable|integer|min:0',
         ];
     }
 

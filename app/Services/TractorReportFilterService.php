@@ -189,6 +189,12 @@ class TractorReportFilterService
                 'work_duration' => $report->work_duration ?? 0,
                 'stoppage_duration' => $report->stoppage_duration ?? 0,
                 'stoppage_count' => $report->stoppage_count ?? 0,
+                // New task data aggregates
+                'consumed_water' => data_get($task?->data, 'consumed_water', 0),
+                'consumed_fertilizer' => data_get($task?->data, 'consumed_fertilizer', 0),
+                'consumed_poison' => data_get($task?->data, 'consumed_poison', 0),
+                'operation_area' => data_get($task?->data, 'operation_area', 0),
+                'workers_count' => data_get($task?->data, 'workers_count', 0),
             ];
         });
     }
@@ -209,6 +215,12 @@ class TractorReportFilterService
             'work_duration' => $reports->sum('work_duration'),
             'stoppage_duration' => $reports->sum('stoppage_duration'),
             'stoppage_count' => $reports->sum('stoppage_count'),
+            // New accumulated values from task data
+            'consumed_water' => $reports->sum('consumed_water'),
+            'consumed_fertilizer' => $reports->sum('consumed_fertilizer'),
+            'consumed_poison' => $reports->sum('consumed_poison'),
+            'operation_area' => $reports->sum('operation_area'),
+            'workers_count' => $reports->sum('workers_count'),
         ];
     }
 

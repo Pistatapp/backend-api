@@ -35,8 +35,8 @@ class CalculateColdRequirementRequest extends FormRequest
                 'before:now'
             ],
             'crop_type_id' => 'required|exists:crop_types,id',
-            'min_temp' => 'nullable|integer|required_with:max_temp',
-            'max_temp' => 'nullable|integer|gte:min_temp|required_with:min_temp',
+            'min_temp' => 'nullable|numeric|required_with:max_temp',
+            'max_temp' => 'nullable|numeric|gte:min_temp|required_with:min_temp',
         ];
     }
 
