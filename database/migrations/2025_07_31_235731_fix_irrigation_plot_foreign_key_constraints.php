@@ -13,7 +13,9 @@ return new class extends Migration
     public function up(): void
     {
         // Drop the old foreign key constraint that references fields table
-        DB::statement('PRAGMA foreign_keys = OFF');
+        if(DB::connection()->getDriverName() === 'sqlite') {
+            DB::statement('PRAGMA foreign_keys = OFF');
+        }
 
         // Create a new table with correct foreign key constraints
         Schema::create('irrigation_plot_new', function (Blueprint $table) {
@@ -30,7 +32,9 @@ return new class extends Migration
         Schema::drop('irrigation_plot');
         Schema::rename('irrigation_plot_new', 'irrigation_plot');
 
-        DB::statement('PRAGMA foreign_keys = ON');
+        if(DB::connection()->getDriverName() === 'sqlite') {
+            DB::statement('PRAGMA foreign_keys = ON');
+        }
     }
 
     /**
