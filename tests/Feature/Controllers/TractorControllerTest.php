@@ -328,4 +328,63 @@ class TractorControllerTest extends TestCase
                 'message' => 'Driver must belong to the same farm as the tractor.'
             ]);
     }
+
+    #[Test]
+    public function it_lists_available_tractors_for_farm(): void
+    {
+        // Assign a driver to existing tractor to avoid null driver resource
+        $driverForTractor = Driver::factory()->create([
+            'farm_id' => $this->farm->id,
+            'tractor_id' => $this->tractor->id,
+        ]);
+
+        // Create a tractor that already has a gps device (should be excluded)
+        $tractorWithDevice = Tractor::factory()->create([
+            'farm_id' => $this->farm->id,
+        ]);
+        GpsDevice::factory()->create([
+            'user_id' => $this->user->id,
+            'tractor_id' => $tractorWithDevice->id,
+        ]);
+
+        $response = $this->actingAs($this->user)
+            ->getJson("/api/farms/{$this->farm->id}/tractors/available");
+
+        $response->assertOk()
+            ->assertJsonStructure([
+                'data' => [
+                    '*' => ['id', 'name', 'driver']
+                ]
+            ])
+            ->assertJsonFragment([
+                'id' => $this->tractor->id,
+                'name' => $this->tractor->name,
+            ])
+            ->assertJsonCount(1, 'data');
+
+        // Ensure driver details are present inside driver resource fragment
+        $this->assertTrue(
+            collect($response->json('data'))
+                ->where('id', $this->tractor->id)
+                ->first()['driver']['id'] === $driverForTractor->id
+        );
+    }
+
+    #[Test]
+    public function it_returns_empty_when_no_available_tractors_for_farm(): void
+    {
+        // Give existing tractor a gps device so none are available
+        GpsDevice::factory()->create([
+            'user_id' => $this->user->id,
+            'tractor_id' => $this->tractor->id,
+        ]);
+
+        $response = $this->actingAs($this->user)
+            ->getJson("/api/farms/{$this->farm->id}/tractors/available");
+
+        $response->assertOk()
+            ->assertJson([
+                'data' => []
+            ]);
+    }
 }
