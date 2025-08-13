@@ -131,7 +131,7 @@ class TractorController extends Controller
                 return [
                     'id' => $tractor->id,
                     'name' => $tractor->name,
-                    'driver' => new DriverResource($tractor->driver),
+                    'driver' => $tractor->driver ? new DriverResource($tractor->driver) : null,
                 ];
             }),
         ]);
