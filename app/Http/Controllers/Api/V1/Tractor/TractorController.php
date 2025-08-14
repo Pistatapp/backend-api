@@ -148,8 +148,8 @@ class TractorController extends Controller
     public function assignments(Request $request, Tractor $tractor)
     {
         $request->validate([
-            'driver_id' => 'required|exists:drivers,id',
-            'gps_device_id' => 'required|exists:gps_devices,id',
+            'driver_id' => 'nullable|exists:drivers,id',
+            'gps_device_id' => 'nullable|exists:gps_devices,id',
         ]);
 
         // Get the new driver and GPS device
