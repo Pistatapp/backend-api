@@ -274,4 +274,17 @@ function calculate_distance(array $point1, array $point2, string $unit = 'km'): 
     }
 }
 
+/**
+ * Convert NMEA (ddmm.mmmm) to decimal degrees
+ *
+ * @param string $nmea
+ * @return float
+ */
+function nmea_to_decimal(string $nmea): float
+{
+    $degrees = floor($nmea / 100);
+    $minutes = ($nmea - ($degrees * 100)) / 60;
+    return round($degrees + $minutes, 6);
+}
+
 

@@ -28,11 +28,6 @@ trait TractorWorkingTime
      */
     public function setWorkingTimes(GpsReport $report): void
     {
-        // Skip processing if not within working hours
-        if (!$this->isWithinWorkingHours($report)) {
-            return;
-        }
-
         $this->detectStartEndPoints($report);
     }
 

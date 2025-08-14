@@ -10,7 +10,6 @@ use App\Services\LiveReportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Repositories\GpsDeviceRepository;
-use Illuminate\Support\Facades\Log;
 
 class GpsReportController extends Controller
 {
@@ -45,7 +44,6 @@ class GpsReportController extends Controller
             event(new TractorStatus($device->tractor, $lastReportStatus));
         } catch (\Exception $e) {
             $this->logErroredData($request);
-            Log::error('GpsReportController error: ' . $e->getMessage());
         }
 
         return new JsonResponse([], JsonResponse::HTTP_OK);

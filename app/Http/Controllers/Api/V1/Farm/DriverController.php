@@ -79,7 +79,7 @@ class DriverController extends Controller
      */
     public function getAvailableDrivers(Farm $farm)
     {
-        $drivers = $farm->drivers()->whereNull('tractor_id')->get();
+        $drivers = $farm->drivers()->whereDoesntHave('tractor')->get();
 
         return response()->json([
             'data' => $drivers->map(function ($driver) {
