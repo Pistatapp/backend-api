@@ -24,6 +24,9 @@ class Kernel extends ConsoleKernel
         // Check for tractor stoppage warnings every 5 minutes
         $schedule->command('tractor:check-stoppage-warnings')->everyFiveMinutes();
 
+        // Check for tractor activity status every minute
+        $schedule->command('tractor:check-activity-status')->everyMinute();
+
         // Check for inactive tractors daily at 8 AM
         $schedule->command('tractors:check-inactivity')
             ->dailyAt('08:00')
