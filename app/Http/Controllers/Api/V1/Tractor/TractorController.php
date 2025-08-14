@@ -127,7 +127,7 @@ class TractorController extends Controller
     {
         $tractors = $farm->tractors()
         ->whereDoesntHave('gpsDevice')
-        ->whereDoesntHave('driver')
+        ->orWhereDoesntHave('driver')
         ->get();
         return response()->json([
             'data' => $tractors->map(function ($tractor) {
