@@ -33,8 +33,8 @@ class DriverResource extends JsonResource
             'employee_code' => $this->employee_code,
             'created_at' => jdate($this->created_at)->format('Y-m-d H:i:s'),
             'can' => [
-                'update' => $this->can('update', $this->resource),
-                'delete' => $this->tractor()->doesntExist(),
+                'update' => $request->user()->can('update', $this->resource),
+                'delete' => $request->user()->can('delete', $this->resource),
             ],
         ];
     }

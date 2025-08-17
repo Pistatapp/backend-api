@@ -37,8 +37,8 @@ class TractorResource extends JsonResource
             'can' => [
                 'add_driver' => $this->driver()->doesntExist(),
                 'add_gps_device' => $this->gpsDevice()->doesntExist(),
-                'update' => $this->can('update', $this->resource),
-                'delete' => $this->can('delete', $this->resource),
+                'update' => $request->user()->can('update', $this->resource),
+                'delete' => $request->user()->can('delete', $this->resource),
             ],
         ];
     }
