@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\GpsDailyReport;
 use App\Models\Tractor;
 use App\Models\TractorTask;
-use Illuminate\Support\Facades\Log;
 
 class DailyReportService
 {
@@ -53,8 +52,6 @@ class DailyReportService
         ];
 
         $dailyReport->update($updateData);
-
-        Log::info('Daily report updated', $updateData);
 
         return $updateData;
     }

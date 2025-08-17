@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api\V1\Tractor;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\DriverResource;
 use App\Http\Resources\TractorResource;
 use App\Models\Farm;
 use App\Models\GpsDevice;
@@ -13,6 +12,12 @@ use Illuminate\Http\Request;
 
 class TractorController extends Controller
 {
+
+    public function __construct()
+    {
+        $this->authorizeResource(Tractor::class, 'tractor');
+    }
+
     /**
      * Display a listing of the resource.
      */
@@ -126,10 +131,10 @@ class TractorController extends Controller
     public function getAvailableTractors(Request $request, Farm $farm)
     {
         $tractors = $farm->tractors()
-        ->whereDoesntHave('gpsDevice')
-        ->orWhereDoesntHave('driver')
-        ->with(['driver', 'gpsDevice'])
-        ->get();
+            ->whereDoesntHave('gpsDevice')
+            ->orWhereDoesntHave('driver')
+            ->with(['driver', 'gpsDevice'])
+            ->get();
         return TractorResource::collection($tractors);
     }
 

@@ -10,6 +10,12 @@ use Illuminate\Http\Request;
 
 class DriverController extends Controller
 {
+
+    public function __construct()
+    {
+        $this->authorizeResource(Driver::class, 'driver');
+    }
+
     /**
      * Display a listing of the resource.
      */
@@ -81,15 +87,6 @@ class DriverController extends Controller
     {
         $drivers = $farm->drivers()->whereDoesntHave('tractor')->get();
 
-        return response()->json([
-            'data' => $drivers->map(function ($driver) {
-                return [
-                    'id' => $driver->id,
-                    'name' => $driver->name,
-                    'mobile' => $driver->mobile,
-                    'employee_code' => $driver->employee_code
-                ];
-            }),
-        ]);
+        return DriverResource::collection($drivers);
     }
 }

@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\GpsDevice;
-use Illuminate\Support\Facades\Log;
 
 class LiveReportService
 {
@@ -62,8 +61,6 @@ class LiveReportService
         $this->dailyReportService = new DailyReportService($this->tractor, $currentTask);
         $this->dailyReport = $this->dailyReportService->fetchOrCreate();
 
-        Log::info('Daily report', $this->dailyReport->toArray());
-
         $reportProcessingService = new ReportProcessingService(
             $device,
             $data,
@@ -82,7 +79,6 @@ class LiveReportService
      */
     private function updateDailyReport(array $processedData): array
     {
-        Log::info('Updating daily report', $processedData);
         $data = $this->dailyReportService->update($this->dailyReport, $processedData);
 
         $data['points'] = $processedData['points'];

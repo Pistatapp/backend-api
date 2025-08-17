@@ -33,10 +33,12 @@ class TractorResource extends JsonResource
                     ];
                 });
             }),
-            'created_at' => jdate($this->created_at)->format('Y-m-d H:i:s'),
+            'created_at' => jdate($this->created_at)->format('Y/m/d'),
             'can' => [
                 'add_driver' => $this->driver()->doesntExist(),
                 'add_gps_device' => $this->gpsDevice()->doesntExist(),
+                'update' => $this->can('update', $this->resource),
+                'delete' => $this->can('delete', $this->resource),
             ],
         ];
     }
