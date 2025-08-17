@@ -9,6 +9,7 @@ use App\Models\GpsDevice;
 use App\Models\Tractor;
 use App\Models\Driver;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class TractorController extends Controller
 {
@@ -134,6 +135,7 @@ class TractorController extends Controller
      */
     public function getAvailableTractors(Request $request, Farm $farm)
     {
+        Log::info('Getting available tractors for farm ' . $farm->id);
         $tractors = $farm->tractors()
             ->whereDoesntHave('gpsDevice')
             ->orWhereDoesntHave('driver')
