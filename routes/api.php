@@ -107,6 +107,12 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::apiResource('farms.pumps', PumpController::class)->shallow();
     Route::get('/fields/{field}/valves', [FieldController::class, 'getValvesForField']);
 
+    // Tractors gps device and driver assignment routes
+    Route::get('/farms/{farm}/gps-devices/available', [TractorController::class, 'getAvailableDevices']);
+    Route::get('/farms/{farm}/tractors/available', [TractorController::class, 'getAvailableTractors']);
+    Route::get('/farms/{farm}/drivers/available', [DriverController::class, 'getAvailableDrivers']);
+    Route::post('/tractors/{tractor}/assignments', [TractorController::class, 'assignments']);
+
     // Tractors Routes
     Route::get('/farms/{farm}/tractors/active', [ActiveTractorController::class, 'index']);
     Route::get('/tractors/{tractor}/path', [ActiveTractorController::class, 'getPath']);
@@ -117,11 +123,6 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::apiResource('tractors.tractor_tasks', TractorTaskController::class)->shallow();
     Route::patch('/tractor_tasks/{tractor_task}/data', [TractorTaskController::class, 'patchData']);
 
-    // Tractors gps device and driver assignment routes
-    Route::get('/farms/{farm}/gps-devices/available', [TractorController::class, 'getAvailableDevices']);
-    Route::get('/farms/{farm}/tractors/available', [TractorController::class, 'getAvailableTractors']);
-    Route::get('/farms/{farm}/drivers/available', [DriverController::class, 'getAvailableDrivers']);
-    Route::post('/tractors/{tractor}/assignments', [TractorController::class, 'assignments']);
 
     // Drivers Routes
     Route::apiResource('farms.drivers', DriverController::class)->shallow();
