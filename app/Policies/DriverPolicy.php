@@ -37,7 +37,7 @@ class DriverPolicy
      */
     public function update(User $user, Driver $driver): bool
     {
-        return $driver->farm->admins->contains($user);
+        return $driver->farm->admins->contains($user) && $driver->tractor()->doesntExist();
     }
 
     /**
@@ -45,7 +45,7 @@ class DriverPolicy
      */
     public function delete(User $user, Driver $driver): bool
     {
-        return $driver->farm->admins->contains($user);
+        return $driver->farm->admins->contains($user) && $driver->tractor()->doesntExist();
     }
 
     /**
