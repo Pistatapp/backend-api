@@ -104,6 +104,10 @@ class TractorController extends Controller
     {
         $tractor->delete();
 
+        // if user wants to delete tractor, disaccosiate driver and gps device from tractor
+        $tractor->driver()->update(['tractor_id' => null]);
+        $tractor->gpsDevice()->update(['tractor_id' => null]);
+
         return response()->noContent();
     }
 
