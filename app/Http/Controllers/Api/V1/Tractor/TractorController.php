@@ -135,13 +135,15 @@ class TractorController extends Controller
      */
     public function getAvailableTractors(Request $request, Farm $farm)
     {
-        Log::info('Getting available tractors for farm ' . $farm->id);
-        $tractors = $farm->tractors()
-            ->whereDoesntHave('gpsDevice')
+        $tractors = Tractor::whereDoesntHave('gpsDevice')
             ->orWhereDoesntHave('driver')
+            ->where('farm_id', $farm->id)
             ->with(['driver', 'gpsDevice'])
             ->get();
-        return TractorResource::collection($tractors);
+
+        return response()->json([
+            'data' => TractorResource::collection($tractors),
+        ]);
     }
 
     /**
