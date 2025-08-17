@@ -241,6 +241,11 @@ trait TractorWorkingTime
             ];
         });
 
+        // Handle cases where end time is before start time (overnight shifts)
+        if ($workingHours['end']->lt($workingHours['start'])) {
+            return $dateTime->gte($workingHours['start']) || $dateTime->lte($workingHours['end']);
+        }
+
         return $dateTime->between($workingHours['start'], $workingHours['end']);
     }
 }

@@ -138,7 +138,7 @@ class ReportProcessingService
             } else {
                 // For backwards compatibility and immediate responsiveness in test/development environments,
                 // if we're processing a small batch of reports (like tests), process immediately
-                if (count($this->reports) <= 3) {
+                if (count($this->reports) <= 3 || app()->environment('local', 'testing')) {
                     $this->processValidatedReport($report, $currentReportState, $validatedState);
                     $this->cacheService->clearPendingReports();
                     $this->cacheService->resetConsecutiveCount();
@@ -206,7 +206,7 @@ class ReportProcessingService
                 $timeDiff = $previousReport['date_time']->diffInSeconds($report['date_time'], false);
                 $distanceDiff = calculate_distance($previousReport['coordinate'], $report['coordinate']);
 
-                if ($this->shouldCountReport($report)) {
+                if ($this->shouldCountReport($report) && $this->shouldCountReport($previousReport)) {
                     $this->totalMovingTime += $timeDiff;
                     $this->totalTraveledDistance += $distanceDiff;
                 }
@@ -226,7 +226,7 @@ class ReportProcessingService
                 $previousReport = $this->cacheService->getPreviousReport();
                 if ($previousReport) {
                     $timeDiff = $previousReport['date_time']->diffInSeconds($report['date_time'], false);
-                    if ($this->shouldCountReport($report)) {
+                    if ($this->shouldCountReport($report) && $this->shouldCountReport($previousReport)) {
                         $this->totalStoppedTime += $timeDiff;
                         if ($this->latestStoredReport) {
                             $this->latestStoredReport->incrementStoppageTime($timeDiff);
@@ -344,8 +344,11 @@ class ReportProcessingService
      */
     private function handleStoppedToStopped(array $report, int $timeDiff, float $distanceDiff): void
     {
-        // Don't save the report, just increment stoppage time of the last stored report
-        if ($this->shouldCountReport($report)) {
+        $previousReport = $this->cacheService->getPreviousReport();
+
+        // Check if both current and previous reports are within working hours
+        if ($this->shouldCountReport($report) && $previousReport && $this->shouldCountReport($previousReport)) {
+            // Don't save the report, just increment stoppage time of the last stored report
             $this->totalStoppedTime += $timeDiff;
             if ($this->latestStoredReport) {
                 $this->latestStoredReport->incrementStoppageTime($timeDiff);
@@ -358,7 +361,10 @@ class ReportProcessingService
      */
     private function handleStoppedToMoving(array $report, int $timeDiff, float $distanceDiff): void
     {
-        if ($this->shouldCountReport($report)) {
+        $previousReport = $this->cacheService->getPreviousReport();
+
+        // Check if both current and previous reports are within working hours
+        if ($this->shouldCountReport($report) && $previousReport && $this->shouldCountReport($previousReport)) {
             $this->totalMovingTime += $timeDiff;
             $this->totalTraveledDistance += $distanceDiff;
         }
@@ -370,7 +376,10 @@ class ReportProcessingService
      */
     private function handleMovingToStopped(array $report, int $timeDiff, float $distanceDiff): void
     {
-        if ($this->shouldCountReport($report)) {
+        $previousReport = $this->cacheService->getPreviousReport();
+
+        // Check if both current and previous reports are within working hours
+        if ($this->shouldCountReport($report) && $previousReport && $this->shouldCountReport($previousReport)) {
             // Count as stoppage (no minimum duration requirement)
             $this->stoppageCount += 1;
             $this->totalStoppedTime += $timeDiff;
@@ -384,7 +393,10 @@ class ReportProcessingService
      */
     private function handleMovingToMoving(array $report, int $timeDiff, float $distanceDiff): void
     {
-        if ($this->shouldCountReport($report)) {
+        $previousReport = $this->cacheService->getPreviousReport();
+
+        // Check if both current and previous reports are within working hours
+        if ($this->shouldCountReport($report) && $previousReport && $this->shouldCountReport($previousReport)) {
             $this->totalMovingTime += $timeDiff;
             $this->totalTraveledDistance += $distanceDiff;
         }
@@ -406,7 +418,7 @@ class ReportProcessingService
         }
 
         // If no task is defined, check if the report is within working hours
-        return !$this->currentTask && $this->isWithinWorkingHours($report);
+        return $this->isWithinWorkingHours($report);
     }
 
     /**

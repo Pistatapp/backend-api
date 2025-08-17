@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\GpsDailyReport;
 use App\Models\Tractor;
 use App\Models\TractorTask;
+use Illuminate\Support\Facades\Log;
 
 class DailyReportService
 {
@@ -38,6 +39,7 @@ class DailyReportService
      */
     public function update(GpsDailyReport $dailyReport, array $data): array
     {
+        Log::info('Updating daily report', $data);
         $efficiency = $this->calculateEfficiency($data['totalMovingTime']);
         $averageSpeed = $this->calculateAverageSpeed($dailyReport, $data['totalTraveledDistance']);
 

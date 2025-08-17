@@ -14,7 +14,7 @@ function jalali_to_carbon(?string $jalaliDate): ?\Carbon\Carbon
         return null; // Handle null input gracefully
     }
 
-    if(!is_jalali_date($jalaliDate)) {
+    if (!is_jalali_date($jalaliDate)) {
         throw new \InvalidArgumentException('Invalid Jalali date format');
     }
 
@@ -248,30 +248,25 @@ function calculate_distance(array $point1, array $point2, string $unit = 'km'): 
     $dLon = $lon2 - $lon1;
 
     $a = sin($dLat / 2) ** 2 +
-         cos($lat1) * cos($lat2) * sin($dLon / 2) ** 2;
+        cos($lat1) * cos($lat2) * sin($dLon / 2) ** 2;
 
     $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
 
     $distance = $earthRadius * $c; // Distance in kilometers
 
     // Convert to the requested unit
-    switch (strtolower($unit)) {
-        case 'm':
-            return $distance * 1000;
-        case 'cm':
-            return $distance * 100000;
-        case 'mm':
-            return $distance * 1000000;
-        case 'mi': // miles
-            return $distance * 0.621371;
-        case 'nmi': // nautical miles
-            return $distance * 0.539957;
-        case 'ft': // feet
-            return $distance * 3280.84;
-        case 'km':
-        default:
-            return $distance;
-    }
+    $unit = strtolower($unit);
+    $factors = [
+        'km'  => 1,
+        'm'   => 1000,
+        'cm'  => 100000,
+        'mm'  => 1000000,
+        'mi'  => 0.621371,
+        'nmi' => 0.539957,
+        'ft'  => 3280.84,
+    ];
+    $factor = $factors[$unit] ?? 1;
+    return (float)($distance * $factor);
 }
 
 /**
@@ -286,5 +281,3 @@ function nmea_to_decimal(string $nmea): float
     $minutes = ($nmea - ($degrees * 100)) / 60;
     return round($degrees + $minutes, 6);
 }
-
-
