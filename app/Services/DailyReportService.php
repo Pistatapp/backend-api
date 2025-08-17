@@ -39,7 +39,6 @@ class DailyReportService
      */
     public function update(GpsDailyReport $dailyReport, array $data): array
     {
-        Log::info('Updating daily report', $data);
         $efficiency = $this->calculateEfficiency($data['totalMovingTime']);
         $averageSpeed = $this->calculateAverageSpeed($dailyReport, $data['totalTraveledDistance']);
 
@@ -54,6 +53,8 @@ class DailyReportService
         ];
 
         $dailyReport->update($updateData);
+
+        Log::info('Daily report updated', $updateData);
 
         return $updateData;
     }
