@@ -24,7 +24,7 @@ class TractorController extends Controller
      */
     public function index(Farm $farm)
     {
-        $tractors = $farm->tractors()->with('driver', 'gpsDevice')->simplePaginate(25);
+        $tractors = $farm->tractors()->with('driver', 'gpsDevice', 'farm')->simplePaginate(25);
         return TractorResource::collection($tractors);
     }
 
@@ -62,6 +62,7 @@ class TractorController extends Controller
         $tractor->load([
             'driver',
             'gpsDevice',
+            'farm',
             'gpsDailyReports' => function ($query) {
                 $query->latest('date')->limit(7);
             },
@@ -136,11 +137,8 @@ class TractorController extends Controller
     public function getAvailableTractors(Request $request, Farm $farm)
     {
         $tractors = Tractor::where('farm_id', $farm->id)
-            ->where(function ($query) {
-                $query->whereDoesntHave('gpsDevice')
-                    ->orWhereDoesntHave('driver');
-            })
-            ->with(['driver', 'gpsDevice'])
+            ->whereDoesntHave('gpsDevice')
+            ->with(['driver', 'gpsDevice', 'farm'])
             ->get();
 
         return TractorResource::collection($tractors);
@@ -157,9 +155,12 @@ class TractorController extends Controller
     public function assignments(Request $request, Tractor $tractor)
     {
         $request->validate([
-            'driver_id' => 'nullable|exists:drivers,id',
-            'gps_device_id' => 'nullable|exists:gps_devices,id',
+            'driver_id' => 'required|exists:drivers,id',
+            'gps_device_id' => 'required|exists:gps_devices,id',
         ]);
+
+        // Load the farm relationship to avoid lazy loading issues
+        $tractor->load('farm');
 
         // Get the new driver and GPS device
         $driver = Driver::findOrFail($request->driver_id);

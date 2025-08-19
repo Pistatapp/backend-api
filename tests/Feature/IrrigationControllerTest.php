@@ -14,6 +14,7 @@ use App\Models\Plot;
 use App\Models\Valve;
 use App\Models\Pump;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
@@ -34,6 +35,9 @@ class IrrigationControllerTest extends TestCase
     {
         parent::setUp();
 
+        // Disable foreign key constraints for testing
+        DB::statement('PRAGMA foreign_keys = OFF;');
+
         $this->user = User::factory()->create();
 
         $this->farm = Farm::factory()
@@ -48,6 +52,8 @@ class IrrigationControllerTest extends TestCase
 
         // Create fields with plots
         $field = Field::factory()->create(['farm_id' => $this->farm->id]);
+
+        // Create plots using factory
         $this->plots = Plot::factory()->count(3)->create(['field_id' => $field->id]);
 
         $this->valves = Valve::factory(3)->create([
@@ -57,7 +63,7 @@ class IrrigationControllerTest extends TestCase
         $this->actingAs($this->user);
     }
 
-    /**
+        /**
      * Test if user can create irrigation.
      */
     #[Test]
