@@ -335,7 +335,7 @@ class ReportProcessingService
      */
     private function determineReportState(array $report): string
     {
-        $isStopped = ($report['speed'] == 0 && $report['status'] == 1) || $report['status'] == 0;
+        $isStopped = $report['speed'] == 0;
         return $isStopped ? 'stopped' : 'moving';
     }
 
