@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         // Skip foreign key constraint in testing environment to avoid transaction isolation issues
-        if (app()->environment('testing')) {
+        if (app()->environment('testing', 'production')) {
             return;
         }
 
