@@ -60,7 +60,8 @@ class TractorTaskTest extends TestCase
 
         $response = $this->postJson(route('tractors.tractor_tasks.store', $this->tractor), [
             'operation_id' => Operation::factory()->create()->id,
-            'field_id' => $this->farm->fields->first()->id,
+            'taskable_type' => 'field',
+            'taskable_id' => $this->farm->fields->first()->id,
             'date' => '1403/12/07',
             'start_time' => '08:00',
             'end_time' => '10:00',
@@ -112,7 +113,8 @@ class TractorTaskTest extends TestCase
 
         $response = $this->putJson(route('tractor_tasks.update', $task), [
             'operation_id' => Operation::factory()->create()->id,
-            'field_id' => $this->farm->fields->first()->id,
+            'taskable_type' => 'field',
+            'taskable_id' => $this->farm->fields->first()->id,
             'date' => '1403/12/07',
             'start_time' => '08:00',
             'end_time' => '11:00',
@@ -158,7 +160,8 @@ class TractorTaskTest extends TestCase
         // Try to create second task on same date but different time (10:30 - 12:00)
         $response = $this->postJson(route('tractors.tractor_tasks.store', $this->tractor), [
             'operation_id' => Operation::factory()->create()->id,
-            'field_id' => $this->farm->fields->first()->id,
+            'taskable_type' => 'field',
+            'taskable_id' => $this->farm->fields->first()->id,
             'date' => '1403/12/07',
             'start_time' => '10:30',
             'end_time' => '12:00',
@@ -169,7 +172,8 @@ class TractorTaskTest extends TestCase
         // Try to create overlapping task (11:00 - 13:00) - should fail
         $response = $this->postJson(route('tractors.tractor_tasks.store', $this->tractor), [
             'operation_id' => Operation::factory()->create()->id,
-            'field_id' => $this->farm->fields->first()->id,
+            'taskable_type' => 'field',
+            'taskable_id' => $this->farm->fields->first()->id,
             'date' => '1403/12/07',
             'start_time' => '11:00',
             'end_time' => '13:00',
@@ -187,7 +191,8 @@ class TractorTaskTest extends TestCase
 
         $response = $this->postJson(route('tractors.tractor_tasks.store', $this->tractor), [
             'operation_id' => Operation::factory()->create()->id,
-            'field_id' => $this->farm->fields->first()->id,
+            'taskable_type' => 'field',
+            'taskable_id' => $this->farm->fields->first()->id,
             'date' => '1403/12/07',
             'start_time' => '10:00',
             'end_time' => '08:00',

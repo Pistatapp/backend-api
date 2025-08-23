@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Services;
 
+use App\Models\Field;
 use App\Models\Operation;
 use App\Models\Tractor;
 use App\Models\User;
@@ -47,7 +48,8 @@ class TractorReportsFilterTest extends TestCase
         for ($i = 0; $i < 3; $i++) {
             $task = $tractor->tasks()->create([
                 'operation_id' => $operations[$i]->id,
-                'field_id' => $fields[$i]->id,
+                'taskable_type' => Field::class,
+                'taskable_id' => $fields[$i]->id,
                 'date' => $gregorianDate, // Store in Gregorian format in database
                 'start_time' => date('H:i', $startTime),
                 'end_time' => date('H:i', $endTime),
@@ -184,7 +186,8 @@ class TractorReportsFilterTest extends TestCase
         for ($i = 0; $i < 2; $i++) {
             $task = $tractor->tasks()->create([
                 'operation_id' => $operation->id,
-                'field_id' => $fields[$i]->id,
+                'taskable_type' => Field::class,
+                'taskable_id' => $fields[$i]->id,
                 'date' => $gregorianDate, // Store in Gregorian format in database
                 'start_time' => date('H:i', $startTime),
                 'end_time' => date('H:i', $endTime),
@@ -211,7 +214,8 @@ class TractorReportsFilterTest extends TestCase
         // Create a task with different operation (should not be included in results)
         $task = $tractor->tasks()->create([
             'operation_id' => $otherOperation->id,
-            'field_id' => $fields[2]->id,
+            'taskable_type' => Field::class,
+            'taskable_id' => $fields[2]->id,
             'date' => $gregorianDate,
             'start_time' => date('H:i', $startTime),
             'end_time' => date('H:i', $endTime),
@@ -307,7 +311,8 @@ class TractorReportsFilterTest extends TestCase
         $createTaskWithReport = function ($taskData) use ($tractor, $operation, $field) {
             $task = $tractor->tasks()->create([
                 'operation_id' => $operation->id,
-                'field_id' => $field->id,
+                'taskable_type' => Field::class,
+                'taskable_id' => $field->id,
                 'date' => $taskData['date'],
                 'start_time' => '08:00',
                 'end_time' => '16:00',
@@ -384,7 +389,8 @@ class TractorReportsFilterTest extends TestCase
 
             $task = $tractor->tasks()->create([
                 'operation_id' => $operation->id,
-                'field_id' => $field->id,
+                'taskable_type' => Field::class,
+                'taskable_id' => $field->id,
                 'date' => $taskData['date']->format('Y-m-d'),
                 'start_time' => '08:00',
                 'end_time' => '16:00',
@@ -458,7 +464,8 @@ class TractorReportsFilterTest extends TestCase
         $createTaskWithReport = function ($taskData) use ($tractor, $operation, $field) {
             $task = $tractor->tasks()->create([
                 'operation_id' => $operation->id,
-                'field_id' => $field->id,
+                'taskable_type' => Field::class,
+                'taskable_id' => $field->id,
                 'date' => $taskData['date'],
                 'start_time' => '08:00',
                 'end_time' => '16:00',
@@ -535,7 +542,8 @@ class TractorReportsFilterTest extends TestCase
         $createTaskWithReport = function ($taskData) use ($tractor, $operation, $field) {
             $task = $tractor->tasks()->create([
                 'operation_id' => $operation->id,
-                'field_id' => $field->id,
+                'taskable_type' => Field::class,
+                'taskable_id' => $field->id,
                 'date' => $taskData['date'],
                 'start_time' => '08:00',
                 'end_time' => '16:00',
@@ -612,7 +620,8 @@ class TractorReportsFilterTest extends TestCase
         $createTaskWithReport = function ($taskData) use ($tractor, $operation, $field) {
             $task = $tractor->tasks()->create([
                 'operation_id' => $operation->id,
-                'field_id' => $field->id,
+                'taskable_type' => Field::class,
+                'taskable_id' => $field->id,
                 'date' => $taskData['date'],
                 'start_time' => '08:00',
                 'end_time' => '16:00',
@@ -696,7 +705,8 @@ class TractorReportsFilterTest extends TestCase
         for ($i = 0; $i < 2; $i++) {
             $task = $tractor->tasks()->create([
                 'operation_id' => $operation->id,
-                'field_id' => $fields[$i]->id,
+                'taskable_type' => Field::class,
+                'taskable_id' => $fields[$i]->id,
                 'date' => $gregorianDate,
                 'start_time' => date('H:i', $startTime),
                 'end_time' => date('H:i', $endTime),
@@ -720,7 +730,8 @@ class TractorReportsFilterTest extends TestCase
         // Create a task with a different operation
         $task = $tractor->tasks()->create([
             'operation_id' => $otherOperation->id,
-            'field_id' => $fields[2]->id,
+            'taskable_type' => Field::class,
+            'taskable_id' => $fields[2]->id,
             'date' => $gregorianDate,
             'start_time' => date('H:i', $startTime),
             'end_time' => date('H:i', $endTime),

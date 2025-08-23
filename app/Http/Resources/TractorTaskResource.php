@@ -22,10 +22,10 @@ class TractorTaskResource extends JsonResource
                     'name' => $this->operation->name,
                 ];
             }),
-            'field' => $this->whenLoaded('field', function () {
+            'taskable' => $this->whenLoaded('taskable', function () {
                 return [
-                    'id' => $this->field->id,
-                    'name' => $this->field->name,
+                    'id' => $this->taskable->id,
+                    'name' => $this->taskable->name,
                 ];
             }),
             'date' => jdate($this->date)->format('Y/m/d'),

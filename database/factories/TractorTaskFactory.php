@@ -21,7 +21,8 @@ class TractorTaskFactory extends Factory
             'start_time' => $this->faker->time('H:i'),
             'end_time' => $this->faker->time('H:i'),
             'tractor_id' => \App\Models\Tractor::factory(),
-            'field_id' => \App\Models\Field::factory(),
+            'taskable_type' => \App\Models\Field::class,
+            'taskable_id' => \App\Models\Field::factory(),
             'operation_id' => \App\Models\Operation::factory(),
             'created_by' => \App\Models\User::factory(),
             'status' => 'pending'

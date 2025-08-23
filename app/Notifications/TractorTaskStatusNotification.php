@@ -42,21 +42,39 @@ class TractorTaskStatusNotification extends Notification implements ShouldQueue
 
         $date = jdate($this->task->date)->format('Y/m/d');
 
+        // Get the taskable name (field, farm, plot, etc.)
+        $taskableName = $this->task->taskable->name ?? $this->task->taskable->title ?? 'Unknown';
+
         $this->success = $taskCompleted;
         $this->message = $taskCompleted
-            ? __('On :date, tractor :tractor_name successfully completed :operation operation in field :field_name for :duration.', [
+            ? __('On :date, tractor :tractor_name successfully completed :operation operation in :taskable_type :taskable_name for :duration.', [
                 'date' => $date,
                 'tractor_name' => $this->task->tractor->name,
                 'duration' => $duration,
-                'field_name' => $this->task->field->name,
+                'taskable_type' => $this->getTaskableTypeName(),
+                'taskable_name' => $taskableName,
                 'operation' => $this->task->operation->name
             ])
-            : __('On :date, tractor :tractor_name did not complete the assigned task and did not enter field :field_name for :operation operation at the scheduled time.', [
+            : __('On :date, tractor :tractor_name did not complete the assigned task and did not enter :taskable_type :taskable_name for :operation operation at the scheduled time.', [
                 'date' => $date,
                 'tractor_name' => $this->task->tractor->name,
-                'field_name' => $this->task->field->name,
+                'taskable_type' => $this->getTaskableTypeName(),
+                'taskable_name' => $taskableName,
                 'operation' => $this->task->operation->name
             ]);
+    }
+
+    /**
+     * Get a human-readable name for the taskable type
+     */
+    private function getTaskableTypeName(): string
+    {
+        return match ($this->task->taskable_type) {
+            'App\\Models\\Field' => 'field',
+            'App\\Models\\Farm' => 'farm',
+            'App\\Models\\Plot' => 'plot',
+            default => 'area'
+        };
     }
 
     /**

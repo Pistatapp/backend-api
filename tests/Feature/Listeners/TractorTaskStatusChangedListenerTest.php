@@ -39,7 +39,8 @@ class TractorTaskStatusChangedListenerTest extends TestCase
         // Create task and persist it
         $this->task = TractorTask::factory()->create([
             'tractor_id' => $this->tractor->id,
-            'field_id' => $this->field->id,
+            'taskable_type' => Field::class,
+            'taskable_id' => $this->field->id,
             'operation_id' => $this->operation->id,
             'created_by' => $this->user->id,
             'date' => '2025-03-23',
@@ -66,7 +67,7 @@ class TractorTaskStatusChangedListenerTest extends TestCase
         ]);
 
         // Load necessary relationships
-        $this->task->load(['tractor', 'operation', 'field', 'creator']);
+        $this->task->load(['tractor', 'operation', 'taskable', 'creator']);
 
         // Manually trigger event listener
         $listener = new TractorTaskStatusChangedListener();
@@ -86,7 +87,7 @@ class TractorTaskStatusChangedListenerTest extends TestCase
         Event::fake([TractorTaskStatusChanged::class]);
 
         // Load necessary relationships
-        $this->task->load(['tractor', 'operation', 'field', 'creator']);
+        $this->task->load(['tractor', 'operation', 'taskable', 'creator']);
 
         // Manually trigger event listener
         $listener = new TractorTaskStatusChangedListener();
@@ -117,7 +118,7 @@ class TractorTaskStatusChangedListenerTest extends TestCase
         ]);
 
         // Load necessary relationships
-        $this->task->load(['tractor', 'operation', 'field', 'creator']);
+        $this->task->load(['tractor', 'operation', 'taskable', 'creator']);
 
         // Manually trigger event listener
         $listener = new TractorTaskStatusChangedListener();
@@ -149,7 +150,7 @@ class TractorTaskStatusChangedListenerTest extends TestCase
         Notification::fake();
 
         $this->task->update(['date' => '2025-03-23']);
-        $this->task->load(['tractor', 'operation', 'field', 'creator']);
+        $this->task->load(['tractor', 'operation', 'taskable', 'creator']);
 
         // Manually trigger event listener
         $listener = new TractorTaskStatusChangedListener();

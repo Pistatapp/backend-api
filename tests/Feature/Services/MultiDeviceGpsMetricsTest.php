@@ -146,7 +146,8 @@ class MultiDeviceGpsMetricsTest extends TestCase
             $tasks[$index] = TractorTask::factory()->create([
                 'tractor_id' => $tractor->id,
                 'operation_id' => $this->operation->id,
-                'field_id' => $this->field->id,
+                'taskable_type' => Field::class,
+                'taskable_id' => $this->field->id,
                 'date' => today(),
                 'start_time' => now()->subHours(1),
                 'end_time' => now()->addHours(8),

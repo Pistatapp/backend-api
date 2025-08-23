@@ -48,7 +48,8 @@ class TractorTaskController extends Controller
 
         $task = $tractor->tasks()->create([
             'operation_id' => $validated['operation_id'],
-            'field_id' => $validated['field_id'],
+            'taskable_type' => $validated['taskable_type'],
+            'taskable_id' => $validated['taskable_id'],
             'date' => $validated['date'],
             'start_time' => $validated['start_time'],
             'end_time' => $validated['end_time'],
@@ -75,7 +76,8 @@ class TractorTaskController extends Controller
 
         $updateData = [
             'operation_id' => $validated['operation_id'],
-            'field_id' => $validated['field_id'],
+            'taskable_type' => $validated['taskable_type'],
+            'taskable_id' => $validated['taskable_id'],
             'date' => $validated['date'],
             'start_time' => $validated['start_time'],
             'end_time' => $validated['end_time'],

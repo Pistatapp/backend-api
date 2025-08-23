@@ -36,8 +36,21 @@ class TractorTaskService
             return null;
         }
 
-        $task->loadMissing('field:id,coordinates');
+        $task->loadMissing('taskable');
 
-        return $task->field->coordinates;
+        // Check if the taskable model has coordinates
+        if (method_exists($task->taskable, 'coordinates')) {
+            return $task->taskable->coordinates;
+        }
+
+        // For backward compatibility, try to load a relationship named after the taskable type (lowercase)
+        $modelName = class_basename($task->taskable_type); // e.g., 'Field', 'Plot', etc.
+        $relation = strtolower($modelName);
+        if ($task->relationLoaded($relation) || method_exists($task, $relation)) {
+            $task->loadMissing("{$relation}:id,coordinates");
+            return $task->{$relation}->coordinates ?? null;
+        }
+
+        return null;
     }
 }

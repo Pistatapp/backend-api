@@ -25,7 +25,24 @@ class StoreTractorTaskRequest extends FormRequest
     {
         return [
             'operation_id' => 'required|integer|exists:operations,id',
-            'field_id' => 'required|integer|exists:fields,id',
+            'taskable_type' => 'required|string|in:App\Models\Field,App\Models\Farm,App\Models\Plot,App\Models\Row',
+            'taskable_id' => [
+                'required',
+                'integer',
+                function ($attribute, $value, $fail) {
+                    $taskableType = $this->input('taskable_type');
+                    if (!class_exists($taskableType)) {
+                        $fail('The selected taskable type is invalid.');
+                        return;
+                    }
+
+                    $model = $taskableType::find($value);
+                    if (!$model) {
+                        $fail('The selected taskable does not exist.');
+                        return;
+                    }
+                },
+            ],
             'date' => 'required|date',
             'start_time' => [
                 'required',
@@ -51,8 +68,19 @@ class StoreTractorTaskRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
+        $taskableTypeMap = [
+            'field' => 'App\Models\Field',
+            'farm'  => 'App\Models\Farm',
+            'plot'  => 'App\Models\Plot',
+            'row'   => 'App\Models\Row',
+        ];
+
+        $taskableType = $this->input('taskable_type');
+        $modelClass = $taskableTypeMap[$taskableType] ?? $taskableType;
+
         $this->merge([
             'date' => jalali_to_carbon($this->date),
+            'taskable_type' => $modelClass,
         ]);
     }
 }

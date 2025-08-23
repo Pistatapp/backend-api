@@ -17,7 +17,8 @@ class TractorTask extends Model
     protected $fillable = [
         'tractor_id',
         'operation_id',
-        'field_id',
+        'taskable_type',
+        'taskable_id',
         'date',
         'start_time',
         'end_time',
@@ -86,13 +87,23 @@ class TractorTask extends Model
     }
 
     /**
-     * Get the field that owns the TractorTask
+     * Get the taskable model (field, farm, plot, etc.)
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\MorphTo
+     */
+    public function taskable()
+    {
+        return $this->morphTo();
+    }
+
+    /**
+     * Get the field that owns the TractorTask (for backward compatibility)
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
     public function field()
     {
-        return $this->belongsTo(Field::class);
+        return $this->belongsTo(Field::class, 'taskable_id')->where('taskable_type', Field::class);
     }
 
     /**
