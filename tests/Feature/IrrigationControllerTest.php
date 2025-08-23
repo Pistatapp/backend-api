@@ -13,7 +13,6 @@ use App\Models\Field;
 use App\Models\Plot;
 use App\Models\Valve;
 use App\Models\Pump;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -285,4 +284,6 @@ class IrrigationControllerTest extends TestCase
         $response->assertStatus(200);
         $response->assertJsonCount(1, 'data');
     }
+
+
 }

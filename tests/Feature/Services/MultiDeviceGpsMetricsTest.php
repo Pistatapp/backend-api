@@ -9,7 +9,6 @@ use App\Models\User;
 use App\Models\Field;
 use App\Models\Operation;
 use App\Models\TractorTask;
-use App\Models\GpsDailyReport;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -256,10 +255,10 @@ class MultiDeviceGpsMetricsTest extends TestCase
             'end_work_time' => now()->addHours(10)->format('H:i'),
         ]);
 
-        // Send GPS data outside working hours
+        // Send GPS data outside working hours (using UTC times that will be 3.5 hours behind after conversion)
         $response = $this->postJson('/api/gps/reports', [
-            ['data' => '+Hooshnic:V1.03,3453.00000,05035.0000,000,240124,070000,006,000,1,000,0,863070043386100'],
-            ['data' => '+Hooshnic:V1.03,3453.01000,05035.0100,000,240124,070100,006,000,1,090,0,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.00000,05035.0000,000,240124,033000,006,000,1,000,0,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.01000,05035.0100,000,240124,033100,006,000,1,090,0,863070043386100'],
         ]);
 
         $response->assertStatus(200);
@@ -283,14 +282,14 @@ class MultiDeviceGpsMetricsTest extends TestCase
         // Clear cache to ensure working hours are updated
         Cache::flush();
 
-        // Send data spanning working hours
+        // Send data spanning working hours (adjusting UTC times to account for 3.5 hour offset)
         $response = $this->postJson('/api/gps/reports', [
-            // Outside working hours (should not be counted)
-            ['data' => '+Hooshnic:V1.03,3453.00000,05035.0000,000,240124,060000,006,000,1,000,0,863070043386100'],
-            ['data' => '+Hooshnic:V1.03,3453.01000,05035.0100,000,240124,060100,006,000,1,090,0,863070043386100'],
-            // Inside working hours (should be counted)
-            ['data' => '+Hooshnic:V1.03,3453.02000,05035.0200,000,240124,070000,006,000,1,180,0,863070043386100'],
-            ['data' => '+Hooshnic:V1.03,3453.03000,05035.0300,000,240124,070100,006,000,1,270,0,863070043386100'],
+            // Outside working hours (should not be counted) - UTC 02:30:00 becomes 06:00:00 Tehran time
+            ['data' => '+Hooshnic:V1.03,3453.00000,05035.0000,000,240124,023000,006,000,1,000,0,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.01000,05035.0100,000,240124,023100,006,000,1,090,0,863070043386100'],
+            // Inside working hours (should be counted) - UTC 03:30:00 becomes 07:00:00 Tehran time
+            ['data' => '+Hooshnic:V1.03,3453.02000,05035.0200,000,240124,033000,006,000,1,180,0,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.03000,05035.0300,000,240124,033100,006,000,1,270,0,863070043386100'],
         ]);
 
         $response->assertStatus(200);
@@ -316,10 +315,10 @@ class MultiDeviceGpsMetricsTest extends TestCase
         // Clear cache
         Cache::flush();
 
-        // Send GPS data outside working hours
+        // Send GPS data outside working hours (using UTC times that will be 3.5 hours behind after conversion)
         $response = $this->postJson('/api/gps/reports', [
-            ['data' => '+Hooshnic:V1.03,3453.00000,05035.0000,000,240124,070000,006,000,1,000,0,863070043386100'],
-            ['data' => '+Hooshnic:V1.03,3453.01000,05035.0100,000,240124,070100,006,000,1,090,0,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.00000,05035.0000,000,240124,040000,006,000,1,000,0,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.01000,05035.0100,000,240124,040100,006,000,1,090,0,863070043386100'],
         ]);
 
         $response->assertStatus(200);

@@ -90,15 +90,7 @@ class ParseDataService
      */
     private function parseDateTime(string $date, string $time): Carbon
     {
-        $baseTime = Carbon::createFromFormat('ymdHis', $date . $time);
-
-        // Only apply timezone adjustment in production environment
-        // In testing, we want to use the exact time from GPS data
-        if (app()->environment('production')) {
-            return $baseTime->addHours(3)->addMinutes(30);
-        }
-
-        return $baseTime;
+        return Carbon::createFromFormat('ymdHis', $date . $time)->addHours(3)->addMinutes(30);
     }
 
     /**

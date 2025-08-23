@@ -14,7 +14,7 @@ class Time implements CastsAttributes
      */
     public function get(Model $model, string $key, mixed $value, array $attributes): mixed
     {
-        return $value ? \Carbon\Carbon::createFromFormat('H:i:s', $value) : null;
+        return $value ? \Carbon\Carbon::createFromFormat('H:i:s', $value)->format('H:i') : null;
     }
 
     /**
@@ -24,6 +24,6 @@ class Time implements CastsAttributes
      */
     public function set(Model $model, string $key, mixed $value, array $attributes): mixed
     {
-        return $value ? \Carbon\Carbon::parse($value)->format('H:i:s') : null;
+        return $value ? \Carbon\Carbon::parse($value)->format('H:i') : null;
     }
 }
