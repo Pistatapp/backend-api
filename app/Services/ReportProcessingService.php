@@ -412,6 +412,7 @@ class ReportProcessingService
      */
     private function shouldCountReport(array $report): bool
     {
+        return true;
         // If there's a current task, only check if the point is within the task area
         if ($this->currentTask && $this->taskArea) {
             return is_point_in_polygon($report['coordinate'], $this->taskArea);
