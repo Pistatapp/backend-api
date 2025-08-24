@@ -5,7 +5,6 @@ namespace App\Traits;
 use App\Models\GpsReport;
 use App\Models\Tractor;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Log;
 
 trait TractorWorkingTime
 {
@@ -18,7 +17,7 @@ trait TractorWorkingTime
 
     private const SPEED_THRESHOLD = 2; // km/h
     private const WINDOW_SIZE = 3; // Reports to analyze in sliding window
-    private const CACHE_TTL = 1440; // 24 hours in minutes
+    private const CACHE_TTL = 60; // 1 hour in minutes
     private const SHORT_CACHE_TTL = 5; // 5 minutes
 
     /**
