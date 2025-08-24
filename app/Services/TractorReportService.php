@@ -91,7 +91,7 @@ class TractorReportService
         return [
             'id' => $tractor->id,
             'name' => $tractor->name,
-            'speed' => $reports->avg('speed'),
+            'speed' => $reports->avg('speed') ?? 0,
             'status' => $reports->last()->status ?? 0,
             'start_working_time' => $startWorkingTime ? $startWorkingTime->date_time->format('H:i:s') : '00:00:00',
             'traveled_distance' => number_format($dailyReport->traveled_distance ?? 0, 2),
