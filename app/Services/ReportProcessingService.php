@@ -94,7 +94,7 @@ class ReportProcessingService
         if (!$this->previousRawReport) {
             return null;
         }
-        $timeDiff = $this->previousRawReport['date_time']->diffInSeconds($report['date_time'], false);
+        $timeDiff = $this->previousRawReport['date_time']->diffInSeconds($report['date_time']);
         if ($timeDiff < 0) {
             return null; // ignore out-of-order
         }
@@ -171,7 +171,6 @@ class ReportProcessingService
 
     private function shouldCountReport(array $report): bool
     {
-        return true;
         if ($this->currentTask && $this->taskArea) {
             return is_point_in_polygon($report['coordinate'], $this->taskArea);
         }
