@@ -30,6 +30,7 @@ class ReportProcessingService
         $this->tractor = $device->tractor;
         $this->cacheService = new CacheService($device);
         $this->latestStoredReport = $this->cacheService->getLatestStoredReport();
+        $this->previousRawReport = $this->cacheService->getPreviousReport();
     }
 
     /**
