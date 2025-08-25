@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\GpsDevice;
 use App\Models\TractorTask;
 use App\Traits\TractorWorkingTime;
+use Illuminate\Support\Facades\Log;
 
 class ReportProcessingService
 {
@@ -66,6 +67,7 @@ class ReportProcessingService
     {
         $report = $this->normalizeReport($report);
         $diffs = $this->computeDiffs($report);
+        Log::info("Diffs for {$this->tractor->id}", $diffs);
         if ($diffs) {
             $this->applyMetrics($report, $diffs['time'], $diffs['distance']);
         }
@@ -169,7 +171,7 @@ class ReportProcessingService
 
     private function shouldCountReport(array $report): bool
     {
-        return true;
+        // return true;
         if ($this->currentTask && $this->taskArea) {
             return is_point_in_polygon($report['coordinate'], $this->taskArea);
         }
