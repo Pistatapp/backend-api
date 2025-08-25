@@ -67,8 +67,8 @@ class ReportProcessingService
     {
         $report = $this->normalizeReport($report);
         $diffs = $this->computeDiffs($report);
-        Log::info("Diffs for {$this->tractor->id}", $diffs);
         if ($diffs) {
+            Log::info("Diffs for {$this->tractor->id}", $diffs);
             $this->applyMetrics($report, $diffs['time'], $diffs['distance']);
         }
         [$persist, $addPoint] = $this->decidePersistence($report);
@@ -91,16 +91,16 @@ class ReportProcessingService
      */
     private function computeDiffs(array $report): ?array
     {
-        // if (!$this->previousRawReport) {
-        //     return null;
-        // }
+        if (!$this->previousRawReport) {
+            return null;
+        }
         $timeDiff = $this->previousRawReport['date_time']->diffInSeconds($report['date_time']);
-        // if ($timeDiff < 0) {
-        //     return null; // ignore out-of-order
-        // }
-        // if (!($this->shouldCountReport($report) && $this->shouldCountReport($this->previousRawReport))) {
-        //     return null; // outside working/task scope
-        // }
+        if ($timeDiff < 0) {
+            return null; // ignore out-of-order
+        }
+        if (!($this->shouldCountReport($report) && $this->shouldCountReport($this->previousRawReport))) {
+            return null; // outside working/task scope
+        }
         $distanceDiff = calculate_distance($this->previousRawReport['coordinate'], $report['coordinate']);
         return ['time' => $timeDiff, 'distance' => $distanceDiff];
     }
