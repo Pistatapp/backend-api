@@ -91,13 +91,13 @@ class ReportProcessingService
      */
     private function computeDiffs(array $report): ?array
     {
-        if (!$this->previousRawReport) {
-            return null;
-        }
+        // if (!$this->previousRawReport) {
+        //     return null;
+        // }
         $timeDiff = $this->previousRawReport['date_time']->diffInSeconds($report['date_time']);
-        if ($timeDiff < 0) {
-            return null; // ignore out-of-order
-        }
+        // if ($timeDiff < 0) {
+        //     return null; // ignore out-of-order
+        // }
         // if (!($this->shouldCountReport($report) && $this->shouldCountReport($this->previousRawReport))) {
         //     return null; // outside working/task scope
         // }
