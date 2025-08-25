@@ -98,9 +98,9 @@ class ReportProcessingService
         if ($timeDiff < 0) {
             return null; // ignore out-of-order
         }
-        if (!($this->shouldCountReport($report) && $this->shouldCountReport($this->previousRawReport))) {
-            return null; // outside working/task scope
-        }
+        // if (!($this->shouldCountReport($report) && $this->shouldCountReport($this->previousRawReport))) {
+        //     return null; // outside working/task scope
+        // }
         $distanceDiff = calculate_distance($this->previousRawReport['coordinate'], $report['coordinate']);
         return ['time' => $timeDiff, 'distance' => $distanceDiff];
     }
