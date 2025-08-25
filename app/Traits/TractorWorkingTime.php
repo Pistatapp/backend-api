@@ -242,8 +242,6 @@ trait TractorWorkingTime
             ];
         });
 
-        Log::info("Checking tractor time " . $this->tractor->id . " : ", $workingHours);
-
         return $dateTime->between($workingHours['start'], $workingHours['end']);
     }
 }

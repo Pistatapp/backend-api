@@ -69,7 +69,6 @@ class ReportProcessingService
         $report = $this->normalizeReport($report);
         $diffs = $this->computeDiffs($report);
         if ($diffs) {
-            Log::info("Diffs for {$this->tractor->id}", $diffs);
             $this->applyMetrics($report, $diffs['time'], $diffs['distance']);
         }
         [$persist, $addPoint] = $this->decidePersistence($report);
@@ -92,7 +91,6 @@ class ReportProcessingService
      */
     private function computeDiffs(array $report): ?array
     {
-        Log::info("Previous report for {$this->tractor->id}", ['previous' => $this->previousRawReport, 'current' => $report]);
         if (!$this->previousRawReport) {
             return null;
         }
@@ -173,9 +171,9 @@ class ReportProcessingService
 
     private function shouldCountReport(array $report): bool
     {
-        // if ($this->currentTask && $this->taskArea) {
-        //     return is_point_in_polygon($report['coordinate'], $this->taskArea);
-        // }
+        if ($this->currentTask && $this->taskArea) {
+            return is_point_in_polygon($report['coordinate'], $this->taskArea);
+        }
         return $this->isWithinWorkingHours($report);
     }
 
