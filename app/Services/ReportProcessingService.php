@@ -171,7 +171,7 @@ class ReportProcessingService
 
     private function shouldCountReport(array $report): bool
     {
-        // return true;
+        return true;
         if ($this->currentTask && $this->taskArea) {
             return is_point_in_polygon($report['coordinate'], $this->taskArea);
         }
