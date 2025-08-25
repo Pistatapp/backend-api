@@ -91,6 +91,7 @@ class ReportProcessingService
      */
     private function computeDiffs(array $report): ?array
     {
+        Log::info("Previous report for {$this->tractor->id}", ['previous' => $this->previousRawReport, 'current' => $report]);
         if (!$this->previousRawReport) {
             return null;
         }
