@@ -5,6 +5,7 @@ namespace App\Traits;
 use App\Models\GpsReport;
 use App\Models\Tractor;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 trait TractorWorkingTime
 {
@@ -234,17 +235,12 @@ trait TractorWorkingTime
         $dateTime = $report['date_time'];
         $cacheKey = "tractor_working_hours_{$this->tractor->id}";
 
-        $workingHours = Cache::remember($cacheKey, now()->addMinutes(self::CACHE_TTL), function () {
+        $workingHours = Cache::remember($cacheKey, now()->addMinutes(now()->endOfDay()), function () {
             return [
                 'start' => today()->setTimeFromTimeString($this->tractor->start_work_time),
                 'end' => today()->setTimeFromTimeString($this->tractor->end_work_time)
             ];
         });
-
-        // Handle cases where end time is before start time (overnight shifts)
-        if ($workingHours['end']->lt($workingHours['start'])) {
-            return $dateTime->gte($workingHours['start']) || $dateTime->lte($workingHours['end']);
-        }
 
         return $dateTime->between($workingHours['start'], $workingHours['end']);
     }
