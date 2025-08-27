@@ -684,17 +684,19 @@ class IrrigationReportTest extends TestCase
     }
 
     /**
-     * Test irrigation report service for multiple plots
+     * Test irrigation report service for multiple plots with end-to-end API testing
      */
     #[Test]
     public function test_irrigation_report_service_multiple_plots(): void
     {
-        // Test with just the service logic using a single plot but with array parameter
+        // Arrange: multiple plots, valves and irrigations across two days
         $plot1 = $this->plots->first();
+        $plot2 = $this->plots->skip(1)->first();
         $fromDate = Carbon::now()->subDays(1);
         $toDate = Carbon::now();
+        $labour = Labour::factory()->create(['farm_id' => $this->farm->id]);
 
-        // Create valve for the plot
+        // Valves for plot1
         $valve1 = Valve::factory()->create([
             'plot_id' => $plot1->id,
             'dripper_count' => 100,
@@ -702,10 +704,32 @@ class IrrigationReportTest extends TestCase
             'irrigation_area' => 1.0,
         ]);
 
-        // Create irrigation for the plot
+        $valve2 = Valve::factory()->create([
+            'plot_id' => $plot1->id,
+            'dripper_count' => 150,
+            'dripper_flow_rate' => 3.0,
+            'irrigation_area' => 1.5,
+        ]);
+
+        // Valves for plot2
+        $valve3 = Valve::factory()->create([
+            'plot_id' => $plot2->id,
+            'dripper_count' => 80,
+            'dripper_flow_rate' => 1.5,
+            'irrigation_area' => 0.8,
+        ]);
+        $valve4 = Valve::factory()->create([
+            'plot_id' => $plot2->id,
+            'dripper_count' => 120,
+            'dripper_flow_rate' => 2.0,
+            'irrigation_area' => 1.2,
+        ]);
+
+        // Day 1: two irrigations, one per plot
         $irrigation1 = Irrigation::factory()->create([
             'created_by' => $this->user->id,
             'farm_id' => $this->farm->id,
+            'labour_id' => $labour->id,
             'date' => $fromDate->format('Y-m-d'),
             'start_time' => '08:00:00',
             'end_time' => '10:00:00', // 2 hours
@@ -714,77 +738,85 @@ class IrrigationReportTest extends TestCase
         $irrigation1->plots()->attach($plot1);
         $irrigation1->valves()->attach($valve1);
 
-        // Test with multiple plots array (containing single plot)
-        $result = $this->irrigationReportService->getDateRangeReports([$plot1->id], $fromDate, $toDate);
-
-        // Verify structure
-        $this->assertArrayHasKey('irrigations', $result);
-        $this->assertArrayHasKey('accumulated', $result);
-
-        // Verify calculations for the day
-        $dayReport = $result['irrigations'][0];
-        $this->assertEquals(1, $dayReport['total_count']);
-        $this->assertEquals('02:00:00', $dayReport['total_duration']); // 2 hours
-
-        // Volume calculations: 100 * 2.0 * 2 = 400 liters
-        $this->assertEquals(400, $dayReport['total_volume']);
-
-        // Verify accumulated totals
-        $this->assertEquals(1, $result['accumulated']['total_count']);
-        $this->assertEquals('02:00:00', $result['accumulated']['total_duration']);
-        $this->assertEquals(400, $result['accumulated']['total_volume']);
-    }
-
-    /**
-     * Test filter reports for multiple plots
-     */
-    #[Test]
-    public function test_filter_reports_multiple_plots(): void
-    {
-        // Test with just the service logic using a single plot but with array parameter
-        $plot1 = $this->plots->first();
-        $fromDate = Carbon::now()->subDays(1);
-        $toDate = Carbon::now();
-
-        // Create valves for the plot
-        $valve1 = Valve::factory()->create(['plot_id' => $plot1->id]);
-
-        // Create labour
-        $labour = Labour::factory()->create(['farm_id' => $this->farm->id]);
-
-        // Create irrigation for the plot with labour
-        $irrigation1 = Irrigation::factory()->create([
+        $irrigation2 = Irrigation::factory()->create([
             'created_by' => $this->user->id,
             'farm_id' => $this->farm->id,
             'labour_id' => $labour->id,
             'date' => $fromDate->format('Y-m-d'),
-            'start_time' => '08:00:00',
-            'end_time' => '10:00:00',
+            'start_time' => '14:00:00',
+            'end_time' => '16:00:00', // 2 hours
             'status' => 'finished',
         ]);
-        $irrigation1->plots()->attach($plot1);
-        $irrigation1->valves()->attach($valve1);
+        $irrigation2->plots()->attach($plot2);
+        $irrigation2->valves()->attach($valve3);
 
-        // Test filter reports with array of plots and labour filter
-        $filters = [
+        // Day 2: one irrigation across both plots using two valves
+        $irrigation3 = Irrigation::factory()->create([
+            'created_by' => $this->user->id,
+            'farm_id' => $this->farm->id,
             'labour_id' => $labour->id,
-            'from_date' => $fromDate,
-            'to_date' => $toDate,
+            'date' => $toDate->format('Y-m-d'),
+            'start_time' => '09:00:00',
+            'end_time' => '12:00:00', // 3 hours
+            'status' => 'finished',
+        ]);
+        $irrigation3->plots()->attach([$plot1->id, $plot2->id]);
+        $irrigation3->valves()->attach([$valve2->id, $valve4->id]);
+
+        // END-TO-END API TESTING
+        $requestData = [
+            'plot_ids' => [$plot1->id, $plot2->id],
+            'valves' => [$valve1->id, $valve2->id, $valve3->id, $valve4->id],
+            'labour_id' => $labour->id,
+            'from_date' => jdate($fromDate)->format('Y/m/d'),
+            'to_date' => jdate($toDate)->format('Y/m/d'),
         ];
 
-        $result = $this->irrigationReportService->filterReports([$plot1->id], $filters);
+        $response = $this->postJson("/api/farms/{$this->farm->id}/irrigations/reports", $requestData);
 
-        // Should return irrigation from the plot
-        $this->assertIsArray($result);
-        $this->assertNotEmpty($result);
+        // Assert response shape
+        $response->assertStatus(200);
+        $response->assertJsonStructure([
+            'data' => [
+                'irrigations' => [
+                    '*' => [
+                        'date',
+                        'total_count',
+                        'total_duration',
+                        'total_volume',
+                        'total_volume_per_hectare'
+                    ]
+                ],
+                'accumulated' => [
+                    'total_count',
+                    'total_duration',
+                    'total_volume',
+                    'total_volume_per_hectare'
+                ]
+            ]
+        ]);
 
-        // Find the day report and verify it includes the irrigation
-        $dayWithIrrigations = array_filter($result, function($report) {
-            return $report['irrigation_count'] > 0;
-        });
+        $responseData = $response->json('data');
 
-        $this->assertCount(1, $dayWithIrrigations); // One day with irrigations
-        $dayReport = reset($dayWithIrrigations);
-        $this->assertEquals(1, $dayReport['irrigation_count']); // One irrigation included
+        // Day 1 expectations (2 irrigations: 2h on plot1 valve1 and 2h on plot2 valve3)
+        $this->assertCount(2, $responseData['irrigations']);
+        $day1 = $responseData['irrigations'][0];
+        $this->assertEquals(2, $day1['total_count']);
+        $this->assertEquals('04:00:00', $day1['total_duration']);
+        $this->assertEqualsWithDelta(0.64, $day1['total_volume'], 0.0001); // 400 + 240 liters -> m3
+        $this->assertEqualsWithDelta(0.70, $day1['total_volume_per_hectare'], 0.0001); // 400/1.0 + 240/0.8 liters -> m3
+
+        // Day 2 expectations (1 irrigation 3h using valve2 and valve4)
+        $day2 = $responseData['irrigations'][1];
+        $this->assertEquals(1, $day2['total_count']);
+        $this->assertEquals('03:00:00', $day2['total_duration']);
+        $this->assertEqualsWithDelta(2.07, $day2['total_volume'], 0.0001); // 1350 + 720 liters -> m3
+        $this->assertEqualsWithDelta(1.50, $day2['total_volume_per_hectare'], 0.0001); // 1350/1.5 + 720/1.2 liters -> m3
+
+        // Accumulated
+        $this->assertEquals(3, $responseData['accumulated']['total_count']);
+        $this->assertEquals('07:00:00', $responseData['accumulated']['total_duration']);
+        $this->assertEqualsWithDelta(2.71, $responseData['accumulated']['total_volume'], 0.0001);
+        $this->assertEqualsWithDelta(2.20, $responseData['accumulated']['total_volume_per_hectare'], 0.0001);
     }
 }

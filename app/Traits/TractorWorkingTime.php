@@ -5,7 +5,6 @@ namespace App\Traits;
 use App\Models\GpsReport;
 use App\Models\Tractor;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Log;
 
 trait TractorWorkingTime
 {

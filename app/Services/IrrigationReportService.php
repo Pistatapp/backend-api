@@ -11,17 +11,33 @@ use Illuminate\Support\Collection;
 class IrrigationReportService
 {
     /**
-     * Filter irrigation reports based on given criteria
+     * Get aggregated daily reports (irrigations + accumulated) using arbitrary filters.
      *
      * @param array $plotIds
-     * @param array $filters
+     * @param array $filters Must include 'from_date' and 'to_date' (Carbon instances)
      * @return array
      */
-    public function filterReports(array $plotIds, array $filters): array
+    public function getAggregatedReports(array $plotIds, array $filters): array
     {
         $irrigations = $this->getFilteredIrrigations($plotIds, $filters);
 
-        return $this->generateIrrigationReports($irrigations, $filters['from_date'], $filters['to_date']);
+        // Generate daily reports in liters first
+        $dailyReportsLiters = $this->generateDailyReports($irrigations, $filters['from_date'], $filters['to_date']);
+
+        // Convert to cubic meters
+        $dailyReports = array_map(function (array $report) {
+            $report['total_volume'] = $report['total_volume'] / 1000;
+            $report['total_volume_per_hectare'] = $report['total_volume_per_hectare'] / 1000;
+            return $report;
+        }, $dailyReportsLiters);
+
+        // Calculate accumulated values from converted (m3) daily reports
+        $accumulated = $this->calculateAccumulatedValues($dailyReports);
+
+        return [
+            'irrigations' => $dailyReports,
+            'accumulated' => $accumulated,
+        ];
     }
 
     /**
@@ -152,8 +168,6 @@ class IrrigationReportService
                 return $irrigation->date->isSameDay($currentDate);
             });
 
-
-
             $dailyReport = $this->calculateDailyTotals($dailyIrrigations, $currentDate);
             $dailyReports[] = $dailyReport;
 
@@ -226,7 +240,7 @@ class IrrigationReportService
             foreach ($irrigation->valves as $valve) {
                 $volume = ($valve->dripper_count * $valve->dripper_flow_rate) * ($durationInSeconds / 3600);
                 $totalVolume += $volume;
-                $totalVolumePerHectare += $volume / $valve->irrigation_area;
+                $totalVolumePerHectare += ($volume / $valve->irrigation_area);
             }
         }
 

@@ -13,6 +13,7 @@ use App\Models\Plot;
 use App\Services\IrrigationReportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class IrrigationController extends Controller
 {
@@ -175,7 +176,8 @@ class IrrigationController extends Controller
 
         $plotIds = $request->plot_ids;
 
-        $reports = $this->irrigationReportService->filterReports($plotIds, $filters);
+        // Build aggregated daily reports to match API contract expected by tests
+        $reports = $this->irrigationReportService->getAggregatedReports($plotIds, $filters);
 
         return response()->json([
             'data' => $reports
