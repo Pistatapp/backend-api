@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\GpsDevice;
 use App\Models\TractorTask;
 use App\Traits\TractorWorkingTime;
-use Illuminate\Support\Facades\Log;
 
 class ReportProcessingService
 {
@@ -14,7 +13,7 @@ class ReportProcessingService
     private float $totalTraveledDistance = 0;
     private int $totalMovingTime = 0;     // seconds
     private int $totalStoppedTime = 0;    // seconds
-    private int $stoppageCount = 0;       // number of moving->stopped transitions
+    private int $stoppageCount = 0;       // number of stored stopped reports
     private float $maxSpeed = 0;
     private array $points = [];
     private $latestStoredReport;          // GpsReport|null
@@ -60,7 +59,7 @@ class ReportProcessingService
      * Rules:
      *  - Time/distance always computed between consecutive raw reports if both countable.
      *  - Moving time increases when previous was moving; stopped time when previous was stopped.
-     *  - Stoppage count increments only on moving -> stopped transition.
+     *  - Stoppage count increments for each persisted stopped report.
      *  - We only persist: first report, every moving report, and first stopped report of a stoppage segment.
      *  - Points mirror that: always first, all moving, first stopped of a segment.
      */
@@ -122,7 +121,6 @@ class ReportProcessingService
             $this->totalMovingTime += $timeDiff;
             $this->totalTraveledDistance += $distanceDiff;
         } elseif (!$prevStopped && $isStopped) { // moving -> stopped
-            $this->stoppageCount++;
             $this->totalStoppedTime += $timeDiff;
             $this->totalTraveledDistance += $distanceDiff;
         } else { // moving -> moving
@@ -157,6 +155,12 @@ class ReportProcessingService
         }
         if ($persist) {
             $this->saveReport($report);
+
+            // Increment stoppage count for each persisted stopped report
+            // This ensures stoppage_count matches the number of stored stopped reports
+            if ($report['is_stopped']) {
+                $this->stoppageCount++;
+            }
         }
     }
 

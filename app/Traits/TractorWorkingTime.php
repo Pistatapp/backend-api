@@ -122,12 +122,20 @@ trait TractorWorkingTime
         }
         $reports = $reports->values(); // Reset keys for index access
 
+        // Get the tractor's start work time for today
+        $startWorkTime = $this->getTractorStartWorkTimeForToday();
+
         for ($i = 1; $i < $count; $i++) {
             $prevReport = $reports[$i - 1];
             $currReport = $reports[$i];
 
             if ($prevReport->speed < self::SPEED_THRESHOLD &&
                 $currReport->speed >= self::SPEED_THRESHOLD) {
+
+                // Check if the movement start time is after the tractor's start_work_time
+                if ($currReport->date_time->lt($startWorkTime)) {
+                    continue; // Skip this potential start point as it's before work hours
+                }
 
                 // Check for sustained movement
                 $sustainedMovement = true;
@@ -242,5 +250,19 @@ trait TractorWorkingTime
         });
 
         return $dateTime->between($workingHours['start'], $workingHours['end']);
+    }
+
+    /**
+     * Get the tractor's start work time for today.
+     *
+     * @return \Carbon\Carbon
+     */
+    private function getTractorStartWorkTimeForToday(): \Carbon\Carbon
+    {
+        $cacheKey = "tractor_start_work_time_{$this->tractor->id}";
+
+        return Cache::remember($cacheKey, now()->addMinutes(now()->endOfDay()), function () {
+            return today()->setTimeFromTimeString($this->tractor->start_work_time);
+        });
     }
 }

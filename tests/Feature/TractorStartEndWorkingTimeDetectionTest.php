@@ -168,4 +168,56 @@ class TractorStartEndWorkingTimeDetectionTest extends TestCase
         $this->assertEquals(1, $startCount, 'There should be only one starting point per day.');
         $this->assertEquals(1, $endCount, 'There should be only one ending point per day.');
     }
+
+    #[Test]
+    public function it_ignores_movement_before_start_work_time()
+    {
+        // Set start work time to 08:00
+        $this->tractor->update([
+            'start_work_time' => '08:00',
+            'end_work_time' => '17:00',
+        ]);
+
+        // Movement sequence that happens before start_work_time (GPS 04:00 → Local 07:30)
+        $earlyMovementData = [
+            ['data' => '+Hooshnic:V1.03,3453.00000,05035.0000,000,240124,040000,000,000,1,000,0,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.01000,05035.0100,000,240124,040100,005,000,1,090,0,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.02000,05035.0200,000,240124,040200,006,000,1,180,0,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.03000,05035.0300,000,240124,040300,007,000,1,180,0,863070043386100'],
+        ];
+
+        $response = $this->postJson('/api/gps/reports', $earlyMovementData);
+        $response->assertStatus(200);
+
+        // No starting point should be detected yet since it's before start_work_time
+        $startingPoint = \App\Models\GpsReport::where('imei', '863070043386100')
+            ->whereDate('date_time', today())
+            ->where('is_starting_point', true)
+            ->first();
+
+        $this->assertNull($startingPoint, 'Starting point should not be detected before start_work_time.');
+
+        // Now movement sequence that happens after start_work_time (GPS 05:00 → Local 08:30)
+        $validMovementData = [
+            ['data' => '+Hooshnic:V1.03,3453.04000,05035.0400,000,240124,050000,000,000,1,000,0,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.05000,05035.0500,000,240124,050100,005,000,1,090,0,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.06000,05035.0600,000,240124,050200,006,000,1,180,0,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.07000,05035.0700,000,240124,050300,007,000,1,180,0,863070043386100'],
+        ];
+
+        $response = $this->postJson('/api/gps/reports', $validMovementData);
+        $response->assertStatus(200);
+
+        // Now a starting point should be detected
+        $startingPoint = \App\Models\GpsReport::where('imei', '863070043386100')
+            ->whereDate('date_time', today())
+            ->where('is_starting_point', true)
+            ->first();
+
+        $this->assertNotNull($startingPoint, 'Starting point should be detected after start_work_time.');
+
+        // The starting point should be from the second batch (after 08:00)
+        $this->assertTrue($startingPoint->date_time->gte(\Carbon\Carbon::parse('2024-01-24 08:00:00')),
+            'Starting point should be after the start_work_time.');
+    }
 }
