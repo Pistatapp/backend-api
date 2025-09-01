@@ -25,7 +25,7 @@ class TractorTaskController extends Controller
      */
     public function index(Request $request, Tractor $tractor)
     {
-        $query = $tractor->tasks()->latest();
+        $query = $tractor->tasks()->with('taskable')->latest();
 
         if ($request->has('date')) {
             $date = jalali_to_carbon($request->query('date'))->toDateString();

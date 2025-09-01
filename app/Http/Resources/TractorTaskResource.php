@@ -26,19 +26,20 @@ class TractorTaskResource extends JsonResource
                 return [
                     'id' => $this->taskable->id,
                     'name' => $this->taskable->name,
+                    'coordinates' => $this->taskable->coordinates,
                 ];
             }),
             'date' => jdate($this->date)->format('Y/m/d'),
             'start_time' => $this->start_time,
             'end_time' => $this->end_time,
             'status' => $this->status,
-            'data' => [
+            $this->mergeWhen($this->data, [
                 'consumed_water' => data_get($this->data, 'consumed_water'),
                 'consumed_fertilizer' => data_get($this->data, 'consumed_fertilizer'),
                 'consumed_poison' => data_get($this->data, 'consumed_poison'),
                 'operation_area' => data_get($this->data, 'operation_area'),
                 'workers_count' => data_get($this->data, 'workers_count'),
-            ],
+            ]),
             'created_by' => $this->whenLoaded('creator', function () {
                 return [
                     'id' => $this->creator->id,
