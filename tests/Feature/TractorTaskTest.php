@@ -10,6 +10,7 @@ use App\Models\Farm;
 use App\Models\Field;
 use App\Models\Tractor;
 use App\Models\User;
+use App\Models\Driver;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Notification;
@@ -47,9 +48,20 @@ class TractorTaskTest extends TestCase
             'farm_id' => $this->farm->id,
         ]);
 
+        // Create and assign a driver to the tractor
+        $driver = Driver::factory()->create([
+            'farm_id' => $this->farm->id,
+            'tractor_id' => $this->tractor->id,
+        ]);
+
+        // Ensure the driver is properly associated
+        $this->tractor->refresh();
+
         Event::fake();
         Notification::fake();
     }
+
+
 
     /**
      * A basic feature test example.
@@ -71,15 +83,168 @@ class TractorTaskTest extends TestCase
     }
 
     /**
-     * Test user can view tractor tasks.
+     * Test user can view tractor tasks and assert response structure.
      */
     public function test_user_can_view_tractor_tasks(): void
     {
         $this->actingAs($this->user);
 
+        // Create test data
+        $operation = Operation::factory()->create();
+        $field = $this->farm->fields->first();
+
+        // Create multiple tasks to test pagination and structure
+        $tasks = \App\Models\TractorTask::factory(3)->create([
+            'tractor_id' => $this->tractor->id,
+            'operation_id' => $operation->id,
+            'taskable_type' => 'App\Models\Field',
+            'taskable_id' => $field->id,
+            'created_by' => $this->user->id,
+            'status' => 'pending',
+            'data' => [
+                'consumed_water' => 100,
+                'consumed_fertilizer' => 50,
+                'operation_area' => 25.5,
+                'workers_count' => 3
+            ]
+        ]);
+
         $response = $this->getJson(route('tractors.tractor_tasks.index', $this->tractor));
 
         $response->assertOk();
+
+        // Assert response structure
+        $response->assertJsonStructure([
+            'data' => [
+                '*' => [
+                    'id',
+                    'taskable' => [
+                        'id',
+                        'name',
+                        'coordinates'
+                    ],
+                    'date',
+                    'start_time',
+                    'end_time',
+                    'status',
+                    'consumed_water',
+                    'consumed_fertilizer',
+                    'operation_area',
+                    'workers_count',
+                    'created_at'
+                ]
+            ],
+            'links',
+            'meta'
+        ]);
+
+        // Assert response data
+        $responseData = $response->json('data');
+        $this->assertCount(3, $responseData);
+
+        // Assert first task structure
+        $firstTask = $responseData[0];
+        $this->assertIsInt($firstTask['id']);
+        $this->assertIsString($firstTask['date']);
+        $this->assertIsString($firstTask['start_time']);
+        $this->assertIsString($firstTask['end_time']);
+        $this->assertIsString($firstTask['status']);
+        $this->assertEquals('pending', $firstTask['status']);
+
+        // Assert taskable data
+        $this->assertArrayHasKey('taskable', $firstTask);
+        $this->assertIsInt($firstTask['taskable']['id']);
+        $this->assertIsString($firstTask['taskable']['name']);
+
+        // Assert data fields
+        $this->assertEquals(100, $firstTask['consumed_water']);
+        $this->assertEquals(50, $firstTask['consumed_fertilizer']);
+        $this->assertEquals(25.5, $firstTask['operation_area']);
+        $this->assertEquals(3, $firstTask['workers_count']);
+
+        // Assert pagination structure
+        $this->assertArrayHasKey('links', $response->json());
+        $this->assertArrayHasKey('meta', $response->json());
+    }
+
+    /**
+     * Test user can view tractor tasks filtered by date and assert response structure.
+     */
+    public function test_user_can_view_tractor_tasks_filtered_by_date(): void
+    {
+        $this->actingAs($this->user);
+
+        // Create test data
+        $operation = Operation::factory()->create();
+        $field = $this->farm->fields->first();
+        $specificDate = '1403/12/07';
+
+        // Create tasks for specific date
+        $tasksForDate = \App\Models\TractorTask::factory(2)->create([
+            'tractor_id' => $this->tractor->id,
+            'operation_id' => $operation->id,
+            'taskable_type' => 'App\Models\Field',
+            'taskable_id' => $field->id,
+            'created_by' => $this->user->id,
+            'date' => jalali_to_carbon($specificDate),
+            'status' => 'pending',
+            'data' => [
+                'consumed_water' => 75,
+                'operation_area' => 15.0
+            ]
+        ]);
+
+        // Create a task for different date (should not be returned)
+        \App\Models\TractorTask::factory()->create([
+            'tractor_id' => $this->tractor->id,
+            'operation_id' => $operation->id,
+            'taskable_type' => 'App\Models\Field',
+            'taskable_id' => $field->id,
+            'created_by' => $this->user->id,
+            'date' => jalali_to_carbon('1403/12/08'),
+            'status' => 'pending'
+        ]);
+
+        $response = $this->getJson(route('tractors.tractor_tasks.index', $this->tractor) . "?date={$specificDate}");
+
+        $response->assertOk();
+
+        // Assert response structure (same as index but without pagination)
+        $response->assertJsonStructure([
+            'data' => [
+                '*' => [
+                    'id',
+                    'taskable' => [
+                        'id',
+                        'name',
+                        'coordinates'
+                    ],
+                    'date',
+                    'start_time',
+                    'end_time',
+                    'status',
+                    'consumed_water',
+                    'operation_area',
+                    'created_at'
+                ]
+            ]
+        ]);
+
+        // Assert response data
+        $responseData = $response->json('data');
+        $this->assertCount(2, $responseData);
+
+        // Assert all tasks are for the specified date
+        foreach ($responseData as $task) {
+            $this->assertEquals($specificDate, $task['date']);
+            $this->assertEquals('pending', $task['status']);
+            $this->assertEquals(75, $task['consumed_water']);
+            $this->assertEquals(15.0, $task['operation_area']);
+        }
+
+        // Assert no pagination for date-filtered results
+        $this->assertArrayNotHasKey('links', $response->json());
+        $this->assertArrayNotHasKey('meta', $response->json());
     }
 
     /**

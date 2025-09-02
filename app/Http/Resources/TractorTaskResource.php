@@ -29,6 +29,12 @@ class TractorTaskResource extends JsonResource
                     'coordinates' => $this->taskable->coordinates,
                 ];
             }),
+            'driver' => $this->whenLoaded('tractor.driver', function () {
+                return [
+                    'id' => $this->driver->id,
+                    'name' => $this->driver->name,
+                ];
+            }),
             'date' => jdate($this->date)->format('Y/m/d'),
             'start_time' => $this->start_time,
             'end_time' => $this->end_time,

@@ -26,7 +26,7 @@ class TractorTaskController extends Controller
      */
     public function index(Request $request, Tractor $tractor)
     {
-        $query = $tractor->tasks()->with('taskable')->latest();
+        $query = $tractor->tasks()->with('taskable', 'tractor.driver')->latest();
 
         if ($request->has('date')) {
             $date = jalali_to_carbon($request->query('date'))->toDateString();
@@ -65,6 +65,7 @@ class TractorTaskController extends Controller
      */
     public function show(TractorTask $tractorTask)
     {
+        $tractorTask->load('tractor.driver', 'taskable', 'operation', 'creator');
         return new TractorTaskResource($tractorTask);
     }
 
@@ -143,10 +144,8 @@ class TractorTaskController extends Controller
     {
         $validated = $request->validated();
 
-
-
         $query = TractorTask::query()
-            ->with(['operation', 'taskable', 'creator'])
+            ->with(['operation', 'taskable', 'creator', 'tractor.driver'])
             ->where('tractor_id', $validated['tractor_id'])
             ->whereBetween('date', [$validated['start_date'], $validated['end_date']]);
 
