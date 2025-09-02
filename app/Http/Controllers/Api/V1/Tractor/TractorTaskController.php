@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\Tractor;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreTractorTaskRequest;
 use App\Http\Requests\UpdateTractorTaskRequest;
+use App\Http\Requests\FilterTractorTaskRequest;
 use App\Http\Resources\TractorTaskResource;
 use App\Models\Tractor;
 use App\Models\TractorTask;
@@ -133,6 +134,44 @@ class TractorTaskController extends Controller
         $tractorTask->delete();
 
         return response()->noContent();
+    }
+
+    /**
+     * Filter tractor tasks based on various criteria.
+     */
+    public function filterTasks(FilterTractorTaskRequest $request)
+    {
+        $validated = $request->validated();
+
+
+
+        $query = TractorTask::query()
+            ->with(['operation', 'taskable', 'creator'])
+            ->where('tractor_id', $validated['tractor_id'])
+            ->whereBetween('date', [$validated['start_date'], $validated['end_date']]);
+
+        // Filter by fields if provided
+        if (!empty($validated['fields'])) {
+            $query->where(function ($q) use ($validated) {
+                foreach ($validated['fields'] as $fieldId) {
+                    $q->orWhere(function ($subQ) use ($fieldId) {
+                        $subQ->where('taskable_type', 'App\Models\Field')
+                             ->where('taskable_id', $fieldId);
+                    });
+                }
+            });
+        }
+
+        // Filter by operations if provided
+        if (!empty($validated['operations'])) {
+            $query->whereIn('operation_id', $validated['operations']);
+        }
+
+        $tasks = $query->orderBy('date', 'asc')
+                      ->orderBy('start_time', 'asc')
+                      ->get();
+
+        return TractorTaskResource::collection($tasks);
     }
 
     /**

@@ -122,11 +122,12 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::post('/tractor_reports/filter', [TractorReportController::class, 'filter'])->name('tractor.reports.filter');
     Route::apiResource('tractors.tractor_tasks', TractorTaskController::class)->shallow();
     Route::patch('/tractor_tasks/{tractor_task}/data', [TractorTaskController::class, 'patchData']);
+    Route::post('/tractor_tasks/filter', [TractorTaskController::class, 'filterTasks'])->name('tractor_tasks.filter');
+    Route::post('/tractors/filter_reports', [TractorTaskController::class, 'filterReports'])->name('tractor_reports.filter');
 
 
     // Drivers Routes
     Route::apiResource('farms.drivers', DriverController::class)->shallow();
-    Route::post('/tractors/filter_reports', [TractorTaskController::class, 'filterReports'])->name('tractor_reports.filter');
 
     // Maintenance Routes
     Route::apiResource('farms.maintenances', MaintenanceController::class)->except('show')->shallow();

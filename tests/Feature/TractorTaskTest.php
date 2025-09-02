@@ -277,4 +277,192 @@ class TractorTaskTest extends TestCase
         // Check if finish event was broadcasted
         \Illuminate\Support\Facades\Event::assertDispatched(\App\Events\TractorTaskStatusChanged::class);
     }
+
+    /**
+     * Test user can filter tractor tasks by date range.
+     */
+    public function test_user_can_filter_tractor_tasks_by_date_range(): void
+    {
+        $this->actingAs($this->user);
+
+        // Create some test data
+        $operation1 = Operation::factory()->create();
+        $operation2 = Operation::factory()->create();
+        $field1 = $this->farm->fields->first();
+        $field2 = $this->farm->fields->last();
+
+        // Create tasks with different dates
+        \App\Models\TractorTask::factory()->create([
+            'tractor_id' => $this->tractor->id,
+            'operation_id' => $operation1->id,
+            'taskable_type' => 'App\Models\Field',
+            'taskable_id' => $field1->id,
+            'date' => jalali_to_carbon('1403/12/07'),
+            'start_time' => '08:00',
+            'end_time' => '10:00',
+            'created_by' => $this->user->id,
+        ]);
+
+        \App\Models\TractorTask::factory()->create([
+            'tractor_id' => $this->tractor->id,
+            'operation_id' => $operation2->id,
+            'taskable_type' => 'App\Models\Field',
+            'taskable_id' => $field2->id,
+            'date' => jalali_to_carbon('1403/12/08'),
+            'start_time' => '14:00',
+            'end_time' => '16:00',
+            'created_by' => $this->user->id,
+        ]);
+
+        $response = $this->postJson(route('tractor_tasks.filter'), [
+            'start_date' => '1403/12/07', // Use a known working Jalali date
+            'end_date' => '1403/12/08',   // Use a known working Jalali date
+            'tractor_id' => $this->tractor->id,
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonCount(2, 'data');
+    }
+
+    /**
+     * Test user can filter tractor tasks by fields.
+     */
+    public function test_user_can_filter_tractor_tasks_by_fields(): void
+    {
+        $this->actingAs($this->user);
+
+        // Create some test data
+        $operation1 = Operation::factory()->create();
+        $operation2 = Operation::factory()->create();
+        $field1 = $this->farm->fields->first();
+        $field2 = $this->farm->fields->last();
+
+        // Create tasks with different dates
+        \App\Models\TractorTask::factory()->create([
+            'tractor_id' => $this->tractor->id,
+            'operation_id' => $operation1->id,
+            'taskable_type' => 'App\Models\Field',
+            'taskable_id' => $field1->id,
+            'date' => jalali_to_carbon('1403/12/07'),
+            'start_time' => '08:00',
+            'end_time' => '10:00',
+            'created_by' => $this->user->id,
+        ]);
+
+        \App\Models\TractorTask::factory()->create([
+            'tractor_id' => $this->tractor->id,
+            'operation_id' => $operation2->id,
+            'taskable_type' => 'App\Models\Field',
+            'taskable_id' => $field2->id,
+            'date' => jalali_to_carbon('1403/12/08'),
+            'start_time' => '14:00',
+            'end_time' => '16:00',
+            'created_by' => $this->user->id,
+        ]);
+
+        $response = $this->postJson(route('tractor_tasks.filter'), [
+            'start_date' => '1403/12/07', // Use consistent Jalali dates
+            'end_date' => '1403/12/08',   // Use consistent Jalali dates
+            'tractor_id' => $this->tractor->id,
+            'fields' => [$field1->id],
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonCount(1, 'data');
+    }
+
+    /**
+     * Test user can filter tractor tasks by operations.
+     */
+    public function test_user_can_filter_tractor_tasks_by_operations(): void
+    {
+        $this->actingAs($this->user);
+
+        // Create some test data
+        $operation1 = Operation::factory()->create();
+        $operation2 = Operation::factory()->create();
+        $field1 = $this->farm->fields->first();
+        $field2 = $this->farm->fields->last();
+
+        // Create tasks with different dates
+        \App\Models\TractorTask::factory()->create([
+            'tractor_id' => $this->tractor->id,
+            'operation_id' => $operation1->id,
+            'taskable_type' => 'App\Models\Field',
+            'taskable_id' => $field1->id,
+            'date' => jalali_to_carbon('1403/12/07'),
+            'start_time' => '08:00',
+            'end_time' => '10:00',
+            'created_by' => $this->user->id,
+        ]);
+
+        \App\Models\TractorTask::factory()->create([
+            'tractor_id' => $this->tractor->id,
+            'operation_id' => $operation2->id,
+            'taskable_type' => 'App\Models\Field',
+            'taskable_id' => $field2->id,
+            'date' => jalali_to_carbon('1403/12/08'),
+            'start_time' => '14:00',
+            'end_time' => '16:00',
+            'created_by' => $this->user->id,
+        ]);
+
+        $response = $this->postJson(route('tractor_tasks.filter'), [
+            'start_date' => '1403/12/07', // Use consistent Jalali dates
+            'end_date' => '1403/12/08',   // Use consistent Jalali dates
+            'tractor_id' => $this->tractor->id,
+            'operations' => [$operation1->id],
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonCount(1, 'data');
+    }
+
+    /**
+     * Test user can filter tractor tasks with combined filters.
+     */
+    public function test_user_can_filter_tractor_tasks_with_combined_filters(): void
+    {
+        $this->actingAs($this->user);
+
+        // Create some test data
+        $operation1 = Operation::factory()->create();
+        $operation2 = Operation::factory()->create();
+        $field1 = $this->farm->fields->first();
+        $field2 = $this->farm->fields->last();
+
+        // Create tasks with different dates
+        \App\Models\TractorTask::factory()->create([
+            'tractor_id' => $this->tractor->id,
+            'operation_id' => $operation1->id,
+            'taskable_type' => 'App\Models\Field',
+            'taskable_id' => $field1->id,
+            'date' => jalali_to_carbon('1403/12/07'),
+            'start_time' => '08:00',
+            'end_time' => '10:00',
+            'created_by' => $this->user->id,
+        ]);
+
+        \App\Models\TractorTask::factory()->create([
+            'tractor_id' => $this->tractor->id,
+            'operation_id' => $operation2->id,
+            'taskable_type' => 'App\Models\Field',
+            'taskable_id' => $field2->id,
+            'date' => jalali_to_carbon('1403/12/08'),
+            'start_time' => '14:00',
+            'end_time' => '16:00',
+            'created_by' => $this->user->id,
+        ]);
+
+        $response = $this->postJson(route('tractor_tasks.filter'), [
+            'start_date' => '1403/12/07', // Use consistent Jalali dates
+            'end_date' => '1403/12/08',   // Use consistent Jalali dates
+            'tractor_id' => $this->tractor->id,
+            'fields' => [$field1->id],
+            'operations' => [$operation1->id],
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonCount(1, 'data');
+    }
 }
