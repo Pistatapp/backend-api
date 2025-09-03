@@ -144,6 +144,6 @@ class TractorReportService
      */
     private function getCurrentTask(Tractor $tractor)
     {
-        return $tractor->tasks()->with('operation', 'field', 'creator')->started()->first();
+        return $tractor->tasks()->with('operation', 'taskable', 'creator')->started()->first();
     }
 }

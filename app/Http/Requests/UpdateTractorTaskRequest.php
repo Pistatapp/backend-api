@@ -44,7 +44,7 @@ class UpdateTractorTaskRequest extends FormRequest
             ],
             'date' => [
                 'required',
-                'shamsi_date',
+                'date',
             ],
             'start_time' => [
                 'required',
