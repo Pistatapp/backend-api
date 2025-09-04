@@ -52,7 +52,6 @@ class StoreTractorTaskRequest extends FormRequest
             'end_time' => [
                 'required',
                 'date_format:H:i',
-                new UniqueTractorTask,
                 function ($attribute, $value, $fail) {
                     if (strtotime($value) <= strtotime($this->start_time)) {
                         $fail('The end time must be after the start time.');

@@ -630,4 +630,76 @@ class TractorTaskTest extends TestCase
         $response->assertOk();
         $response->assertJsonCount(1, 'data');
     }
+
+    /**
+     * Test time overlap validation with various scenarios.
+     */
+    public function test_time_overlap_validation_scenarios(): void
+    {
+        $this->actingAs($this->user);
+
+        // Create first task (8:00 - 10:00)
+        $firstTask = \App\Models\TractorTask::factory()->create([
+            'tractor_id' => $this->tractor->id,
+            'created_by' => $this->user->id,
+            'date' => jalali_to_carbon('1403/12/07'),
+            'start_time' => '08:00',
+            'end_time' => '10:00',
+        ]);
+
+        // Test 1: Task that starts exactly when previous ends (10:00 - 12:00) - should succeed
+        $response = $this->postJson(route('tractors.tractor_tasks.store', $this->tractor), [
+            'operation_id' => Operation::factory()->create()->id,
+            'taskable_type' => 'field',
+            'taskable_id' => $this->farm->fields->first()->id,
+            'date' => '1403/12/07',
+            'start_time' => '10:00',
+            'end_time' => '12:00',
+        ]);
+        $response->assertCreated();
+
+        // Test 2: Task that ends exactly when next starts (6:00 - 8:00) - should succeed
+        $response = $this->postJson(route('tractors.tractor_tasks.store', $this->tractor), [
+            'operation_id' => Operation::factory()->create()->id,
+            'taskable_type' => 'field',
+            'taskable_id' => $this->farm->fields->first()->id,
+            'date' => '1403/12/07',
+            'start_time' => '06:00',
+            'end_time' => '08:00',
+        ]);
+        $response->assertCreated();
+
+        // Test 3: Task that overlaps with first task (9:00 - 11:00) - should fail
+        $response = $this->postJson(route('tractors.tractor_tasks.store', $this->tractor), [
+            'operation_id' => Operation::factory()->create()->id,
+            'taskable_type' => 'field',
+            'taskable_id' => $this->farm->fields->first()->id,
+            'date' => '1403/12/07',
+            'start_time' => '09:00',
+            'end_time' => '11:00',
+        ]);
+        $response->assertUnprocessable();
+
+        // Test 4: Task that is completely contained by first task (8:30 - 9:30) - should fail
+        $response = $this->postJson(route('tractors.tractor_tasks.store', $this->tractor), [
+            'operation_id' => Operation::factory()->create()->id,
+            'taskable_type' => 'field',
+            'taskable_id' => $this->farm->fields->first()->id,
+            'date' => '1403/12/07',
+            'start_time' => '08:30',
+            'end_time' => '09:30',
+        ]);
+        $response->assertUnprocessable();
+
+        // Test 5: Task that completely contains first task (7:00 - 11:00) - should fail
+        $response = $this->postJson(route('tractors.tractor_tasks.store', $this->tractor), [
+            'operation_id' => Operation::factory()->create()->id,
+            'taskable_type' => 'field',
+            'taskable_id' => $this->farm->fields->first()->id,
+            'date' => '1403/12/07',
+            'start_time' => '07:00',
+            'end_time' => '11:00',
+        ]);
+        $response->assertUnprocessable();
+    }
 }

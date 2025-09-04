@@ -44,12 +44,10 @@ class UniqueTractorTask implements ValidationRule, DataAwareRule
         $existingTaskQuery = TractorTask::whereBelongsTo($tractor)
             ->where('date', $date)
             ->where(function ($query) use ($startTime, $endTime) {
-                $query->whereBetween('start_time', [$startTime, $endTime])
-                    ->orWhereBetween('end_time', [$startTime, $endTime])
-                    ->orWhere(function ($query) use ($startTime, $endTime) {
-                        $query->where('start_time', '<=', $startTime)
-                            ->where('end_time', '>=', $endTime);
-                    });
+                // Simplified overlap logic: two time ranges overlap if and only if
+                // one starts before the other ends AND the other starts before the first ends
+                $query->where('start_time', '<', $endTime)
+                      ->where('end_time', '>', $startTime);
             });
 
         if ($task = request()->route('tractor_task')) {
@@ -57,7 +55,7 @@ class UniqueTractorTask implements ValidationRule, DataAwareRule
         }
 
         if ($existingTaskQuery->exists()) {
-            $fail(__('A task already exists for the vehicle within the selected time range.'));
+            $fail(__('A task already exists for the tractor within the selected time range on this date.'));
         }
     }
 }
