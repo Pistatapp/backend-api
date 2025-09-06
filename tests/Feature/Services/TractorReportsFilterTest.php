@@ -121,48 +121,48 @@ class TractorReportsFilterTest extends TestCase
         // Validate first report values
         $this->assertEquals($operations[0]->name, $reports[0]['operation_name']);
         $this->assertEquals($fields[0]->name, $reports[0]['field_name']);
-        $this->assertEquals(100, $reports[0]['traveled_distance']);
-        $this->assertEquals(20, $reports[0]['avg_speed']);
-        $this->assertEquals(50, $reports[0]['max_speed']);
-        $this->assertEquals(3600, $reports[0]['work_duration']);
-        $this->assertEquals(1200, $reports[0]['stoppage_duration']);
+        $this->assertEquals('100.00', $reports[0]['traveled_distance']);
+        $this->assertEquals('20.00', $reports[0]['avg_speed']);
+        $this->assertEquals('50.00', $reports[0]['max_speed']);
+        $this->assertEquals('01:00:00', $reports[0]['work_duration']);
+        $this->assertEquals('00:20:00', $reports[0]['stoppage_duration']);
         $this->assertEquals(5, $reports[0]['stoppage_count']);
 
         // Validate second report values
         $this->assertEquals($operations[1]->name, $reports[1]['operation_name']);
         $this->assertEquals($fields[1]->name, $reports[1]['field_name']);
-        $this->assertEquals(200, $reports[1]['traveled_distance']);
-        $this->assertEquals(40, $reports[1]['avg_speed']);
-        $this->assertEquals(100, $reports[1]['max_speed']);
-        $this->assertEquals(7200, $reports[1]['work_duration']);
-        $this->assertEquals(2400, $reports[1]['stoppage_duration']);
+        $this->assertEquals('200.00', $reports[1]['traveled_distance']);
+        $this->assertEquals('40.00', $reports[1]['avg_speed']);
+        $this->assertEquals('100.00', $reports[1]['max_speed']);
+        $this->assertEquals('02:00:00', $reports[1]['work_duration']);
+        $this->assertEquals('00:40:00', $reports[1]['stoppage_duration']);
         $this->assertEquals(10, $reports[1]['stoppage_count']);
 
         // Validate third report values
         $this->assertEquals($operations[2]->name, $reports[2]['operation_name']);
         $this->assertEquals($fields[2]->name, $reports[2]['field_name']);
-        $this->assertEquals(300, $reports[2]['traveled_distance']);
-        $this->assertEquals(60, $reports[2]['avg_speed']);
-        $this->assertEquals(150, $reports[2]['max_speed']);
-        $this->assertEquals(10800, $reports[2]['work_duration']);
-        $this->assertEquals(3600, $reports[2]['stoppage_duration']);
+        $this->assertEquals('300.00', $reports[2]['traveled_distance']);
+        $this->assertEquals('60.00', $reports[2]['avg_speed']);
+        $this->assertEquals('150.00', $reports[2]['max_speed']);
+        $this->assertEquals('03:00:00', $reports[2]['work_duration']);
+        $this->assertEquals('01:00:00', $reports[2]['stoppage_duration']);
         $this->assertEquals(15, $reports[2]['stoppage_count']);
 
         // Validate accumulated values
         $accumulated = $responseData['accumulated'];
-        $this->assertEquals(600, $accumulated['traveled_distance']); // 100 + 200 + 300
-        $this->assertEquals(0, $accumulated['min_speed']); // Minimum speed
-        $this->assertEquals(150, $accumulated['max_speed']); // Maximum speed across all reports
-        $this->assertEquals(40, $accumulated['avg_speed']); // Average of all average speeds
-        $this->assertEquals(21600, $accumulated['work_duration']); // Sum of all work durations
-        $this->assertEquals(7200, $accumulated['stoppage_duration']); // Sum of all stoppage durations
+        $this->assertEquals('600.00', $accumulated['traveled_distance']); // 100 + 200 + 300
+        $this->assertEquals('0.00', $accumulated['min_speed']); // Minimum speed
+        $this->assertEquals('150.00', $accumulated['max_speed']); // Maximum speed across all reports
+        $this->assertEquals('40.00', $accumulated['avg_speed']); // Average of all average speeds
+        $this->assertEquals('06:00:00', $accumulated['work_duration']); // Sum of all work durations
+        $this->assertEquals('02:00:00', $accumulated['stoppage_duration']); // Sum of all stoppage durations
         $this->assertEquals(30, $accumulated['stoppage_count']); // Sum of all stoppage counts
 
         // Validate expectations
         $expectations = $responseData['expectations'];
-        $this->assertEquals(28800, $expectations['expected_daily_work']); // 8 hours in seconds
-        $this->assertEquals(21600, $expectations['total_work_duration']); // Sum of all work durations
-        $this->assertEquals(75, $expectations['total_efficiency']); // (21600 / 28800) * 100
+        $this->assertEquals('08:00:00', $expectations['expected_daily_work']); // 8 hours in seconds
+        $this->assertEquals('06:00:00', $expectations['total_work_duration']); // Sum of all work durations
+        $this->assertEquals('75.00', $expectations['total_efficiency']); // (21600 / 28800) * 100
     }
 
     #[Test]
@@ -253,38 +253,38 @@ class TractorReportsFilterTest extends TestCase
         // Validate first report values
         $this->assertEquals($operation->name, $reports[0]['operation_name']);
         $this->assertEquals($fields[0]->name, $reports[0]['field_name']);
-        $this->assertEquals(100, $reports[0]['traveled_distance']);
-        $this->assertEquals(20, $reports[0]['avg_speed']);
-        $this->assertEquals(50, $reports[0]['max_speed']);
-        $this->assertEquals(3600, $reports[0]['work_duration']);
-        $this->assertEquals(1200, $reports[0]['stoppage_duration']);
+        $this->assertEquals('100.00', $reports[0]['traveled_distance']);
+        $this->assertEquals('20.00', $reports[0]['avg_speed']);
+        $this->assertEquals('50.00', $reports[0]['max_speed']);
+        $this->assertEquals('01:00:00', $reports[0]['work_duration']);
+        $this->assertEquals('00:20:00', $reports[0]['stoppage_duration']);
         $this->assertEquals(5, $reports[0]['stoppage_count']);
 
         // Validate second report values
         $this->assertEquals($operation->name, $reports[1]['operation_name']);
         $this->assertEquals($fields[1]->name, $reports[1]['field_name']);
-        $this->assertEquals(200, $reports[1]['traveled_distance']);
-        $this->assertEquals(40, $reports[1]['avg_speed']);
-        $this->assertEquals(100, $reports[1]['max_speed']);
-        $this->assertEquals(7200, $reports[1]['work_duration']);
-        $this->assertEquals(2400, $reports[1]['stoppage_duration']);
+        $this->assertEquals('200.00', $reports[1]['traveled_distance']);
+        $this->assertEquals('40.00', $reports[1]['avg_speed']);
+        $this->assertEquals('100.00', $reports[1]['max_speed']);
+        $this->assertEquals('02:00:00', $reports[1]['work_duration']);
+        $this->assertEquals('00:40:00', $reports[1]['stoppage_duration']);
         $this->assertEquals(10, $reports[1]['stoppage_count']);
 
         // Validate accumulated values (only for the filtered operation)
         $accumulated = $responseData['accumulated'];
-        $this->assertEquals(300, $accumulated['traveled_distance']); // 100 + 200
-        $this->assertEquals(0, $accumulated['min_speed']);
-        $this->assertEquals(100, $accumulated['max_speed']); // Max from the filtered reports
-        $this->assertEquals(30, $accumulated['avg_speed']); // Average of 20 and 40
-        $this->assertEquals(10800, $accumulated['work_duration']); // 3600 + 7200
-        $this->assertEquals(3600, $accumulated['stoppage_duration']); // 1200 + 2400
+        $this->assertEquals('300.00', $accumulated['traveled_distance']); // 100 + 200
+        $this->assertEquals('0.00', $accumulated['min_speed']);
+        $this->assertEquals('100.00', $accumulated['max_speed']); // Max from the filtered reports
+        $this->assertEquals('30.00', $accumulated['avg_speed']); // Average of 20 and 40
+        $this->assertEquals('03:00:00', $accumulated['work_duration']); // 3600 + 7200
+        $this->assertEquals('01:00:00', $accumulated['stoppage_duration']); // 1200 + 2400
         $this->assertEquals(15, $accumulated['stoppage_count']); // 5 + 10
 
         // Validate expectations
         $expectations = $responseData['expectations'];
-        $this->assertEquals(28800, $expectations['expected_daily_work']); // 8 hours in seconds
-        $this->assertEquals(10800, $expectations['total_work_duration']); // Sum of filtered work durations
-        $this->assertEquals(37.5, $expectations['total_efficiency']); // (10800 / 28800) * 100
+        $this->assertEquals('08:00:00', $expectations['expected_daily_work']); // 8 hours in seconds
+        $this->assertEquals('03:00:00', $expectations['total_work_duration']); // Sum of filtered work durations
+        $this->assertEquals('37.50', $expectations['total_efficiency']); // (10800 / 28800) * 100
     }
 
     #[Test]
@@ -358,10 +358,10 @@ class TractorReportsFilterTest extends TestCase
 
         // Verify accumulated values
         $accumulated = $responseData['accumulated'];
-        $this->assertEquals(300, $accumulated['traveled_distance']); // 3 tasks * 100
-        $this->assertEquals(86400, $accumulated['work_duration']); // 3 tasks * 28800 seconds
+        $this->assertEquals('300.00', $accumulated['traveled_distance']); // 3 tasks * 100
+        $this->assertEquals('24:00:00', $accumulated['work_duration']); // 3 tasks * 28800 seconds
         $this->assertEquals(15, $accumulated['stoppage_count']); // 3 tasks * 5
-        $this->assertEquals(5400, $accumulated['stoppage_duration']); // 3 tasks * 1800
+        $this->assertEquals('01:30:00', $accumulated['stoppage_duration']); // 3 tasks * 1800
     }
 
     #[Test]
@@ -433,10 +433,10 @@ class TractorReportsFilterTest extends TestCase
 
         // Verify accumulated values
         $accumulated = $responseData['accumulated'];
-        $this->assertEquals(300, $accumulated['traveled_distance']); // 3 tasks * 100
-        $this->assertEquals(86400, $accumulated['work_duration']); // 3 tasks * 28800 seconds
+        $this->assertEquals('300.00', $accumulated['traveled_distance']); // 3 tasks * 100
+        $this->assertEquals('24:00:00', $accumulated['work_duration']); // 3 tasks * 28800 seconds
         $this->assertEquals(15, $accumulated['stoppage_count']); // 3 tasks * 5
-        $this->assertEquals(5400, $accumulated['stoppage_duration']); // 3 tasks * 1800
+        $this->assertEquals('01:30:00', $accumulated['stoppage_duration']); // 3 tasks * 1800
     }
 
     #[Test]
@@ -510,10 +510,10 @@ class TractorReportsFilterTest extends TestCase
 
         // Verify accumulated values
         $accumulated = $responseData['accumulated'];
-        $this->assertEquals(200, $accumulated['traveled_distance']); // 2 tasks * 100
-        $this->assertEquals(57600, $accumulated['work_duration']); // 2 tasks * 28800 seconds
+        $this->assertEquals('200.00', $accumulated['traveled_distance']); // 2 tasks * 100
+        $this->assertEquals('16:00:00', $accumulated['work_duration']); // 2 tasks * 28800 seconds
         $this->assertEquals(10, $accumulated['stoppage_count']); // 2 tasks * 5
-        $this->assertEquals(3600, $accumulated['stoppage_duration']); // 2 tasks * 1800
+        $this->assertEquals('01:00:00', $accumulated['stoppage_duration']); // 2 tasks * 1800
     }
 
     #[Test]
@@ -588,10 +588,10 @@ class TractorReportsFilterTest extends TestCase
 
         // Verify accumulated values
         $accumulated = $responseData['accumulated'];
-        $this->assertEquals(300, $accumulated['traveled_distance']); // 3 tasks * 100
-        $this->assertEquals(86400, $accumulated['work_duration']); // 3 tasks * 28800 seconds
+        $this->assertEquals('300.00', $accumulated['traveled_distance']); // 3 tasks * 100
+        $this->assertEquals('24:00:00', $accumulated['work_duration']); // 3 tasks * 28800 seconds
         $this->assertEquals(15, $accumulated['stoppage_count']); // 3 tasks * 5
-        $this->assertEquals(5400, $accumulated['stoppage_duration']); // 3 tasks * 1800
+        $this->assertEquals('01:30:00', $accumulated['stoppage_duration']); // 3 tasks * 1800
     }
 
     #[Test]
@@ -666,19 +666,19 @@ class TractorReportsFilterTest extends TestCase
 
         // Verify accumulated values
         $accumulated = $responseData['accumulated'];
-        $this->assertEquals(300, $accumulated['traveled_distance']); // 3 tasks * 100
-        $this->assertEquals(86400, $accumulated['work_duration']); // 3 tasks * 28800 seconds
+        $this->assertEquals('300.00', $accumulated['traveled_distance']); // 3 tasks * 100
+        $this->assertEquals('24:00:00', $accumulated['work_duration']); // 3 tasks * 28800 seconds
         $this->assertEquals(15, $accumulated['stoppage_count']); // 3 tasks * 5
-        $this->assertEquals(5400, $accumulated['stoppage_duration']); // 3 tasks * 1800
+        $this->assertEquals('01:30:00', $accumulated['stoppage_duration']); // 3 tasks * 1800
 
         // Verify expectations
         $expectations = $responseData['expectations'];
-        $this->assertEquals(28800, $expectations['expected_daily_work']); // 8 hours in seconds
-        $this->assertEquals(86400, $expectations['total_work_duration']); // Sum of filtered work durations
+        $this->assertEquals('08:00:00', $expectations['expected_daily_work']); // 8 hours in seconds
+        $this->assertEquals('24:00:00', $expectations['total_work_duration']); // Sum of filtered work durations
 
         // Calculate efficiency based on actual working days in the period
         $expectedEfficiency = (86400 / (28800 * 3)) * 100; // 3 working days in the test data
-        $this->assertEquals($expectedEfficiency, $expectations['total_efficiency']);
+        $this->assertEquals(number_format($expectedEfficiency, 2), $expectations['total_efficiency']);
     }
 
     /**

@@ -34,30 +34,41 @@ POST /api/tractors/filter_reports
     "data": {
         "reports": [
             {
+                "date": "1403/10/15",
                 "operation_name": "string",
                 "field_name": "string",
-                "traveled_distance": "number",
-                "min_speed": "number",
-                "max_speed": "number",
-                "avg_speed": "number",
-                "work_duration": "number",
-                "stoppage_duration": "number",
-                "stoppage_count": "number"
+                "traveled_distance": "100.00",
+                "min_speed": "20.00",
+                "max_speed": "50.00",
+                "avg_speed": "35.00",
+                "work_duration": "08:30:00",
+                "stoppage_duration": "00:15:00",
+                "stoppage_count": 5,
+                "consumed_water": "150.00",
+                "consumed_fertilizer": "25.50",
+                "consumed_poison": "10.00",
+                "operation_area": "500.00",
+                "workers_count": 2
             }
         ],
         "accumulated": {
-            "traveled_distance": "number",
-            "min_speed": "number",
-            "max_speed": "number",
-            "avg_speed": "number",
-            "work_duration": "number",
-            "stoppage_duration": "number",
-            "stoppage_count": "number"
+            "traveled_distance": "300.00",
+            "min_speed": "15.00",
+            "max_speed": "60.00",
+            "avg_speed": "37.50",
+            "work_duration": "25:30:00",
+            "stoppage_duration": "01:30:00",
+            "stoppage_count": 15,
+            "consumed_water": "450.00",
+            "consumed_fertilizer": "75.00",
+            "consumed_poison": "30.00",
+            "operation_area": "1500.00",
+            "workers_count": 6
         },
         "expectations": {
-            "expected_daily_work": "number",
-            "total_work_duration": "number",
-            "total_efficiency": "number"
+            "expected_daily_work": "08:00:00",
+            "total_work_duration": "25:30:00",
+            "total_efficiency": "85.50"
         }
     }
 }
@@ -128,7 +139,11 @@ Returned when the user doesn't have permission to access the tractor's reports.
 ## Notes
 
 - All dates should be provided in Shamsi (Persian) calendar format
-- Work duration and stoppage duration are returned in seconds
-- Speeds are returned in kilometers per hour
-- Distances are returned in kilometers
-- Efficiency is calculated as a percentage (0-100)
+- Work duration and stoppage duration are returned in H:i:s format (hours:minutes:seconds)
+- Speeds are returned in kilometers per hour with 2 decimal places
+- Distances are returned in kilometers with 2 decimal places
+- Volumes (water, poison) are returned in liters with 2 decimal places
+- Weights (fertilizer) are returned in kilograms with 2 decimal places
+- Areas are returned in square meters with 2 decimal places
+- Efficiency is calculated as a percentage with 2 decimal places (0-100)
+- Counts (stoppage_count, workers_count) are returned as integers

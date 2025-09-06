@@ -33,8 +33,10 @@ class TractorReportFilterService
 
         // Map to report format
         $reports = $this->mapReportsToArray($this->tasks);
-        $accumulated = $this->calculateAccumulatedValues($reports);
-        $expectations = $this->calculateExpectations($accumulated['work_duration'], $tractor, $filters);
+        $accumulated = $this->calculateAccumulatedValues($this->tasks);
+        // Get raw work duration for calculations
+        $rawWorkDuration = $this->tasks->sum('work_duration');
+        $expectations = $this->calculateExpectations($rawWorkDuration, $tractor, $filters);
 
         return [
             'reports' => $reports,
@@ -186,19 +188,19 @@ class TractorReportFilterService
                 'date' => jdate($report->date)->format('Y/m/d'),
                 'operation_name' => $task?->operation?->name,
                 'field_name' => $task?->taskable?->name,
-                'traveled_distance' => $report->traveled_distance ?? 0,
-                'min_speed' => $report->min_speed ?? 0,
-                'max_speed' => $report->max_speed ?? 0,
-                'avg_speed' => $report->average_speed ?? 0,
-                'work_duration' => $report->work_duration ?? 0,
-                'stoppage_duration' => $report->stoppage_duration ?? 0,
-                'stoppage_count' => $report->stoppage_count ?? 0,
+                'traveled_distance' => $this->formatDistance($report->traveled_distance ?? 0),
+                'min_speed' => $this->formatSpeed($report->min_speed ?? 0),
+                'max_speed' => $this->formatSpeed($report->max_speed ?? 0),
+                'avg_speed' => $this->formatSpeed($report->average_speed ?? 0),
+                'work_duration' => $this->formatDuration($report->work_duration ?? 0),
+                'stoppage_duration' => $this->formatDuration($report->stoppage_duration ?? 0),
+                'stoppage_count' => (int) ($report->stoppage_count ?? 0),
                 // New task data aggregates
-                'consumed_water' => data_get($task?->data, 'consumed_water', 0),
-                'consumed_fertilizer' => data_get($task?->data, 'consumed_fertilizer', 0),
-                'consumed_poison' => data_get($task?->data, 'consumed_poison', 0),
-                'operation_area' => data_get($task?->data, 'operation_area', 0),
-                'workers_count' => data_get($task?->data, 'workers_count', 0),
+                'consumed_water' => $this->formatVolume(data_get($task?->data, 'consumed_water', 0)),
+                'consumed_fertilizer' => $this->formatWeight(data_get($task?->data, 'consumed_fertilizer', 0)),
+                'consumed_poison' => $this->formatVolume(data_get($task?->data, 'consumed_poison', 0)),
+                'operation_area' => $this->formatArea(data_get($task?->data, 'operation_area', 0)),
+                'workers_count' => (int) data_get($task?->data, 'workers_count', 0),
             ];
         });
     }
@@ -211,20 +213,39 @@ class TractorReportFilterService
      */
     private function calculateAccumulatedValues(Collection $reports): array
     {
+        // Get raw values for calculations from the original model objects
+        $rawReports = $reports->map(function ($report) {
+            $task = $report->tractorTask;
+            return [
+                'traveled_distance' => $report->traveled_distance ?? 0,
+                'min_speed' => $report->min_speed ?? 0,
+                'max_speed' => $report->max_speed ?? 0,
+                'avg_speed' => $report->average_speed ?? 0,
+                'work_duration' => $report->work_duration ?? 0,
+                'stoppage_duration' => $report->stoppage_duration ?? 0,
+                'stoppage_count' => $report->stoppage_count ?? 0,
+                'consumed_water' => data_get($task?->data, 'consumed_water', 0),
+                'consumed_fertilizer' => data_get($task?->data, 'consumed_fertilizer', 0),
+                'consumed_poison' => data_get($task?->data, 'consumed_poison', 0),
+                'operation_area' => data_get($task?->data, 'operation_area', 0),
+                'workers_count' => data_get($task?->data, 'workers_count', 0),
+            ];
+        });
+
         return [
-            'traveled_distance' => $reports->sum('traveled_distance'),
-            'min_speed' => $reports->min('min_speed'),
-            'max_speed' => $reports->max('max_speed'),
-            'avg_speed' => $reports->avg('avg_speed'),
-            'work_duration' => $reports->sum('work_duration'),
-            'stoppage_duration' => $reports->sum('stoppage_duration'),
-            'stoppage_count' => $reports->sum('stoppage_count'),
+            'traveled_distance' => $this->formatDistance($rawReports->sum('traveled_distance')),
+            'min_speed' => $this->formatSpeed($rawReports->min('min_speed')),
+            'max_speed' => $this->formatSpeed($rawReports->max('max_speed')),
+            'avg_speed' => $this->formatSpeed($rawReports->avg('avg_speed')),
+            'work_duration' => $this->formatDuration($rawReports->sum('work_duration')),
+            'stoppage_duration' => $this->formatDuration($rawReports->sum('stoppage_duration')),
+            'stoppage_count' => (int) $rawReports->sum('stoppage_count'),
             // New accumulated values from task data
-            'consumed_water' => $reports->sum('consumed_water'),
-            'consumed_fertilizer' => $reports->sum('consumed_fertilizer'),
-            'consumed_poison' => $reports->sum('consumed_poison'),
-            'operation_area' => $reports->sum('operation_area'),
-            'workers_count' => $reports->sum('workers_count'),
+            'consumed_water' => $this->formatVolume($rawReports->sum('consumed_water')),
+            'consumed_fertilizer' => $this->formatWeight($rawReports->sum('consumed_fertilizer')),
+            'consumed_poison' => $this->formatVolume($rawReports->sum('consumed_poison')),
+            'operation_area' => $this->formatArea($rawReports->sum('operation_area')),
+            'workers_count' => (int) $rawReports->sum('workers_count'),
         ];
     }
 
@@ -250,9 +271,94 @@ class TractorReportFilterService
         };
 
         return [
-            'expected_daily_work' => $dailyExpectedWork,
-            'total_work_duration' => $totalWorkDuration,
-            'total_efficiency' => min(100, $efficiency),
+            'expected_daily_work' => $this->formatDuration($dailyExpectedWork),
+            'total_work_duration' => $this->formatDuration($totalWorkDuration),
+            'total_efficiency' => $this->formatPercentage(min(100, $efficiency)),
         ];
+    }
+
+    /**
+     * Format duration in seconds to H:i:s format.
+     *
+     * @param int $seconds
+     * @return string
+     */
+    private function formatDuration(int $seconds): string
+    {
+        if ($seconds < 0) {
+            return '00:00:00';
+        }
+
+        $hours = floor($seconds / 3600);
+        $minutes = floor(($seconds % 3600) / 60);
+        $seconds = $seconds % 60;
+
+        return sprintf('%02d:%02d:%02d', $hours, $minutes, $seconds);
+    }
+
+    /**
+     * Format speed in km/h with 2 decimal places.
+     *
+     * @param float $speed
+     * @return string
+     */
+    private function formatSpeed(float $speed): string
+    {
+        return number_format($speed, 2);
+    }
+
+    /**
+     * Format distance in kilometers with 2 decimal places.
+     *
+     * @param float $distance
+     * @return string
+     */
+    private function formatDistance(float $distance): string
+    {
+        return number_format($distance, 2);
+    }
+
+    /**
+     * Format volume in liters with 2 decimal places.
+     *
+     * @param float $volume
+     * @return string
+     */
+    private function formatVolume(float $volume): string
+    {
+        return number_format($volume, 2);
+    }
+
+    /**
+     * Format weight in kilograms with 2 decimal places.
+     *
+     * @param float $weight
+     * @return string
+     */
+    private function formatWeight(float $weight): string
+    {
+        return number_format($weight, 2);
+    }
+
+    /**
+     * Format area in square meters with 2 decimal places.
+     *
+     * @param float $area
+     * @return string
+     */
+    private function formatArea(float $area): string
+    {
+        return number_format($area, 2);
+    }
+
+    /**
+     * Format percentage with 2 decimal places.
+     *
+     * @param float $percentage
+     * @return string
+     */
+    private function formatPercentage(float $percentage): string
+    {
+        return number_format($percentage, 2);
     }
 }
