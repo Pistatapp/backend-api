@@ -79,7 +79,7 @@ class TractorReportService
         $lastSevenDaysEfficiency = $tractor->gpsDailyReports()
             ->where('date', '<=', $date)
             ->orderBy('date', 'desc')
-            ->take(7)
+            ->limit(7)
             ->get()
             ->map(function ($report) {
                 return [

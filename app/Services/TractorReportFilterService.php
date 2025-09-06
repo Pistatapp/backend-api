@@ -182,7 +182,7 @@ class TractorReportFilterService
             return [
                 'date' => jdate($report->date)->format('Y/m/d'),
                 'operation_name' => $task?->operation?->name,
-                'filed_name' => $task?->taskable?->name ?? $task?->taskable?->title ?? 'Unknown',
+                'field_name' => $task?->taskable?->name,
                 'traveled_distance' => $report->traveled_distance ?? 0,
                 'min_speed' => $report->min_speed ?? 0,
                 'max_speed' => $report->max_speed ?? 0,

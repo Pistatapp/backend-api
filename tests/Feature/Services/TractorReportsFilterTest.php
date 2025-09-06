@@ -85,7 +85,7 @@ class TractorReportsFilterTest extends TestCase
                 'reports' => [
                     '*' => [
                         'operation_name',
-                        'filed_name',
+                        'field_name',
                         'traveled_distance',
                         'min_speed',
                         'max_speed',
@@ -120,7 +120,7 @@ class TractorReportsFilterTest extends TestCase
 
         // Validate first report values
         $this->assertEquals($operations[0]->name, $reports[0]['operation_name']);
-        $this->assertEquals($fields[0]->name, $reports[0]['filed_name']);
+        $this->assertEquals($fields[0]->name, $reports[0]['field_name']);
         $this->assertEquals(100, $reports[0]['traveled_distance']);
         $this->assertEquals(20, $reports[0]['avg_speed']);
         $this->assertEquals(50, $reports[0]['max_speed']);
@@ -130,7 +130,7 @@ class TractorReportsFilterTest extends TestCase
 
         // Validate second report values
         $this->assertEquals($operations[1]->name, $reports[1]['operation_name']);
-        $this->assertEquals($fields[1]->name, $reports[1]['filed_name']);
+        $this->assertEquals($fields[1]->name, $reports[1]['field_name']);
         $this->assertEquals(200, $reports[1]['traveled_distance']);
         $this->assertEquals(40, $reports[1]['avg_speed']);
         $this->assertEquals(100, $reports[1]['max_speed']);
@@ -140,7 +140,7 @@ class TractorReportsFilterTest extends TestCase
 
         // Validate third report values
         $this->assertEquals($operations[2]->name, $reports[2]['operation_name']);
-        $this->assertEquals($fields[2]->name, $reports[2]['filed_name']);
+        $this->assertEquals($fields[2]->name, $reports[2]['field_name']);
         $this->assertEquals(300, $reports[2]['traveled_distance']);
         $this->assertEquals(60, $reports[2]['avg_speed']);
         $this->assertEquals(150, $reports[2]['max_speed']);
@@ -252,7 +252,7 @@ class TractorReportsFilterTest extends TestCase
 
         // Validate first report values
         $this->assertEquals($operation->name, $reports[0]['operation_name']);
-        $this->assertEquals($fields[0]->name, $reports[0]['filed_name']);
+        $this->assertEquals($fields[0]->name, $reports[0]['field_name']);
         $this->assertEquals(100, $reports[0]['traveled_distance']);
         $this->assertEquals(20, $reports[0]['avg_speed']);
         $this->assertEquals(50, $reports[0]['max_speed']);
@@ -262,7 +262,7 @@ class TractorReportsFilterTest extends TestCase
 
         // Validate second report values
         $this->assertEquals($operation->name, $reports[1]['operation_name']);
-        $this->assertEquals($fields[1]->name, $reports[1]['filed_name']);
+        $this->assertEquals($fields[1]->name, $reports[1]['field_name']);
         $this->assertEquals(200, $reports[1]['traveled_distance']);
         $this->assertEquals(40, $reports[1]['avg_speed']);
         $this->assertEquals(100, $reports[1]['max_speed']);
