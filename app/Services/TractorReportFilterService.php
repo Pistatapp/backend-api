@@ -162,7 +162,10 @@ class TractorReportFilterService
 
         $year = $filters['year'];
         $startDate = Jalalian::fromFormat('Y/m/d', $year . '/01/01')->toCarbon();
-        $endDate = Jalalian::fromFormat('Y/m/d', ($year + 1) . '/01/01')->toCarbon()->subDay();
+
+        // Get the last day of the Persian year (Esfand can be 29 or 30 days)
+        $lastDayOfYear = Jalalian::fromFormat('Y/m/d', $year . '/12/01')->getMonthDays();
+        $endDate = Jalalian::fromFormat('Y/m/d', sprintf('%d/12/%02d', $year, $lastDayOfYear))->toCarbon();
 
         // Use explicit >= and <= instead of whereBetween for date range
         $query->where('date', '>=', $startDate)
