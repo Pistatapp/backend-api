@@ -14,7 +14,7 @@ class ReportProcessingService
     private int $totalMovingTime = 0;     // seconds
     private int $totalStoppedTime = 0;    // seconds
     private int $stoppageCount = 0;       // number of stored stopped reports
-    private float $maxSpeed = 0;
+    private int $maxSpeed = 0;
     private array $points = [];
     private $latestStoredReport;          // GpsReport|null
     private array|null $previousRawReport = null; // last raw report processed (array from parser)
@@ -65,7 +65,7 @@ class ReportProcessingService
      */
     private function handleReport(array $report): void
     {
-        $report = $this->normalizeReport($report);
+        $this->maxSpeed = max($this->maxSpeed, (int)$report['speed']);
         $diffs = $this->computeDiffs($report);
         if ($diffs) {
             $this->applyMetrics($report, $diffs['time'], $diffs['distance']);
@@ -73,16 +73,6 @@ class ReportProcessingService
         [$persist, $addPoint] = $this->decidePersistence($report);
         $this->recordPointAndPersist($report, $persist, $addPoint);
         $this->finalizeReport($report);
-    }
-
-    /**
-     * Add derived flags & update speed extremes.
-     */
-    private function normalizeReport(array $report): array
-    {
-        $report['is_stopped'] = ($report['speed'] == 0);
-        $this->maxSpeed = max($this->maxSpeed, (float)$report['speed']);
-        return $report;
     }
 
     /**

@@ -38,6 +38,11 @@ class ParseDataServiceTest extends TestCase
             'ew_direction' => 1,
             'ns_direction' => 3,
             'imei' => '863070043386100',
+            'is_starting_point' => false,
+            'is_ending_point' => false,
+            'is_stopped' => false,
+            'is_off' => false,
+            'stoppage_time' => 0,
             'date_time' => Carbon::createFromFormat('ymdHis', '240421070200')->addHours(3)->addMinutes(30),
         ], $result[0]);
     }
@@ -70,6 +75,10 @@ class ParseDataServiceTest extends TestCase
 
         $this->assertCount(1, $result);
         $this->assertEquals('210424 103200', $result[0]['date_time']->format('dmy His'));
+        $this->assertEquals(false, $result[0]['is_starting_point']);
+        $this->assertEquals(false, $result[0]['is_ending_point']);
+        $this->assertEquals(false, $result[0]['is_stopped']);
+        $this->assertEquals(false, $result[0]['is_off']);
     }
 
     #[Test]
@@ -85,6 +94,10 @@ class ParseDataServiceTest extends TestCase
         $this->assertCount(2, $result);
         $this->assertEquals('103100', $result[0]['date_time']->format('His'));
         $this->assertEquals('103200', $result[1]['date_time']->format('His'));
+        $this->assertEquals(false, $result[0]['is_starting_point']);
+        $this->assertEquals(false, $result[0]['is_ending_point']);
+        $this->assertEquals(false, $result[0]['is_stopped']);
+        $this->assertEquals(false, $result[0]['is_off']);
     }
 
     #[Test]
@@ -134,6 +147,11 @@ class ParseDataServiceTest extends TestCase
             'ew_direction' => 1,
             'ns_direction' => 3,
             'imei' => '863070043386100',
+            'is_starting_point' => false,
+            'is_ending_point' => false,
+            'is_stopped' => false,
+            'is_off' => true,
+            'stoppage_time' => 0,
             'date_time' => Carbon::createFromFormat('ymdHis', '240421070000')->addHours(3)->addMinutes(30),
         ], $result[0]);
 

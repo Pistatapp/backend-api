@@ -38,6 +38,7 @@ class GpsReport extends Model
             'coordinate' => 'array',
             'ew_direction' => 'integer',
             'ns_direction' => 'integer',
+            'is_off' => 'boolean',
         ];
     }
 
@@ -53,6 +54,7 @@ class GpsReport extends Model
         'stoppage_time' => 0,
         'ew_direction' => 0,
         'ns_direction' => 0,
+        'is_off' => false,
     ];
 
     /**
