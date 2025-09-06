@@ -120,7 +120,7 @@ class ReportProcessingService
         } elseif ($prevStopped && !$isStopped) { // stopped -> moving
             $this->totalMovingTime += $timeDiff;
             $this->totalTraveledDistance += $distanceDiff;
-        } elseif (!$prevStopped && $isStopped && $timeDiff > 60) { // moving -> stopped (if time between reports is more than 60 seconds)
+        } elseif (!$prevStopped && $isStopped) { // moving -> stopped
             $this->totalStoppedTime += $timeDiff;
             $this->totalTraveledDistance += $distanceDiff;
         } else { // moving -> moving
@@ -153,6 +153,7 @@ class ReportProcessingService
         if ($addPoint) {
             $this->points[] = $report;
         }
+
         if ($persist) {
             $this->saveReport($report);
 

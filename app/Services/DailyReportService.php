@@ -60,11 +60,11 @@ class DailyReportService
      * Calculate the efficiency of the tractor.
      *
      * @param float $totalMovingTime
-     * @return float
+     * @return int
      */
-    private function calculateEfficiency(float $totalMovingTime): float
+    private function calculateEfficiency(float $totalMovingTime): int
     {
-        return $totalMovingTime / ($this->tractor->expected_daily_work_time * 3600) * 100;
+        return round($totalMovingTime / ($this->tractor->expected_daily_work_time * 3600) * 100);
     }
 
     /**
@@ -72,12 +72,14 @@ class DailyReportService
      *
      * @param GpsDailyReport $dailyReport
      * @param float $totalTraveledDistance
-     * @return float
+     * @return int
      */
-    private function calculateAverageSpeed(GpsDailyReport $dailyReport, float $totalTraveledDistance): float
+    private function calculateAverageSpeed(GpsDailyReport $dailyReport, float $totalTraveledDistance): int
     {
-        return $dailyReport->work_duration > 0
+        $averageSpeed = $dailyReport->work_duration > 0
             ? $dailyReport->traveled_distance / ($dailyReport->work_duration / 3600)
             : 0;
+
+        return round($averageSpeed);
     }
 }
