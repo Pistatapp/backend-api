@@ -120,7 +120,7 @@ class ReportProcessingService
         } elseif ($prevStopped && !$isStopped) { // stopped -> moving
             $this->totalMovingTime += $timeDiff;
             $this->totalTraveledDistance += $distanceDiff;
-        } elseif (!$prevStopped && $isStopped) { // moving -> stopped
+        } elseif (!$prevStopped && $isStopped && $timeDiff > 60) { // moving -> stopped (if time between reports is more than 60 seconds)
             $this->totalStoppedTime += $timeDiff;
             $this->totalTraveledDistance += $distanceDiff;
         } else { // moving -> moving
