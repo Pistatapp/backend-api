@@ -189,8 +189,6 @@ class TractorReportFilterService
                 'operation_name' => $task?->operation?->name,
                 'field_name' => $task?->taskable?->name,
                 'traveled_distance' => $this->formatDistance($report->traveled_distance ?? 0),
-                'min_speed' => $this->formatSpeed($report->min_speed ?? 0),
-                'max_speed' => $this->formatSpeed($report->max_speed ?? 0),
                 'avg_speed' => $this->formatSpeed($report->average_speed ?? 0),
                 'work_duration' => $this->formatDuration($report->work_duration ?? 0),
                 'stoppage_duration' => $this->formatDuration($report->stoppage_duration ?? 0),
@@ -218,8 +216,6 @@ class TractorReportFilterService
             $task = $report->tractorTask;
             return [
                 'traveled_distance' => $report->traveled_distance ?? 0,
-                'min_speed' => $report->min_speed ?? 0,
-                'max_speed' => $report->max_speed ?? 0,
                 'avg_speed' => $report->average_speed ?? 0,
                 'work_duration' => $report->work_duration ?? 0,
                 'stoppage_duration' => $report->stoppage_duration ?? 0,
@@ -234,8 +230,6 @@ class TractorReportFilterService
 
         return [
             'traveled_distance' => $this->formatDistance($rawReports->sum('traveled_distance')),
-            'min_speed' => $this->formatSpeed($rawReports->min('min_speed')),
-            'max_speed' => $this->formatSpeed($rawReports->max('max_speed')),
             'avg_speed' => $this->formatSpeed($rawReports->avg('avg_speed')),
             'work_duration' => $this->formatDuration($rawReports->sum('work_duration')),
             'stoppage_duration' => $this->formatDuration($rawReports->sum('stoppage_duration')),

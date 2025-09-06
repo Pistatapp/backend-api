@@ -64,7 +64,6 @@ class TractorReportsFilterTest extends TestCase
                 'stoppage_count' => 5 * ($i + 1),
                 'stoppage_duration' => 1200 * ($i + 1),
                 'average_speed' => 20 * ($i + 1),
-                'max_speed' => 50 * ($i + 1),
                 'efficiency' => 80 - (($i + 1) * 5),
                 'date' => $gregorianDate,
             ]);
@@ -87,8 +86,6 @@ class TractorReportsFilterTest extends TestCase
                         'operation_name',
                         'field_name',
                         'traveled_distance',
-                        'min_speed',
-                        'max_speed',
                         'avg_speed',
                         'work_duration',
                         'stoppage_duration',
@@ -97,8 +94,6 @@ class TractorReportsFilterTest extends TestCase
                 ],
                 'accumulated' => [
                     'traveled_distance',
-                    'min_speed',
-                    'max_speed',
                     'avg_speed',
                     'work_duration',
                     'stoppage_duration',
@@ -123,7 +118,6 @@ class TractorReportsFilterTest extends TestCase
         $this->assertEquals($fields[0]->name, $reports[0]['field_name']);
         $this->assertEquals('100.00', $reports[0]['traveled_distance']);
         $this->assertEquals('20.00', $reports[0]['avg_speed']);
-        $this->assertEquals('50.00', $reports[0]['max_speed']);
         $this->assertEquals('01:00:00', $reports[0]['work_duration']);
         $this->assertEquals('00:20:00', $reports[0]['stoppage_duration']);
         $this->assertEquals(5, $reports[0]['stoppage_count']);
@@ -133,7 +127,6 @@ class TractorReportsFilterTest extends TestCase
         $this->assertEquals($fields[1]->name, $reports[1]['field_name']);
         $this->assertEquals('200.00', $reports[1]['traveled_distance']);
         $this->assertEquals('40.00', $reports[1]['avg_speed']);
-        $this->assertEquals('100.00', $reports[1]['max_speed']);
         $this->assertEquals('02:00:00', $reports[1]['work_duration']);
         $this->assertEquals('00:40:00', $reports[1]['stoppage_duration']);
         $this->assertEquals(10, $reports[1]['stoppage_count']);
@@ -143,7 +136,6 @@ class TractorReportsFilterTest extends TestCase
         $this->assertEquals($fields[2]->name, $reports[2]['field_name']);
         $this->assertEquals('300.00', $reports[2]['traveled_distance']);
         $this->assertEquals('60.00', $reports[2]['avg_speed']);
-        $this->assertEquals('150.00', $reports[2]['max_speed']);
         $this->assertEquals('03:00:00', $reports[2]['work_duration']);
         $this->assertEquals('01:00:00', $reports[2]['stoppage_duration']);
         $this->assertEquals(15, $reports[2]['stoppage_count']);
@@ -151,8 +143,6 @@ class TractorReportsFilterTest extends TestCase
         // Validate accumulated values
         $accumulated = $responseData['accumulated'];
         $this->assertEquals('600.00', $accumulated['traveled_distance']); // 100 + 200 + 300
-        $this->assertEquals('0.00', $accumulated['min_speed']); // Minimum speed
-        $this->assertEquals('150.00', $accumulated['max_speed']); // Maximum speed across all reports
         $this->assertEquals('40.00', $accumulated['avg_speed']); // Average of all average speeds
         $this->assertEquals('06:00:00', $accumulated['work_duration']); // Sum of all work durations
         $this->assertEquals('02:00:00', $accumulated['stoppage_duration']); // Sum of all stoppage durations
@@ -202,7 +192,6 @@ class TractorReportsFilterTest extends TestCase
                 'stoppage_count' => 5 * ($i + 1),
                 'stoppage_duration' => 1200 * ($i + 1),
                 'average_speed' => 20 * ($i + 1),
-                'max_speed' => 50 * ($i + 1),
                 'efficiency' => 80 - (($i + 1) * 5),
                 'date' => $gregorianDate,
             ]);
@@ -230,7 +219,6 @@ class TractorReportsFilterTest extends TestCase
             'stoppage_count' => 15,
             'stoppage_duration' => 3600,
             'average_speed' => 60,
-            'max_speed' => 150,
             'efficiency' => 70,
             'date' => $gregorianDate,
         ]);
@@ -255,7 +243,6 @@ class TractorReportsFilterTest extends TestCase
         $this->assertEquals($fields[0]->name, $reports[0]['field_name']);
         $this->assertEquals('100.00', $reports[0]['traveled_distance']);
         $this->assertEquals('20.00', $reports[0]['avg_speed']);
-        $this->assertEquals('50.00', $reports[0]['max_speed']);
         $this->assertEquals('01:00:00', $reports[0]['work_duration']);
         $this->assertEquals('00:20:00', $reports[0]['stoppage_duration']);
         $this->assertEquals(5, $reports[0]['stoppage_count']);
@@ -265,7 +252,6 @@ class TractorReportsFilterTest extends TestCase
         $this->assertEquals($fields[1]->name, $reports[1]['field_name']);
         $this->assertEquals('200.00', $reports[1]['traveled_distance']);
         $this->assertEquals('40.00', $reports[1]['avg_speed']);
-        $this->assertEquals('100.00', $reports[1]['max_speed']);
         $this->assertEquals('02:00:00', $reports[1]['work_duration']);
         $this->assertEquals('00:40:00', $reports[1]['stoppage_duration']);
         $this->assertEquals(10, $reports[1]['stoppage_count']);
@@ -273,8 +259,6 @@ class TractorReportsFilterTest extends TestCase
         // Validate accumulated values (only for the filtered operation)
         $accumulated = $responseData['accumulated'];
         $this->assertEquals('300.00', $accumulated['traveled_distance']); // 100 + 200
-        $this->assertEquals('0.00', $accumulated['min_speed']);
-        $this->assertEquals('100.00', $accumulated['max_speed']); // Max from the filtered reports
         $this->assertEquals('30.00', $accumulated['avg_speed']); // Average of 20 and 40
         $this->assertEquals('03:00:00', $accumulated['work_duration']); // 3600 + 7200
         $this->assertEquals('01:00:00', $accumulated['stoppage_duration']); // 1200 + 2400
@@ -327,7 +311,6 @@ class TractorReportsFilterTest extends TestCase
                 'stoppage_count' => 5,
                 'stoppage_duration' => 1800,
                 'average_speed' => 20,
-                'max_speed' => 40,
                 'efficiency' => $taskData['efficiency'],
                 'date' => $taskData['date'],
             ]);
@@ -405,7 +388,6 @@ class TractorReportsFilterTest extends TestCase
                 'stoppage_count' => 5,
                 'stoppage_duration' => 1800,
                 'average_speed' => 20,
-                'max_speed' => 40,
                 'efficiency' => $taskData['efficiency'],
                 'date' => $taskData['date']->format('Y-m-d'),
             ]);
@@ -480,7 +462,6 @@ class TractorReportsFilterTest extends TestCase
                 'stoppage_count' => 5,
                 'stoppage_duration' => 1800,
                 'average_speed' => 20,
-                'max_speed' => 40,
                 'efficiency' => $taskData['efficiency'],
                 'date' => $taskData['date'],
             ]);
@@ -558,7 +539,6 @@ class TractorReportsFilterTest extends TestCase
                 'stoppage_count' => 5,
                 'stoppage_duration' => 1800,
                 'average_speed' => 20,
-                'max_speed' => 40,
                 'efficiency' => $taskData['efficiency'],
                 'date' => $taskData['date'],
             ]);
@@ -636,7 +616,6 @@ class TractorReportsFilterTest extends TestCase
                 'stoppage_count' => 5,
                 'stoppage_duration' => 1800,
                 'average_speed' => 20,
-                'max_speed' => 40,
                 'efficiency' => $taskData['efficiency'],
                 'date' => $taskData['date'],
             ]);
@@ -720,7 +699,6 @@ class TractorReportsFilterTest extends TestCase
                 'stoppage_count' => 5 * ($i + 1),
                 'stoppage_duration' => 1200 * ($i + 1),
                 'average_speed' => 20 * ($i + 1),
-                'max_speed' => 50 * ($i + 1),
                 'efficiency' => 80 - (($i + 1) * 5),
                 'date' => $gregorianDate,
             ]);
@@ -745,7 +723,6 @@ class TractorReportsFilterTest extends TestCase
             'stoppage_count' => 15,
             'stoppage_duration' => 3600,
             'average_speed' => 60,
-            'max_speed' => 150,
             'efficiency' => 70,
             'date' => $gregorianDate,
         ]);
