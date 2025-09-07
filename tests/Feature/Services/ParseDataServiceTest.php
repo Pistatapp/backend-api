@@ -149,7 +149,7 @@ class ParseDataServiceTest extends TestCase
             'imei' => '863070043386100',
             'is_starting_point' => false,
             'is_ending_point' => false,
-            'is_stopped' => false,
+            'is_stopped' => true,
             'is_off' => true,
             'stoppage_time' => 0,
             'date_time' => Carbon::createFromFormat('ymdHis', '240421070000')->addHours(3)->addMinutes(30),

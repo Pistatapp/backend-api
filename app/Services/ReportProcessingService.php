@@ -87,7 +87,8 @@ class ReportProcessingService
         if ($timeDiff < 0) {
             return null; // ignore out-of-order
         }
-        if (!($this->shouldCountReport($report) && $this->shouldCountReport($this->previousRawReport))) {
+        // Only compute diffs if both current and previous reports are within working/task scope
+        if (!$this->shouldCountReport($report) || !$this->shouldCountReport($this->previousRawReport)) {
             return null; // outside working/task scope
         }
         $distanceDiff = calculate_distance($this->previousRawReport['coordinate'], $report['coordinate']);
@@ -99,14 +100,12 @@ class ReportProcessingService
      */
     private function applyMetrics(array $report, int $timeDiff, float $distanceDiff): void
     {
-        $prevStopped = $this->previousRawReport['speed'] == 0;
+        $prevStopped = $this->previousRawReport['is_stopped'];
         $isStopped = $report['is_stopped'];
 
         if ($prevStopped && $isStopped) { // stopped -> stopped
             $this->totalStoppedTime += $timeDiff;
-            if ($this->latestStoredReport?->is_stopped) {
-                $this->latestStoredReport->incrementStoppageTime($timeDiff);
-            }
+            $this->latestStoredReport?->increment('stoppage_time', $timeDiff);
         } elseif ($prevStopped && !$isStopped) { // stopped -> moving
             $this->totalMovingTime += $timeDiff;
             $this->totalTraveledDistance += $distanceDiff;
@@ -177,6 +176,6 @@ class ReportProcessingService
         $report = $this->device->reports()->create($data);
         $this->latestStoredReport = $report;
         $this->cacheService->setLatestStoredReport($report);
-        $this->setWorkingTimes($report);
+        $this->detectStartEndPoints($report);
     }
 }

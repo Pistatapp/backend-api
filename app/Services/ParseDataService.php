@@ -42,19 +42,28 @@ class ParseDataService
             return null;
         }
 
+        $speed = (int)$dataFields[6];
+        $status = (int)$dataFields[8];
+        $ewDirection = (int)$dataFields[9];
+        $nsDirection = (int)$dataFields[10];
+        $imei = $dataFields[11];
+
+        $isStopped = $status == 0 || $speed == 0;
+        $isOff = !$status;
+
         return [
             'coordinate' => $coordinate,
-            'speed' => (int)$dataFields[6],
-            'status' => (int)$dataFields[8],
-            'ew_direction' => (int)$dataFields[9],
-            'ns_direction' => (int)$dataFields[10],
+            'speed' => $speed,
+            'status' => $status,
+            'ew_direction' => $ewDirection,
+            'ns_direction' => $nsDirection,
             'is_starting_point' => false,
             'is_ending_point' => false,
-            'is_stopped' => (int)$dataFields[8] == 1 && (int)$dataFields[6] == 0,
-            'is_off' => (int)$dataFields[8] == 0,
+            'is_stopped' => $isStopped,
+            'is_off' => $isOff,
             'stoppage_time' => 0,
             'date_time' => $dateTime,
-            'imei' => $dataFields[11],
+            'imei' => $imei,
         ];
     }
 

@@ -21,17 +21,6 @@ trait TractorWorkingTime
     private const SHORT_CACHE_TTL = 5; // 5 minutes
 
     /**
-     * Detect and set working times based on a GPS report
-     *
-     * @param GpsReport $report
-     * @return void
-     */
-    public function setWorkingTimes(GpsReport $report): void
-    {
-        $this->detectStartEndPoints($report);
-    }
-
-    /**
      * Detect the start and end points of the tractor's working time
      *
      * @param GpsReport $report
@@ -242,14 +231,19 @@ trait TractorWorkingTime
         $dateTime = $report['date_time'];
         $cacheKey = "tractor_working_hours_{$this->tractor->id}";
 
-        $workingHours = Cache::remember($cacheKey, now()->addMinutes(now()->endOfDay()), function () {
+        $workingHours = Cache::remember($cacheKey, now()->endOfDay(), function () {
             return [
                 'start' => today()->setTimeFromTimeString($this->tractor->start_work_time),
                 'end' => today()->setTimeFromTimeString($this->tractor->end_work_time)
             ];
         });
 
-        return $dateTime->between($workingHours['start'], $workingHours['end']);
+        // Handle case where end time is before start time (crosses midnight)
+        if ($workingHours['end']->lt($workingHours['start'])) {
+            return $dateTime->gte($workingHours['start']) || $dateTime->lte($workingHours['end']);
+        }
+
+        return $dateTime->gte($workingHours['start']) && $dateTime->lte($workingHours['end']);
     }
 
     /**
@@ -261,7 +255,7 @@ trait TractorWorkingTime
     {
         $cacheKey = "tractor_start_work_time_{$this->tractor->id}";
 
-        return Cache::remember($cacheKey, now()->addMinutes(now()->endOfDay()), function () {
+        return Cache::remember($cacheKey, now()->endOfDay(), function () {
             return today()->setTimeFromTimeString($this->tractor->start_work_time);
         });
     }
