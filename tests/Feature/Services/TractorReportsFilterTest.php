@@ -83,13 +83,28 @@ class TractorReportsFilterTest extends TestCase
             'data' => [
                 'reports' => [
                     '*' => [
-                        'operation_name',
-                        'field_name',
+                        'date',
                         'traveled_distance',
                         'avg_speed',
                         'work_duration',
                         'stoppage_duration',
                         'stoppage_count',
+                        'task' => [
+                            'operation' => [
+                                'id',
+                                'name',
+                            ],
+                            'taskable' => [
+                                'id',
+                                'name',
+                                'type',
+                            ],
+                            'consumed_water',
+                            'consumed_fertilizer',
+                            'consumed_poison',
+                            'operation_area',
+                            'workers_count',
+                        ],
                     ],
                 ],
                 'accumulated' => [
@@ -114,26 +129,26 @@ class TractorReportsFilterTest extends TestCase
         $this->assertCount(3, $reports);
 
         // Validate first report values
-        $this->assertEquals($operations[0]->name, $reports[0]['operation_name']);
-        $this->assertEquals($fields[0]->name, $reports[0]['field_name']);
         $this->assertEquals('100.00', $reports[0]['traveled_distance']);
         $this->assertEquals('20.00', $reports[0]['avg_speed']);
         $this->assertEquals('01:00:00', $reports[0]['work_duration']);
         $this->assertEquals('00:20:00', $reports[0]['stoppage_duration']);
         $this->assertEquals(5, $reports[0]['stoppage_count']);
+        $this->assertEquals($operations[0]->name, $reports[0]['task']['operation']['name']);
+        $this->assertEquals($fields[0]->name, $reports[0]['task']['taskable']['name']);
 
         // Validate second report values
-        $this->assertEquals($operations[1]->name, $reports[1]['operation_name']);
-        $this->assertEquals($fields[1]->name, $reports[1]['field_name']);
         $this->assertEquals('200.00', $reports[1]['traveled_distance']);
         $this->assertEquals('40.00', $reports[1]['avg_speed']);
         $this->assertEquals('02:00:00', $reports[1]['work_duration']);
         $this->assertEquals('00:40:00', $reports[1]['stoppage_duration']);
         $this->assertEquals(10, $reports[1]['stoppage_count']);
+        $this->assertEquals($operations[1]->name, $reports[1]['task']['operation']['name']);
+        $this->assertEquals($fields[1]->name, $reports[1]['task']['taskable']['name']);
 
         // Validate third report values
-        $this->assertEquals($operations[2]->name, $reports[2]['operation_name']);
-        $this->assertEquals($fields[2]->name, $reports[2]['field_name']);
+        $this->assertEquals($operations[2]->name, $reports[2]['task']['operation']['name']);
+        $this->assertEquals($fields[2]->name, $reports[2]['task']['taskable']['name']);
         $this->assertEquals('300.00', $reports[2]['traveled_distance']);
         $this->assertEquals('60.00', $reports[2]['avg_speed']);
         $this->assertEquals('03:00:00', $reports[2]['work_duration']);
@@ -239,22 +254,34 @@ class TractorReportsFilterTest extends TestCase
         $this->assertCount(2, $reports); // Only reports for the specified operation
 
         // Validate first report values
-        $this->assertEquals($operation->name, $reports[0]['operation_name']);
-        $this->assertEquals($fields[0]->name, $reports[0]['field_name']);
         $this->assertEquals('100.00', $reports[0]['traveled_distance']);
         $this->assertEquals('20.00', $reports[0]['avg_speed']);
         $this->assertEquals('01:00:00', $reports[0]['work_duration']);
         $this->assertEquals('00:20:00', $reports[0]['stoppage_duration']);
         $this->assertEquals(5, $reports[0]['stoppage_count']);
 
+        // Validate task structure for first report
+        $this->assertArrayHasKey('task', $reports[0]);
+        $this->assertEquals($operation->id, $reports[0]['task']['operation']['id']);
+        $this->assertEquals($operation->name, $reports[0]['task']['operation']['name']);
+        $this->assertEquals($fields[0]->id, $reports[0]['task']['taskable']['id']);
+        $this->assertEquals($fields[0]->name, $reports[0]['task']['taskable']['name']);
+        $this->assertEquals('Field', $reports[0]['task']['taskable']['type']);
+
         // Validate second report values
-        $this->assertEquals($operation->name, $reports[1]['operation_name']);
-        $this->assertEquals($fields[1]->name, $reports[1]['field_name']);
         $this->assertEquals('200.00', $reports[1]['traveled_distance']);
         $this->assertEquals('40.00', $reports[1]['avg_speed']);
         $this->assertEquals('02:00:00', $reports[1]['work_duration']);
         $this->assertEquals('00:40:00', $reports[1]['stoppage_duration']);
         $this->assertEquals(10, $reports[1]['stoppage_count']);
+
+        // Validate task structure for second report
+        $this->assertArrayHasKey('task', $reports[1]);
+        $this->assertEquals($operation->id, $reports[1]['task']['operation']['id']);
+        $this->assertEquals($operation->name, $reports[1]['task']['operation']['name']);
+        $this->assertEquals($fields[1]->id, $reports[1]['task']['taskable']['id']);
+        $this->assertEquals($fields[1]->name, $reports[1]['task']['taskable']['name']);
+        $this->assertEquals('Field', $reports[1]['task']['taskable']['type']);
 
         // Validate accumulated values (only for the filtered operation)
         $accumulated = $responseData['accumulated'];
@@ -738,7 +765,7 @@ class TractorReportsFilterTest extends TestCase
         // Should return all 3 reports (not filtered by operation)
         $this->assertCount(3, $reports);
         // Check that all operation names are present
-        $operationNames = collect($reports)->pluck('operation_name');
+        $operationNames = collect($reports)->pluck('task.operation.name');
         $this->assertTrue($operationNames->contains($operation->name));
         $this->assertTrue($operationNames->contains($otherOperation->name));
     }

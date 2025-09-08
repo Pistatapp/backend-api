@@ -702,4 +702,89 @@ class TractorTaskTest extends TestCase
         ]);
         $response->assertUnprocessable();
     }
+
+    /**
+     * Test that tractor reports filter service returns task data in the new wrapped structure.
+     */
+    public function test_tractor_reports_filter_service_returns_task_data_in_wrapped_structure(): void
+    {
+        $this->actingAs($this->user);
+
+        // Create test data
+        $operation = Operation::factory()->create();
+        $field = $this->farm->fields->first();
+        $specificDate = '1403/12/07';
+
+        // Create a tractor task with data
+        $task = \App\Models\TractorTask::factory()->create([
+            'tractor_id' => $this->tractor->id,
+            'operation_id' => $operation->id,
+            'taskable_type' => 'App\Models\Field',
+            'taskable_id' => $field->id,
+            'created_by' => $this->user->id,
+            'date' => jalali_to_carbon($specificDate),
+            'status' => 'pending',
+            'data' => [
+                'consumed_water' => 100,
+                'consumed_fertilizer' => 50,
+                'consumed_poison' => 25,
+                'operation_area' => 25.5,
+                'workers_count' => 3
+            ]
+        ]);
+
+        // Create a GPS daily report for the task
+        \App\Models\GpsDailyReport::factory()->create([
+            'tractor_id' => $this->tractor->id,
+            'tractor_task_id' => $task->id,
+            'date' => jalali_to_carbon($specificDate),
+            'traveled_distance' => 100.0,
+            'average_speed' => 20.0,
+            'work_duration' => 3600, // 1 hour in seconds
+            'stoppage_duration' => 1200, // 20 minutes in seconds
+            'stoppage_count' => 5,
+        ]);
+
+        // Use the TractorReportFilterService to get filtered reports
+        $service = new \App\Services\TractorReportFilterService();
+        $result = $service->filter([
+            'tractor_id' => $this->tractor->id,
+            'date' => $specificDate,
+        ]);
+
+        // Assert the structure
+        $this->assertArrayHasKey('reports', $result);
+        $this->assertCount(1, $result['reports']);
+
+        $report = $result['reports'][0];
+
+        // Assert basic report fields
+        $this->assertEquals($specificDate, $report['date']);
+        $this->assertEquals('100.00', $report['traveled_distance']);
+        $this->assertEquals('20.00', $report['avg_speed']);
+        $this->assertEquals('01:00:00', $report['work_duration']);
+        $this->assertEquals('00:20:00', $report['stoppage_duration']);
+        $this->assertEquals(5, $report['stoppage_count']);
+
+        // Assert task structure exists
+        $this->assertArrayHasKey('task', $report);
+
+        // Assert operation data
+        $this->assertArrayHasKey('operation', $report['task']);
+        $this->assertEquals($operation->id, $report['task']['operation']['id']);
+        $this->assertEquals($operation->name, $report['task']['operation']['name']);
+
+        // Assert taskable data
+        $this->assertArrayHasKey('taskable', $report['task']);
+        $this->assertEquals($field->id, $report['task']['taskable']['id']);
+        $this->assertEquals($field->name, $report['task']['taskable']['name']);
+        $this->assertEquals('Field', $report['task']['taskable']['type']);
+
+        // Assert task data fields
+        $this->assertEquals('100.00', $report['task']['consumed_water']);
+        $this->assertEquals('50.00', $report['task']['consumed_fertilizer']);
+        $this->assertEquals('25.00', $report['task']['consumed_poison']);
+        $this->assertEquals('25.50', $report['task']['operation_area']);
+        $this->assertEquals(3, $report['task']['workers_count']);
+    }
 }

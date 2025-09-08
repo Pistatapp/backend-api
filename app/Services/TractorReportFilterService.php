@@ -184,22 +184,37 @@ class TractorReportFilterService
     {
         return $reports->map(function ($report) {
             $task = $report->tractorTask;
-            return [
+
+            $result = [
                 'date' => jdate($report->date)->format('Y/m/d'),
-                'operation_name' => $task?->operation?->name,
-                'field_name' => $task?->taskable?->name,
                 'traveled_distance' => $this->formatDistance($report->traveled_distance ?? 0),
                 'avg_speed' => $this->formatSpeed($report->average_speed ?? 0),
                 'work_duration' => $this->formatDuration($report->work_duration ?? 0),
                 'stoppage_duration' => $this->formatDuration($report->stoppage_duration ?? 0),
                 'stoppage_count' => (int) ($report->stoppage_count ?? 0),
-                // New task data aggregates
-                'consumed_water' => $this->formatVolume(data_get($task?->data, 'consumed_water', 0)),
-                'consumed_fertilizer' => $this->formatWeight(data_get($task?->data, 'consumed_fertilizer', 0)),
-                'consumed_poison' => $this->formatVolume(data_get($task?->data, 'consumed_poison', 0)),
-                'operation_area' => $this->formatArea(data_get($task?->data, 'operation_area', 0)),
-                'workers_count' => (int) data_get($task?->data, 'workers_count', 0),
             ];
+
+            // If there's a tractor task, wrap task data into "task" field
+            if ($task) {
+                $result['task'] = [
+                    'operation' => $task->operation ? [
+                        'id' => $task->operation->id,
+                        'name' => $task->operation->name,
+                    ] : null,
+                    'taskable' => $task->taskable ? [
+                        'id' => $task->taskable->id,
+                        'name' => $task->taskable->name,
+                        'type' => class_basename($task->taskable_type),
+                    ] : null,
+                    'consumed_water' => $this->formatVolume(data_get($task->data, 'consumed_water', 0)),
+                    'consumed_fertilizer' => $this->formatWeight(data_get($task->data, 'consumed_fertilizer', 0)),
+                    'consumed_poison' => $this->formatVolume(data_get($task->data, 'consumed_poison', 0)),
+                    'operation_area' => $this->formatArea(data_get($task->data, 'operation_area', 0)),
+                    'workers_count' => (int) data_get($task->data, 'workers_count', 0),
+                ];
+            }
+
+            return $result;
         });
     }
 

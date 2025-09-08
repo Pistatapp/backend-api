@@ -35,26 +35,31 @@ POST /api/tractors/filter_reports
         "reports": [
             {
                 "date": "1403/10/15",
-                "operation_name": "string",
-                "field_name": "string",
                 "traveled_distance": "100.00",
-                "min_speed": "20.00",
-                "max_speed": "50.00",
                 "avg_speed": "35.00",
                 "work_duration": "08:30:00",
                 "stoppage_duration": "00:15:00",
                 "stoppage_count": 5,
-                "consumed_water": "150.00",
-                "consumed_fertilizer": "25.50",
-                "consumed_poison": "10.00",
-                "operation_area": "500.00",
-                "workers_count": 2
+                "task": {
+                    "operation": {
+                        "id": 1,
+                        "name": "Plowing"
+                    },
+                    "taskable": {
+                        "id": 1,
+                        "name": "Field A",
+                        "type": "Field"
+                    },
+                    "consumed_water": "150.00",
+                    "consumed_fertilizer": "25.50",
+                    "consumed_poison": "10.00",
+                    "operation_area": "500.00",
+                    "workers_count": 2
+                }
             }
         ],
         "accumulated": {
             "traveled_distance": "300.00",
-            "min_speed": "15.00",
-            "max_speed": "60.00",
             "avg_speed": "37.50",
             "work_duration": "25:30:00",
             "stoppage_duration": "01:30:00",
@@ -109,6 +114,96 @@ POST /api/tractors/filter_reports
 }
 ```
 
+## Response Examples
+
+### Report with Task Data
+
+```json
+{
+    "data": {
+        "reports": [
+            {
+                "date": "1403/10/15",
+                "traveled_distance": "100.00",
+                "avg_speed": "35.00",
+                "work_duration": "08:30:00",
+                "stoppage_duration": "00:15:00",
+                "stoppage_count": 5,
+                "task": {
+                    "operation": {
+                        "id": 1,
+                        "name": "Plowing"
+                    },
+                    "taskable": {
+                        "id": 1,
+                        "name": "Field A",
+                        "type": "Field"
+                    },
+                    "consumed_water": "150.00",
+                    "consumed_fertilizer": "25.50",
+                    "consumed_poison": "10.00",
+                    "operation_area": "500.00",
+                    "workers_count": 2
+                }
+            }
+        ],
+        "accumulated": {
+            "traveled_distance": "100.00",
+            "avg_speed": "35.00",
+            "work_duration": "08:30:00",
+            "stoppage_duration": "00:15:00",
+            "stoppage_count": 5,
+            "consumed_water": "150.00",
+            "consumed_fertilizer": "25.50",
+            "consumed_poison": "10.00",
+            "operation_area": "500.00",
+            "workers_count": 2
+        },
+        "expectations": {
+            "expected_daily_work": "08:00:00",
+            "total_work_duration": "08:30:00",
+            "total_efficiency": "106.25"
+        }
+    }
+}
+```
+
+### Report without Task Data
+
+```json
+{
+    "data": {
+        "reports": [
+            {
+                "date": "1403/10/15",
+                "traveled_distance": "50.00",
+                "avg_speed": "25.00",
+                "work_duration": "02:00:00",
+                "stoppage_duration": "00:05:00",
+                "stoppage_count": 1
+            }
+        ],
+        "accumulated": {
+            "traveled_distance": "50.00",
+            "avg_speed": "25.00",
+            "work_duration": "02:00:00",
+            "stoppage_duration": "00:05:00",
+            "stoppage_count": 1,
+            "consumed_water": "0.00",
+            "consumed_fertilizer": "0.00",
+            "consumed_poison": "0.00",
+            "operation_area": "0.00",
+            "workers_count": 0
+        },
+        "expectations": {
+            "expected_daily_work": "08:00:00",
+            "total_work_duration": "02:00:00",
+            "total_efficiency": "25.00"
+        }
+    }
+}
+```
+
 ## Error Responses
 
 ### 422 Validation Error
@@ -136,6 +231,61 @@ Returned when the specified tractor or operation does not exist.
 
 Returned when the user doesn't have permission to access the tractor's reports.
 
+## Response Structure
+
+### Report Object
+Each report in the `reports` array contains:
+
+- **Basic GPS Data** (top level):
+  - `date`: Report date in Y/m/d format
+  - `traveled_distance`: Total distance traveled in kilometers
+  - `avg_speed`: Average speed in km/h
+  - `work_duration`: Total working time in H:i:s format
+  - `stoppage_duration`: Total stoppage time in H:i:s format
+  - `stoppage_count`: Number of stoppages
+
+- **Task Data** (nested in `task` object):
+  - `operation`: Operation details with `id` and `name`
+  - `taskable`: Taskable entity details with `id`, `name`, and `type`
+  - `consumed_water`: Water consumption in liters
+  - `consumed_fertilizer`: Fertilizer consumption in kilograms
+  - `consumed_poison`: Pesticide consumption in liters
+  - `operation_area`: Area covered in square meters
+  - `workers_count`: Number of workers involved
+
+### Taskable Types
+The `taskable.type` field indicates the type of entity the task was performed on:
+- `Field`: Agricultural field
+- `Farm`: Entire farm
+- `Plot`: Specific plot within a field
+
+### Accumulated Object
+The `accumulated` object contains the sum of all values across all reports in the filtered results:
+
+- **GPS Data Accumulation**:
+  - `traveled_distance`: Total distance traveled across all reports (km)
+  - `avg_speed`: Average speed across all reports (km/h)
+  - `work_duration`: Total working time across all reports (H:i:s format)
+  - `stoppage_duration`: Total stoppage time across all reports (H:i:s format)
+  - `stoppage_count`: Total number of stoppages across all reports
+
+- **Task Data Accumulation**:
+  - `consumed_water`: Total water consumption across all tasks (liters)
+  - `consumed_fertilizer`: Total fertilizer consumption across all tasks (kg)
+  - `consumed_poison`: Total pesticide consumption across all tasks (liters)
+  - `operation_area`: Total area covered across all tasks (m²)
+  - `workers_count`: Total worker count across all tasks
+
+### Expectations Object
+The `expectations` object provides performance metrics:
+
+- `expected_daily_work`: Expected daily work duration for the tractor (H:i:s format)
+- `total_work_duration`: Total actual work duration from filtered reports (H:i:s format)
+- `total_efficiency`: Overall efficiency percentage (0-100) calculated based on:
+  - Daily view: `(total_work_duration / expected_daily_work) * 100`
+  - Monthly view: `(total_work_duration / expected_monthly_work) * 100`
+  - Yearly view: `(total_work_duration / expected_yearly_work) * 100`
+
 ## Notes
 
 - All dates should be provided in Shamsi (Persian) calendar format
@@ -145,5 +295,7 @@ Returned when the user doesn't have permission to access the tractor's reports.
 - Volumes (water, poison) are returned in liters with 2 decimal places
 - Weights (fertilizer) are returned in kilograms with 2 decimal places
 - Areas are returned in square meters with 2 decimal places
-- Efficiency is calculated as a percentage with 2 decimal places (0-100)
 - Counts (stoppage_count, workers_count) are returned as integers
+- The `task` object is only present when there's an associated tractor task for the report
+- When no tasks are associated with reports, task-related accumulated values (consumed_water, consumed_fertilizer, etc.) will be 0
+- Efficiency is capped at 100% maximum value
