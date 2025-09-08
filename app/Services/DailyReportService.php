@@ -60,9 +60,9 @@ class DailyReportService
      * Calculate the efficiency of the tractor.
      *
      * @param float $totalMovingTime
-     * @return int
+     * @return float
      */
-    private function calculateEfficiency(float $totalMovingTime): int
+    private function calculateEfficiency(float $totalMovingTime): float
     {
         return $totalMovingTime / ($this->tractor->expected_daily_work_time * 3600) * 100;
     }
