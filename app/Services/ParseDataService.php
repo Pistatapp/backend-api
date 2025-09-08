@@ -48,7 +48,7 @@ class ParseDataService
         $nsDirection = (int)$dataFields[10];
         $imei = $dataFields[11];
 
-        $isStopped = $status == 0 || $speed == 0;
+        $isStopped = $speed == 0;
         $isOff = !$status;
 
         return [
