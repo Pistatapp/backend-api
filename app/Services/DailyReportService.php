@@ -64,7 +64,7 @@ class DailyReportService
      */
     private function calculateEfficiency(float $totalMovingTime): int
     {
-        return round($totalMovingTime / ($this->tractor->expected_daily_work_time * 3600) * 100);
+        return round($totalMovingTime / ($this->tractor->expected_daily_work_time * 3600) * 100, 2);
     }
 
     /**
@@ -80,6 +80,6 @@ class DailyReportService
             ? $dailyReport->traveled_distance / ($dailyReport->work_duration / 3600)
             : 0;
 
-        return round($averageSpeed);
+        return round($averageSpeed, 2);
     }
 }
