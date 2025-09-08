@@ -39,7 +39,7 @@ class DailyReportService
     public function update(GpsDailyReport $dailyReport, array $data): array
     {
         $efficiency = $this->calculateEfficiency($data['totalMovingTime']);
-        $averageSpeed = $this->calculateAverageSpeed($dailyReport, $data['totalTraveledDistance']);
+        $averageSpeed = $this->calculateAverageSpeed($dailyReport);
 
         $updateData = [
             'traveled_distance' => $dailyReport->traveled_distance + $data['totalTraveledDistance'],
@@ -64,22 +64,21 @@ class DailyReportService
      */
     private function calculateEfficiency(float $totalMovingTime): int
     {
-        return round($totalMovingTime / ($this->tractor->expected_daily_work_time * 3600) * 100, 2);
+        return $totalMovingTime / ($this->tractor->expected_daily_work_time * 3600) * 100;
     }
 
     /**
      * Calculate the average speed of the tractor.
      *
      * @param GpsDailyReport $dailyReport
-     * @param float $totalTraveledDistance
      * @return int
      */
-    private function calculateAverageSpeed(GpsDailyReport $dailyReport, float $totalTraveledDistance): int
+    private function calculateAverageSpeed(GpsDailyReport $dailyReport): float
     {
         $averageSpeed = $dailyReport->work_duration > 0
             ? $dailyReport->traveled_distance / ($dailyReport->work_duration / 3600)
             : 0;
 
-        return round($averageSpeed, 2);
+        return $averageSpeed;
     }
 }
