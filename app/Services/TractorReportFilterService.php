@@ -229,17 +229,17 @@ class TractorReportFilterService
         });
 
         return [
-            'traveled_distance' => $this->formatDistance($rawReports->sum('traveled_distance')),
-            'avg_speed' => $this->formatSpeed($rawReports->avg('avg_speed')),
-            'work_duration' => $this->formatDuration($rawReports->sum('work_duration')),
-            'stoppage_duration' => $this->formatDuration($rawReports->sum('stoppage_duration')),
-            'stoppage_count' => (int) $rawReports->sum('stoppage_count'),
+            'traveled_distance' => $this->formatDistance($rawReports->sum('traveled_distance') ?? 0),
+            'avg_speed' => $this->formatSpeed($rawReports->avg('avg_speed') ?? 0),
+            'work_duration' => $this->formatDuration($rawReports->sum('work_duration') ?? 0),
+            'stoppage_duration' => $this->formatDuration($rawReports->sum('stoppage_duration') ?? 0),
+            'stoppage_count' => (int) $rawReports->sum('stoppage_count') ?? 0,
             // New accumulated values from task data
-            'consumed_water' => $this->formatVolume($rawReports->sum('consumed_water')),
-            'consumed_fertilizer' => $this->formatWeight($rawReports->sum('consumed_fertilizer')),
-            'consumed_poison' => $this->formatVolume($rawReports->sum('consumed_poison')),
-            'operation_area' => $this->formatArea($rawReports->sum('operation_area')),
-            'workers_count' => (int) $rawReports->sum('workers_count'),
+            'consumed_water' => $this->formatVolume($rawReports->sum('consumed_water') ?? 0),
+            'consumed_fertilizer' => $this->formatWeight($rawReports->sum('consumed_fertilizer') ?? 0),
+            'consumed_poison' => $this->formatVolume($rawReports->sum('consumed_poison') ?? 0),
+            'operation_area' => $this->formatArea($rawReports->sum('operation_area') ?? 0),
+            'workers_count' => (int) $rawReports->sum('workers_count') ?? 0,
         ];
     }
 
