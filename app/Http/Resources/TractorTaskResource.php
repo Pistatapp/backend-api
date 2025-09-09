@@ -36,8 +36,8 @@ class TractorTaskResource extends JsonResource
                 ];
             }),
             'date' => jdate($this->date)->format('Y/m/d'),
-            'start_time' => $this->start_time,
-            'end_time' => $this->end_time,
+            'start_time' => jdate($this->start_time)->format('H:i:s'),
+            'end_time' => jdate($this->end_time)->format('H:i:s'),
             'status' => $this->status,
             $this->mergeWhen($this->data, [
                 'consumed_water' => data_get($this->data, 'consumed_water'),
