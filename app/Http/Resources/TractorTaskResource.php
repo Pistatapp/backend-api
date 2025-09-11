@@ -36,8 +36,8 @@ class TractorTaskResource extends JsonResource
                 ];
             }),
             'date' => jdate($this->date)->format('Y/m/d'),
-            'start_time' => jdate($this->start_time)->format('H:i:s'),
-            'end_time' => jdate($this->end_time)->format('H:i:s'),
+            'start_time' => $this->start_time->format('H:i:s'),
+            'end_time' => $this->end_time->format('H:i:s'),
             'status' => $this->status,
             $this->mergeWhen($this->data, [
                 'consumed_water' => data_get($this->data, 'consumed_water'),
@@ -52,7 +52,7 @@ class TractorTaskResource extends JsonResource
                     'name' => $this->creator->name,
                 ];
             }),
-            'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),
+            'created_at' => jdate($this->created_at)->format('Y/m/d'),
         ];
     }
 }

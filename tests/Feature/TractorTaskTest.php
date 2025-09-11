@@ -40,7 +40,7 @@ class TractorTaskTest extends TestCase
         ]);
 
         $this->farm->users()->attach($this->user, [
-            'role' => 'owner',
+            'role' => 'admin',
             'is_owner' => true
         ]);
 
@@ -787,4 +787,163 @@ class TractorTaskTest extends TestCase
         $this->assertEquals('25.50', $report['task']['operation_area']);
         $this->assertEquals(3, $report['task']['workers_count']);
     }
+
+    /**
+     * Test that notifications are sent to farm admins when a tractor task is created.
+     */
+    public function test_notifications_sent_to_farm_admins_when_tractor_task_created(): void
+    {
+        $this->actingAs($this->user);
+
+        // Create additional farm admin
+        $farmAdmin = User::factory()->create();
+        $farmAdmin->assignRole('admin');
+        $this->farm->users()->attach($farmAdmin, [
+            'role' => 'admin',
+            'is_owner' => false
+        ]);
+
+        $operation = Operation::factory()->create([
+            'farm_id' => $this->farm->id,
+            'name' => 'شخم زدن'
+        ]);
+
+        $field = $this->farm->fields->first();
+        $field->name = 'قطعه 1';
+        $field->save();
+
+        $response = $this->postJson(route('tractors.tractor_tasks.store', $this->tractor), [
+            'operation_id' => $operation->id,
+            'taskable_type' => 'field',
+            'taskable_id' => $field->id,
+            'date' => '1403/12/07',
+            'start_time' => '08:00',
+            'end_time' => '10:00',
+        ]);
+
+        $response->assertCreated();
+
+        // Assert notifications were sent to farm admins
+        Notification::assertSentTo(
+            $this->user,
+            \App\Notifications\TractorTaskCreated::class
+        );
+
+        Notification::assertSentTo(
+            $farmAdmin,
+            \App\Notifications\TractorTaskCreated::class
+        );
+    }
+
+    /**
+     * Test that notifications are sent to driver when a tractor task is created.
+     */
+    public function test_notifications_sent_to_driver_when_tractor_task_created(): void
+    {
+        $this->actingAs($this->user);
+
+        $operation = Operation::factory()->create([
+            'farm_id' => $this->farm->id,
+            'name' => 'کاشت بذر'
+        ]);
+
+        $field = $this->farm->fields->first();
+        $field->name = 'قطعه 2';
+        $field->save();
+
+        $response = $this->postJson(route('tractors.tractor_tasks.store', $this->tractor), [
+            'operation_id' => $operation->id,
+            'taskable_type' => 'field',
+            'taskable_id' => $field->id,
+            'date' => '1403/12/08',
+            'start_time' => '09:00',
+            'end_time' => '11:00',
+        ]);
+
+        $response->assertCreated();
+
+        // Get the driver from the tractor
+        $driver = $this->tractor->driver;
+
+        // Assert notification was sent to driver
+        Notification::assertSentTo(
+            $driver,
+            \App\Notifications\TractorTaskCreated::class
+        );
+    }
+
+    /**
+     * Test that notification contains the correct task data and uses proper channels.
+     */
+    public function test_notification_contains_correct_task_data_and_channels(): void
+    {
+        $this->actingAs($this->user);
+
+        // Set locale to Persian for proper translation
+        app()->setLocale('fa');
+
+        $operation = Operation::factory()->create([
+            'farm_id' => $this->farm->id,
+            'name' => 'آبیاری'
+        ]);
+
+        $field = $this->farm->fields->first();
+        $field->name = 'باغ مرکبات';
+        $field->save();
+
+        $this->tractor->name = 'تراکتور جان دیر';
+        $this->tractor->save();
+
+        $response = $this->postJson(route('tractors.tractor_tasks.store', $this->tractor), [
+            'operation_id' => $operation->id,
+            'taskable_type' => 'field',
+            'taskable_id' => $field->id,
+            'date' => '1403/12/09',
+            'start_time' => '14:30',
+            'end_time' => '16:30',
+        ]);
+
+        $response->assertCreated();
+
+        // Get the created task
+        $task = \App\Models\TractorTask::latest()->first();
+        $notification = new \App\Notifications\TractorTaskCreated($task);
+
+        // Test that notification has the correct task data
+        $this->assertEquals($task->id, $notification->task->id);
+        $this->assertEquals('تراکتور جان دیر', $notification->task->tractor->name);
+        $this->assertEquals('آبیاری', $notification->task->operation->name);
+        $this->assertEquals('باغ مرکبات', $notification->task->taskable->name);
+        $this->assertEquals('14:30', $notification->task->start_time->format('H:i'));
+        $this->assertEquals('16:30', $notification->task->end_time->format('H:i'));
+
+        // Test notification channels for User (farm admin)
+        $userChannels = $notification->via($this->user);
+        $this->assertEquals(['database', 'firebase'], $userChannels);
+
+        // Test notification channels for Driver
+        $driver = $this->tractor->driver;
+        $driverChannels = $notification->via($driver);
+        $this->assertEquals(['kavenegar'], $driverChannels);
+
+        // Test Firebase message structure for User
+        $firebaseMessage = $notification->toFireBase($this->user);
+        $this->assertNotNull($firebaseMessage->title);
+        $this->assertNotNull($firebaseMessage->body);
+        $this->assertEquals($task->id, $firebaseMessage->data['task_id']);
+        $this->assertEquals('info', $firebaseMessage->data['color']);
+
+        // Test database notification structure for User
+        $databaseNotification = $notification->toArray($this->user);
+        $this->assertNotNull($databaseNotification['title']);
+        $this->assertNotNull($databaseNotification['message']);
+        $this->assertEquals($task->id, $databaseNotification['task_id']);
+        $this->assertEquals('info', $databaseNotification['color']);
+
+        // Test SMS message structure for Driver
+        $smsMessage = $notification->toKavenegar($driver);
+        $this->assertNotNull($smsMessage->content);
+        $this->assertIsString($smsMessage->content);
+    }
+
 }

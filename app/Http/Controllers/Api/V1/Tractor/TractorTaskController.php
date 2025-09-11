@@ -11,7 +11,8 @@ use App\Models\Tractor;
 use App\Models\TractorTask;
 use Illuminate\Http\Request;
 use App\Services\TractorReportFilterService;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Notification;
+use App\Notifications\TractorTaskCreated;
 
 class TractorTaskController extends Controller
 {
@@ -54,8 +55,17 @@ class TractorTaskController extends Controller
             'date' => $validated['date'],
             'start_time' => $validated['start_time'],
             'end_time' => $validated['end_time'],
-            'created_by' => Auth::id(),
+            'created_by' => $request->user()->id,
         ]);
+
+        $farmAdmins = $tractor->farm->admins;
+        $driver = $tractor->driver;
+
+        // Send notifications to farm admins
+        Notification::send($farmAdmins, new TractorTaskCreated($task));
+
+        // Send notification to driver
+        Notification::send($driver, new TractorTaskCreated($task));
 
         return new TractorTaskResource($task);
     }
