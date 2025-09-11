@@ -26,11 +26,13 @@ class TractorTaskPolicy
 
     public function update(User $user, TractorTask $tractorTask): bool
     {
-        return $tractorTask->creator->is($user);
+        return $tractorTask->creator->is($user) && $tractorTask->status === 'pending'
+            && $user->can('assign-tractor-task');
     }
 
     public function delete(User $user, TractorTask $tractorTask): bool
     {
-        return $tractorTask->creator->is($user) && $tractorTask->status === 'pending';
+        return $tractorTask->creator->is($user) && $tractorTask->status === 'pending'
+            && $user->can('assign-tractor-task');
     }
 }

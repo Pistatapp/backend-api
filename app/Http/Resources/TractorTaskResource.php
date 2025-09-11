@@ -53,6 +53,10 @@ class TractorTaskResource extends JsonResource
                 ];
             }),
             'created_at' => jdate($this->created_at)->format('Y/m/d'),
+            'can' => [
+                'update' => $request->user()->can('update', $this->resource),
+                'delete' => $request->user()->can('delete', $this->resource),
+            ],
         ];
     }
 }
