@@ -129,6 +129,17 @@ class TractorTask extends Model
     }
 
     /**
+     * Scope a query to only include pending tasks.
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopePending($query)
+    {
+        return $query->where('status', 'pending');
+    }
+
+    /**
      * Scope a query to only include tasks that have started.
      *
      * @param \Illuminate\Database\Eloquent\Builder $query

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Tractor;
 use App\Models\TractorTask;
+use Illuminate\Support\Facades\Log;
 
 class TractorTaskService
 {
@@ -18,10 +19,14 @@ class TractorTaskService
      */
     public function getCurrentTask(): ?TractorTask
     {
-        return $this->tractor->tasks()
+        $task = $this->tractor->tasks()
             ->started()
-            ->forDate(today())
+            ->forDate(today()->toDateString())
             ->first();
+
+        Log::info('Current task: ' . $task->id);
+
+        return $task;
     }
 
     /**

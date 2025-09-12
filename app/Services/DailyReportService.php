@@ -25,7 +25,7 @@ class DailyReportService
         return GpsDailyReport::firstOrCreate([
             'tractor_id' => $this->tractor->id,
             'tractor_task_id' => $taskId,
-            'date' => today()
+            'date' => today()->toDateString()
         ]);
     }
 
