@@ -36,8 +36,7 @@ class GpsReport extends Model
             'is_ending_point' => 'boolean',
             'date_time' => 'datetime',
             'coordinate' => 'array',
-            'ew_direction' => 'integer',
-            'ns_direction' => 'integer',
+            'directions' => 'array',
             'is_off' => 'boolean',
         ];
     }
@@ -52,8 +51,7 @@ class GpsReport extends Model
         'is_starting_point' => false,
         'is_ending_point' => false,
         'stoppage_time' => 0,
-        'ew_direction' => 0,
-        'ns_direction' => 0,
+        'directions' => '{"ew":0,"ns":0}',
         'is_off' => false,
     ];
 
@@ -65,5 +63,25 @@ class GpsReport extends Model
     public function gpsDevice()
     {
         return $this->belongsTo(GpsDevice::class);
+    }
+
+    /**
+     * Get the EW direction from the directions array
+     *
+     * @return int
+     */
+    public function getEwDirectionAttribute(): int
+    {
+        return $this->directions['ew'] ?? 0;
+    }
+
+    /**
+     * Get the NS direction from the directions array
+     *
+     * @return int
+     */
+    public function getNsDirectionAttribute(): int
+    {
+        return $this->directions['ns'] ?? 0;
     }
 }

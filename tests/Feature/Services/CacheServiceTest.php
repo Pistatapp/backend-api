@@ -45,8 +45,7 @@ class CacheServiceTest extends TestCase
             'coordinate' => [34.883333, 50.583333],
             'speed' => 5,
             'status' => 1,
-            'ew_direction' => 0,
-            'ns_direction' => 0,
+            'directions' => ['ew' => 0, 'ns' => 0],
             'is_starting_point' => false,
             'is_ending_point' => false,
             'is_stopped' => false,
@@ -147,8 +146,7 @@ class CacheServiceTest extends TestCase
             'coordinate' => [34.883333, 50.583333],
             'speed' => 5,
             'status' => 1,
-            'ew_direction' => 0,
-            'ns_direction' => 0,
+            'directions' => ['ew' => 0, 'ns' => 0],
             'is_starting_point' => false,
             'is_ending_point' => false,
             'is_stopped' => false,
@@ -162,8 +160,7 @@ class CacheServiceTest extends TestCase
             'coordinate' => [34.884333, 50.584333],
             'speed' => 10,
             'status' => 1,
-            'ew_direction' => 90,
-            'ns_direction' => 0,
+            'directions' => ['ew' => 90, 'ns' => 0],
             'is_starting_point' => false,
             'is_ending_point' => false,
             'is_stopped' => false,
@@ -270,8 +267,7 @@ class CacheServiceTest extends TestCase
                 'coordinate' => [34.883333 + ($i * 0.001), 50.583333 + ($i * 0.001)],
                 'speed' => $i,
                 'status' => 1,
-                'ew_direction' => 0,
-                'ns_direction' => 0,
+                'directions' => ['ew' => 0, 'ns' => 0],
                 'is_starting_point' => false,
                 'is_ending_point' => false,
                 'is_stopped' => false,
@@ -340,8 +336,7 @@ class CacheServiceTest extends TestCase
             'coordinate' => [34.883333, 50.583333],
             'speed' => 15,
             'status' => 1,
-            'ew_direction' => 180,
-            'ns_direction' => 1,
+            'directions' => ['ew' => 180, 'ns' => 1],
             'is_starting_point' => true,
             'is_ending_point' => false,
             'is_stopped' => false,
@@ -358,8 +353,8 @@ class CacheServiceTest extends TestCase
         $this->assertNotNull($retrievedReport);
         $this->assertEquals($complexReport['coordinate'], $retrievedReport['coordinate']);
         $this->assertEquals($complexReport['speed'], $retrievedReport['speed']);
-        $this->assertEquals($complexReport['ew_direction'], $retrievedReport['ew_direction']);
-        $this->assertEquals($complexReport['ns_direction'], $retrievedReport['ns_direction']);
+        $this->assertEquals($complexReport['directions']['ew'], $retrievedReport['directions']['ew']);
+        $this->assertEquals($complexReport['directions']['ns'], $retrievedReport['directions']['ns']);
         $this->assertEquals($complexReport['is_starting_point'], $retrievedReport['is_starting_point']);
         $this->assertEquals($complexReport['stoppage_time'], $retrievedReport['stoppage_time']);
         $this->assertInstanceOf(Carbon::class, $retrievedReport['date_time']);

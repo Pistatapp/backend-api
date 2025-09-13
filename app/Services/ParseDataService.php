@@ -49,14 +49,16 @@ class ParseDataService
         $imei = $dataFields[11];
 
         $isStopped = ($status == 0) || ($status == 1 && $speed == 0);
-        $isOff = !$status;
+        $isOff = $status == 0;
 
         return [
             'coordinate' => $coordinate,
             'speed' => $speed,
             'status' => $status,
-            'ew_direction' => $ewDirection,
-            'ns_direction' => $nsDirection,
+            'directions' => [
+                'ew' => $ewDirection,
+                'ns' => $nsDirection,
+            ],
             'is_starting_point' => false,
             'is_ending_point' => false,
             'is_stopped' => $isStopped,

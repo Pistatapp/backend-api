@@ -38,8 +38,8 @@ class ParseDataServiceTest extends TestCase
         $this->assertEquals([34.883333, 50.583333], $firstReport['coordinate']);
         $this->assertEquals(0, $firstReport['speed']); // Index 6: 000
         $this->assertEquals(1, $firstReport['status']); // Index 8: 1
-        $this->assertEquals(0, $firstReport['ew_direction']); // Index 9: 0
-        $this->assertEquals(0, $firstReport['ns_direction']); // Index 10: 0
+        $this->assertEquals(0, $firstReport['directions']['ew']); // Index 9: 0
+        $this->assertEquals(0, $firstReport['directions']['ns']); // Index 10: 0
         $this->assertEquals('863070043386100', $firstReport['imei']); // Index 11: 863070043386100
         $this->assertTrue($firstReport['is_stopped']);
         $this->assertFalse($firstReport['is_off']);
@@ -242,16 +242,16 @@ class ParseDataServiceTest extends TestCase
 
         $result = $this->parseDataService->parse($rawData);
 
-        $this->assertEquals(0, $result[0]['ew_direction']);
-        $this->assertEquals(0, $result[0]['ns_direction']);
+        $this->assertEquals(0, $result[0]['directions']['ew']);
+        $this->assertEquals(0, $result[0]['directions']['ns']);
 
-        $this->assertEquals(90, $result[1]['ew_direction']);
-        $this->assertEquals(0, $result[1]['ns_direction']);
+        $this->assertEquals(90, $result[1]['directions']['ew']);
+        $this->assertEquals(0, $result[1]['directions']['ns']);
 
-        $this->assertEquals(180, $result[2]['ew_direction']);
-        $this->assertEquals(0, $result[2]['ns_direction']);
+        $this->assertEquals(180, $result[2]['directions']['ew']);
+        $this->assertEquals(0, $result[2]['directions']['ns']);
 
-        $this->assertEquals(270, $result[3]['ew_direction']);
-        $this->assertEquals(1, $result[3]['ns_direction']);
+        $this->assertEquals(270, $result[3]['directions']['ew']);
+        $this->assertEquals(1, $result[3]['directions']['ns']);
     }
 }
