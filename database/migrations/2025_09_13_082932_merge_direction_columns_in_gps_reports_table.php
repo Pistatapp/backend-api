@@ -20,14 +20,11 @@ return new class extends Migration
         // Migrate existing data from ew_direction and ns_direction to directions
         DB::table('gps_reports')->chunkById(1000, function ($reports) {
             foreach ($reports as $report) {
-                DB::table('gps_reports')
-                    ->where('id', $report->id)
-                    ->update([
-                        'directions' => json_encode([
-                            'ew' => $report->ew_direction ?? 0,
-                            'ns' => $report->ns_direction ?? 0
-                        ])
-                    ]);
+                $report->directions = [
+                    'ew' => $report->ew_direction ?? 0,
+                    'ns' => $report->ns_direction ?? 0
+                ];
+                $report->save();
             }
         });
 
@@ -52,12 +49,9 @@ return new class extends Migration
         DB::table('gps_reports')->chunkById(1000, function ($reports) {
             foreach ($reports as $report) {
                 $directions = json_decode($report->directions, true);
-                DB::table('gps_reports')
-                    ->where('id', $report->id)
-                    ->update([
-                        'ew_direction' => $directions['ew'] ?? 0,
-                        'ns_direction' => $directions['ns'] ?? 0
-                    ]);
+                $report->ew_direction = $directions['ew'] ?? 0;
+                $report->ns_direction = $directions['ns'] ?? 0;
+                $report->save();
             }
         });
 
