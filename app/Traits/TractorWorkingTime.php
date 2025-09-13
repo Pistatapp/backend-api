@@ -229,12 +229,12 @@ trait TractorWorkingTime
     private function isWithinWorkingHours(GpsReport|array $report): bool
     {
         $dateTime = $report['date_time'];
-        $cacheKey = "tractor_working_hours_{$this->tractor->id}";
+        $cacheKey = "tractor_working_hours_{$this->tractor->id}_{$dateTime->toDateString()}";
 
-        $workingHours = Cache::remember($cacheKey, now()->endOfDay(), function () {
+        $workingHours = Cache::remember($cacheKey, now()->endOfDay(), function () use ($dateTime) {
             return [
-                'start' => today()->setTimeFromTimeString($this->tractor->start_work_time),
-                'end' => today()->setTimeFromTimeString($this->tractor->end_work_time)
+                'start' => $dateTime->copy()->setTimeFromTimeString($this->tractor->start_work_time),
+                'end' => $dateTime->copy()->setTimeFromTimeString($this->tractor->end_work_time)
             ];
         });
 
@@ -256,7 +256,7 @@ trait TractorWorkingTime
         $cacheKey = "tractor_start_work_time_{$this->tractor->id}";
 
         return Cache::remember($cacheKey, now()->endOfDay(), function () {
-            return today()->setTimeFromTimeString($this->tractor->start_work_time);
+            return now()->setTimeFromTimeString($this->tractor->start_work_time);
         });
     }
 }

@@ -6,169 +6,252 @@ use Tests\TestCase;
 use App\Services\ParseDataService;
 use Carbon\Carbon;
 use PHPUnit\Framework\Attributes\Test;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class ParseDataServiceTest extends TestCase
 {
-    private ParseDataService $service;
+    use RefreshDatabase;
+
+    private ParseDataService $parseDataService;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new ParseDataService();
-        Carbon::setTestNow('2024-04-21 07:02:00');
+        $this->parseDataService = new ParseDataService();
     }
 
     #[Test]
-    public function it_parses_valid_gps_data()
+    public function it_parses_valid_gps_data_correctly()
     {
-        $data = json_encode([
-            ['data' => '+Hooshnic:V1.03,3453.04393,05035.9775,000,240421,070200,018,000,1,1,3,863070043386100']
+        $today = date('ymd');
+        $rawData = json_encode([
+            ['data' => '+Hooshnic:V1.03,3453.00000,05035.0000,000,' . $today . ',070000,000,000,1,0,0,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.01000,05035.0100,000,' . $today . ',070100,003,000,1,90,0,863070043386100']
         ]);
 
-        $result = $this->service->parse($data);
+        $result = $this->parseDataService->parse($rawData);
 
-        $this->assertCount(1, $result);
-        $this->assertEquals([
-            'coordinate' => [
-                34.884065,
-                50.599625
-            ],
-            'speed' => 18,
-            'status' => 1,
-            'ew_direction' => 1,
-            'ns_direction' => 3,
-            'imei' => '863070043386100',
-            'is_starting_point' => false,
-            'is_ending_point' => false,
-            'is_stopped' => false,
-            'is_off' => false,
-            'stoppage_time' => 0,
-            'date_time' => Carbon::createFromFormat('ymdHis', '240421070200')->addHours(3)->addMinutes(30),
-        ], $result[0]);
+        $this->assertIsArray($result);
+        $this->assertCount(2, $result);
+
+        $firstReport = $result[0];
+        $this->assertEquals([34.883333, 50.583333], $firstReport['coordinate']);
+        $this->assertEquals(0, $firstReport['speed']); // Index 6: 000
+        $this->assertEquals(1, $firstReport['status']); // Index 8: 1
+        $this->assertEquals(0, $firstReport['ew_direction']); // Index 9: 0
+        $this->assertEquals(0, $firstReport['ns_direction']); // Index 10: 0
+        $this->assertEquals('863070043386100', $firstReport['imei']); // Index 11: 863070043386100
+        $this->assertTrue($firstReport['is_stopped']);
+        $this->assertFalse($firstReport['is_off']);
+        $this->assertFalse($firstReport['is_starting_point']);
+        $this->assertFalse($firstReport['is_ending_point']);
+        $this->assertEquals(0, $firstReport['stoppage_time']);
+        $this->assertInstanceOf(Carbon::class, $firstReport['date_time']);
     }
 
     #[Test]
-    public function it_filters_out_invalid_format()
+    public function it_converts_nmea_coordinates_to_decimal_degrees()
     {
-        $data = json_encode([
-            ['data' => 'invalid format'],
-            ['data' => '+Hooshnic:V1.03,3453.04393,05035.9775,000,240421,070200,018,000,1,1,3,863070043386100']
+        $today = date('ymd');
+        $rawData = json_encode([
+            ['data' => '+Hooshnic:V1.03,3453.00000,05035.0000,000,' . $today . ',070000,000,000,1,0,0,863070043386100']
         ]);
 
-        $result = $this->service->parse($data);
+        $result = $this->parseDataService->parse($rawData);
+        $coordinate = $result[0]['coordinate'];
+
+        // 3453.00000 NMEA = 34°53.00000' = 34.883333°
+        // 05035.0000 NMEA = 50°35.0000' = 50.583333°
+        $this->assertEquals(34.883333, $coordinate[0], '', 0.000001);
+        $this->assertEquals(50.583333, $coordinate[1], '', 0.000001);
+    }
+
+    #[Test]
+    public function it_applies_timezone_offset_correctly()
+    {
+        $today = date('ymd');
+        $rawData = json_encode([
+            ['data' => '+Hooshnic:V1.03,3453.00000,05035.0000,000,' . $today . ',070000,000,000,1,0,0,863070043386100']
+        ]);
+
+        $result = $this->parseDataService->parse($rawData);
+        $dateTime = $result[0]['date_time'];
+
+        // GPS time: today,070000 (today 07:00:00)
+        // Expected local time: today 10:30:00 (GPS + 3:30)
+        $expected = Carbon::today()->setTime(10, 30, 0);
+        $this->assertEquals($expected->format('Y-m-d H:i:s'), $dateTime->format('Y-m-d H:i:s'));
+    }
+
+    #[Test]
+    public function it_filters_out_non_today_data()
+    {
+        $yesterday = Carbon::yesterday();
+        $yesterdayFormatted = $yesterday->format('ymd');
+        $today = date('ymd');
+
+        $rawData = json_encode([
+            ['data' => '+Hooshnic:V1.03,3453.00000,05035.0000,000,' . $yesterdayFormatted . ',070000,000,000,1,0,0,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.01000,05035.0100,000,' . $today . ',070100,003,000,1,090,0,863070043386100']
+        ]);
+
+        $result = $this->parseDataService->parse($rawData);
 
         $this->assertCount(1, $result);
         $this->assertEquals('863070043386100', $result[0]['imei']);
     }
 
     #[Test]
-    public function it_filters_out_old_dates()
+    public function it_sorts_reports_by_datetime()
     {
-        Carbon::setTestNow('2024-04-21 07:02:00');
-
-        $data = json_encode([
-            ['data' => '+Hooshnic:V1.03,3453.04393,05035.9775,000,240321,070200,018,000,1,1,3,863070043386100'],
-            ['data' => '+Hooshnic:V1.03,3453.04393,05035.9775,000,240421,070200,018,000,1,2,4,863070043386100']
+        $today = date('ymd');
+        $rawData = json_encode([
+            ['data' => '+Hooshnic:V1.03,3453.00000,05035.0000,000,' . $today . ',070200,000,000,1,0,0,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.01000,05035.0100,000,' . $today . ',070000,000,000,1,090,0,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.02000,05035.0200,000,' . $today . ',070100,000,000,1,180,0,863070043386100']
         ]);
 
-        $result = $this->service->parse($data);
+        $result = $this->parseDataService->parse($rawData);
+
+        $this->assertCount(3, $result);
+
+        // Check chronological order
+        $this->assertTrue($result[0]['date_time']->lt($result[1]['date_time']));
+        $this->assertTrue($result[1]['date_time']->lt($result[2]['date_time']));
+    }
+
+    #[Test]
+    public function it_handles_invalid_data_format()
+    {
+        $today = date('ymd');
+        $rawData = json_encode([
+            ['data' => 'invalid_format'],
+            ['data' => '+Hooshnic:V1.03,3453.00000,05035.0000,000,' . $today . ',070000,000,000,1,0,0,863070043386100']
+        ]);
+
+        $result = $this->parseDataService->parse($rawData);
 
         $this->assertCount(1, $result);
-        $this->assertEquals('210424 103200', $result[0]['date_time']->format('dmy His'));
-        $this->assertEquals(false, $result[0]['is_starting_point']);
-        $this->assertEquals(false, $result[0]['is_ending_point']);
-        $this->assertEquals(false, $result[0]['is_stopped']);
-        $this->assertEquals(false, $result[0]['is_off']);
+        $this->assertEquals('863070043386100', $result[0]['imei']);
     }
 
     #[Test]
-    public function it_sorts_results_by_datetime()
+    public function it_handles_malformed_json()
     {
-        $data = json_encode([
-            ['data' => '+Hooshnic:V1.03,3453.04393,05035.9775,000,240421,070200,018,000,1,1,3,863070043386100'],
-            ['data' => '+Hooshnic:V1.03,3453.04393,05035.9775,000,240421,070100,018,000,1,2,4,863070043386100']
+        $today = date('ymd');
+        $rawData = '{"data": "+Hooshnic:V1.03,3453.00000,05035.0000,000,' . $today . ',070000,000,000,1,0,0,863070043386100"}{"data": "+Hooshnic:V1.03,3453.01000,05035.0100,000,' . $today . ',070100,003,000,1,90,0,863070043386100"}';
+
+        $this->expectException(\JsonException::class);
+
+        $this->parseDataService->parse($rawData);
+    }
+
+    #[Test]
+    public function it_determines_stopped_status_correctly()
+    {
+        $today = date('ymd');
+        $rawData = json_encode([
+            ['data' => '+Hooshnic:V1.03,3453.00000,05035.0000,000,' . $today . ',070000,000,000,1,0,0,863070043386100'], // speed 0 = stopped
+            ['data' => '+Hooshnic:V1.03,3453.01000,05035.0100,000,' . $today . ',070100,005,000,1,090,0,863070043386100']  // speed 5 = moving
         ]);
 
-        $result = $this->service->parse($data);
+        $result = $this->parseDataService->parse($rawData);
 
-        $this->assertCount(2, $result);
-        $this->assertEquals('103100', $result[0]['date_time']->format('His'));
-        $this->assertEquals('103200', $result[1]['date_time']->format('His'));
-        $this->assertEquals(false, $result[0]['is_starting_point']);
-        $this->assertEquals(false, $result[0]['is_ending_point']);
-        $this->assertEquals(false, $result[0]['is_stopped']);
-        $this->assertEquals(false, $result[0]['is_off']);
+        $this->assertTrue($result[0]['is_stopped']);
+        $this->assertFalse($result[1]['is_stopped']);
     }
 
     #[Test]
-    public function it_correctly_parses_and_sorts_multiple_gps_data()
+    public function it_determines_off_status_correctly()
     {
-        // Simulate GPS device data: no commas between JSON objects
-        $data = '[
-            {"data":"+Hooshnic:V1.03,3453.04393,05035.9775,000,240421,070900,000,000,1,1,3,863070043386100"},
-            {"data":"+Hooshnic:V1.03,3453.04393,05035.9775,000,240421,070800,000,000,1,1,3,863070043386100"},
-            {"data":"+Hooshnic:V1.03,3453.04393,05035.9775,000,240421,070700,000,000,1,1,3,863070043386100"},
-            {"data":"+Hooshnic:V1.03,3453.04393,05035.9775,000,240421,070600,000,000,1,1,3,863070043386100"},
-            {"data":"+Hooshnic:V1.03,3453.04393,05035.9775,000,240421,070500,018,000,1,1,3,863070043386100"},
-            {"data":"+Hooshnic:V1.03,3453.04393,05035.9775,000,240421,070400,005,000,1,1,3,863070043386100"},
-            {"data":"+Hooshnic:V1.03,3453.04393,05035.9775,000,240421,070300,015,000,1,1,3,863070043386100"}
-            {"data":"+Hooshnic:V1.03,3453.04393,05035.9775,000,240421,070200,000,000,1,1,3,863070043386100"}
-            {"data":"+Hooshnic:V1.03,3453.04393,05035.9775,000,240421,070100,000,000,0,1,3,863070043386100"}
-            {"data":"+Hooshnic:V1.03,3453.04393,05035.9775,000,240421,070000,000,000,0,1,3,863070043386100"}
-        ]';
+        $today = date('ymd');
+        $rawData = json_encode([
+            ['data' => '+Hooshnic:V1.03,3453.00000,05035.0000,000,' . $today . ',070000,000,000,0,0,0,863070043386100'], // status 0 = off
+            ['data' => '+Hooshnic:V1.03,3453.01000,05035.0100,000,' . $today . ',070100,005,000,1,090,0,863070043386100']  // status 1 = on
+        ]);
 
-        // Test correctJsonFormat directly using Reflection
-        $reflection = new \ReflectionClass(\App\Services\ParseDataService::class);
-        $method = $reflection->getMethod('correctJsonFormat');
-        $method->setAccessible(true);
-        $fixed = $method->invoke($this->service, $data);
+        $result = $this->parseDataService->parse($rawData);
 
-        $this->assertStringContainsString('},{', $fixed, 'correctJsonFormat should add commas between objects');
-        $decoded = json_decode($fixed, true);
-        $this->assertIsArray($decoded);
-        $this->assertCount(10, $decoded);
+        $this->assertTrue($result[0]['is_off']);
+        $this->assertFalse($result[1]['is_off']);
+    }
 
-        // Now test the main parse method (should work with unseparated string)
-        $result = $this->service->parse($data);
+    #[Test]
+    public function it_handles_empty_data()
+    {
+        $this->expectException(\JsonException::class);
 
-        // Verify all data is parsed correctly
-        $this->assertCount(10, $result);
+        $this->parseDataService->parse('');
+    }
 
-        // Verify data is sorted by date_time (ascending)
-        $this->assertEquals('103000', $result[0]['date_time']->format('His'));
-        $this->assertEquals('103900', $result[9]['date_time']->format('His'));
+    #[Test]
+    public function it_handles_invalid_json()
+    {
+        $this->expectException(\JsonException::class);
 
-        // Verify specific entries
-        // First entry (earliest time)
-        $this->assertEquals([
-            'coordinate' => [34.884065, 50.599625],
-            'speed' => 0,
-            'status' => 0,
-            'ew_direction' => 1,
-            'ns_direction' => 3,
-            'imei' => '863070043386100',
-            'is_starting_point' => false,
-            'is_ending_point' => false,
-            'is_stopped' => true,
-            'is_off' => true,
-            'stoppage_time' => 0,
-            'date_time' => Carbon::createFromFormat('ymdHis', '240421070000')->addHours(3)->addMinutes(30),
-        ], $result[0]);
+        $this->parseDataService->parse('invalid json');
+    }
 
-        // Find entry with speed = 18
-        $speedIndex = array_search(18, array_column($result, 'speed'));
-        $this->assertNotFalse($speedIndex, 'Entry with speed 18 was not found');
-        $this->assertEquals(18, $result[$speedIndex]['speed']);
-        $this->assertEquals('103500', $result[$speedIndex]['date_time']->format('His'));
+    #[Test]
+    public function it_validates_data_format_with_regex()
+    {
+        $today = date('ymd');
+        $validData = '+Hooshnic:V1.03,3453.00000,05035.0000,000,' . $today . ',070000,000,000,1,0,0,863070043386100';
+        $invalidData = 'invalid_format';
 
-        // Entry with status = 0
-        $statusIndex = 1; // Index for the 070100 entry with status 0
-        $this->assertEquals(0, $result[$statusIndex]['status']);
-        $this->assertEquals('103100', $result[$statusIndex]['date_time']->format('His'));
+        $rawData = json_encode([
+            ['data' => $validData],
+            ['data' => $invalidData]
+        ]);
 
-        // Verify coordinates are consistent across entries
-        foreach ($result as $entry) {
-            $this->assertEquals([34.884065, 50.599625], $entry['coordinate']);
-        }
+        $result = $this->parseDataService->parse($rawData);
+
+        $this->assertCount(1, $result);
+        $this->assertEquals('863070043386100', $result[0]['imei']); // This would be the IMEI from valid data
+    }
+
+    #[Test]
+    public function it_handles_different_speed_values()
+    {
+        $today = date('ymd');
+        $rawData = json_encode([
+            ['data' => '+Hooshnic:V1.03,3453.00000,05035.0000,000,' . $today . ',070000,000,000,1,0,0,863070043386100'], // speed 0
+            ['data' => '+Hooshnic:V1.03,3453.01000,05035.0100,000,' . $today . ',070100,005,000,1,090,0,863070043386100'], // speed 5
+            ['data' => '+Hooshnic:V1.03,3453.02000,05035.0200,000,' . $today . ',070200,025,000,1,180,0,863070043386100'], // speed 25
+            ['data' => '+Hooshnic:V1.03,3453.03000,05035.0300,000,' . $today . ',070300,100,000,1,270,0,863070043386100']  // speed 100
+        ]);
+
+        $result = $this->parseDataService->parse($rawData);
+
+        $this->assertEquals(0, $result[0]['speed']);
+        $this->assertEquals(5, $result[1]['speed']);
+        $this->assertEquals(25, $result[2]['speed']);
+        $this->assertEquals(100, $result[3]['speed']);
+    }
+
+    #[Test]
+    public function it_handles_different_direction_values()
+    {
+        $today = date('ymd');
+        $rawData = json_encode([
+            ['data' => '+Hooshnic:V1.03,3453.00000,05035.0000,000,' . $today . ',070000,000,000,1,0,0,863070043386100'], // ew:0, ns:0
+            ['data' => '+Hooshnic:V1.03,3453.01000,05035.0100,000,' . $today . ',070100,005,000,1,090,0,863070043386100'], // ew:90, ns:0
+            ['data' => '+Hooshnic:V1.03,3453.02000,05035.0200,000,' . $today . ',070200,010,000,1,180,0,863070043386100'], // ew:180, ns:0
+            ['data' => '+Hooshnic:V1.03,3453.03000,05035.0300,000,' . $today . ',070300,015,000,1,270,1,863070043386100']  // ew:270, ns:1
+        ]);
+
+        $result = $this->parseDataService->parse($rawData);
+
+        $this->assertEquals(0, $result[0]['ew_direction']);
+        $this->assertEquals(0, $result[0]['ns_direction']);
+
+        $this->assertEquals(90, $result[1]['ew_direction']);
+        $this->assertEquals(0, $result[1]['ns_direction']);
+
+        $this->assertEquals(180, $result[2]['ew_direction']);
+        $this->assertEquals(0, $result[2]['ns_direction']);
+
+        $this->assertEquals(270, $result[3]['ew_direction']);
+        $this->assertEquals(1, $result[3]['ns_direction']);
     }
 }

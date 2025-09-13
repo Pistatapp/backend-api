@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\Tractor;
 use App\Models\TractorTask;
-use Illuminate\Support\Facades\Log;
 
 class TractorTaskService
 {
@@ -24,8 +23,6 @@ class TractorTaskService
             ->forDate(today()->toDateString())
             ->first();
 
-        Log::info('Current task: ' . $task->id);
-
         return $task;
     }
 
@@ -43,8 +40,8 @@ class TractorTaskService
 
         $task->loadMissing('taskable');
 
-        // Check if the taskable model has coordinates
-        if (method_exists($task->taskable, 'coordinates')) {
+        // Check if the taskable model exists and has coordinates
+        if ($task->taskable && isset($task->taskable->coordinates)) {
             return $task->taskable->coordinates;
         }
 

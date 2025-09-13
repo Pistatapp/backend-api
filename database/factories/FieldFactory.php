@@ -20,22 +20,10 @@ class FieldFactory extends Factory
             'farm_id' => \App\Models\Farm::factory(),
             'name' => $this->faker->word,
             'coordinates' => [
-                implode(',', [
-                    $this->faker->latitude,
-                    $this->faker->longitude,
-                ]),
-                implode(',', [
-                    $this->faker->latitude,
-                    $this->faker->longitude,
-                ]),
-                implode(',', [
-                    $this->faker->latitude,
-                    $this->faker->longitude,
-                ]),
-                implode(',', [
-                    $this->faker->latitude,
-                    $this->faker->longitude,
-                ])
+                [$this->faker->latitude, $this->faker->longitude],
+                [$this->faker->latitude, $this->faker->longitude],
+                [$this->faker->latitude, $this->faker->longitude],
+                [$this->faker->latitude, $this->faker->longitude]
             ],
             'center' => $this->faker->latitude . ',' . $this->faker->longitude,
             'area' => $this->faker->randomFloat(2, 1, 100),

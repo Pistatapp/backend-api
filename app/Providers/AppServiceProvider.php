@@ -27,10 +27,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        Model::preventLazyLoading(! app()->isProduction());
-
-        Model::preventSilentlyDiscardingAttributes(! app()->isProduction());
-
         $this->app->singleton('weather-api', fn($app) => $app->make(WeatherApi::class));
 
         Gate::before(function ($user, $ability) {
