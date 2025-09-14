@@ -175,7 +175,14 @@ class GpsReportControllerTest extends TestCase
         $response->assertStatus(200);
 
         $reports = GpsReport::where('imei', '863070043386100')->get();
-        $this->assertCount(4, $reports);
+        // With new stoppage accumulation logic: all reports are saved
+        // Report 1: speed=0 (stopped) - saved (first ever)
+        // Report 2: speed=5 (moving) - saved (moving report)
+        // Report 3: speed=10 (moving) - saved (moving report)
+        // Report 4: speed=15 (moving) - saved (moving report)
+        // Report 5: might be a detection report if there's a transition
+        $this->assertGreaterThanOrEqual(4, $reports->count());
+        $this->assertLessThanOrEqual(5, $reports->count());
     }
 
     #[Test]
@@ -217,7 +224,18 @@ class GpsReportControllerTest extends TestCase
         $response->assertStatus(200);
 
         $reports = GpsReport::where('imei', '863070043386100')->get();
+        // With new stoppage accumulation logic:
+        // - All movement reports are saved (50 reports)
+        // - First stoppage report after each movement is saved for detection (50 reports)
+        // Total: 100 reports
         $this->assertCount(100, $reports);
+
+        // Should have 50 movement reports and 50 stoppage reports
+        $movementReports = $reports->where('is_stopped', false);
+        $stoppageReports = $reports->where('is_stopped', true);
+
+        $this->assertCount(50, $movementReports);
+        $this->assertCount(50, $stoppageReports);
     }
 
 

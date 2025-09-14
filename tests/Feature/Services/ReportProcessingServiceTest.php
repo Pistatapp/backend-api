@@ -234,7 +234,7 @@ class ReportProcessingServiceTest extends TestCase
         // Should count the transition time as moving time and add distance
         $this->assertEquals(60, $result['totalMovingTime']);
         $this->assertGreaterThan(0, $result['totalTraveledDistance']);
-        $this->assertEquals(1, $result['stoppageCount']); // One stopped report persisted
+        $this->assertEquals(0, $result['stoppageCount']); // No stoppage report persisted (only 60s, not > 60s)
     }
 
     #[Test]
@@ -276,7 +276,7 @@ class ReportProcessingServiceTest extends TestCase
         $this->assertEquals(60, $result['totalStoppedTime']);
         $this->assertEquals(0, $result['totalMovingTime']);
         $this->assertEquals(0, $result['totalTraveledDistance']);
-        $this->assertEquals(1, $result['stoppageCount']); // Only first stopped report persisted
+        $this->assertEquals(0, $result['stoppageCount']); // No stoppage report persisted (only 60s, not > 60s)
     }
 
     #[Test]
@@ -567,8 +567,8 @@ class ReportProcessingServiceTest extends TestCase
         $service = new ReportProcessingService($this->device, $reports);
         $result = $service->process();
 
-        // Should have 2 stoppage counts (first and third reports)
-        $this->assertEquals(2, $result['stoppageCount']);
+        // Should have 0 stoppage counts (both segments are exactly 60s, not > 60s)
+        $this->assertEquals(0, $result['stoppageCount']);
     }
 
     #[Test]
@@ -615,5 +615,208 @@ class ReportProcessingServiceTest extends TestCase
         // Should calculate metrics using cached previous report
         $this->assertEquals(60, $result['totalMovingTime']);
         $this->assertGreaterThan(0, $result['totalTraveledDistance']);
+    }
+
+    #[Test]
+    public function it_accumulates_stoppage_time_and_only_saves_when_exceeding_60_seconds()
+    {
+        $reports = [
+            // Movement report
+            [
+                'coordinate' => [34.883333, 50.583333],
+                'speed' => 5,
+                'status' => 1,
+                'directions' => ['ew' => 0, 'ns' => 0],
+                'is_starting_point' => false,
+                'is_ending_point' => false,
+                'is_stopped' => false,
+                'is_off' => false,
+                'stoppage_time' => 0,
+                'date_time' => Carbon::parse('2024-01-24 10:00:00'),
+                'imei' => '863070043386100',
+            ],
+            // First stoppage report (10s)
+            [
+                'coordinate' => [34.883333, 50.583333],
+                'speed' => 0,
+                'status' => 1,
+                'directions' => ['ew' => 0, 'ns' => 0],
+                'is_starting_point' => false,
+                'is_ending_point' => false,
+                'is_stopped' => true,
+                'is_off' => false,
+                'stoppage_time' => 0,
+                'date_time' => Carbon::parse('2024-01-24 10:00:10'),
+                'imei' => '863070043386100',
+            ],
+            // Second stoppage report (5s)
+            [
+                'coordinate' => [34.883333, 50.583333],
+                'speed' => 0,
+                'status' => 1,
+                'directions' => ['ew' => 0, 'ns' => 0],
+                'is_starting_point' => false,
+                'is_ending_point' => false,
+                'is_stopped' => true,
+                'is_off' => false,
+                'stoppage_time' => 0,
+                'date_time' => Carbon::parse('2024-01-24 10:00:15'),
+                'imei' => '863070043386100',
+            ],
+            // Third stoppage report (7s)
+            [
+                'coordinate' => [34.883333, 50.583333],
+                'speed' => 0,
+                'status' => 1,
+                'directions' => ['ew' => 0, 'ns' => 0],
+                'is_starting_point' => false,
+                'is_ending_point' => false,
+                'is_stopped' => true,
+                'is_off' => false,
+                'stoppage_time' => 0,
+                'date_time' => Carbon::parse('2024-01-24 10:00:22'),
+                'imei' => '863070043386100',
+            ],
+            // Movement report (ends stoppage segment)
+            [
+                'coordinate' => [34.884333, 50.584333],
+                'speed' => 5,
+                'status' => 1,
+                'directions' => ['ew' => 90, 'ns' => 0],
+                'is_starting_point' => false,
+                'is_ending_point' => false,
+                'is_stopped' => false,
+                'is_off' => false,
+                'stoppage_time' => 0,
+                'date_time' => Carbon::parse('2024-01-24 10:00:30'),
+                'imei' => '863070043386100',
+            ],
+        ];
+
+        $service = new ReportProcessingService($this->device, $reports);
+        $result = $service->process();
+
+        // Total stoppage time should be 10 + 5 + 7 = 22 seconds
+        $this->assertEquals(22, $result['totalStoppedTime']);
+
+        // Since total stoppage time (22s) < 60s, no stoppage should be saved
+        $this->assertEquals(0, $result['stoppageCount']);
+
+        // Check persisted reports - should have movement reports + first stoppage report (for detection)
+        $persistedReports = $this->device->reports()->get();
+        $this->assertCount(3, $persistedReports); // 2 movement + 1 first stoppage (for detection)
+
+        // Should have 2 movement reports and 1 stoppage report
+        $movementReports = $persistedReports->where('is_stopped', false);
+        $stoppageReports = $persistedReports->where('is_stopped', true);
+
+        $this->assertCount(2, $movementReports);
+        $this->assertCount(1, $stoppageReports);
+
+        // The stoppage report should be the first one (for detection purposes)
+        $firstStoppageReport = $stoppageReports->first();
+        $this->assertEquals(10, $firstStoppageReport->stoppage_time); // Should have the initial time difference
+    }
+
+    #[Test]
+    public function it_saves_stoppage_report_when_accumulated_time_exceeds_60_seconds()
+    {
+        $reports = [
+            // Movement report
+            [
+                'coordinate' => [34.883333, 50.583333],
+                'speed' => 5,
+                'status' => 1,
+                'directions' => ['ew' => 0, 'ns' => 0],
+                'is_starting_point' => false,
+                'is_ending_point' => false,
+                'is_stopped' => false,
+                'is_off' => false,
+                'stoppage_time' => 0,
+                'date_time' => Carbon::parse('2024-01-24 10:00:00'),
+                'imei' => '863070043386100',
+            ],
+            // First stoppage report (30s)
+            [
+                'coordinate' => [34.883333, 50.583333],
+                'speed' => 0,
+                'status' => 1,
+                'directions' => ['ew' => 0, 'ns' => 0],
+                'is_starting_point' => false,
+                'is_ending_point' => false,
+                'is_stopped' => true,
+                'is_off' => false,
+                'stoppage_time' => 0,
+                'date_time' => Carbon::parse('2024-01-24 10:00:30'),
+                'imei' => '863070043386100',
+            ],
+            // Second stoppage report (20s)
+            [
+                'coordinate' => [34.883333, 50.583333],
+                'speed' => 0,
+                'status' => 1,
+                'directions' => ['ew' => 0, 'ns' => 0],
+                'is_starting_point' => false,
+                'is_ending_point' => false,
+                'is_stopped' => true,
+                'is_off' => false,
+                'stoppage_time' => 0,
+                'date_time' => Carbon::parse('2024-01-24 10:00:50'),
+                'imei' => '863070043386100',
+            ],
+            // Third stoppage report (15s)
+            [
+                'coordinate' => [34.883333, 50.583333],
+                'speed' => 0,
+                'status' => 1,
+                'directions' => ['ew' => 0, 'ns' => 0],
+                'is_starting_point' => false,
+                'is_ending_point' => false,
+                'is_stopped' => true,
+                'is_off' => false,
+                'stoppage_time' => 0,
+                'date_time' => Carbon::parse('2024-01-24 10:01:05'),
+                'imei' => '863070043386100',
+            ],
+            // Movement report (ends stoppage segment)
+            [
+                'coordinate' => [34.884333, 50.584333],
+                'speed' => 5,
+                'status' => 1,
+                'directions' => ['ew' => 90, 'ns' => 0],
+                'is_starting_point' => false,
+                'is_ending_point' => false,
+                'is_stopped' => false,
+                'is_off' => false,
+                'stoppage_time' => 0,
+                'date_time' => Carbon::parse('2024-01-24 10:01:20'),
+                'imei' => '863070043386100',
+            ],
+        ];
+
+        $service = new ReportProcessingService($this->device, $reports);
+        $result = $service->process();
+
+        // Total stoppage time should be 30 + 20 + 15 = 65 seconds
+        $this->assertEquals(65, $result['totalStoppedTime']);
+
+        // Since total stoppage time (65s) > 60s, one stoppage should be saved
+        $this->assertEquals(1, $result['stoppageCount']);
+
+        // Check persisted reports - should have movement reports + 2 stoppage reports
+        // (1 for detection + 1 for accumulation > 60s)
+        $persistedReports = $this->device->reports()->get();
+        $this->assertCount(4, $persistedReports); // 2 movement + 2 stoppage
+
+        // Should have 2 movement reports and 2 stoppage reports
+        $movementReports = $persistedReports->where('is_stopped', false);
+        $stoppageReports = $persistedReports->where('is_stopped', true);
+
+        $this->assertCount(2, $movementReports);
+        $this->assertCount(2, $stoppageReports);
+
+        // Find the stoppage report with accumulated time (should be the one with 65s)
+        $accumulatedStoppageReport = $stoppageReports->where('stoppage_time', 65)->first();
+        $this->assertNotNull($accumulatedStoppageReport, 'Should have a stoppage report with accumulated time of 65 seconds');
     }
 }

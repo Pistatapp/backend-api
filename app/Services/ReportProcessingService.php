@@ -20,6 +20,10 @@ class ReportProcessingService
     private array|null $previousRawReport = null; // last raw report processed (array from parser)
     private CacheService $cacheService;
 
+    // Stoppage accumulation properties
+    private array|null $pendingStoppageReport = null; // first stoppage report in current segment
+    private int $accumulatedStoppageTime = 0; // accumulated time for current stoppage segment
+
     public function __construct(
         private GpsDevice $device,
         private array $reports,
@@ -42,6 +46,9 @@ class ReportProcessingService
             $this->handleReport($report);
         }
 
+        // Finalize any pending stoppage at the end of processing
+        $this->finalizePendingStoppage();
+
         return [
             'totalTraveledDistance' => $this->totalTraveledDistance,
             'totalMovingTime' => $this->totalMovingTime,
@@ -59,9 +66,9 @@ class ReportProcessingService
      * Rules:
      *  - Time/distance always computed between consecutive raw reports if both countable.
      *  - Moving time increases when previous was moving; stopped time when previous was stopped.
-     *  - Stoppage count increments for each persisted stopped report.
-     *  - We only persist: first report, every moving report, and first stopped report of a stoppage segment.
-     *  - Points mirror that: always first, all moving, first stopped of a segment.
+     *  - Stoppage reports are accumulated and only persisted if total duration > 60 seconds.
+     *  - We only persist: first report, every moving report, and first stoppage report of segments > 60s.
+     *  - Points mirror that: always first, all moving, first stoppage of qualifying segments.
      */
     private function handleReport(array $report): void
     {
@@ -105,13 +112,15 @@ class ReportProcessingService
 
         if ($prevStopped && $isStopped) { // stopped -> stopped
             $this->totalStoppedTime += $timeDiff;
-            $this->latestStoredReport?->increment('stoppage_time', $timeDiff);
+            $this->accumulatedStoppageTime += $timeDiff;
         } elseif ($prevStopped && !$isStopped) { // stopped -> moving
             $this->totalMovingTime += $timeDiff;
             $this->totalTraveledDistance += $distanceDiff;
+            $this->finalizePendingStoppage();
         } elseif (!$prevStopped && $isStopped) { // moving -> stopped
             $this->totalStoppedTime += $timeDiff;
             $this->totalTraveledDistance += $distanceDiff;
+            $this->startStoppageAccumulation($report, $timeDiff);
         } else { // moving -> moving
             $this->totalMovingTime += $timeDiff;
             $this->totalTraveledDistance += $distanceDiff;
@@ -124,14 +133,30 @@ class ReportProcessingService
     private function decidePersistence(array $report): array
     {
         $persist = false;
+        $addPoint = false;
+
         if ($this->latestStoredReport === null) {
             $persist = true; // first ever
+            $addPoint = true;
         } elseif (!$report['is_stopped']) {
             $persist = true; // every moving report
+            $addPoint = true;
         } else {
-            $persist = !($this->latestStoredReport->is_stopped ?? false); // only first stopped in segment
+            // For stoppage reports, check if this might be needed for start/end point detection
+            $mightBeNeededForDetection = $this->mightBeNeededForStartEndDetection($report);
+
+            if ($mightBeNeededForDetection) {
+                $persist = true; // Save for detection purposes
+                $addPoint = true;
+            } else {
+                // For other stoppage reports, we don't persist immediately
+                // They will be persisted later if accumulated time > 60 seconds
+                $persist = false;
+                $addPoint = false;
+            }
         }
-        return [$persist, $persist]; // same rule for points
+
+        return [$persist, $addPoint];
     }
 
     /**
@@ -144,13 +169,12 @@ class ReportProcessingService
         }
 
         if ($persist) {
-            $this->saveReport($report);
-
-            // Increment stoppage count for each persisted stopped report
-            // This ensures stoppage_count matches the number of stored stopped reports
-            if ($report['is_stopped']) {
-                $this->stoppageCount++;
+            // If this is a stoppage report being saved for detection purposes,
+            // ensure it has the proper stoppage_time
+            if ($report['is_stopped'] && $this->pendingStoppageReport && $this->accumulatedStoppageTime > 0) {
+                $report['stoppage_time'] = $this->accumulatedStoppageTime;
             }
+            $this->saveReport($report);
         }
     }
 
@@ -169,6 +193,57 @@ class ReportProcessingService
             return is_point_in_polygon($report['coordinate'], $this->taskArea);
         }
         return $this->isWithinWorkingHours($report);
+    }
+
+    /**
+     * Check if a stoppage report might be needed for start/end point detection.
+     * This includes reports that could be part of transition sequences.
+     */
+    private function mightBeNeededForStartEndDetection(array $report): bool
+    {
+        // Only save the first stoppage report after movement for potential end point detection
+        // This is a minimal approach that preserves detection capability while maintaining
+        // the 60-second accumulation logic for other stoppage reports
+        if ($this->previousRawReport && !$this->previousRawReport['is_stopped'] && $report['is_stopped']) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Start accumulating stoppage time for a new stoppage segment.
+     */
+    private function startStoppageAccumulation(array $report, int $timeDiff): void
+    {
+        $this->pendingStoppageReport = $report;
+        $this->accumulatedStoppageTime = $timeDiff;
+    }
+
+    /**
+     * Finalize pending stoppage when movement is detected or processing ends.
+     * Only save the stoppage report if accumulated time exceeds 60 seconds.
+     */
+    private function finalizePendingStoppage(): void
+    {
+        if ($this->pendingStoppageReport && $this->accumulatedStoppageTime > 60) {
+            // Save the first stoppage report with accumulated time
+            $reportData = $this->pendingStoppageReport;
+            $reportData['stoppage_time'] = $this->accumulatedStoppageTime;
+
+            $report = $this->device->reports()->create($reportData);
+            $this->latestStoredReport = $report;
+            $this->cacheService->setLatestStoredReport($report);
+            $this->detectStartEndPoints($report);
+
+            // Add to points and increment stoppage count
+            $this->points[] = $reportData;
+            $this->stoppageCount++;
+        }
+
+        // Reset accumulation state
+        $this->pendingStoppageReport = null;
+        $this->accumulatedStoppageTime = 0;
     }
 
     private function saveReport(array $data): void
