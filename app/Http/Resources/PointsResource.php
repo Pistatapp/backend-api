@@ -23,6 +23,7 @@ class PointsResource extends JsonResource
             'is_starting_point' => $this->is_starting_point,
             'is_ending_point' => $this->is_ending_point,
             'is_stopped' => $this->is_stopped,
+            'directions' => $this->directions,
             'stoppage_time' => gmdate('H:i:s', $this->stoppage_time),
             'date_time' => jdate($this->date_time)->format('Y/m/d H:i:s'),
         ];
