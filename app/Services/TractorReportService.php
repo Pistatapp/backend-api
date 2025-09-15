@@ -115,6 +115,7 @@ class TractorReportService
     {
         return $tractor->gpsDailyReports()
             ->where('date', '<', $date)
+            ->orderBy('date', 'desc')
             ->limit(self::EFFICIENCY_HISTORY_DAYS)
             ->get()
             ->map(fn($report) => [
