@@ -97,10 +97,11 @@ class TractorReportService
     private function fetchTractorDetailsData(Tractor $tractor, Carbon $date): array
     {
         $dailyReport = $tractor->gpsDailyReports()->where('date', $date)->first();
-        $reports = $this->getTractorPath($tractor, $date)
+        $reports = $tractor->gpsReports()
             ->whereDate('date_time', $date)
             ->orderBy('date_time')
-            ->get();
+            ->get()
+            ->map(fn($report) => $this->applyKalmanFilter($report));
         $currentTask = $this->getCurrentTask($tractor);
         $efficiencyHistory = $this->getEfficiencyHistory($tractor, $date);
 
