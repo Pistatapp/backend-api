@@ -173,7 +173,6 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
         Route::get('/dashboard/widgets', [DashboardController::class, 'dashboardWidgets']);
     });
 
-
     Route::controller(NotificationController::class)->prefix('notifications')->group(function () {
         Route::get('/', 'index');
         Route::post('/{id}/mark_as_read', 'markAsRead');
