@@ -26,38 +26,9 @@ class TractorReportService
     ) {}
 
     /**
-     * Provides daily reports for a given tractor and date.
-     */
-    public function getDailyReport(Tractor $tractor, Carbon $date): array
-    {
-        // Eager load relationships to minimize database queries
-        $tractor->load('startWorkingTime');
-
-        // Fetch data in parallel for better performance
-        [$dailyReport, $reports, $currentTask] = $this->fetchDailyReportData($tractor, $date);
-
-        $lastReport = $reports->last();
-
-        return [
-            'id' => $tractor->id,
-            'name' => $tractor->name,
-            'speed' => $lastReport?->speed ?? 0,
-            'status' => $lastReport?->status ?? 0,
-            'start_working_time' => $this->formatWorkingTime($tractor->startWorkingTime),
-            'traveled_distance' => $this->formatDistance($dailyReport?->traveled_distance),
-            'work_duration' => $this->formatDuration($dailyReport?->work_duration),
-            'stoppage_count' => $dailyReport?->stoppage_count ?? 0,
-            'stoppage_duration' => $this->formatDuration($dailyReport?->stoppage_duration),
-            'efficiency' => $this->formatEfficiency($dailyReport?->efficiency),
-            'points' => PointsResource::collection($reports),
-            'current_task' => $currentTask ? new TractorTaskResource($currentTask) : null,
-        ];
-    }
-
-    /**
      * Retrieves the tractor path for a specific date.
      */
-    public function getTractorPath(Tractor $tractor, Carbon $date): Collection
+    public function getTractorPath(Tractor $tractor, Carbon $date)
     {
         return $this->getFilteredReports($tractor, $date);
     }
@@ -68,7 +39,7 @@ class TractorReportService
     public function getTractorDetails(Tractor $tractor, Carbon $date): array
     {
         // Eager load all required relationships
-        $tractor->load(['driver', 'startWorkingTime', 'onTime']);
+        $tractor->load(['driver', 'startWorkingTime', 'onTime', 'endWorkingTime']);
 
         // Fetch data efficiently
         [$dailyReport, $reports, $currentTask, $efficiencyHistory] = $this->fetchTractorDetailsData($tractor, $date);
@@ -82,6 +53,7 @@ class TractorReportService
             'speed' => (int) $averageSpeed,
             'status' => $lastReport?->status ?? 0,
             'start_working_time' => $this->formatWorkingTime($tractor->startWorkingTime),
+            'end_working_time' => $this->formatWorkingTime($tractor->endWorkingTime),
             'on_time' => $this->formatWorkingTime($tractor->onTime),
             'traveled_distance' => $this->formatDistance($dailyReport?->traveled_distance),
             'work_duration' => $this->formatDuration($dailyReport?->work_duration),
@@ -97,13 +69,15 @@ class TractorReportService
     /**
      * Filters the tractor's GPS reports using the Kalman filter.
      */
-    private function getFilteredReports(Tractor $tractor, Carbon $date): Collection
+    private function getFilteredReports(Tractor $tractor, Carbon $date)
     {
-        return $tractor->gpsReports()
+        $reports = $tractor->gpsReports()
             ->whereDate('date_time', $date)
             ->orderBy('date_time')
             ->get()
             ->map(fn($report) => $this->applyKalmanFilter($report));
+
+        return PointsResource::collection($reports);
     }
 
     /**
@@ -118,24 +92,12 @@ class TractorReportService
     }
 
     /**
-     * Fetch data for daily report with optimized queries.
-     */
-    private function fetchDailyReportData(Tractor $tractor, Carbon $date): array
-    {
-        $dailyReport = $tractor->gpsDailyReports()->where('date', $date)->first();
-        $reports = $this->getFilteredReports($tractor, $date);
-        $currentTask = $this->getCurrentTask($tractor);
-
-        return [$dailyReport, $reports, $currentTask];
-    }
-
-    /**
      * Fetch data for tractor details with optimized queries.
      */
     private function fetchTractorDetailsData(Tractor $tractor, Carbon $date): array
     {
         $dailyReport = $tractor->gpsDailyReports()->where('date', $date)->first();
-        $reports = $tractor->gpsReports()
+        $reports = $this->getTractorPath($tractor, $date)
             ->whereDate('date_time', $date)
             ->orderBy('date_time')
             ->get();
@@ -148,7 +110,7 @@ class TractorReportService
     /**
      * Get efficiency history for the last 7 days.
      */
-    private function getEfficiencyHistory(Tractor $tractor, Carbon $date): Collection
+    private function getEfficiencyHistory(Tractor $tractor, Carbon $date)
     {
         return $tractor->gpsDailyReports()
             ->where('date', '<=', $date)

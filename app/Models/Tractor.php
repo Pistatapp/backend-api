@@ -116,7 +116,7 @@ class Tractor extends Model
      */
     public function startWorkingTime()
     {
-        return $this->hasOneThrough(GpsReport::class, GpsDevice::class)->where('is_starting_point', true);
+        return $this->through('gpsDevice')->hasOne(GpsReport::class)->where('is_starting_point', 1);
     }
 
     /**
@@ -126,7 +126,7 @@ class Tractor extends Model
      */
     public function endWorkingTime()
     {
-        return $this->hasOneThrough(GpsReport::class, GpsDevice::class)->where('is_ending_point', true);
+        return $this->through('gpsDevice')->hasOne(GpsReport::class)->where('is_ending_point', 1);
     }
 
     /**
@@ -136,7 +136,7 @@ class Tractor extends Model
      */
     public function onTime()
     {
-        return $this->hasOneThrough(GpsReport::class, GpsDevice::class)->whereNotNull('on_time');
+        return $this->through('gpsDevice')->hasOne(GpsReport::class)->whereNotNull('on_time');
     }
 
     /**
