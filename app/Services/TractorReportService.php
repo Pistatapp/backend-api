@@ -7,7 +7,6 @@ use Carbon\Carbon;
 use App\Http\Resources\PointsResource;
 use App\Http\Resources\TractorTaskResource;
 use App\Http\Resources\DriverResource;
-use Illuminate\Support\Collection;
 
 /**
  * Service for generating tractor reports with optimized performance.
@@ -38,8 +37,8 @@ class TractorReportService
      */
     public function getTractorDetails(Tractor $tractor, Carbon $date): array
     {
-        // Eager load all required relationships
-        $tractor->load(['driver', 'startWorkingTime', 'onTime', 'endWorkingTime']);
+        // Eager load required relationships
+        $tractor->load(['driver']);
 
         // Fetch data efficiently
         [$dailyReport, $reports, $currentTask, $efficiencyHistory] = $this->fetchTractorDetailsData($tractor, $date);
@@ -47,14 +46,19 @@ class TractorReportService
         $lastReport = $reports->last();
         $averageSpeed = $reports->avg('speed') ?? 0;
 
+        // Get working times for the specific date
+        $startWorkingTime = $tractor->getStartWorkingTime($date);
+        $endWorkingTime = $tractor->getEndWorkingTime($date);
+        $onTime = $tractor->getOnTime($date);
+
         return [
             'id' => $tractor->id,
             'name' => $tractor->name,
             'speed' => (int) $averageSpeed,
             'status' => $lastReport?->status ?? 0,
-            'start_working_time' => $this->formatWorkingTime($tractor->startWorkingTime),
-            'end_working_time' => $this->formatWorkingTime($tractor->endWorkingTime),
-            'on_time' => $this->formatWorkingTime($tractor->onTime),
+            'start_working_time' => $this->formatWorkingTime($startWorkingTime),
+            'end_working_time' => $this->formatWorkingTime($endWorkingTime),
+            'on_time' => $this->formatWorkingTime($onTime),
             'traveled_distance' => $this->formatDistance($dailyReport?->traveled_distance),
             'work_duration' => $this->formatDuration($dailyReport?->work_duration),
             'stoppage_count' => $dailyReport?->stoppage_count ?? 0,

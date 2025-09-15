@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -110,33 +111,48 @@ class Tractor extends Model
     }
 
     /**
-     * Get the start working time for the tractor.
+     * Get the start working time for the tractor on a specific date.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\HasOneThrough
+     * @param \Carbon\Carbon $date
+     * @return \App\Models\GpsReport|null
      */
-    public function startWorkingTime()
+    public function getStartWorkingTime(\Carbon\Carbon $date): ?GpsReport
     {
-        return $this->hasOneThrough(GpsReport::class, GpsDevice::class)->where('is_starting_point', 1);
+        return $this->gpsReports()
+            ->select(['id', 'date_time', 'is_starting_point'])
+            ->whereDate('date_time', $date)
+            ->where('is_starting_point', 1)
+            ->first();
     }
 
     /**
-     * Get the end working time for the tractor.
+     * Get the end working time for the tractor on a specific date.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\HasOneThrough
+     * @param \Carbon\Carbon $date
+     * @return \App\Models\GpsReport|null
      */
-    public function endWorkingTime()
+    public function getEndWorkingTime(\Carbon\Carbon $date): ?GpsReport
     {
-        return $this->hasOneThrough(GpsReport::class, GpsDevice::class)->where('is_ending_point', 1);
+        return $this->gpsReports()
+            ->select(['id', 'date_time', 'is_ending_point'])
+            ->whereDate('date_time', $date)
+            ->where('is_ending_point', 1)
+            ->first();
     }
 
     /**
-     * Get the on time for the tractor (when status changed from 0 to 1 after work start).
+     * Get the on time for the tractor on a specific date (when status changed from 0 to 1 after work start).
      *
-     * @return \Illuminate\Database\Eloquent\Relations\HasOneThrough
+     * @param \Carbon\Carbon $date
+     * @return \App\Models\GpsReport|null
      */
-    public function onTime()
+    public function getOnTime(\Carbon\Carbon $date): ?GpsReport
     {
-        return $this->hasOneThrough(GpsReport::class, GpsDevice::class)->whereNotNull('on_time');
+        return $this->gpsReports()
+            ->select(['id', 'date_time', 'on_time'])
+            ->whereDate('date_time', $date)
+            ->whereNotNull('on_time')
+            ->first();
     }
 
     /**
