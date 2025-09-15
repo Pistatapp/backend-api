@@ -114,8 +114,7 @@ class TractorReportService
     private function getEfficiencyHistory(Tractor $tractor, Carbon $date)
     {
         return $tractor->gpsDailyReports()
-            ->where('date', '<=', $date)
-            ->orderBy('date', 'desc')
+            ->where('date', '<', $date)
             ->limit(self::EFFICIENCY_HISTORY_DAYS)
             ->get()
             ->map(fn($report) => [
