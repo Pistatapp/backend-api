@@ -230,18 +230,13 @@ class ReportProcessingService
             // Save the first stoppage report with accumulated time
             $reportData = $this->pendingStoppageReport;
             $reportData['stoppage_time'] = $this->accumulatedStoppageTime;
-            $this->totalStoppedTime += $this->accumulatedStoppageTime;
 
-            $report = $this->device->reports()->create($reportData);
-            $this->latestStoredReport = $report;
-            $this->cacheService->setLatestStoredReport($report);
-            $this->detectStartEndPoints($report);
+            // Save the report
+            $this->saveReport($reportData);
 
             // Add to points and increment stoppage count
             $this->points[] = $reportData;
             $this->stoppageCount++;
-        } else {
-            $this->totalMovingTime += $this->accumulatedStoppageTime;
         }
 
         // Reset accumulation state
