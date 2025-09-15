@@ -130,6 +130,16 @@ class Tractor extends Model
     }
 
     /**
+     * Get the on time for the tractor (when status changed from 0 to 1 after work start).
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasOneThrough
+     */
+    public function onTime()
+    {
+        return $this->hasOneThrough(GpsReport::class, GpsDevice::class)->whereNotNull('on_time');
+    }
+
+    /**
      * Get the tasks for the tractor.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany

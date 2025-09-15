@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\GpsDevice;
 use App\Models\TractorTask;
 use App\Traits\TractorWorkingTime;
+use Carbon\Carbon;
 
 class ReportProcessingService
 {
@@ -145,7 +146,10 @@ class ReportProcessingService
             // For stoppage reports, check if this might be needed for start/end point detection
             $mightBeNeededForDetection = $this->mightBeNeededForStartEndDetection($report);
 
-            if ($mightBeNeededForDetection) {
+            // Also check if this might be needed for on time detection
+            $mightBeNeededForOnTimeDetection = $this->mightBeNeededForOnTimeDetection($report);
+
+            if ($mightBeNeededForDetection || $mightBeNeededForOnTimeDetection) {
                 $persist = true; // Save for detection purposes
                 $addPoint = true;
             } else {
@@ -189,10 +193,17 @@ class ReportProcessingService
 
     private function shouldCountReport(array $report): bool
     {
+        // Always check working hours first for start/end time detection
+        if (!$this->isWithinWorkingHours($report)) {
+            return false;
+        }
+
+        // If there's a task, also check if report is within task area
         if ($this->currentTask && $this->taskArea) {
             return is_point_in_polygon($report['coordinate'], $this->taskArea);
         }
-        return $this->isWithinWorkingHours($report);
+
+        return true;
     }
 
     /**
@@ -209,6 +220,31 @@ class ReportProcessingService
         }
 
         return false;
+    }
+
+    /**
+     * Check if a report might be needed for on time detection.
+     * This includes reports that could be part of status transition sequences.
+     */
+    private function mightBeNeededForOnTimeDetection(array $report): bool
+    {
+        // Only save reports that could be part of status transition from 0 to 1
+        // This is more specific to avoid saving too many reports
+        if ($this->previousRawReport && $this->previousRawReport['status'] === 0 && $report['status'] === 1) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Get the tractor's start work time for today.
+     *
+     * @return Carbon
+     */
+    private function getTractorStartWorkTimeForToday(): Carbon
+    {
+        return now()->setTimeFromTimeString($this->tractor->start_work_time);
     }
 
     /**
@@ -249,6 +285,9 @@ class ReportProcessingService
         $report = $this->device->reports()->create($data);
         $this->latestStoredReport = $report;
         $this->cacheService->setLatestStoredReport($report);
+
+        // Always attempt start/end point detection regardless of task presence
+        // This ensures detection works even when tractor has a task
         $this->detectStartEndPoints($report);
     }
 }

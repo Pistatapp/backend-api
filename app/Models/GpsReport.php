@@ -37,7 +37,7 @@ class GpsReport extends Model
             'date_time' => 'datetime',
             'coordinate' => 'array',
             'directions' => 'array',
-            'is_off' => 'boolean',
+            'on_time' => 'datetime',
         ];
     }
 
@@ -52,7 +52,6 @@ class GpsReport extends Model
         'is_ending_point' => false,
         'stoppage_time' => 0,
         'directions' => '{"ew":0,"ns":0}',
-        'is_off' => false,
     ];
 
     /**

@@ -68,7 +68,6 @@ class ReportReceived implements ShouldBroadcast
                     'is_starting_point' => $point['is_starting_point'],
                     'is_ending_point' => $point['is_ending_point'],
                     'is_stopped' => $point['is_stopped'],
-                    'is_off' => $point['is_off'],
                     'stoppage_time' => gmdate('H:i:s', $point['stoppage_time']),
                     'date_time' => jdate($point['date_time'])->format('Y/m/d H:i:s'),
                 ];

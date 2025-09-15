@@ -220,4 +220,101 @@ class TractorStartEndWorkingTimeDetectionTest extends TestCase
         $this->assertTrue($startingPoint->date_time->gte(\Carbon\Carbon::parse('2024-01-24 08:00:00')),
             'Starting point should be after the start_work_time.');
     }
+
+    #[Test]
+    public function it_detects_tractor_on_time_correctly()
+    {
+        // Create reports with status transition from 0 to 1 after work start time
+        $jsonData = [
+            // Before work start time - status 0 (off)
+            ['data' => '+Hooshnic:V1.03,3453.00000,05035.0000,000,240124,050000,000,000,0,000,0,863070043386100'],
+            // After work start time - status 0 (off)
+            ['data' => '+Hooshnic:V1.03,3453.01000,05035.0100,000,240124,080100,000,000,0,000,0,863070043386100'],
+            // Status changes to 1 (on) - this should be marked as on_time
+            ['data' => '+Hooshnic:V1.03,3453.02000,05035.0200,000,240124,080200,000,000,1,000,0,863070043386100'],
+            // Continue with status 1
+            ['data' => '+Hooshnic:V1.03,3453.03000,05035.0300,000,240124,080300,000,000,1,000,0,863070043386100'],
+        ];
+
+        $response = $this->postJson('/api/gps/reports', $jsonData);
+        $response->assertStatus(200);
+
+        // Check that on_time was detected
+        $onTimeReport = \App\Models\GpsReport::where('imei', '863070043386100')
+            ->whereDate('date_time', today())
+            ->whereNotNull('on_time')
+            ->first();
+
+        $this->assertNotNull($onTimeReport, 'Tractor on time should be detected.');
+        $this->assertEquals(1, $onTimeReport->status, 'On time report should have status = 1.');
+        $this->assertTrue($onTimeReport->date_time->gte(\Carbon\Carbon::parse('2024-01-24 08:00:00')),
+            'On time should be after the start_work_time.');
+    }
+
+    #[Test]
+    public function it_detects_tractor_on_time_only_once_per_day()
+    {
+        // First batch - status transition from 0 to 1
+        $firstBatch = [
+            ['data' => '+Hooshnic:V1.03,3453.00000,05035.0000,000,240124,080000,000,000,0,000,0,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.01000,05035.0100,000,240124,080100,000,000,1,000,0,863070043386100'],
+        ];
+
+        $response = $this->postJson('/api/gps/reports', $firstBatch);
+        $response->assertStatus(200);
+
+        // Check first on_time detection
+        $firstOnTimeCount = \App\Models\GpsReport::where('imei', '863070043386100')
+            ->whereDate('date_time', today())
+            ->whereNotNull('on_time')
+            ->count();
+
+        $this->assertEquals(1, $firstOnTimeCount, 'Should detect on_time once.');
+
+        // Second batch - another status transition from 0 to 1
+        $secondBatch = [
+            ['data' => '+Hooshnic:V1.03,3453.02000,05035.0200,000,240124,090000,000,000,0,000,0,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.03000,05035.0300,000,240124,090100,000,000,1,000,0,863070043386100'],
+        ];
+
+        $response = $this->postJson('/api/gps/reports', $secondBatch);
+        $response->assertStatus(200);
+
+        // Check that on_time was not detected again
+        $totalOnTimeCount = \App\Models\GpsReport::where('imei', '863070043386100')
+            ->whereDate('date_time', today())
+            ->whereNotNull('on_time')
+            ->count();
+
+        $this->assertEquals(1, $totalOnTimeCount, 'Should still have only one on_time detection.');
+    }
+
+    #[Test]
+    public function it_ignores_tractor_on_time_before_work_start_time()
+    {
+        // Create reports with status transition from 0 to 1 before work start time
+        $jsonData = [
+            // Before work start time - status 0 (off)
+            ['data' => '+Hooshnic:V1.03,3453.00000,05035.0000,000,240124,050000,000,000,0,000,0,863070043386100'],
+            // Before work start time - status changes to 1 (on) - should be ignored
+            ['data' => '+Hooshnic:V1.03,3453.01000,05035.0100,000,240124,050100,000,000,1,000,0,863070043386100'],
+            // After work start time - status 0 (off)
+            ['data' => '+Hooshnic:V1.03,3453.02000,05035.0200,000,240124,080100,000,000,0,000,0,863070043386100'],
+            // After work start time - status changes to 1 (on) - this should be marked as on_time
+            ['data' => '+Hooshnic:V1.03,3453.03000,05035.0300,000,240124,080200,000,000,1,000,0,863070043386100'],
+        ];
+
+        $response = $this->postJson('/api/gps/reports', $jsonData);
+        $response->assertStatus(200);
+
+        // Check that on_time was detected only for the transition after work start time
+        $onTimeReport = \App\Models\GpsReport::where('imei', '863070043386100')
+            ->whereDate('date_time', today())
+            ->whereNotNull('on_time')
+            ->first();
+
+        $this->assertNotNull($onTimeReport, 'Tractor on time should be detected.');
+        $this->assertTrue($onTimeReport->date_time->gte(\Carbon\Carbon::parse('2024-01-24 08:00:00')),
+            'On time should be after the start_work_time, not before.');
+    }
 }

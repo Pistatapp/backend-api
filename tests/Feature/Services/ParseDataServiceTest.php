@@ -42,7 +42,6 @@ class ParseDataServiceTest extends TestCase
         $this->assertEquals(0, $firstReport['directions']['ns']); // Index 10: 0
         $this->assertEquals('863070043386100', $firstReport['imei']); // Index 11: 863070043386100
         $this->assertTrue($firstReport['is_stopped']);
-        $this->assertFalse($firstReport['is_off']);
         $this->assertFalse($firstReport['is_starting_point']);
         $this->assertFalse($firstReport['is_ending_point']);
         $this->assertEquals(0, $firstReport['stoppage_time']);
@@ -161,25 +160,11 @@ class ParseDataServiceTest extends TestCase
         $this->assertFalse($result[1]['is_stopped']);
     }
 
-    #[Test]
-    public function it_determines_off_status_correctly()
-    {
-        $today = date('ymd');
-        $rawData = json_encode([
-            ['data' => '+Hooshnic:V1.03,3453.00000,05035.0000,000,' . $today . ',070000,000,000,0,0,0,863070043386100'], // status 0 = off
-            ['data' => '+Hooshnic:V1.03,3453.01000,05035.0100,000,' . $today . ',070100,005,000,1,090,0,863070043386100']  // status 1 = on
-        ]);
-
-        $result = $this->parseDataService->parse($rawData);
-
-        $this->assertTrue($result[0]['is_off']);
-        $this->assertFalse($result[1]['is_off']);
-    }
 
     #[Test]
     public function it_handles_empty_data()
     {
-        $this->expectException(\JsonException::class);
+        $this->expectException(\InvalidArgumentException::class);
 
         $this->parseDataService->parse('');
     }

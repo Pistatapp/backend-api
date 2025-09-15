@@ -6,18 +6,60 @@ use Carbon\Carbon;
 
 class ParseDataService
 {
+    private const GPS_DATA_PATTERN = '/^\+Hooshnic:V\d+\.\d{2},\d{4,5}\.\d{5},\d{5}\.\d{4},\d{3},\d{6},\d{6},\d{3},\d{3},\d,\d{1,3},\d{1,2},\d{15}$/';
+    private const TIMEZONE_OFFSET_HOURS = 3;
+    private const TIMEZONE_OFFSET_MINUTES = 30;
+    private const COORDINATE_PRECISION = 6;
+
     /**
      * Parse the data received from the GPS device
      *
      * @param string $data
      * @return array
+     * @throws \JsonException
+     * @throws \InvalidArgumentException
      */
     public function parse(string $data): array
     {
-        $decodedData = $this->decodeJsonData($data);
-        $processedData = array_filter(array_map([$this, 'processDataItem'], $decodedData));
+        if (empty($data)) {
+            throw new \InvalidArgumentException('Input data cannot be empty');
+        }
 
+        $decodedData = $this->decodeJsonData($data);
+
+        if (empty($decodedData)) {
+            return [];
+        }
+
+        $processedData = $this->processDataItems($decodedData);
+
+        // Sort by date_time
         usort($processedData, fn($a, $b) => $a['date_time'] <=> $b['date_time']);
+
+        return $processedData;
+    }
+
+    /**
+     * Process multiple data items efficiently
+     *
+     * @param array $decodedData
+     * @return array
+     */
+    private function processDataItems(array $decodedData): array
+    {
+        $processedData = [];
+        $today = Carbon::today();
+
+        foreach ($decodedData as $dataItem) {
+            if (!isset($dataItem['data']) || !is_string($dataItem['data'])) {
+                continue;
+            }
+
+            $processedItem = $this->processDataItem($dataItem['data'], $today);
+            if ($processedItem !== null) {
+                $processedData[] = $processedItem;
+            }
+        }
 
         return $processedData;
     }
@@ -25,20 +67,27 @@ class ParseDataService
     /**
      * Process a single item of data
      *
-     * @param array $dataItem
+     * @param string $data
+     * @param Carbon $today
      * @return array|null
      */
-    private function processDataItem(array $dataItem)
+    private function processDataItem(string $data, Carbon $today): ?array
     {
-        if (!$this->isValidFormat($dataItem['data'])) {
+        if (!$this->isValidFormat($data)) {
             return null;
         }
 
-        $dataFields = explode(',', $dataItem['data']);
+        $dataFields = explode(',', $data);
+
+        // Validate required fields exist
+        if (count($dataFields) < 12) {
+            return null;
+        }
+
         $coordinate = $this->convertNmeaToDecimalDegrees($dataFields[1], $dataFields[2]);
         $dateTime = $this->parseDateTime($dataFields[4], $dataFields[5]);
 
-        if (!$dateTime->isToday()) {
+        if (!$dateTime->isSameDay($today)) {
             return null;
         }
 
@@ -48,8 +97,7 @@ class ParseDataService
         $nsDirection = (int)$dataFields[10];
         $imei = $dataFields[11];
 
-        $isStopped = ($status == 0) || ($status == 1 && $speed == 0);
-        $isOff = $status == 0;
+        $isStopped = ($status === 0) || ($status === 1 && $speed === 0);
 
         return [
             'coordinate' => $coordinate,
@@ -62,7 +110,6 @@ class ParseDataService
             'is_starting_point' => false,
             'is_ending_point' => false,
             'is_stopped' => $isStopped,
-            'is_off' => $isOff,
             'stoppage_time' => 0,
             'date_time' => $dateTime,
             'imei' => $imei,
@@ -78,10 +125,13 @@ class ParseDataService
      */
     private function convertNmeaToDecimalDegrees(string $nmeaLatitude, string $nmeaLongitude): array
     {
-        return array_map('floatval', [
-            sprintf('%.6f', $this->nmeaToDecimalDegrees((float)$nmeaLatitude)),
-            sprintf('%.6f', $this->nmeaToDecimalDegrees((float)$nmeaLongitude))
-        ]);
+        $latitude = $this->nmeaToDecimalDegrees((float)$nmeaLatitude);
+        $longitude = $this->nmeaToDecimalDegrees((float)$nmeaLongitude);
+
+        return [
+            round($latitude, self::COORDINATE_PRECISION),
+            round($longitude, self::COORDINATE_PRECISION)
+        ];
     }
 
     /**
@@ -106,7 +156,9 @@ class ParseDataService
      */
     private function parseDateTime(string $date, string $time): Carbon
     {
-        return Carbon::createFromFormat('ymdHis', $date . $time)->addHours(3)->addMinutes(30);
+        return Carbon::createFromFormat('ymdHis', $date . $time)
+            ->addHours(self::TIMEZONE_OFFSET_HOURS)
+            ->addMinutes(self::TIMEZONE_OFFSET_MINUTES);
     }
 
     /**
@@ -117,8 +169,7 @@ class ParseDataService
      */
     private function isValidFormat(string $data): bool
     {
-        $pattern = '/^\+Hooshnic:V\d+\.\d{2},\d{4,5}\.\d{5},\d{5}\.\d{4},\d{3},\d{6},\d{6},\d{3},\d{3},\d,\d{1,3},\d{1,2},\d{15}$/';
-        return preg_match($pattern, $data);
+        return preg_match(self::GPS_DATA_PATTERN, $data) === 1;
     }
 
     /**
@@ -138,17 +189,24 @@ class ParseDataService
      *
      * @param string $jsonData
      * @return array
+     * @throws \JsonException
      */
     private function decodeJsonData(string $jsonData): array
     {
         $trimmedData = rtrim($jsonData, ".");
         $correctedData = $this->correctJsonFormat($trimmedData);
+
         $decodedData = json_decode($correctedData, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
             throw new \JsonException('JSON decode error: ' . json_last_error_msg());
         }
 
+        if (!is_array($decodedData)) {
+            throw new \JsonException('Decoded data is not an array');
+        }
+
         return $decodedData;
     }
+
 }
