@@ -6,6 +6,7 @@ use App\Models\GpsDevice;
 use App\Models\TractorTask;
 use App\Traits\TractorWorkingTime;
 use Carbon\Carbon;
+use App\Services\ChunkedDatabaseOperations;
 
 class ReportProcessingService
 {
@@ -289,5 +290,63 @@ class ReportProcessingService
         // Always attempt start/end point detection regardless of task presence
         // This ensures detection works even when tractor has a task
         $this->detectStartEndPoints($report);
+    }
+
+
+    /**
+     * Batch insert reports to database for improved performance.
+     * This method collects all reports that need to be persisted and inserts them in a single operation.
+     */
+    private function batchInsertReports(): void
+    {
+        $reportsToInsert = [];
+
+        foreach ($this->reports as $report) {
+            if ($this->shouldPersistReport($report)) {
+                $reportsToInsert[] = array_merge($report, [
+                    'gps_device_id' => $this->device->id,
+                ]);
+            }
+        }
+
+        if (!empty($reportsToInsert)) {
+            // Use ChunkedDatabaseOperations for memory-efficient batch inserts
+            $chunkedOps = new ChunkedDatabaseOperations();
+            $chunkedOps->batchInsert('gps_reports', $reportsToInsert);
+
+            // Update the latest stored report reference
+            if (!empty($reportsToInsert)) {
+                $latestReportData = end($reportsToInsert);
+                $this->latestStoredReport = $this->device->reports()
+                    ->where('date_time', $latestReportData['date_time'])
+                    ->where('coordinate', $latestReportData['coordinate'])
+                    ->first();
+                $this->cacheService->setLatestStoredReport($this->latestStoredReport);
+            }
+        }
+    }
+
+    /**
+     * Determine if a report should be persisted to the database.
+     * This is a simplified version of the persistence logic for batch processing.
+     *
+     * @param array $report
+     * @return bool
+     */
+    private function shouldPersistReport(array $report): bool
+    {
+        if ($this->latestStoredReport === null) {
+            return true; // first ever report
+        }
+
+        if (!$report['is_stopped']) {
+            return true; // every moving report
+        }
+
+        // For stoppage reports, check if this might be needed for detection
+        $mightBeNeededForDetection = $this->mightBeNeededForStartEndDetection($report);
+        $mightBeNeededForOnTimeDetection = $this->mightBeNeededForOnTimeDetection($report);
+
+        return $mightBeNeededForDetection || $mightBeNeededForOnTimeDetection;
     }
 }

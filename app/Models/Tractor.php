@@ -101,13 +101,13 @@ class Tractor extends Model
     }
 
     /**
-     * Get the gps daily reports for the tractor.
+     * Get the gps metrics calculations for the tractor.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
-    public function gpsDailyReports()
+    public function gpsMetricsCalculations()
     {
-        return $this->hasMany(GpsDailyReport::class);
+        return $this->hasMany(GpsMetricsCalculation::class);
     }
 
     /**

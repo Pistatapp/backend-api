@@ -8,6 +8,8 @@ use App\Http\Resources\PointsResource;
 use App\Http\Resources\TractorTaskResource;
 use App\Http\Resources\DriverResource;
 
+use App\Services\CacheService;
+use App\Services\ChunkedDatabaseOperations;
 /**
  * Service for generating tractor reports with optimized performance.
  *
@@ -66,7 +68,7 @@ class TractorReportService
             'efficiency' => $this->formatEfficiency($dailyReport?->efficiency),
             'current_task' => $currentTask ? new TractorTaskResource($currentTask) : null,
             'last_seven_days_efficiency' => $efficiencyHistory,
-            'driver' => $tractor->driver ? new DriverResource($tractor->driver) : null,
+            'driver' => $tractor->driver ? new DriverResource($tractor->driver) : null
         ];
     }
 
@@ -75,11 +77,17 @@ class TractorReportService
      */
     private function getFilteredReports(Tractor $tractor, Carbon $date)
     {
-        $reports = $tractor->gpsReports()
+        // Use chunked processing for memory efficiency with large datasets
+        $chunkedOps = new ChunkedDatabaseOperations();
+        $reports = collect();
+
+        $tractor->gpsReports()
             ->whereDate('date_time', $date)
             ->orderBy('date_time')
-            ->get()
-            ->map(fn($report) => $this->applyKalmanFilter($report));
+            ->chunk(1000, function ($chunk) use (&$reports) {
+                $filteredChunk = $chunk->map(fn($report) => $this->applyKalmanFilter($report));
+                $reports = $reports->merge($filteredChunk);
+            });
 
         return PointsResource::collection($reports);
     }
@@ -96,16 +104,29 @@ class TractorReportService
     }
 
     /**
-     * Fetch data for tractor details with optimized queries.
+     * Fetch data for tractor details with optimized queries and caching.
      */
     private function fetchTractorDetailsData(Tractor $tractor, Carbon $date): array
     {
-        $dailyReport = $tractor->gpsDailyReports()->where('date', $date)->first();
-        $reports = $tractor->gpsReports()
+        // Use CacheService for daily report caching
+        $device = $tractor->gpsDevice;
+        if ($device) {
+            $cacheService = new CacheService($device);
+            $dailyMetrics = $cacheService->getDailyMetrics($date->format('Y-m-d'));
+            $dailyReport = $dailyMetrics ? $tractor->gpsMetricsCalculations()->where('date', $date)->first() : null;
+        } else {
+            $dailyReport = $tractor->gpsMetricsCalculations()->where('date', $date)->first();
+        }
+
+        // Use chunked processing for memory efficiency
+        $reports = collect();
+        $tractor->gpsReports()
             ->whereDate('date_time', $date)
             ->orderBy('date_time')
-            ->get()
-            ->map(fn($report) => $this->applyKalmanFilter($report));
+            ->chunk(1000, function ($chunk) use (&$reports) {
+                $filteredChunk = $chunk->map(fn($report) => $this->applyKalmanFilter($report));
+                $reports = $reports->merge($filteredChunk);
+            });
         $currentTask = $this->getCurrentTask($tractor);
         $efficiencyHistory = $this->getEfficiencyHistory($tractor, $date);
 
@@ -117,7 +138,7 @@ class TractorReportService
      */
     private function getEfficiencyHistory(Tractor $tractor, Carbon $date)
     {
-        return $tractor->gpsDailyReports()
+        return $tractor->gpsMetricsCalculations()
             ->where('date', '<', $date)
             ->orderBy('date', 'desc')
             ->limit(self::EFFICIENCY_HISTORY_DAYS)

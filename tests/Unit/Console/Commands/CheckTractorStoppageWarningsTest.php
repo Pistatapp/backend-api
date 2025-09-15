@@ -6,7 +6,7 @@ use Tests\TestCase;
 use App\Models\Tractor;
 use App\Models\User;
 use App\Models\Farm;
-use App\Models\GpsDailyReport;
+use App\Models\GpsMetricsCalculation;
 use App\Models\Warning;
 use App\Console\Commands\CheckTractorStoppageWarnings;
 use App\Services\TractorStoppageWarningService;
@@ -27,7 +27,7 @@ class CheckTractorStoppageWarningsTest extends TestCase
     private Farm $farm;
     private User $user;
     private Tractor $tractor;
-    private GpsDailyReport $dailyReport;
+    private GpsMetricsCalculation $dailyReport;
     private Warning $warning;
     private BufferedOutput $output;
 
@@ -43,7 +43,7 @@ class CheckTractorStoppageWarningsTest extends TestCase
         $this->farm = Farm::factory()->create();
         $this->user = User::factory()->create();
         $this->tractor = Tractor::factory()->create(['farm_id' => $this->farm->id]);
-        $this->dailyReport = GpsDailyReport::factory()->create([
+        $this->dailyReport = GpsMetricsCalculation::factory()->create([
             'tractor_id' => $this->tractor->id,
             'date' => today(),
             'stoppage_duration' => 7200 // 2 hours in seconds

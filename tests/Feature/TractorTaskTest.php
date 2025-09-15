@@ -734,7 +734,7 @@ class TractorTaskTest extends TestCase
         ]);
 
         // Create a GPS daily report for the task
-        \App\Models\GpsDailyReport::factory()->create([
+        \App\Models\GpsMetricsCalculation::factory()->create([
             'tractor_id' => $this->tractor->id,
             'tractor_task_id' => $task->id,
             'date' => jalali_to_carbon($specificDate),

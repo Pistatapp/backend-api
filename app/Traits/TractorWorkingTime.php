@@ -273,21 +273,24 @@ trait TractorWorkingTime
     private function queryReportsForDate(string $dateString, Carbon $currentTime): \Illuminate\Support\Collection
     {
         $windowMinutes = $this->getQueryWindowMinutes();
+        $startTime = Carbon::parse($dateString)->startOfDay();
+        $endTime = Carbon::parse($dateString)->endOfDay();
 
         return $this->device->reports()
-            ->whereDate('date_time', $dateString)
+            ->whereBetween('date_time', [$startTime, $endTime])
             ->whereBetween('date_time', [
                 $currentTime->copy()->subMinutes($windowMinutes),
                 $currentTime->copy()->addMinutes($windowMinutes)
             ])
             ->orderBy('date_time')
-            ->select(['id', 'date_time', 'speed'])
+            ->select(['id', 'date_time', 'speed', 'status'])
             ->get()
             ->map(function ($report) {
                 return (object) [
                     'id' => $report->id,
                     'date_time' => $report->date_time,
-                    'speed' => (int) $report->speed
+                    'speed' => (int) $report->speed,
+                    'status' => (int) $report->status
                 ];
             });
     }

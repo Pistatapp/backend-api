@@ -3,7 +3,7 @@
 namespace App\Listeners;
 
 use App\Events\TractorTaskStatusChanged;
-use App\Models\GpsDailyReport;
+use App\Models\GpsMetricsCalculation;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Queue\InteractsWithQueue;
 use App\Notifications\TractorTaskStatusNotification;
@@ -30,7 +30,7 @@ class TractorTaskStatusChangedListener implements ShouldQueue
         }
 
         // Get the GPS daily report for this task
-        $dailyReport = GpsDailyReport::where('tractor_task_id', $event->task->id)
+        $dailyReport = GpsMetricsCalculation::where('tractor_task_id', $event->task->id)
             ->where('date', $event->task->date)
             ->first();
 

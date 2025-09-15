@@ -63,7 +63,7 @@ class TractorController extends Controller
             'driver',
             'gpsDevice',
             'farm',
-            'gpsDailyReports' => function ($query) {
+            'gpsMetricsCalculations' => function ($query) {
                 $query->latest('date')->limit(7);
             },
         ]);

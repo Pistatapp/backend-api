@@ -57,7 +57,7 @@ class TractorReportsFilterTest extends TestCase
                 'status' => 'finished'
             ]);
 
-            $task->gpsDailyReport()->create([
+            $task->gpsMetricsCalculation()->create([
                 'tractor_id' => $tractor->id,
                 'traveled_distance' => 100 * ($i + 1),
                 'work_duration' => 3600 * ($i + 1),
@@ -200,7 +200,7 @@ class TractorReportsFilterTest extends TestCase
                 'status' => 'finished'
             ]);
 
-            $task->gpsDailyReport()->create([
+            $task->gpsMetricsCalculation()->create([
                 'tractor_id' => $tractor->id,
                 'traveled_distance' => 100 * ($i + 1),
                 'work_duration' => 3600 * ($i + 1),
@@ -227,7 +227,7 @@ class TractorReportsFilterTest extends TestCase
             'status' => 'finished'
         ]);
 
-        $task->gpsDailyReport()->create([
+        $task->gpsMetricsCalculation()->create([
             'tractor_id' => $tractor->id,
             'traveled_distance' => 300,
             'work_duration' => 10800,
@@ -331,7 +331,7 @@ class TractorReportsFilterTest extends TestCase
                 'status' => 'finished'
             ]);
 
-            $task->gpsDailyReport()->create([
+            $task->gpsMetricsCalculation()->create([
                 'tractor_id' => $tractor->id,
                 'traveled_distance' => 100,
                 'work_duration' => 28800, // 8 hours
@@ -408,7 +408,7 @@ class TractorReportsFilterTest extends TestCase
                 'status' => 'finished'
             ]);
 
-            $task->gpsDailyReport()->create([
+            $task->gpsMetricsCalculation()->create([
                 'tractor_id' => $tractor->id,
                 'traveled_distance' => 100,
                 'work_duration' => 28800, // 8 hours
@@ -482,7 +482,7 @@ class TractorReportsFilterTest extends TestCase
                 'status' => 'finished'
             ]);
 
-            $task->gpsDailyReport()->create([
+            $task->gpsMetricsCalculation()->create([
                 'tractor_id' => $tractor->id,
                 'traveled_distance' => 100,
                 'work_duration' => 28800, // 8 hours
@@ -559,7 +559,7 @@ class TractorReportsFilterTest extends TestCase
                 'status' => 'finished'
             ]);
 
-            $task->gpsDailyReport()->create([
+            $task->gpsMetricsCalculation()->create([
                 'tractor_id' => $tractor->id,
                 'traveled_distance' => 100,
                 'work_duration' => 28800, // 8 hours
@@ -636,7 +636,7 @@ class TractorReportsFilterTest extends TestCase
                 'status' => 'finished'
             ]);
 
-            $task->gpsDailyReport()->create([
+            $task->gpsMetricsCalculation()->create([
                 'tractor_id' => $tractor->id,
                 'traveled_distance' => 100,
                 'work_duration' => 28800, // 8 hours
@@ -719,7 +719,7 @@ class TractorReportsFilterTest extends TestCase
                 'created_by' => $this->user->id,
                 'status' => 'finished'
             ]);
-            $task->gpsDailyReport()->create([
+            $task->gpsMetricsCalculation()->create([
                 'tractor_id' => $tractor->id,
                 'traveled_distance' => 100 * ($i + 1),
                 'work_duration' => 3600 * ($i + 1),
@@ -743,7 +743,7 @@ class TractorReportsFilterTest extends TestCase
             'created_by' => $this->user->id,
             'status' => 'finished'
         ]);
-        $task->gpsDailyReport()->create([
+        $task->gpsMetricsCalculation()->create([
             'tractor_id' => $tractor->id,
             'traveled_distance' => 300,
             'work_duration' => 10800,

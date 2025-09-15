@@ -3,10 +3,10 @@
 namespace Tests\Feature\Services;
 
 use Tests\TestCase;
-use App\Services\DailyReportService;
+use App\Services\GpsMetricsCalculationService;
 use App\Models\Tractor;
 use App\Models\TractorTask;
-use App\Models\GpsDailyReport;
+use App\Models\GpsMetricsCalculation;
 use App\Models\Field;
 use App\Models\Farm;
 use App\Models\Operation;
@@ -14,12 +14,12 @@ use Carbon\Carbon;
 use PHPUnit\Framework\Attributes\Test;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
-class DailyReportServiceTest extends TestCase
+class GpsMetricsCalculationServiceTest extends TestCase
 {
     use RefreshDatabase;
 
     private Tractor $tractor;
-    private DailyReportService $service;
+    private GpsMetricsCalculationService $service;
 
     protected function setUp(): void
     {
@@ -29,7 +29,7 @@ class DailyReportServiceTest extends TestCase
             'expected_daily_work_time' => 8 // 8 hours
         ]);
 
-        $this->service = new DailyReportService($this->tractor, null);
+        $this->service = new GpsMetricsCalculationService($this->tractor, null);
     }
 
     #[Test]
@@ -37,7 +37,7 @@ class DailyReportServiceTest extends TestCase
     {
         $dailyReport = $this->service->fetchOrCreate();
 
-        $this->assertInstanceOf(GpsDailyReport::class, $dailyReport);
+        $this->assertInstanceOf(GpsMetricsCalculation::class, $dailyReport);
         $this->assertEquals($this->tractor->id, $dailyReport->tractor_id);
         $this->assertNull($dailyReport->tractor_task_id);
         $this->assertEquals(today()->toDateString(), $dailyReport->date);
@@ -56,7 +56,7 @@ class DailyReportServiceTest extends TestCase
     public function it_returns_existing_daily_report()
     {
         // Create an existing daily report
-        $existingReport = GpsDailyReport::factory()->create([
+        $existingReport = GpsMetricsCalculation::factory()->create([
             'tractor_id' => $this->tractor->id,
             'tractor_task_id' => null,
             'date' => today()->toDateString(),
@@ -99,7 +99,7 @@ class DailyReportServiceTest extends TestCase
             'status' => 'started'
         ]);
 
-        $service = new DailyReportService($this->tractor, $task);
+        $service = new GpsMetricsCalculationService($this->tractor, $task);
         $dailyReport = $service->fetchOrCreate();
 
         $this->assertEquals($this->tractor->id, $dailyReport->tractor_id);
@@ -111,7 +111,7 @@ class DailyReportServiceTest extends TestCase
     public function it_updates_daily_report_with_new_data()
     {
         // Create an existing daily report
-        $dailyReport = GpsDailyReport::factory()->create([
+        $dailyReport = GpsMetricsCalculation::factory()->create([
             'tractor_id' => $this->tractor->id,
             'date' => today()->toDateString(),
             'traveled_distance' => 50.0,
@@ -153,7 +153,7 @@ class DailyReportServiceTest extends TestCase
     #[Test]
     public function it_calculates_efficiency_correctly()
     {
-        $dailyReport = GpsDailyReport::factory()->create([
+        $dailyReport = GpsMetricsCalculation::factory()->create([
             'tractor_id' => $this->tractor->id,
             'date' => today()->toDateString(),
             'efficiency' => 0
@@ -179,7 +179,7 @@ class DailyReportServiceTest extends TestCase
     #[Test]
     public function it_calculates_average_speed_correctly()
     {
-        $dailyReport = GpsDailyReport::factory()->create([
+        $dailyReport = GpsMetricsCalculation::factory()->create([
             'tractor_id' => $this->tractor->id,
             'date' => today()->toDateString(),
             'traveled_distance' => 0,
@@ -207,7 +207,7 @@ class DailyReportServiceTest extends TestCase
     #[Test]
     public function it_handles_zero_work_duration_for_average_speed()
     {
-        $dailyReport = GpsDailyReport::factory()->create([
+        $dailyReport = GpsMetricsCalculation::factory()->create([
             'tractor_id' => $this->tractor->id,
             'date' => today()->toDateString(),
             'traveled_distance' => 0,
@@ -234,7 +234,7 @@ class DailyReportServiceTest extends TestCase
     #[Test]
     public function it_handles_multiple_updates()
     {
-        $dailyReport = GpsDailyReport::factory()->create([
+        $dailyReport = GpsMetricsCalculation::factory()->create([
             'tractor_id' => $this->tractor->id,
             'date' => today()->toDateString(),
             'traveled_distance' => 0,
@@ -284,7 +284,7 @@ class DailyReportServiceTest extends TestCase
         // Set different expected work time
         $this->tractor->update(['expected_daily_work_time' => 6]); // 6 hours
 
-        $dailyReport = GpsDailyReport::factory()->create([
+        $dailyReport = GpsMetricsCalculation::factory()->create([
             'tractor_id' => $this->tractor->id,
             'date' => today()->toDateString(),
             'efficiency' => 0
@@ -310,7 +310,7 @@ class DailyReportServiceTest extends TestCase
     #[Test]
     public function it_handles_very_high_efficiency()
     {
-        $dailyReport = GpsDailyReport::factory()->create([
+        $dailyReport = GpsMetricsCalculation::factory()->create([
             'tractor_id' => $this->tractor->id,
             'date' => today()->toDateString(),
             'efficiency' => 0
@@ -335,7 +335,7 @@ class DailyReportServiceTest extends TestCase
     #[Test]
     public function it_handles_negative_values_gracefully()
     {
-        $dailyReport = GpsDailyReport::factory()->create([
+        $dailyReport = GpsMetricsCalculation::factory()->create([
             'tractor_id' => $this->tractor->id,
             'date' => today()->toDateString(),
             'traveled_distance' => 100.0,
@@ -369,7 +369,7 @@ class DailyReportServiceTest extends TestCase
     #[Test]
     public function it_handles_large_numbers()
     {
-        $dailyReport = GpsDailyReport::factory()->create([
+        $dailyReport = GpsMetricsCalculation::factory()->create([
             'tractor_id' => $this->tractor->id,
             'date' => today()->toDateString(),
             'traveled_distance' => 0,

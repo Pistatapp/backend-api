@@ -2,21 +2,19 @@
 
 namespace App\Http\Controllers\Api\V1\Tractor;
 
-use App\Events\ReportReceived;
 use App\Events\TractorStatus;
 use App\Http\Controllers\Controller;
 use App\Services\ParseDataService;
-use App\Services\LiveReportService;
+use App\Jobs\ProcessGpsReportsJob;
+use App\Models\GpsDevice;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use App\Repositories\GpsDeviceRepository;
+use Illuminate\Support\Facades\Cache;
 
 class GpsReportController extends Controller
 {
     public function __construct(
         private ParseDataService $parseDataService,
-        private GpsDeviceRepository $gpsDeviceRepository,
-        private LiveReportService $liveReportService,
     ) {}
 
     /**
@@ -32,21 +30,37 @@ class GpsReportController extends Controller
 
             $deviceImei = $data[0]['imei'];
 
-            $device = $this->gpsDeviceRepository->findByRelations($deviceImei, ['tractor']);
+            $device = $this->fetchDeviceByImei($deviceImei);
 
-            throw_if(!$device, \Exception::class, 'Device not found for IMEI: ' . $deviceImei);
+            // Dispatch background job for processing
+            ProcessGpsReportsJob::dispatch($device, $data);
 
             $lastReportStatus = end($data)['status'];
-
-            $generatedReport = $this->liveReportService->generate($device, $data);
-
-            event(new ReportReceived($generatedReport, $device));
             event(new TractorStatus($device->tractor, $lastReportStatus));
+
         } catch (\Exception $e) {
             $this->logErroredData($request);
         }
 
         return new JsonResponse([], JsonResponse::HTTP_OK);
+    }
+
+    /**
+     * Fetch GPS device by IMEI with tractor relationship, using cache for performance.
+     *
+     * @param string $imei Device IMEI
+     * @return GpsDevice|null
+     */
+    private function fetchDeviceByImei(string $imei): ?GpsDevice
+    {
+        $cacheKey = "gps_device_with_tractor_{$imei}";
+
+        return Cache::remember($cacheKey, now()->addHour(), function () use ($imei) {
+            return GpsDevice::where('imei', $imei)
+                ->whereHas('tractor')
+                ->with(['tractor'])
+                ->first();
+        });
     }
 
     private function logErroredData($request): void

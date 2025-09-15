@@ -7,7 +7,7 @@ use App\Models\GpsDevice;
 use App\Models\Tractor;
 use App\Models\User;
 use App\Models\GpsReport;
-use App\Models\GpsDailyReport;
+use App\Models\GpsMetricsCalculation;
 use Carbon\Carbon;
 use PHPUnit\Framework\Attributes\Test;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -35,7 +35,7 @@ class GpsReportControllerTest extends TestCase
 
         // Clear all GPS reports before each test
         GpsReport::query()->delete();
-        GpsDailyReport::query()->delete();
+        GpsMetricsCalculation::query()->delete();
 
         Cache::flush();
         Event::fake();
@@ -87,7 +87,7 @@ class GpsReportControllerTest extends TestCase
         $this->assertCount(2, $reports);
 
         // Check that daily report was created
-        $dailyReport = GpsDailyReport::where('tractor_id', $this->tractor->id)
+        $dailyReport = GpsMetricsCalculation::where('tractor_id', $this->tractor->id)
             ->where('date', Carbon::now()->toDateString())
             ->first();
         $this->assertNotNull($dailyReport);

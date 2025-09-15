@@ -14,8 +14,7 @@ use PHPUnit\Framework\Attributes\Test;
  * Test Coverage:
  * - ParseDataService: Data parsing, validation, coordinate conversion
  * - ReportProcessingService: Metrics calculation, persistence logic
- * - LiveReportService: End-to-end processing flow
- * - DailyReportService: Aggregation and efficiency calculations
+ * - GpsMetricsCalculationService: Aggregation and efficiency calculations
  * - TractorTaskService: Task scoping and area detection
  * - CacheService: State management and persistence
  * - GpsReportController: HTTP endpoint and error handling
@@ -28,8 +27,7 @@ use PHPUnit\Framework\Attributes\Test;
  * To run specific test categories:
  * php artisan test tests/Feature/Services/ParseDataServiceTest.php
  * php artisan test tests/Feature/Services/ReportProcessingServiceTest.php
- * php artisan test tests/Feature/Services/LiveReportServiceTest.php
- * php artisan test tests/Feature/Services/DailyReportServiceTest.php
+ * php artisan test tests/Feature/Services/GpsMetricsCalculationServiceTest.php
  * php artisan test tests/Feature/Services/TractorTaskServiceTest.php
  * php artisan test tests/Feature/Services/CacheServiceTest.php
  * php artisan test tests/Feature/Controllers/GpsReportControllerTest.php

@@ -8,7 +8,7 @@ use App\Models\Tractor;
 use App\Models\Field;
 use App\Models\Operation;
 use App\Models\User;
-use App\Models\GpsDailyReport;
+use App\Models\GpsMetricsCalculation;
 use App\Events\TractorTaskStatusChanged;
 use App\Notifications\TractorTaskStatusNotification;
 use App\Listeners\TractorTaskStatusChangedListener;
@@ -55,7 +55,7 @@ class TractorTaskStatusChangedListenerTest extends TestCase
         Notification::fake();
 
         // Create GPS daily report with movement data
-        GpsDailyReport::create([
+        GpsMetricsCalculation::create([
             'tractor_id' => $this->tractor->id,
             'tractor_task_id' => $this->task->id,
             'date' => $this->task->date,
@@ -106,7 +106,7 @@ class TractorTaskStatusChangedListenerTest extends TestCase
         Notification::fake();
 
         // Create GPS daily report with no movement
-        GpsDailyReport::create([
+        GpsMetricsCalculation::create([
             'tractor_id' => $this->tractor->id,
             'tractor_task_id' => $this->task->id,
             'date' => $this->task->date,
@@ -174,7 +174,7 @@ class TractorTaskStatusChangedListenerTest extends TestCase
         Event::fake([TractorTaskStatusChanged::class]);
 
         // Create GPS daily report with valid data
-        GpsDailyReport::create([
+        GpsMetricsCalculation::create([
             'tractor_id' => $this->tractor->id,
             'tractor_task_id' => $this->task->id,
             'date' => $this->task->date,

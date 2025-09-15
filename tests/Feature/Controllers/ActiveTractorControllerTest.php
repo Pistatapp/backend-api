@@ -6,7 +6,7 @@ use Tests\TestCase;
 use App\Models\Tractor;
 use App\Models\GpsDevice;
 use App\Models\GpsReport;
-use App\Models\GpsDailyReport;
+use App\Models\GpsMetricsCalculation;
 use App\Models\User;
 use App\Models\Farm;
 use App\Models\Driver;
@@ -38,7 +38,7 @@ class ActiveTractorControllerTest extends TestCase
         ]);
 
         // Create a daily report
-        GpsDailyReport::create([
+        GpsMetricsCalculation::create([
             'tractor_id' => $this->tractor->id,
             'date' => today(),
             'traveled_distance' => 1.5,

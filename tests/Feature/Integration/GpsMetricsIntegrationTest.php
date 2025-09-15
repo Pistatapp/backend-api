@@ -11,12 +11,14 @@ use App\Models\Field;
 use App\Models\Farm;
 use App\Models\Operation;
 use App\Models\GpsReport;
-use App\Models\GpsDailyReport;
+use App\Models\GpsMetricsCalculation;
 use Carbon\Carbon;
 use PHPUnit\Framework\Attributes\Test;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Bus;
 
 class GpsMetricsIntegrationTest extends TestCase
 {
@@ -32,6 +34,7 @@ class GpsMetricsIntegrationTest extends TestCase
 
         Cache::flush();
         Event::fake();
+        Queue::fake(); // Fake queue for testing
         Carbon::setTestNow('2024-01-24 10:00:00');
 
         $this->user = User::factory()->create();
@@ -46,6 +49,25 @@ class GpsMetricsIntegrationTest extends TestCase
             'tractor_id' => $this->tractor->id,
             'imei' => '863070043386100'
         ]);
+    }
+
+    /**
+     * Helper method to process GPS reports and execute queued jobs
+     */
+    private function processGpsReports(array $data): void
+    {
+        // Send the request
+        $response = $this->postJson('/api/gps/reports', $data);
+        $response->assertStatus(200);
+
+        // Process any queued jobs
+        Queue::assertPushed(\App\Jobs\ProcessGpsReportsJob::class);
+
+        // Execute the job synchronously for testing
+        Queue::assertPushed(\App\Jobs\ProcessGpsReportsJob::class, function ($job) {
+            $job->handle();
+            return true;
+        });
     }
 
     #[Test]
@@ -76,15 +98,15 @@ class GpsMetricsIntegrationTest extends TestCase
             ['data' => '+Hooshnic:V1.03,3453.11000,05035.1100,000,240124,051100,000,000,1,270,0,863070043386100'], // 08:41 local
         ];
 
-        $response = $this->postJson('/api/gps/reports', $workdayData);
-        $response->assertStatus(200);
+        // Process GPS reports with batch processing and async jobs
+        $this->processGpsReports($workdayData);
 
         // Check that reports were created
         $reports = GpsReport::where('imei', '863070043386100')->get();
         $this->assertGreaterThan(0, $reports->count());
 
         // Check that daily report was created and updated
-        $dailyReport = GpsDailyReport::where('tractor_id', $this->tractor->id)
+        $dailyReport = GpsMetricsCalculation::where('tractor_id', $this->tractor->id)
             ->where('date', today()->toDateString())
             ->first();
 
@@ -139,11 +161,11 @@ class GpsMetricsIntegrationTest extends TestCase
             ['data' => '+Hooshnic:V1.03,3453.00000,05035.0000,000,240124,050300,025,000,1,270,0,863070043386100'],
         ];
 
-        $response = $this->postJson('/api/gps/reports', $taskData);
-        $response->assertStatus(200);
+        // Process GPS reports with batch processing and async jobs
+        $this->processGpsReports($taskData);
 
         // Check that daily report was created with task
-        $dailyReport = GpsDailyReport::where('tractor_id', $this->tractor->id)
+        $dailyReport = GpsMetricsCalculation::where('tractor_id', $this->tractor->id)
             ->where('date', today()->toDateString())
             ->where('tractor_task_id', $task->id)
             ->first();
@@ -170,11 +192,11 @@ class GpsMetricsIntegrationTest extends TestCase
             ['data' => '+Hooshnic:V1.03,3453.03000,05035.0300,000,240124,210100,025,000,1,270,0,863070043386100'], // 00:31 local
         ];
 
-        $response = $this->postJson('/api/gps/reports', $nightData);
-        $response->assertStatus(200);
+        // Process GPS reports with batch processing and async jobs
+        $this->processGpsReports($nightData);
 
         // Check that daily report was created
-        $dailyReport = GpsDailyReport::where('tractor_id', $this->tractor->id)
+        $dailyReport = GpsMetricsCalculation::where('tractor_id', $this->tractor->id)
             ->where('date', today()->toDateString())
             ->first();
 
@@ -192,8 +214,8 @@ class GpsMetricsIntegrationTest extends TestCase
             ['data' => '+Hooshnic:V1.03,3453.01000,05035.0100,000,240124,050100,015,000,1,090,0,863070043386100']
         ];
 
-        $response1 = $this->postJson('/api/gps/reports', $firstBatch);
-        $response1->assertStatus(200);
+        // Process first batch
+        $this->processGpsReports($firstBatch);
 
         // Second batch
         $secondBatch = [
@@ -201,11 +223,11 @@ class GpsMetricsIntegrationTest extends TestCase
             ['data' => '+Hooshnic:V1.03,3453.03000,05035.0300,000,240124,050300,025,000,1,270,0,863070043386100']
         ];
 
-        $response2 = $this->postJson('/api/gps/reports', $secondBatch);
-        $response2->assertStatus(200);
+        // Process second batch
+        $this->processGpsReports($secondBatch);
 
         // Check that daily report was updated with cumulative data
-        $dailyReport = GpsDailyReport::where('tractor_id', $this->tractor->id)
+        $dailyReport = GpsMetricsCalculation::where('tractor_id', $this->tractor->id)
             ->where('date', today()->toDateString())
             ->first();
 
@@ -237,8 +259,8 @@ class GpsMetricsIntegrationTest extends TestCase
             ['data' => '+Hooshnic:V1.03,3453.08000,05035.0800,000,240124,050800,000,000,1,000,0,863070043386100'],
         ];
 
-        $response = $this->postJson('/api/gps/reports', $detectionData);
-        $response->assertStatus(200);
+        // Process GPS reports with batch processing and async jobs
+        $this->processGpsReports($detectionData);
 
         // Check for start and end points
         $startPoint = GpsReport::where('imei', '863070043386100')
@@ -265,11 +287,11 @@ class GpsMetricsIntegrationTest extends TestCase
             ['data' => '+Hooshnic:V1.03,3453.02000,05035.0200,000,240124,050200,020,000,1,180,0,863070043386100'],
         ];
 
-        $response = $this->postJson('/api/gps/reports', $efficiencyData);
-        $response->assertStatus(200);
+        // Process GPS reports with batch processing and async jobs
+        $this->processGpsReports($efficiencyData);
 
         // Check efficiency calculation
-        $dailyReport = GpsDailyReport::where('tractor_id', $this->tractor->id)
+        $dailyReport = GpsMetricsCalculation::where('tractor_id', $this->tractor->id)
             ->where('date', today()->toDateString())
             ->first();
 
@@ -290,11 +312,11 @@ class GpsMetricsIntegrationTest extends TestCase
             ['data' => '+Hooshnic:V1.03,3453.02000,05035.0200,000,240124,050200,020,000,1,180,0,863070043386100'],
         ];
 
-        $response = $this->postJson('/api/gps/reports', $speedData);
-        $response->assertStatus(200);
+        // Process GPS reports with batch processing and async jobs
+        $this->processGpsReports($speedData);
 
         // Check average speed calculation
-        $dailyReport = GpsDailyReport::where('tractor_id', $this->tractor->id)
+        $dailyReport = GpsMetricsCalculation::where('tractor_id', $this->tractor->id)
             ->where('date', today()->toDateString())
             ->first();
 
@@ -310,19 +332,19 @@ class GpsMetricsIntegrationTest extends TestCase
             ['data' => '+Hooshnic:V1.03,3453.00000,05035.0000,000,240124,050000,010,000,1,000,0,863070043386100']
         ];
 
-        $response1 = $this->postJson('/api/gps/reports', $firstRequest);
-        $response1->assertStatus(200);
+        // Process first request
+        $this->processGpsReports($firstRequest);
 
         // Second request (should use cached previous report)
         $secondRequest = [
             ['data' => '+Hooshnic:V1.03,3453.01000,05035.0100,000,240124,050100,015,000,1,090,0,863070043386100']
         ];
 
-        $response2 = $this->postJson('/api/gps/reports', $secondRequest);
-        $response2->assertStatus(200);
+        // Process second request
+        $this->processGpsReports($secondRequest);
 
         // Check that metrics were calculated using cached data
-        $dailyReport = GpsDailyReport::where('tractor_id', $this->tractor->id)
+        $dailyReport = GpsMetricsCalculation::where('tractor_id', $this->tractor->id)
             ->where('date', today()->toDateString())
             ->first();
 
@@ -344,14 +366,14 @@ class GpsMetricsIntegrationTest extends TestCase
             ['data' => '+Hooshnic:V1.03,3453.00000,05035.0000,000,240124,050000,010,000,1,000,0,863070043386100']
         ];
 
-        $response2 = $this->postJson('/api/gps/reports', $validData);
-        $response2->assertStatus(200);
+        // Process valid data
+        $this->processGpsReports($validData);
 
         // Check that valid data was processed
         $reports = GpsReport::where('imei', '863070043386100')->get();
         $this->assertCount(1, $reports);
 
-        $dailyReport = GpsDailyReport::where('tractor_id', $this->tractor->id)
+        $dailyReport = GpsMetricsCalculation::where('tractor_id', $this->tractor->id)
             ->where('date', today()->toDateString())
             ->first();
 
@@ -377,18 +399,24 @@ class GpsMetricsIntegrationTest extends TestCase
             ['data' => '+Hooshnic:V1.03,3453.00000,05035.0000,000,240124,050000,015,000,1,000,0,863070043386101']
         ];
 
-        $response1 = $this->postJson('/api/gps/reports', $data1);
-        $response2 = $this->postJson('/api/gps/reports', $data2);
+        // Process data for both devices
+        $this->processGpsReports($data1);
 
-        $response1->assertStatus(200);
-        $response2->assertStatus(200);
+        // Check reports after first device
+        $reports1AfterFirst = GpsReport::where('imei', '863070043386100')->get();
+        $this->assertCount(1, $reports1AfterFirst, 'First device should have 1 report after first processing');
+
+        // Clear the queue to avoid executing previous jobs
+        Queue::fake();
+
+        $this->processGpsReports($data2);
 
         // Check that both devices processed data independently
         $reports1 = GpsReport::where('imei', '863070043386100')->get();
         $reports2 = GpsReport::where('imei', '863070043386101')->get();
 
-        $this->assertCount(1, $reports1);
-        $this->assertCount(1, $reports2);
+        $this->assertCount(1, $reports1, 'First device should still have 1 report');
+        $this->assertCount(1, $reports2, 'Second device should have 1 report');
 
         // Check that events were dispatched for both devices
         Event::assertDispatched(\App\Events\ReportReceived::class, 2);

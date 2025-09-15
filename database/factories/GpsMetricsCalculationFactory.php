@@ -2,12 +2,15 @@
 
 namespace Database\Factories;
 
+use App\Models\GpsMetricsCalculation;
 use App\Models\Tractor;
 use App\Models\TractorTask;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-class GpsDailyReportFactory extends Factory
+class GpsMetricsCalculationFactory extends Factory
 {
+    protected $model = GpsMetricsCalculation::class;
+
     public function definition()
     {
         return [

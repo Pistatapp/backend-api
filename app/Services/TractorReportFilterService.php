@@ -20,8 +20,8 @@ class TractorReportFilterService
     {
         // Find the tractor or fail
         $tractor = Tractor::findOrFail($filters['tractor_id']);
-        // Start query from GpsDailyReport, eager loading related task, operation, and taskable
-        $query = $tractor->gpsDailyReports()->with(['tractorTask.operation', 'tractorTask.taskable']);
+        // Start query from GpsMetricsCalculation, eager loading related task, operation, and taskable
+        $query = $tractor->gpsMetricsCalculations()->with(['tractorTask.operation', 'tractorTask.taskable']);
 
         // Apply date/period filters
         $this->applyDateFilters($query, $filters);
@@ -175,7 +175,7 @@ class TractorReportFilterService
     }
 
     /**
-     * Map GpsDailyReports to report format.
+     * Map GpsMetricsCalculations to report format.
      *
      * @param Collection $reports
      * @return Collection

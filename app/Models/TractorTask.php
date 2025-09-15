@@ -57,13 +57,13 @@ class TractorTask extends Model
     }
 
     /**
-     * Get the GPS daily report for this task
+     * Get the GPS metrics calculation for this task
      *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     * @return \Illuminate\Database\Eloquent\Relations\HasOne
      */
-    public function gpsDailyReport()
+    public function gpsMetricsCalculation()
     {
-        return $this->hasOne(GpsDailyReport::class);
+        return $this->hasOne(GpsMetricsCalculation::class);
     }
 
     /**

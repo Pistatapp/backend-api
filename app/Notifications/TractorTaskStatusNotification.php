@@ -7,7 +7,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use App\Notifications\FirebaseMessage;
 use Illuminate\Notifications\Notification;
 use App\Models\TractorTask;
-use App\Models\GpsDailyReport;
+use App\Models\GpsMetricsCalculation;
 
 class TractorTaskStatusNotification extends Notification implements ShouldQueue
 {
@@ -21,7 +21,7 @@ class TractorTaskStatusNotification extends Notification implements ShouldQueue
      */
     public function __construct(
         private TractorTask $task,
-        private ?GpsDailyReport $dailyReport = null
+        private ?GpsMetricsCalculation $dailyReport = null
     ) {
         $this->prepareNotificationData();
     }

@@ -5,9 +5,16 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class GpsDailyReport extends Model
+class GpsMetricsCalculation extends Model
 {
     use HasFactory;
+
+    /**
+     * The table associated with the model.
+     *
+     * @var string
+     */
+    protected $table = 'gps_metrics_calculations';
 
     /**
      * The attributes that are mass assignable.
@@ -50,7 +57,7 @@ class GpsDailyReport extends Model
     ];
 
     /**
-     * Get the tractor task associated with this daily report
+     * Get the tractor task associated with this metrics calculation
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
@@ -60,7 +67,7 @@ class GpsDailyReport extends Model
     }
 
     /**
-     * Get the tractor that owns the GpsDailyReport
+     * Get the tractor that owns the GpsMetricsCalculation
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */

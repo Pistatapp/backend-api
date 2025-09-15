@@ -39,12 +39,12 @@ class TractorStoppageWarningService
         $threshold = (int) ($warning->parameters['hours'] ?? 1) * 3600; // Convert hours to seconds
 
         // Get all tractors with their daily reports for this farm
-        $tractors = Tractor::with(['gpsDailyReports' => function ($query) {
+        $tractors = Tractor::with(['gpsMetricsCalculations' => function ($query) {
             $query->whereDate('date', today());
         }])->where('farm_id', $workingEnvironment)->get();
 
         foreach ($tractors as $tractor) {
-            $dailyReport = $tractor->gpsDailyReports->first();
+            $dailyReport = $tractor->gpsMetricsCalculations->first();
 
             if (!$dailyReport || $dailyReport->stoppage_duration < $threshold) {
                 continue;
