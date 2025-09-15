@@ -111,6 +111,30 @@ class Tractor extends Model
     }
 
     /**
+     * Get the start working time for the tractor.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasOneThrough
+     */
+    public function startWorkingTime()
+    {
+        return $this->hasOneThrough(GpsReport::class, GpsDevice::class)
+            ->whereDate('date_time', now()->toDateString())
+            ->where('is_starting_point', 1);
+    }
+
+    /**
+     * Get the end working time for the tractor.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasOneThrough
+     */
+    public function endWorkingTime()
+    {
+        return $this->hasOneThrough(GpsReport::class, GpsDevice::class)
+            ->whereDate('date_time', now()->toDateString())
+            ->where('is_ending_point', 1);
+    }
+
+    /**
      * Get the start working time for the tractor on a specific date.
      *
      * @param \Carbon\Carbon $date
@@ -119,9 +143,9 @@ class Tractor extends Model
     public function getStartWorkingTime(\Carbon\Carbon $date): ?GpsReport
     {
         return $this->gpsReports()
-            ->select(['id', 'date_time', 'is_starting_point'])
-            ->whereDate('date_time', $date)
-            ->where('is_starting_point', 1)
+            ->select(['gps_reports.id', 'gps_reports.date_time', 'gps_reports.is_starting_point'])
+            ->whereDate('gps_reports.date_time', $date)
+            ->where('gps_reports.is_starting_point', 1)
             ->first();
     }
 
@@ -134,9 +158,9 @@ class Tractor extends Model
     public function getEndWorkingTime(\Carbon\Carbon $date): ?GpsReport
     {
         return $this->gpsReports()
-            ->select(['id', 'date_time', 'is_ending_point'])
-            ->whereDate('date_time', $date)
-            ->where('is_ending_point', 1)
+            ->select(['gps_reports.id', 'gps_reports.date_time', 'gps_reports.is_ending_point'])
+            ->whereDate('gps_reports.date_time', $date)
+            ->where('gps_reports.is_ending_point', 1)
             ->first();
     }
 
@@ -149,9 +173,9 @@ class Tractor extends Model
     public function getOnTime(\Carbon\Carbon $date): ?GpsReport
     {
         return $this->gpsReports()
-            ->select(['id', 'date_time', 'on_time'])
-            ->whereDate('date_time', $date)
-            ->whereNotNull('on_time')
+            ->select(['gps_reports.id', 'gps_reports.date_time', 'gps_reports.on_time'])
+            ->whereDate('gps_reports.date_time', $date)
+            ->whereNotNull('gps_reports.on_time')
             ->first();
     }
 
