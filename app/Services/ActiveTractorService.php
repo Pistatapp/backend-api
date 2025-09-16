@@ -66,17 +66,12 @@ class ActiveTractorService
                     }
                     echo json_encode($payload, JSON_UNESCAPED_UNICODE);
                     $first = false;
-
-                    // Flush so the web server can send the chunk immediately
-                    flush();
                 });
 
             echo ']';
         }, 200, [
             'Content-Type' => 'application/json',
-            // Send the response with HTTP chunked encoding; browsers can start
-            // consuming it right away and memory on the server stays flat.
-            'Transfer-Encoding' => 'chunked',
+            'Cache-Control' => 'no-cache',
         ]);
     }
 
