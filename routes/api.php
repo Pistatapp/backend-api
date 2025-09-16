@@ -118,6 +118,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::get('/farms/{farm}/tractors/active', [ActiveTractorController::class, 'index']);
     Route::get('/tractors/{tractor}/path', [ActiveTractorController::class, 'getPath']);
     Route::get('/tractors/{tractor}/details', [ActiveTractorController::class, 'getDetails']);
+
     Route::apiResource('farms.tractors', TractorController::class)->shallow();
     Route::apiResource('/tractors.tractor_reports', TractorReportController::class)->shallow();
     Route::post('/tractor_reports/filter', [TractorReportController::class, 'filter'])->name('tractor.reports.filter');

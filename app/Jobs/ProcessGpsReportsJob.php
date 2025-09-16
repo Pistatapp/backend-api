@@ -29,8 +29,8 @@ class ProcessGpsReportsJob implements ShouldQueue
         try {
             $currentTask = $this->getCurrentTask();
             $processedData = $this->processReports($currentTask);
-            $dailyReport = $this->updateGpsMetricsCalculations($currentTask, $processedData);
-            $this->broadcastReportReceived($dailyReport, $processedData);
+            $metricsRecords = $this->updateGpsMetricsCalculations($currentTask, $processedData);
+            $this->broadcastReportReceived($metricsRecords['dailyRecord'], $processedData);
             $this->broadcastZoneStatus($currentTask, $processedData);
 
         } catch (\Exception $e) {
@@ -74,40 +74,57 @@ class ProcessGpsReportsJob implements ShouldQueue
     }
 
     /**
-     * Update the daily report with processed data.
+     * Update both task-specific and daily summary metrics calculations.
      *
      * @param array $taskData Current task and zone data
-     * @param array $processedData Processed GPS data
-     * @return \App\Models\GpsMetricsCalculation Updated daily report
+     * @param array $processedData Processed GPS data with taskData and dailyData
+     * @return array{taskRecord: GpsMetricsCalculation|null, dailyRecord: GpsMetricsCalculation}
      */
-    private function updateGpsMetricsCalculations(array $taskData, array $processedData)
+    private function updateGpsMetricsCalculations(array $taskData, array $processedData): array
     {
-        $dailyReportService = new GpsMetricsCalculationService($this->device->tractor, $taskData['task']);
-        $dailyReport = $dailyReportService->fetchOrCreate();
-        $dailyReportService->update($dailyReport, $processedData);
+        $metricsService = new GpsMetricsCalculationService($this->device->tractor, $taskData['task']);
 
-        return $dailyReport;
+        $taskRecord = null;
+        $dailyRecord = null;
+
+        // Update task-specific record if task data exists
+        if ($processedData['taskData']) {
+            $taskRecord = $metricsService->fetchOrCreate();
+            $metricsService->update($taskRecord, $processedData['taskData']);
+        }
+
+        // Always update daily summary record
+        $dailyRecord = $metricsService->fetchOrCreateDailyRecord();
+        $metricsService->update($dailyRecord, $processedData['dailyData']);
+
+        return [
+            'taskRecord' => $taskRecord,
+            'dailyRecord' => $dailyRecord
+        ];
     }
 
     /**
      * Broadcast the ReportReceived event with generated report data.
      *
      * @param \App\Models\GpsMetricsCalculation $dailyReport Updated daily report
-     * @param array $processedData Processed GPS data
+     * @param array $processedData Processed GPS data with taskData and dailyData
      * @return void
      */
     private function broadcastReportReceived($dailyReport, array $processedData): void
     {
+        // Use daily data for broadcasting (includes all working hours activity)
+        $dailyData = $processedData['dailyData'];
+
         $generatedReport = [
             'id' => $dailyReport->id,
             'tractor_id' => $this->device->tractor->id,
-            'traveled_distance' => $processedData['totalTraveledDistance'],
-            'work_duration' => $processedData['totalMovingTime'],
-            'stoppage_duration' => $processedData['totalStoppedTime'],
+            'traveled_distance' => $dailyData['totalTraveledDistance'],
+            'work_duration' => $dailyData['totalMovingTime'],
+            'stoppage_duration' => $dailyData['totalStoppedTime'],
             'efficiency' => $dailyReport->efficiency ?? 0,
-            'stoppage_count' => $processedData['stoppageCount'],
+            'stoppage_count' => $dailyData['stoppageCount'],
             'speed' => $processedData['latestStoredReport']->speed ?? 0,
-            'points' => $processedData['points'],
+            'points' => $dailyData['points'],
         ];
 
         event(new ReportReceived($generatedReport['points'], $this->device));
@@ -117,18 +134,24 @@ class ProcessGpsReportsJob implements ShouldQueue
      * Broadcast the TractorZoneStatus event with zone information.
      *
      * @param array $taskData Current task and zone data
-     * @param array $processedData Processed GPS data
+     * @param array $processedData Processed GPS data with taskData and dailyData
      * @return void
      */
     private function broadcastZoneStatus(array $taskData, array $processedData): void
     {
         $isInTaskZone = $this->isTractorInTaskZone($taskData, $processedData);
 
+        // Use task data for zone-specific work duration if available
+        $workDurationInZone = null;
+        if ($isInTaskZone && $processedData['taskData']) {
+            $workDurationInZone = $this->formatWorkDuration($processedData['taskData']['totalMovingTime']);
+        }
+
         $zoneData = [
             'is_in_task_zone' => $isInTaskZone,
             'task_id' => $taskData['task']?->id,
             'task_name' => $taskData['task']?->name,
-            'work_duration_in_zone' => $isInTaskZone ? $this->formatWorkDuration($processedData['totalMovingTime']) : null,
+            'work_duration_in_zone' => $workDurationInZone,
         ];
 
         event(new TractorZoneStatus($zoneData, $this->device));
@@ -138,7 +161,7 @@ class ProcessGpsReportsJob implements ShouldQueue
      * Determine if tractor is currently in task zone based on GPS coordinates.
      *
      * @param array $taskData Current task and zone data
-     * @param array $processedData Processed GPS data
+     * @param array $processedData Processed GPS data with taskData and dailyData
      * @return bool
      */
     private function isTractorInTaskZone(array $taskData, array $processedData): bool
@@ -148,13 +171,16 @@ class ProcessGpsReportsJob implements ShouldQueue
             return false;
         }
 
+        // Use daily data points for location determination (most comprehensive)
+        $points = $processedData['dailyData']['points'] ?? [];
+
         // If no GPS points were processed, cannot determine location
-        if (empty($processedData['points'])) {
+        if (empty($points)) {
             return false;
         }
 
         // Get the latest GPS coordinate from processed points
-        $latestPoint = end($processedData['points']);
+        $latestPoint = end($points);
         $currentCoordinate = $latestPoint['coordinate'];
 
         // Check if current coordinate is within task zone polygon

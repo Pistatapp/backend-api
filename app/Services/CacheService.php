@@ -260,6 +260,7 @@ class CacheService
     {
         $dailyReport = $this->device->tractor->gpsMetricsCalculations()
             ->where('date', $date)
+            ->whereNull('tractor_task_id')
             ->first();
 
         return $dailyReport ? $dailyReport->toArray() : null;

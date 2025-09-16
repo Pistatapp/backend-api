@@ -4,7 +4,7 @@ namespace App\Providers;
 
 use App\Services\WeatherApi;
 use App\Services\KalmanFilter;
-use App\Services\TractorReportService;
+use App\Services\ActiveTractorService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\ServiceProvider;
@@ -17,9 +17,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
         $this->app->singleton(KalmanFilter::class);
-        $this->app->singleton(TractorReportService::class);
+        $this->app->singleton(ActiveTractorService::class);
     }
 
     /**

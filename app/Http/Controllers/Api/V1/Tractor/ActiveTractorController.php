@@ -8,12 +8,12 @@ use App\Http\Resources\PointsResource;
 use App\Models\Tractor;
 use Illuminate\Http\Request;
 use App\Models\Farm;
-use App\Services\TractorReportService;
+use App\Services\ActiveTractorService;
 
 class ActiveTractorController extends Controller
 {
     public function __construct(
-        private TractorReportService $tractorReportService
+        private ActiveTractorService $activeTractorService
     ) {}
 
     /**
@@ -36,7 +36,7 @@ class ActiveTractorController extends Controller
      *
      * @param Request $request
      * @param Tractor $tractor
-     * @return \Illuminate\Http\JsonResponse
+     * @return \Symfony\Component\HttpFoundation\StreamedResponse
      */
     public function getPath(Request $request, Tractor $tractor)
     {
@@ -45,8 +45,8 @@ class ActiveTractorController extends Controller
         ]);
 
         $date = jalali_to_carbon($request->date);
-        $points = $this->tractorReportService->getTractorPath($tractor, $date);
-        return PointsResource::collection($points);
+        $points = $this->activeTractorService->streamTractorPath($tractor, $date);
+        return $points;
     }
 
     /**
@@ -63,7 +63,7 @@ class ActiveTractorController extends Controller
         ]);
 
         $date = jalali_to_carbon($request->date);
-        $details = $this->tractorReportService->getTractorDetails($tractor, $date);
+        $details = $this->activeTractorService->getTractorDetails($tractor, $date);
 
         return response()->json(['data' => $details]);
     }

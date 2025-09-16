@@ -31,6 +31,47 @@ class GpsMetricsCalculationService
     }
 
     /**
+     * Update both task-specific and daily summary metrics calculations.
+     *
+     * @param array $data Processed GPS data
+     * @return array{taskRecord: GpsMetricsCalculation, dailyRecord: GpsMetricsCalculation}
+     */
+    public function updateBothRecords(array $data): array
+    {
+        $taskRecord = null;
+        $dailyRecord = null;
+
+        // Update task-specific record if there's a current task
+        if ($this->currentTask) {
+            $taskRecord = $this->fetchOrCreate();
+            $this->update($taskRecord, $data);
+        }
+
+        // Always update/create daily summary record (tractor_task_id = null)
+        $dailyRecord = $this->fetchOrCreateDailyRecord();
+        $this->update($dailyRecord, $data);
+
+        return [
+            'taskRecord' => $taskRecord,
+            'dailyRecord' => $dailyRecord
+        ];
+    }
+
+    /**
+     * Fetch or create a daily summary metrics calculation (no task association).
+     *
+     * @return GpsMetricsCalculation
+     */
+    public function fetchOrCreateDailyRecord(): GpsMetricsCalculation
+    {
+        return GpsMetricsCalculation::firstOrCreate([
+            'tractor_id' => $this->tractor->id,
+            'tractor_task_id' => null,
+            'date' => today()->toDateString()
+        ]);
+    }
+
+    /**
      * Update the metrics calculation with new data.
      *
      * @param GpsMetricsCalculation $metricsCalculation

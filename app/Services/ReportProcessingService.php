@@ -40,12 +40,40 @@ class ReportProcessingService
 
     /**
      * Main entry: process all incoming reports sequentially.
+     * Now processes data for both task-specific and daily scopes.
      * Keeps logic intentionally linear & easy to read.
      */
     public function process(): array
     {
+        // Process reports for task-specific scope (if task exists)
+        $taskData = null;
+        if ($this->currentTask && $this->taskZone) {
+            $taskData = $this->processReportsForScope(true);
+        }
+
+        // Process reports for daily scope (always)
+        $dailyData = $this->processReportsForScope(false);
+
+        return [
+            'taskData' => $taskData,
+            'dailyData' => $dailyData,
+            'latestStoredReport' => $this->latestStoredReport
+        ];
+    }
+
+    /**
+     * Process reports for a specific scope (task-specific or daily).
+     *
+     * @param bool $isTaskScope Whether to process for task scope or daily scope
+     * @return array|null Processed data for the scope
+     */
+    private function processReportsForScope(bool $isTaskScope): ?array
+    {
+        // Reset metrics for this scope
+        $this->resetMetrics();
+
         foreach ($this->reports as $report) {
-            $this->handleReport($report);
+            $this->handleReportForScope($report, $isTaskScope);
         }
 
         // Finalize any pending stoppage at the end of processing
@@ -58,12 +86,45 @@ class ReportProcessingService
             'stoppageCount' => $this->stoppageCount,
             'maxSpeed' => $this->maxSpeed,
             'points' => $this->points,
-            'latestStoredReport' => $this->latestStoredReport
         ];
     }
 
     /**
-     * Handle a single report.
+     * Reset metrics for processing a new scope.
+     */
+    private function resetMetrics(): void
+    {
+        $this->totalTraveledDistance = 0;
+        $this->totalMovingTime = 0;
+        $this->totalStoppedTime = 0;
+        $this->stoppageCount = 0;
+        $this->maxSpeed = 0;
+        $this->points = [];
+        $this->pendingStoppageReport = null;
+        $this->accumulatedStoppageTime = 0;
+    }
+
+    /**
+     * Handle a single report for a specific scope.
+     *
+     * @param array $report The GPS report to process
+     * @param bool $isTaskScope Whether this is for task scope or daily scope
+     */
+    private function handleReportForScope(array $report, bool $isTaskScope): void
+    {
+        $diffs = $this->computeDiffsForScope($report, $isTaskScope);
+        if ($diffs) {
+            $this->applyMetrics($report, $diffs['time'], $diffs['distance']);
+            // Only update max speed for reports that are counted (inside scope)
+            $this->maxSpeed = max($this->maxSpeed, (int)$report['speed']);
+        }
+        [$persist, $addPoint] = $this->decidePersistence($report);
+        $this->recordPointAndPersist($report, $persist, $addPoint);
+        $this->finalizeReport($report);
+    }
+
+    /**
+     * Handle a single report (legacy method for backward compatibility).
      *
      * Rules:
      *  - Time/distance always computed between consecutive raw reports if both countable.
@@ -83,6 +144,31 @@ class ReportProcessingService
         [$persist, $addPoint] = $this->decidePersistence($report);
         $this->recordPointAndPersist($report, $persist, $addPoint);
         $this->finalizeReport($report);
+    }
+
+    /**
+     * Compute time & distance deltas for a specific scope, returning null if previous missing or should not count.
+     *
+     * @param array $report Current report
+     * @param bool $isTaskScope Whether this is for task scope or daily scope
+     * @return array|null
+     */
+    private function computeDiffsForScope(array $report, bool $isTaskScope): ?array
+    {
+        if (!$this->previousRawReport) {
+            return null;
+        }
+        $timeDiff = $this->previousRawReport['date_time']->diffInSeconds($report['date_time']);
+        if ($timeDiff < 0) {
+            return null; // ignore out-of-order
+        }
+        // Only compute diffs if both current and previous reports are within scope
+        if (!$this->shouldCountReportForScope($report, $isTaskScope) ||
+            !$this->shouldCountReportForScope($this->previousRawReport, $isTaskScope)) {
+            return null; // outside scope
+        }
+        $distanceDiff = calculate_distance($this->previousRawReport['coordinate'], $report['coordinate']);
+        return ['time' => $timeDiff, 'distance' => $distanceDiff];
     }
 
     /**
@@ -191,6 +277,32 @@ class ReportProcessingService
     {
         $this->previousRawReport = $report;
         $this->cacheService->setPreviousReport($report);
+    }
+
+    /**
+     * Check if a report should be counted for a specific scope.
+     *
+     * @param array $report The GPS report
+     * @param bool $isTaskScope Whether this is for task scope or daily scope
+     * @return bool
+     */
+    private function shouldCountReportForScope(array $report, bool $isTaskScope): bool
+    {
+        // Always check working hours first for start/end time detection
+        if (!$this->isWithinWorkingHours($report)) {
+            return false;
+        }
+
+        if ($isTaskScope) {
+            // For task scope, check if report is within task zone
+            if ($this->currentTask && $this->taskZone) {
+                return is_point_in_polygon($report['coordinate'], $this->taskZone);
+            }
+            return false; // No task zone, so don't count for task scope
+        } else {
+            // For daily scope, count all reports within working hours
+            return true;
+        }
     }
 
     private function shouldCountReport(array $report): bool

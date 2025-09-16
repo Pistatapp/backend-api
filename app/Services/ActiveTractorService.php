@@ -7,16 +7,11 @@ use Carbon\Carbon;
 use App\Http\Resources\PointsResource;
 use App\Http\Resources\TractorTaskResource;
 use App\Http\Resources\DriverResource;
-
 use App\Services\CacheService;
-use App\Services\ChunkedDatabaseOperations;
-/**
- * Service for generating tractor reports with optimized performance.
- *
- * Provides daily reports, tractor details, and path data with efficient
- * database queries and caching strategies.
- */
-class TractorReportService
+use Illuminate\Http\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+
+class ActiveTractorService
 {
     private const DEFAULT_TIME_FORMAT = 'H:i:s';
     private const DEFAULT_DECIMAL_PLACES = 2;
@@ -31,7 +26,58 @@ class TractorReportService
      */
     public function getTractorPath(Tractor $tractor, Carbon $date)
     {
-        return $this->getFilteredReports($tractor, $date);
+        $reports = collect();
+
+        $tractor->gpsReports()
+            ->whereDate('date_time', $date)
+            ->orderBy('date_time')
+            ->chunk(500, function ($chunk) use (&$reports) {
+                $filteredChunk = $chunk->map(fn($report) => $this->applyKalmanFilter($report));
+                $reports = $reports->merge($filteredChunk);
+            });
+
+        return PointsResource::collection($reports);
+    }
+
+    /**
+     * Streams every GPS point for the given date without ever holding
+     * all of them in memory.  Still returns *one* JSON array so the
+     * front-end code does not change.
+     */
+    public function streamTractorPath(Tractor $tractor, Carbon $date): StreamedResponse
+    {
+        // We will build the JSON array manually:  [ {...},{...}, ... ]
+        return new StreamedResponse(function () use ($tractor, $date) {
+            echo '[';
+            $first = true;
+
+            // Small, constant memory footprint ─ one row at a time
+            $tractor->gpsReports()
+                ->whereDate('date_time', $date)
+                ->orderBy('date_time')
+                ->cursor()        // ↩️ lazy generator
+                ->each(function ($report) use (&$first) {
+                    $report = $this->applyKalmanFilter($report);
+                    $payload = (new PointsResource($report))->resolve(); // array
+
+                    // Write comma separators only between items
+                    if (!$first) {
+                        echo ',';
+                    }
+                    echo json_encode($payload, JSON_UNESCAPED_UNICODE);
+                    $first = false;
+
+                    // Flush so the web server can send the chunk immediately
+                    flush();
+                });
+
+            echo ']';
+        }, 200, [
+            'Content-Type' => 'application/json',
+            // Send the response with HTTP chunked encoding; browsers can start
+            // consuming it right away and memory on the server stays flat.
+            'Transfer-Encoding' => 'chunked',
+        ]);
     }
 
     /**
@@ -73,26 +119,6 @@ class TractorReportService
     }
 
     /**
-     * Filters the tractor's GPS reports using the Kalman filter.
-     */
-    private function getFilteredReports(Tractor $tractor, Carbon $date)
-    {
-        // Use chunked processing for memory efficiency with large datasets
-        $chunkedOps = new ChunkedDatabaseOperations();
-        $reports = collect();
-
-        $tractor->gpsReports()
-            ->whereDate('date_time', $date)
-            ->orderBy('date_time')
-            ->chunk(1000, function ($chunk) use (&$reports) {
-                $filteredChunk = $chunk->map(fn($report) => $this->applyKalmanFilter($report));
-                $reports = $reports->merge($filteredChunk);
-            });
-
-        return PointsResource::collection($reports);
-    }
-
-    /**
      * Gets the tractor's current task with optimized query.
      */
     private function getCurrentTask(Tractor $tractor)
@@ -113,9 +139,9 @@ class TractorReportService
         if ($device) {
             $cacheService = new CacheService($device);
             $dailyMetrics = $cacheService->getDailyMetrics($date->format('Y-m-d'));
-            $dailyReport = $dailyMetrics ? $tractor->gpsMetricsCalculations()->where('date', $date)->first() : null;
+            $dailyReport = $dailyMetrics ? $tractor->gpsMetricsCalculations()->where('date', $date)->whereNull('tractor_task_id')->first() : null;
         } else {
-            $dailyReport = $tractor->gpsMetricsCalculations()->where('date', $date)->first();
+            $dailyReport = $tractor->gpsMetricsCalculations()->where('date', $date)->whereNull('tractor_task_id')->first();
         }
 
         // Use chunked processing for memory efficiency
