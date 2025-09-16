@@ -84,9 +84,9 @@ class TractorInactivityNotification extends Notification implements ShouldQueue
             ->title('Tractor Inactivity Warning')
             ->body($this->message)
             ->data([
-                'tractor_id' => $this->tractor->id,
+                'tractor_id' => (string) $this->tractor->id,
                 'type' => 'tractor_inactivity',
-                'threshold' => $this->threshold,
+                'threshold' => (string) $this->threshold,
                 'last_activity' => $this->lastActivity->format('Y-m-d H:i:s'),
                 'color' => 'warning',
             ]);

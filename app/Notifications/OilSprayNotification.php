@@ -62,8 +62,8 @@ class OilSprayNotification extends Notification implements ShouldQueue
             ->data([
                 'start_date' => $this->startDate,
                 'end_date' => $this->endDate,
-                'required_hours' => $this->requiredHours,
-                'actual_hours' => $this->actualHours
+                'required_hours' => (string) $this->requiredHours,
+                'actual_hours' => (string) $this->actualHours
             ]);
     }
 }

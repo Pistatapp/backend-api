@@ -70,7 +70,7 @@ class TestNotification extends Notification implements ShouldQueue
             ->data([
                 'type' => 'test',
                 'timestamp' => now()->toISOString(),
-                'user_id' => $notifiable->id,
+                'user_id' => (string) $notifiable->id,
                 'notification_id' => $this->id ?? 'test-' . time()
             ]);
     }

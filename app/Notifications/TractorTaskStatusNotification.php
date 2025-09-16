@@ -97,7 +97,7 @@ class TractorTaskStatusNotification extends Notification implements ShouldQueue
             ->body($this->message)
             ->data([
                 'message' => $this->message,
-                'success' => $this->success,
+                'success' => $this->success ? 'true' : 'false',
                 'color' => $this->success ? 'success' : 'danger',
             ]);
     }

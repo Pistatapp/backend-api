@@ -55,6 +55,6 @@ class FrostbiteRiskNotification extends Notification implements ShouldQueue
             ->body(__('Frostbite risk detected on the following days: ' . implode(', ', array_map(function ($day) {
                 return $day['day'] . ' (' . $day['date'] . ')';
             }, $this->daysWithRisk))))
-            ->data(['days_with_risk' => $this->daysWithRisk]);
+            ->data(['days_with_risk' => json_encode($this->daysWithRisk)]);
     }
 }

@@ -54,9 +54,9 @@ class FrostWarningNotification extends Notification implements ShouldQueue
                 'days' => $this->days
             ]))
             ->data([
-                'temperature' => $this->temperature,
+                'temperature' => (string) $this->temperature,
                 'date' => $this->date,
-                'days' => $this->days
+                'days' => (string) $this->days
             ]);
     }
 }

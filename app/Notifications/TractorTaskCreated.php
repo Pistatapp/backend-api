@@ -64,7 +64,7 @@ class TractorTaskCreated extends Notification implements ShouldQueue
                 'task_date' => $taskDate,
                 'taskable_name' => $taskableName
             ]))
-            ->data(['task_id' => $this->task->id, 'color' => 'info']);
+            ->data(['task_id' => (string) $this->task->id, 'color' => 'info']);
     }
 
     /**

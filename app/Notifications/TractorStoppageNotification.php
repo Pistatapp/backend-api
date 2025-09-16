@@ -59,8 +59,8 @@ class TractorStoppageNotification extends Notification implements ShouldQueue
             ->body($this->message)
             ->data([
                 'message' => $this->message,
-                'stoppage_duration' => $this->stoppageDuration,
-                'threshold' => $this->threshold,
+                'stoppage_duration' => (string) $this->stoppageDuration,
+                'threshold' => (string) $this->threshold,
                 'color' => 'warning',
             ]);
     }

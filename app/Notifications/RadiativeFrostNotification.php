@@ -58,8 +58,8 @@ class RadiativeFrostNotification extends Notification implements ShouldQueue
                 'date' => $this->date
             ]))
             ->data([
-                'average_temp' => $this->averageTemp,
-                'dew_point' => $this->dewPoint,
+                'average_temp' => (string) $this->averageTemp,
+                'dew_point' => (string) $this->dewPoint,
                 'date' => $this->date
             ]);
     }
