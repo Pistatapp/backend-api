@@ -7,6 +7,7 @@ use App\Services\ReportProcessingService;
 use App\Services\GpsMetricsCalculationService;
 use App\Services\TractorTaskService;
 use App\Events\ReportReceived;
+use App\Events\TractorZoneStatus;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -28,8 +29,9 @@ class ProcessGpsReportsJob implements ShouldQueue
         try {
             $currentTask = $this->getCurrentTask();
             $processedData = $this->processReports($currentTask);
-            $dailyReport = $this->updateDailyReport($currentTask, $processedData);
+            $dailyReport = $this->updateGpsMetricsCalculations($currentTask, $processedData);
             $this->broadcastReportReceived($dailyReport, $processedData);
+            $this->broadcastZoneStatus($currentTask, $processedData);
 
         } catch (\Exception $e) {
             $this->handleJobFailure($e);
@@ -37,26 +39,26 @@ class ProcessGpsReportsJob implements ShouldQueue
     }
 
     /**
-     * Get the current task and task area for the tractor.
+     * Get the current task and task zone for the tractor.
      *
-     * @return array{task: \App\Models\TractorTask|null, area: array|null}
+     * @return array{task: \App\Models\TractorTask|null, zone: array|null}
      */
     private function getCurrentTask(): array
     {
         $taskService = new TractorTaskService($this->device->tractor);
         $currentTask = $taskService->getCurrentTask();
-        $taskArea = $taskService->getTaskArea($currentTask);
+        $taskZone = $taskService->getTaskZone($currentTask);
 
         return [
             'task' => $currentTask,
-            'area' => $taskArea
+            'zone' => $taskZone
         ];
     }
 
     /**
      * Process GPS reports and return processed data.
      *
-     * @param array $taskData Current task and area data
+     * @param array $taskData Current task and zone data
      * @return array Processed GPS data
      */
     private function processReports(array $taskData): array
@@ -65,7 +67,7 @@ class ProcessGpsReportsJob implements ShouldQueue
             $this->device,
             $this->reports,
             $taskData['task'],
-            $taskData['area']
+            $taskData['zone']
         );
 
         return $reportProcessor->process();
@@ -74,11 +76,11 @@ class ProcessGpsReportsJob implements ShouldQueue
     /**
      * Update the daily report with processed data.
      *
-     * @param array $taskData Current task and area data
+     * @param array $taskData Current task and zone data
      * @param array $processedData Processed GPS data
      * @return \App\Models\GpsMetricsCalculation Updated daily report
      */
-    private function updateDailyReport(array $taskData, array $processedData)
+    private function updateGpsMetricsCalculations(array $taskData, array $processedData)
     {
         $dailyReportService = new GpsMetricsCalculationService($this->device->tractor, $taskData['task']);
         $dailyReport = $dailyReportService->fetchOrCreate();
@@ -108,7 +110,70 @@ class ProcessGpsReportsJob implements ShouldQueue
             'points' => $processedData['points'],
         ];
 
-        event(new ReportReceived($generatedReport, $this->device));
+        event(new ReportReceived($generatedReport['points'], $this->device));
+    }
+
+    /**
+     * Broadcast the TractorZoneStatus event with zone information.
+     *
+     * @param array $taskData Current task and zone data
+     * @param array $processedData Processed GPS data
+     * @return void
+     */
+    private function broadcastZoneStatus(array $taskData, array $processedData): void
+    {
+        $isInTaskZone = $this->isTractorInTaskZone($taskData, $processedData);
+
+        $zoneData = [
+            'is_in_task_zone' => $isInTaskZone,
+            'task_id' => $taskData['task']?->id,
+            'task_name' => $taskData['task']?->name,
+            'work_duration_in_zone' => $isInTaskZone ? $this->formatWorkDuration($processedData['totalMovingTime']) : null,
+        ];
+
+        event(new TractorZoneStatus($zoneData, $this->device));
+    }
+
+    /**
+     * Determine if tractor is currently in task zone based on GPS coordinates.
+     *
+     * @param array $taskData Current task and zone data
+     * @param array $processedData Processed GPS data
+     * @return bool
+     */
+    private function isTractorInTaskZone(array $taskData, array $processedData): bool
+    {
+        // If no task or zone data, tractor is not in task zone
+        if (!$taskData['task'] || !$taskData['zone']) {
+            return false;
+        }
+
+        // If no GPS points were processed, cannot determine location
+        if (empty($processedData['points'])) {
+            return false;
+        }
+
+        // Get the latest GPS coordinate from processed points
+        $latestPoint = end($processedData['points']);
+        $currentCoordinate = $latestPoint['coordinate'];
+
+        // Check if current coordinate is within task zone polygon
+        return is_point_in_polygon($currentCoordinate, $taskData['zone']);
+    }
+
+    /**
+     * Format work duration in H:i:s format.
+     *
+     * @param int $seconds
+     * @return string
+     */
+    private function formatWorkDuration(int $seconds): string
+    {
+        $hours = floor($seconds / 3600);
+        $minutes = floor(($seconds % 3600) / 60);
+        $remainingSeconds = $seconds % 60;
+
+        return sprintf('%02d:%02d:%02d', $hours, $minutes, $remainingSeconds);
     }
 
     /**

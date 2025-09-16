@@ -19,7 +19,7 @@ use PHPUnit\Framework\Attributes\Test;
  * - CacheService: State management and persistence
  * - GpsReportController: HTTP endpoint and error handling
  * - Events: ReportReceived and TractorStatus broadcasting
- * - Integration: Working hours, task areas, edge cases
+ * - Integration: Working hours, task zones, edge cases
  *
  * To run the complete GPS metrics test suite:
  * php artisan test --filter=GpsMetrics

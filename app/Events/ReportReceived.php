@@ -16,7 +16,7 @@ class ReportReceived implements ShouldBroadcast
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
     public function __construct(
-        private array $data,
+        private array $points,
         private GpsDevice $device,
     ) {
         //
@@ -29,7 +29,7 @@ class ReportReceived implements ShouldBroadcast
 
     public function getData(): array
     {
-        return $this->data;
+        return $this->points;
     }
 
     /**
@@ -49,17 +49,8 @@ class ReportReceived implements ShouldBroadcast
      */
     public function broadcastWith(): array
     {
-        return [
-            'id' => $this->data['id'],
-            'tractor_id' => $this->data['tractor_id'],
-            'traveled_distance' => number_format($this->data['traveled_distance'], 2),
-            'work_duration' => gmdate('H:i:s', $this->data['work_duration']),
-            'stoppage_duration' => gmdate('H:i:s', $this->data['stoppage_duration']),
-            'efficiency' => number_format($this->data['efficiency'], 2),
-            'stoppage_count' => $this->data['stoppage_count'],
-            'speed' => $this->data['speed'],
-            'points' => collect($this->data['points'])->map(function ($point) {
-                return [
+        return collect($this->points)->map(function ($point) {
+            return [
                     'latitude' => $point['coordinate'][0],
                     'longitude' => $point['coordinate'][1],
                     'speed' => $point['speed'],
@@ -71,8 +62,7 @@ class ReportReceived implements ShouldBroadcast
                     'stoppage_time' => gmdate('H:i:s', $point['stoppage_time']),
                     'date_time' => jdate($point['date_time'])->format('Y/m/d H:i:s'),
                 ];
-            })
-        ];
+        })->toArray();
     }
 
     /**

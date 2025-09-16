@@ -150,14 +150,14 @@ class GpsMetricsIntegrationTest extends TestCase
             'status' => 'started'
         ]);
 
-        // Send reports - some inside task area, some outside
+        // Send reports - some inside task zone, some outside
         $taskData = [
-            // Outside task area
+            // Outside task zone
             ['data' => '+Hooshnic:V1.03,3453.00000,05035.0000,000,240124,050000,010,000,1,000,0,863070043386100'],
-            // Inside task area
+            // Inside task zone
             ['data' => '+Hooshnic:V1.03,3453.88500,05035.5850,000,240124,050100,015,000,1,090,0,863070043386100'],
             ['data' => '+Hooshnic:V1.03,3453.88600,05035.5860,000,240124,050200,020,000,1,180,0,863070043386100'],
-            // Outside task area again
+            // Outside task zone again
             ['data' => '+Hooshnic:V1.03,3453.00000,05035.0000,000,240124,050300,025,000,1,270,0,863070043386100'],
         ];
 

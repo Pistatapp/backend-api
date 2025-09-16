@@ -73,6 +73,7 @@ class GpsMetricsCalculationService
      */
     private function calculateEfficiency(float $totalMovingTime): float
     {
+        // Always use tractor's expected daily work time for efficiency calculation
         return $totalMovingTime / ($this->tractor->expected_daily_work_time * 3600) * 100;
     }
 

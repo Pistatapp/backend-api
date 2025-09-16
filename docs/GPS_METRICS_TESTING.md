@@ -64,7 +64,7 @@ Tests the core processing service that calculates metrics and manages persistenc
 - `it_handles_stopped_to_stopped_transitions()`
 - `it_handles_moving_to_moving_transitions()`
 - `it_respects_working_hours_filtering()`
-- `it_respects_task_area_filtering()`
+- `it_respects_task_zone_filtering()`
 
 ### 3. LiveReportService Tests (`tests/Feature/Services/LiveReportServiceTest.php`)
 

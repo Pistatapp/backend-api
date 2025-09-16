@@ -146,11 +146,11 @@ class TractorTaskServiceTest extends TestCase
     }
 
     #[Test]
-    public function it_returns_null_for_task_area_when_no_task()
+    public function it_returns_null_for_task_zone_when_no_task()
     {
-        $taskArea = $this->service->getTaskArea(null);
+        $taskZone = $this->service->getTaskZone(null);
 
-        $this->assertNull($taskArea);
+        $this->assertNull($taskZone);
     }
 
     #[Test]
@@ -181,12 +181,12 @@ class TractorTaskServiceTest extends TestCase
             'status' => 'started'
         ]);
 
-        $taskArea = $this->service->getTaskArea($task);
+        $taskZone = $this->service->getTaskZone($task);
 
-        $this->assertNotNull($taskArea);
-        $this->assertIsArray($taskArea);
-        $this->assertCount(5, $taskArea);
-        $this->assertEquals([34.88, 50.58], $taskArea[0]);
+        $this->assertNotNull($taskZone);
+        $this->assertIsArray($taskZone);
+        $this->assertCount(5, $taskZone);
+        $this->assertEquals([34.88, 50.58], $taskZone[0]);
     }
 
     #[Test]
@@ -228,12 +228,12 @@ class TractorTaskServiceTest extends TestCase
             'status' => 'started'
         ]);
 
-        $taskArea = $this->service->getTaskArea($task);
+        $taskZone = $this->service->getTaskZone($task);
 
-        $this->assertNotNull($taskArea);
-        $this->assertIsArray($taskArea);
-        $this->assertCount(5, $taskArea);
-        $this->assertEquals([35.88, 51.58], $taskArea[0]);
+        $this->assertNotNull($taskZone);
+        $this->assertIsArray($taskZone);
+        $this->assertCount(5, $taskZone);
+        $this->assertEquals([35.88, 51.58], $taskZone[0]);
     }
 
     #[Test]
@@ -258,10 +258,10 @@ class TractorTaskServiceTest extends TestCase
             'status' => 'started'
         ]);
 
-        $taskArea = $this->service->getTaskArea($task);
+        $taskZone = $this->service->getTaskZone($task);
 
-        $this->assertIsArray($taskArea);
-        $this->assertEmpty($taskArea);
+        $this->assertIsArray($taskZone);
+        $this->assertEmpty($taskZone);
     }
 
     #[Test]
@@ -276,9 +276,9 @@ class TractorTaskServiceTest extends TestCase
             'status' => 'started'
         ]);
 
-        $taskArea = $this->service->getTaskArea($task);
+        $taskZone = $this->service->getTaskZone($task);
 
-        $this->assertNull($taskArea);
+        $this->assertNull($taskZone);
     }
 
     #[Test]
@@ -293,9 +293,9 @@ class TractorTaskServiceTest extends TestCase
             'status' => 'started'
         ]);
 
-        $taskArea = $this->service->getTaskArea($task);
+        $taskZone = $this->service->getTaskZone($task);
 
-        $this->assertNull($taskArea);
+        $this->assertNull($taskZone);
     }
 
     #[Test]
@@ -326,11 +326,11 @@ class TractorTaskServiceTest extends TestCase
             'status' => 'started'
         ]);
 
-        $taskArea = $this->service->getTaskArea($task);
+        $taskZone = $this->service->getTaskZone($task);
 
-        $this->assertNotNull($taskArea);
-        $this->assertIsArray($taskArea);
-        $this->assertCount(5, $taskArea);
+        $this->assertNotNull($taskZone);
+        $this->assertIsArray($taskZone);
+        $this->assertCount(5, $taskZone);
     }
 
     #[Test]
@@ -372,11 +372,11 @@ class TractorTaskServiceTest extends TestCase
             'status' => 'started'
         ]);
 
-        $taskArea = $this->service->getTaskArea($task);
+        $taskZone = $this->service->getTaskZone($task);
 
-        $this->assertNotNull($taskArea);
-        $this->assertIsArray($taskArea);
-        $this->assertCount(5, $taskArea);
+        $this->assertNotNull($taskZone);
+        $this->assertIsArray($taskZone);
+        $this->assertCount(5, $taskZone);
     }
 
     #[Test]
@@ -401,10 +401,10 @@ class TractorTaskServiceTest extends TestCase
             'status' => 'started'
         ]);
 
-        $taskArea = $this->service->getTaskArea($task);
+        $taskZone = $this->service->getTaskZone($task);
 
-        $this->assertIsArray($taskArea);
-        $this->assertEmpty($taskArea);
+        $this->assertIsArray($taskZone);
+        $this->assertEmpty($taskZone);
     }
 
     #[Test]
@@ -434,9 +434,9 @@ class TractorTaskServiceTest extends TestCase
             'status' => 'started'
         ]);
 
-        $taskArea = $this->service->getTaskArea($task);
+        $taskZone = $this->service->getTaskZone($task);
 
         // Should still return the coordinates array (validation happens elsewhere)
-        $this->assertIsArray($taskArea);
+        $this->assertIsArray($taskZone);
     }
 }

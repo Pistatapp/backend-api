@@ -353,7 +353,7 @@ class ReportProcessingServiceTest extends TestCase
     }
 
     #[Test]
-    public function it_respects_task_area_filtering()
+    public function it_respects_task_zone_filtering()
     {
         // Create a farm and field with coordinates
         $farm = Farm::factory()->create();
@@ -379,7 +379,7 @@ class ReportProcessingServiceTest extends TestCase
 
         $reports = [
             [
-                'coordinate' => [34.875, 50.575], // Outside task area
+                'coordinate' => [34.875, 50.575], // Outside task zone
                 'speed' => 5,
                 'status' => 1,
                 'directions' => ['ew' => 0, 'ns' => 0],
@@ -391,7 +391,7 @@ class ReportProcessingServiceTest extends TestCase
                 'imei' => '863070043386100',
             ],
             [
-                'coordinate' => [34.885, 50.585], // Inside task area
+                'coordinate' => [34.885, 50.585], // Inside task zone
                 'speed' => 10,
                 'status' => 1,
                 'directions' => ['ew' => 90, 'ns' => 0],
@@ -407,7 +407,7 @@ class ReportProcessingServiceTest extends TestCase
         $service = new ReportProcessingService($this->device, $reports, $task, $field->coordinates);
         $result = $service->process();
 
-        // Should not count metrics for reports outside task area
+        // Should not count metrics for reports outside task zone
         $this->assertEquals(0, $result['totalMovingTime']);
         $this->assertEquals(0, $result['totalTraveledDistance']);
     }

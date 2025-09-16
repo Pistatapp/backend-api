@@ -30,7 +30,7 @@ class ReportProcessingService
         private GpsDevice $device,
         private array $reports,
         private ?TractorTask $currentTask = null,
-        private ?array $taskArea = null,
+        private ?array $taskZone = null,
     ) {
         $this->tractor = $device->tractor;
         $this->cacheService = new CacheService($device);
@@ -74,10 +74,11 @@ class ReportProcessingService
      */
     private function handleReport(array $report): void
     {
-        $this->maxSpeed = max($this->maxSpeed, (int)$report['speed']);
         $diffs = $this->computeDiffs($report);
         if ($diffs) {
             $this->applyMetrics($report, $diffs['time'], $diffs['distance']);
+            // Only update max speed for reports that are counted (inside zone)
+            $this->maxSpeed = max($this->maxSpeed, (int)$report['speed']);
         }
         [$persist, $addPoint] = $this->decidePersistence($report);
         $this->recordPointAndPersist($report, $persist, $addPoint);
@@ -96,9 +97,9 @@ class ReportProcessingService
         if ($timeDiff < 0) {
             return null; // ignore out-of-order
         }
-        // Only compute diffs if both current and previous reports are within working/task scope
+        // Only compute diffs if both current and previous reports are within working/task zone scope
         if (!$this->shouldCountReport($report) || !$this->shouldCountReport($this->previousRawReport)) {
-            return null; // outside working/task scope
+            return null; // outside working/task zone scope
         }
         $distanceDiff = calculate_distance($this->previousRawReport['coordinate'], $report['coordinate']);
         return ['time' => $timeDiff, 'distance' => $distanceDiff];
@@ -199,9 +200,9 @@ class ReportProcessingService
             return false;
         }
 
-        // If there's a task, also check if report is within task area
-        if ($this->currentTask && $this->taskArea) {
-            return is_point_in_polygon($report['coordinate'], $this->taskArea);
+        // If there's a task, also check if report is within task zone
+        if ($this->currentTask && $this->taskZone) {
+            return is_point_in_polygon($report['coordinate'], $this->taskZone);
         }
 
         return true;

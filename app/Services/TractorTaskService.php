@@ -27,12 +27,12 @@ class TractorTaskService
     }
 
     /**
-     * Get the area of the specified task.
+     * Get the zone of the specified task.
      *
      * @param TractorTask|null $task
      * @return array|null
      */
-    public function getTaskArea(?TractorTask $task): ?array
+    public function getTaskZone(?TractorTask $task): ?array
     {
         if (!$task) {
             return null;
