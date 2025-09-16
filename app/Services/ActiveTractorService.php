@@ -8,8 +8,6 @@ use App\Http\Resources\PointsResource;
 use App\Http\Resources\TractorTaskResource;
 use App\Http\Resources\DriverResource;
 use App\Services\CacheService;
-use Illuminate\Http\Response;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ActiveTractorService
 {
@@ -31,48 +29,12 @@ class ActiveTractorService
         $tractor->gpsReports()
             ->whereDate('date_time', $date)
             ->orderBy('date_time')
-            ->chunk(500, function ($chunk) use (&$reports) {
+            ->chunk(1000, function ($chunk) use (&$reports) {
                 $filteredChunk = $chunk->map(fn($report) => $this->applyKalmanFilter($report));
                 $reports = $reports->merge($filteredChunk);
             });
 
         return PointsResource::collection($reports);
-    }
-
-    /**
-     * Streams every GPS point for the given date without ever holding
-     * all of them in memory.  Still returns *one* JSON array so the
-     * front-end code does not change.
-     */
-    public function streamTractorPath(Tractor $tractor, Carbon $date): StreamedResponse
-    {
-        // We will build the JSON array manually:  [ {...},{...}, ... ]
-        return new StreamedResponse(function () use ($tractor, $date) {
-            echo '[';
-            $first = true;
-
-            // Small, constant memory footprint ─ one row at a time
-            $tractor->gpsReports()
-                ->whereDate('date_time', $date)
-                ->orderBy('date_time')
-                ->cursor()        // ↩️ lazy generator
-                ->each(function ($report) use (&$first) {
-                    $report = $this->applyKalmanFilter($report);
-                    $payload = (new PointsResource($report))->resolve(); // array
-
-                    // Write comma separators only between items
-                    if (!$first) {
-                        echo ',';
-                    }
-                    echo json_encode($payload, JSON_UNESCAPED_UNICODE);
-                    $first = false;
-                });
-
-            echo ']';
-        }, 200, [
-            'Content-Type' => 'application/json',
-            'Cache-Control' => 'no-cache',
-        ]);
     }
 
     /**

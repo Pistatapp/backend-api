@@ -36,7 +36,7 @@ class ActiveTractorController extends Controller
      *
      * @param Request $request
      * @param Tractor $tractor
-     * @return \Symfony\Component\HttpFoundation\StreamedResponse
+     * @return \Illuminate\Http\JsonResponse
      */
     public function getPath(Request $request, Tractor $tractor)
     {
@@ -45,8 +45,7 @@ class ActiveTractorController extends Controller
         ]);
 
         $date = jalali_to_carbon($request->date);
-        $points = $this->activeTractorService->streamTractorPath($tractor, $date);
-        return $points;
+        return $this->activeTractorService->getTractorPath($tractor, $date);
     }
 
     /**
