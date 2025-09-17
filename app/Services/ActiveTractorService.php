@@ -49,7 +49,7 @@ class ActiveTractorService
         [$dailyReport, $reports, $currentTask, $efficiencyHistory] = $this->fetchTractorDetailsData($tractor, $date);
 
         $lastReport = $reports->last();
-        $averageSpeed = $reports->avg('speed') ?? 0;
+        $averageSpeed = (int) ($dailyReport?->average_speed ?? 0);
 
         // Get working times for the specific date
         $startWorkingTime = $tractor->getStartWorkingTime($date);
@@ -59,7 +59,7 @@ class ActiveTractorService
         return [
             'id' => $tractor->id,
             'name' => $tractor->name,
-            'speed' => (int) $averageSpeed,
+            'speed' => $averageSpeed,
             'status' => $lastReport?->status ?? 0,
             'start_working_time' => $this->formatWorkingTime($startWorkingTime),
             'end_working_time' => $this->formatWorkingTime($endWorkingTime),
