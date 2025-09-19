@@ -8,6 +8,7 @@ use App\Http\Resources\PointsResource;
 use App\Http\Resources\TractorTaskResource;
 use App\Http\Resources\DriverResource;
 use App\Services\CacheService;
+use App\Models\GpsReport;
 
 class ActiveTractorService
 {
@@ -24,17 +25,18 @@ class ActiveTractorService
      */
     public function getTractorPath(Tractor $tractor, Carbon $date)
     {
-        $reports = collect();
+        $filteredReports = collect();
+        $device = $tractor->gpsDevice;
 
-        $tractor->gpsReports()
+        GpsReport::where('gps_device_id', $device->id)
             ->whereDate('date_time', $date)
             ->orderBy('date_time')
-            ->chunk(1000, function ($chunk) use (&$reports) {
+            ->chunk(1000, function ($chunk) use (&$filteredReports) {
                 $filteredChunk = $chunk->map(fn($report) => $this->applyKalmanFilter($report));
-                $reports = $reports->merge($filteredChunk);
+                $filteredReports = $filteredReports->merge($filteredChunk);
             });
 
-        return PointsResource::collection($reports);
+        return PointsResource::collection($filteredReports);
     }
 
     /**
