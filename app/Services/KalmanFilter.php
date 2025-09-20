@@ -4,17 +4,41 @@ namespace App\Services;
 
 class KalmanFilter
 {
-    private $Q_metres_per_second;    // process noise
-    private $R_metres;               // measurement noise
-    private $variance_metres;        // estimation variance
-    private $last_lat;              // last latitude estimate
-    private $last_lng;              // last longitude estimate
+    /**
+     * @var float $Q_metres_per_second
+     * Process noise covariance (Q): Represents the expected variance in the process (i.e., how much the true position is expected to change between measurements).
+     */
+    private $Q_metres_per_second;
+
+    /**
+     * @var float $R_metres
+     * Measurement noise covariance (R): Represents the expected variance in the measurement (i.e., the accuracy of the GPS sensor).
+     */
+    private $R_metres;
+
+    /**
+     * @var float $variance_metres
+     * Estimation variance: The current estimate of the error variance in the filtered position.
+     */
+    private $variance_metres;
+
+    /**
+     * @var float $last_lat
+     * Last latitude estimate: The most recent filtered latitude value.
+     */
+    private $last_lat;
+
+    /**
+     * @var float $last_lng
+     * Last longitude estimate: The most recent filtered longitude value.
+     */
+    private $last_lng;
 
     public function __construct($noise = 3.0)
     {
         $this->Q_metres_per_second = $noise;
         $this->R_metres = 6.0;
-        $this->variance_metres = -1;
+        $this->variance_metres = 1;
         $this->last_lat = 0.0;
         $this->last_lng = 0.0;
     }
