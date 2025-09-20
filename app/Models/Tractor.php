@@ -135,48 +135,38 @@ class Tractor extends Model
     }
 
     /**
-     * Get the start working time for the tractor on a specific date.
+     * Get all working times for the tractor on a specific date.
      *
      * @param \Carbon\Carbon $date
-     * @return \App\Models\GpsReport|null
+     * @return array{start_working_time: \App\Models\GpsReport|null, end_working_time: \App\Models\GpsReport|null, on_time: \App\Models\GpsReport|null}
      */
-    public function getStartWorkingTime(\Carbon\Carbon $date): ?GpsReport
+    public function getWorkingTimes(\Carbon\Carbon $date): array
     {
-        return $this->gpsReports()
-            ->select(['gps_reports.id', 'gps_reports.date_time', 'gps_reports.is_starting_point'])
+        $reports = $this->gpsReports()
+            ->select([
+                'gps_reports.id',
+                'gps_reports.date_time',
+                'gps_reports.is_starting_point',
+                'gps_reports.is_ending_point',
+                'gps_reports.on_time'
+            ])
             ->whereDate('gps_reports.date_time', $date)
-            ->where('gps_reports.is_starting_point', 1)
-            ->first();
-    }
+            ->where(function ($query) {
+                $query->where('gps_reports.is_starting_point', 1)
+                    ->orWhere('gps_reports.is_ending_point', 1)
+                    ->orWhereNotNull('gps_reports.on_time');
+            })
+            ->get();
 
-    /**
-     * Get the end working time for the tractor on a specific date.
-     *
-     * @param \Carbon\Carbon $date
-     * @return \App\Models\GpsReport|null
-     */
-    public function getEndWorkingTime(\Carbon\Carbon $date): ?GpsReport
-    {
-        return $this->gpsReports()
-            ->select(['gps_reports.id', 'gps_reports.date_time', 'gps_reports.is_ending_point'])
-            ->whereDate('gps_reports.date_time', $date)
-            ->where('gps_reports.is_ending_point', 1)
-            ->first();
-    }
+        $startWorkingTime = $reports->where('is_starting_point', 1)->first();
+        $endWorkingTime = $reports->where('is_ending_point', 1)->first();
+        $onTime = $reports->whereNotNull('on_time')->first();
 
-    /**
-     * Get the on time for the tractor on a specific date (when status changed from 0 to 1 after work start).
-     *
-     * @param \Carbon\Carbon $date
-     * @return \App\Models\GpsReport|null
-     */
-    public function getOnTime(\Carbon\Carbon $date): ?GpsReport
-    {
-        return $this->gpsReports()
-            ->select(['gps_reports.id', 'gps_reports.date_time', 'gps_reports.on_time'])
-            ->whereDate('gps_reports.date_time', $date)
-            ->whereNotNull('gps_reports.on_time')
-            ->first();
+        return [
+            'start_working_time' => $startWorkingTime,
+            'end_working_time' => $endWorkingTime,
+            'on_time' => $onTime,
+        ];
     }
 
     /**

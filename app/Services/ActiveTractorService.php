@@ -4,11 +4,8 @@ namespace App\Services;
 
 use App\Models\Tractor;
 use Carbon\Carbon;
-use App\Http\Resources\PointsResource;
-use App\Http\Resources\TractorTaskResource;
 use App\Http\Resources\DriverResource;
-use App\Services\CacheService;
-use App\Models\GpsReport;
+use Morilog\Jalali\Jalalian;
 
 class ActiveTractorService
 {
@@ -16,133 +13,125 @@ class ActiveTractorService
     private const DEFAULT_DECIMAL_PLACES = 2;
     private const EFFICIENCY_HISTORY_DAYS = 7;
 
-    public function __construct(
-        private readonly KalmanFilter $kalmanFilter
-    ) {}
+    public function __construct() {}
+
 
     /**
-     * Retrieves the tractor path for a specific date.
+     * Returns tractor performance.
+     *
+     * @param Tractor $tractor
+     * @param Carbon $date
+     * @return array
      */
-    public function getTractorPath(Tractor $tractor, Carbon $date)
+    public function getTractorPerformance(Tractor $tractor, Carbon $date): array
     {
-        $filteredReports = collect();
-        $device = $tractor->gpsDevice;
-
-        GpsReport::where('gps_device_id', $device->id)
-            ->whereDate('date_time', $date)
-            ->orderBy('date_time')
-            ->chunk(1000, function ($chunk) use (&$filteredReports) {
-                $filteredChunk = $chunk->map(fn($report) => $this->applyKalmanFilter($report));
-                $filteredReports = $filteredReports->merge($filteredChunk);
-            });
-
-        return PointsResource::collection($filteredReports);
-    }
-
-    /**
-     * Returns tractor details and summary data with comprehensive information.
-     */
-    public function getTractorDetails(Tractor $tractor, Carbon $date): array
-    {
-        // Eager load required relationships
         $tractor->load(['driver']);
 
-        // Fetch data efficiently
-        [$dailyReport, $reports, $currentTask, $efficiencyHistory] = $this->fetchTractorDetailsData($tractor, $date);
+        // Get all GPS metrics calculations for the specified date
+        $allMetrics = $tractor->gpsMetricsCalculations()->where('date', $date)->get();
 
-        $lastReport = $reports->last();
-        $averageSpeed = (int) ($dailyReport?->average_speed ?? 0);
+        // Get daily metrics (where tractor_task_id is null)
+        $dailyReport = $allMetrics->whereNull('tractor_task_id')->first();
 
-        // Get working times for the specific date
-        $startWorkingTime = $tractor->getStartWorkingTime($date);
-        $endWorkingTime = $tractor->getEndWorkingTime($date);
-        $onTime = $tractor->getOnTime($date);
+        // Get task-based metrics (where tractor_task_id is not null)
+        $taskMetrics = $allMetrics->whereNotNull('tractor_task_id');
+
+        $latestStatus = $tractor->gpsReports()->latest('date_time')->first()->value('status');
+        $averageSpeed = (int) $dailyReport?->average_speed;
+
+        // Calculate efficiencies
+        $efficiencies = $this->calculateEfficiencies($dailyReport, $taskMetrics);
 
         return [
             'id' => $tractor->id,
             'name' => $tractor->name,
             'speed' => $averageSpeed,
-            'status' => $lastReport?->status ?? 0,
-            'start_working_time' => $this->formatWorkingTime($startWorkingTime),
-            'end_working_time' => $this->formatWorkingTime($endWorkingTime),
-            'on_time' => $this->formatWorkingTime($onTime),
+            'status' => $latestStatus,
             'traveled_distance' => $this->formatDistance($dailyReport?->traveled_distance),
             'work_duration' => $this->formatDuration($dailyReport?->work_duration),
-            'stoppage_count' => $dailyReport?->stoppage_count ?? 0,
+            'stoppage_count' => $dailyReport?->stoppage_count,
             'stoppage_duration' => $this->formatDuration($dailyReport?->stoppage_duration),
-            'efficiency' => $this->formatEfficiency($dailyReport?->efficiency),
-            'current_task' => $currentTask ? new TractorTaskResource($currentTask) : null,
-            'last_seven_days_efficiency' => $efficiencyHistory,
-            'driver' => $tractor->driver ? new DriverResource($tractor->driver) : null
+            'efficiencies' => $efficiencies,
+            'driver' => new DriverResource($tractor->driver)
         ];
     }
 
     /**
-     * Gets the tractor's current task with optimized query.
+     * Get timings of a specific tractor
+     *
+     * @param Tractor $tractor
+     * @param Carbon $date
+     * @return array
      */
-    private function getCurrentTask(Tractor $tractor)
+    public function getTractorTimings(Tractor $tractor, Carbon $date)
     {
-        return $tractor->tasks()
-            ->with(['operation', 'taskable', 'creator'])
-            ->started()
-            ->first();
+        $workingTimes = $tractor->getWorkingTimes($date);
+
+        return [
+            'start_working_time' => $this->formatWorkingTime($workingTimes['start_working_time']),
+            'end_working_time' => $this->formatWorkingTime($workingTimes['end_working_time']),
+            'on_time' => $this->formatWorkingTime($workingTimes['on_time']),
+        ];
     }
 
     /**
-     * Fetch data for tractor details with optimized queries and caching.
+     * Get weekly efficiency chart data for both total and task-based metrics.
+     *
+     * @param Tractor $tractor
+     * @return array
      */
-    private function fetchTractorDetailsData(Tractor $tractor, Carbon $date): array
+    public function getWeeklyEfficiencyChart(Tractor $tractor): array
     {
-        // Use CacheService for daily report caching
-        $device = $tractor->gpsDevice;
-        if ($device) {
-            $cacheService = new CacheService($device);
-            $dailyMetrics = $cacheService->getDailyMetrics($date->format('Y-m-d'));
-            $dailyReport = $dailyMetrics ? $tractor->gpsMetricsCalculations()->where('date', $date)->whereNull('tractor_task_id')->first() : null;
-        } else {
-            $dailyReport = $tractor->gpsMetricsCalculations()->where('date', $date)->whereNull('tractor_task_id')->first();
+        // Get the last 7 days from today
+        $endDate = Carbon::today();
+        $startDate = $endDate->copy()->subDays(6);
+
+        // Get all GPS metrics for the 7-day period
+        $weeklyMetrics = $tractor->gpsMetricsCalculations()
+            ->whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
+            ->get()
+            ->groupBy('date');
+
+        $totalEfficiencies = [];
+        $taskBasedEfficiencies = [];
+
+        // Process each day
+        for ($i = 0; $i < 7; $i++) {
+            $currentDate = $startDate->copy()->addDays($i);
+            $dateString = $currentDate->format('Y-m-d');
+            $shamsiDate = $this->convertToShamsi($currentDate);
+
+            $dayMetrics = $weeklyMetrics->get($dateString, collect());
+
+            // Get daily metrics (total efficiency)
+            $dailyMetric = $dayMetrics->whereNull('tractor_task_id')->first();
+            $totalEfficiency = $dailyMetric ? $this->formatEfficiency($dailyMetric->efficiency) : '0.00';
+            $totalEfficiencies[] = [
+                'efficiency' => $totalEfficiency,
+                'date' => $shamsiDate
+            ];
+
+            // Get task-based metrics
+            $taskMetrics = $dayMetrics->whereNotNull('tractor_task_id');
+            if ($taskMetrics->isNotEmpty()) {
+                $averageTaskEfficiency = $taskMetrics->avg('efficiency');
+                $taskBasedEfficiency = $this->formatEfficiency($averageTaskEfficiency);
+            } else {
+                $taskBasedEfficiency = '0.00';
+            }
+
+            $taskBasedEfficiencies[] = [
+                'efficiency' => $taskBasedEfficiency,
+                'date' => $shamsiDate
+            ];
         }
 
-        // Use chunked processing for memory efficiency
-        $reports = collect();
-        $tractor->gpsReports()
-            ->whereDate('date_time', $date)
-            ->orderBy('date_time')
-            ->chunk(1000, function ($chunk) use (&$reports) {
-                $filteredChunk = $chunk->map(fn($report) => $this->applyKalmanFilter($report));
-                $reports = $reports->merge($filteredChunk);
-            });
-        $currentTask = $this->getCurrentTask($tractor);
-        $efficiencyHistory = $this->getEfficiencyHistory($tractor, $date);
-
-        return [$dailyReport, $reports, $currentTask, $efficiencyHistory];
+        return [
+            'total_efficiencies' => $totalEfficiencies,
+            'task_based_efficiencies' => $taskBasedEfficiencies
+        ];
     }
 
-    /**
-     * Get efficiency history for the last 7 days.
-     */
-    private function getEfficiencyHistory(Tractor $tractor, Carbon $date)
-    {
-        return $tractor->gpsMetricsCalculations()
-            ->where('date', '<', $date)
-            ->orderBy('date', 'desc')
-            ->limit(self::EFFICIENCY_HISTORY_DAYS)
-            ->get()
-            ->map(fn($report) => [
-                'date' => jdate($report->date)->format('Y/m/d'),
-                'efficiency' => $this->formatEfficiency($report->efficiency)
-            ]);
-    }
-
-    /**
-     * Apply Kalman filter to a GPS report.
-     */
-    private function applyKalmanFilter($report)
-    {
-        $filtered = $this->kalmanFilter->filter($report->coordinate[0], $report->coordinate[1]);
-        $report->coordinate = [$filtered['latitude'], $filtered['longitude']];
-        return $report;
-    }
 
     /**
      * Format working time with consistent formatting.
@@ -157,7 +146,7 @@ class ActiveTractorService
      */
     private function formatDistance(?float $distance): string
     {
-        return number_format($distance ?? 0, self::DEFAULT_DECIMAL_PLACES);
+        return number_format($distance, self::DEFAULT_DECIMAL_PLACES);
     }
 
     /**
@@ -165,7 +154,7 @@ class ActiveTractorService
      */
     private function formatDuration(?int $duration): string
     {
-        return gmdate(self::DEFAULT_TIME_FORMAT, $duration ?? 0);
+        return gmdate(self::DEFAULT_TIME_FORMAT, $duration);
     }
 
     /**
@@ -173,6 +162,46 @@ class ActiveTractorService
      */
     private function formatEfficiency(?float $efficiency): string
     {
-        return number_format($efficiency ?? 0, self::DEFAULT_DECIMAL_PLACES);
+        return number_format($efficiency, self::DEFAULT_DECIMAL_PLACES);
+    }
+
+    /**
+     * Calculate efficiencies for daily and task-based metrics.
+     *
+     * @param \App\Models\GpsMetricsCalculation|null $dailyReport
+     * @param \Illuminate\Support\Collection $taskMetrics
+     * @return array
+     */
+    private function calculateEfficiencies($dailyReport, $taskMetrics): array
+    {
+        $efficiencies = [
+            'total' => $this->formatEfficiency($dailyReport?->efficiency),
+            'task-based' => null
+        ];
+
+        // Calculate task-based efficiency
+        if ($taskMetrics->isNotEmpty()) {
+            if ($taskMetrics->count() === 1) {
+                // If there's only one task metric, use its efficiency
+                $efficiencies['task-based'] = $this->formatEfficiency($taskMetrics->first()->efficiency);
+            } else {
+                // If there are multiple task metrics, calculate average efficiency
+                $averageEfficiency = $taskMetrics->avg('efficiency');
+                $efficiencies['task-based'] = $this->formatEfficiency($averageEfficiency);
+            }
+        }
+
+        return $efficiencies;
+    }
+
+    /**
+     * Convert Gregorian date to Shamsi (Persian) date.
+     *
+     * @param Carbon $date
+     * @return string
+     */
+    private function convertToShamsi(Carbon $date): string
+    {
+        return Jalalian::fromCarbon($date)->format('Y/m/d');
     }
 }
