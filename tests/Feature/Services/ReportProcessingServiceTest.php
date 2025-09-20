@@ -96,21 +96,24 @@ class ReportProcessingServiceTest extends TestCase
 
         $result = $service->process();
 
-        $this->assertArrayHasKey('totalTraveledDistance', $result);
-        $this->assertArrayHasKey('totalMovingTime', $result);
-        $this->assertArrayHasKey('totalStoppedTime', $result);
-        $this->assertArrayHasKey('stoppageCount', $result);
-        $this->assertArrayHasKey('maxSpeed', $result);
-        $this->assertArrayHasKey('points', $result);
+        $this->assertArrayHasKey('dailyData', $result);
         $this->assertArrayHasKey('latestStoredReport', $result);
+
+        $dailyData = $result['dailyData'];
+        $this->assertArrayHasKey('totalTraveledDistance', $dailyData);
+        $this->assertArrayHasKey('totalMovingTime', $dailyData);
+        $this->assertArrayHasKey('totalStoppedTime', $dailyData);
+        $this->assertArrayHasKey('stoppageCount', $dailyData);
+        $this->assertArrayHasKey('maxSpeed', $dailyData);
+        $this->assertArrayHasKey('points', $dailyData);
 
         // First report is stopped, second and third are moving
         // Distance between reports: ~0.14km each (roughly)
-        $this->assertGreaterThan(0, $result['totalTraveledDistance']);
-        $this->assertEquals(120, $result['totalMovingTime']); // 2 minutes moving
-        $this->assertEquals(0, $result['totalStoppedTime']); // No stopped time in this sequence
-        $this->assertEquals(10, $result['maxSpeed']);
-        $this->assertCount(3, $result['points']); // All reports should be in points
+        $this->assertGreaterThan(0, $dailyData['totalTraveledDistance']);
+        $this->assertEquals(120, $dailyData['totalMovingTime']); // 2 minutes moving
+        $this->assertEquals(0, $dailyData['totalStoppedTime']); // No stopped time in this sequence
+        $this->assertEquals(10, $dailyData['maxSpeed']);
+        $this->assertCount(3, $dailyData['points']); // All reports should be in points
     }
 
     #[Test]
@@ -170,8 +173,8 @@ class ReportProcessingServiceTest extends TestCase
         $result = $service->process();
 
         // Should count the transition time as moving time
-        $this->assertEquals(60, $result['totalMovingTime']);
-        $this->assertGreaterThan(0, $result['totalTraveledDistance']);
+        $this->assertEquals(60, $result['dailyData']['totalMovingTime']);
+        $this->assertGreaterThan(0, $result['dailyData']['totalTraveledDistance']);
     }
 
     #[Test]
@@ -224,9 +227,9 @@ class ReportProcessingServiceTest extends TestCase
         $result = $service->process();
 
         // Should count the transition time as moving time and add distance
-        $this->assertEquals(60, $result['totalMovingTime']);
-        $this->assertGreaterThan(0, $result['totalTraveledDistance']);
-        $this->assertEquals(0, $result['stoppageCount']); // No stoppage report persisted (only 60s, not > 60s)
+        $this->assertEquals(60, $result['dailyData']['totalMovingTime']);
+        $this->assertGreaterThan(0, $result['dailyData']['totalTraveledDistance']);
+        $this->assertEquals(0, $result['dailyData']['stoppageCount']); // No stoppage report persisted (only 60s, not > 60s)
     }
 
     #[Test]
@@ -263,10 +266,10 @@ class ReportProcessingServiceTest extends TestCase
         $result = $service->process();
 
         // Should count the time as stopped time
-        $this->assertEquals(60, $result['totalStoppedTime']);
-        $this->assertEquals(0, $result['totalMovingTime']);
-        $this->assertEquals(0, $result['totalTraveledDistance']);
-        $this->assertEquals(0, $result['stoppageCount']); // No stoppage report persisted (only 60s, not > 60s)
+        $this->assertEquals(60, $result['dailyData']['totalStoppedTime']);
+        $this->assertEquals(0, $result['dailyData']['totalMovingTime']);
+        $this->assertEquals(0, $result['dailyData']['totalTraveledDistance']);
+        $this->assertEquals(0, $result['dailyData']['stoppageCount']); // No stoppage report persisted (only 60s, not > 60s)
     }
 
     #[Test]
@@ -303,9 +306,9 @@ class ReportProcessingServiceTest extends TestCase
         $result = $service->process();
 
         // Should count the time as moving time
-        $this->assertEquals(60, $result['totalMovingTime']);
-        $this->assertGreaterThan(0, $result['totalTraveledDistance']);
-        $this->assertEquals(10, $result['maxSpeed']);
+        $this->assertEquals(60, $result['dailyData']['totalMovingTime']);
+        $this->assertGreaterThan(0, $result['dailyData']['totalTraveledDistance']);
+        $this->assertEquals(10, $result['dailyData']['maxSpeed']);
     }
 
     #[Test]
@@ -348,8 +351,8 @@ class ReportProcessingServiceTest extends TestCase
         $result = $service->process();
 
         // Should not count metrics for reports outside working hours
-        $this->assertEquals(0, $result['totalMovingTime']);
-        $this->assertEquals(0, $result['totalTraveledDistance']);
+        $this->assertEquals(0, $result['dailyData']['totalMovingTime']);
+        $this->assertEquals(0, $result['dailyData']['totalTraveledDistance']);
     }
 
     #[Test]
@@ -407,9 +410,14 @@ class ReportProcessingServiceTest extends TestCase
         $service = new ReportProcessingService($this->device, $reports, $task, $field->coordinates);
         $result = $service->process();
 
-        // Should not count metrics for reports outside task zone
-        $this->assertEquals(0, $result['totalMovingTime']);
-        $this->assertEquals(0, $result['totalTraveledDistance']);
+        // Daily data should count all reports within working hours (regardless of task zone)
+        $this->assertEquals(60, $result['dailyData']['totalMovingTime']); // 1 minute between reports
+        $this->assertGreaterThan(0, $result['dailyData']['totalTraveledDistance']);
+
+        // Task data should only count reports within task zone
+        $this->assertNotNull($result['taskData']);
+        $this->assertEquals(0, $result['taskData']['totalMovingTime']); // Only 1 report inside task zone, no movement between reports
+        $this->assertEquals(0, $result['taskData']['totalTraveledDistance']);
     }
 
     #[Test]
@@ -446,8 +454,8 @@ class ReportProcessingServiceTest extends TestCase
         $result = $service->process();
 
         // Should ignore out-of-order reports
-        $this->assertEquals(0, $result['totalMovingTime']);
-        $this->assertEquals(0, $result['totalTraveledDistance']);
+        $this->assertEquals(0, $result['dailyData']['totalMovingTime']);
+        $this->assertEquals(0, $result['dailyData']['totalTraveledDistance']);
     }
 
     #[Test]
@@ -495,7 +503,7 @@ class ReportProcessingServiceTest extends TestCase
         $service = new ReportProcessingService($this->device, $reports);
         $result = $service->process();
 
-        $this->assertEquals(25, $result['maxSpeed']);
+        $this->assertEquals(25, $result['dailyData']['maxSpeed']);
     }
 
     #[Test]
@@ -544,7 +552,7 @@ class ReportProcessingServiceTest extends TestCase
         $result = $service->process();
 
         // Should have 0 stoppage counts (both segments are exactly 60s, not > 60s)
-        $this->assertEquals(0, $result['stoppageCount']);
+        $this->assertEquals(0, $result['dailyData']['stoppageCount']);
     }
 
     #[Test]
@@ -587,8 +595,8 @@ class ReportProcessingServiceTest extends TestCase
         $result = $service->process();
 
         // Should calculate metrics using cached previous report
-        $this->assertEquals(60, $result['totalMovingTime']);
-        $this->assertGreaterThan(0, $result['totalTraveledDistance']);
+        $this->assertEquals(60, $result['dailyData']['totalMovingTime']);
+        $this->assertGreaterThan(0, $result['dailyData']['totalTraveledDistance']);
     }
 
     #[Test]
@@ -666,10 +674,10 @@ class ReportProcessingServiceTest extends TestCase
         $result = $service->process();
 
         // Total stoppage time should be 10 + 5 + 7 = 22 seconds
-        $this->assertEquals(22, $result['totalStoppedTime']);
+        $this->assertEquals(22, $result['dailyData']['totalStoppedTime']);
 
         // Since total stoppage time (22s) < 60s, no stoppage should be saved
-        $this->assertEquals(0, $result['stoppageCount']);
+        $this->assertEquals(0, $result['dailyData']['stoppageCount']);
 
         // Check persisted reports - should have movement reports + first stoppage report (for detection)
         $persistedReports = $this->device->reports()->get();
@@ -762,10 +770,10 @@ class ReportProcessingServiceTest extends TestCase
         $result = $service->process();
 
         // Total stoppage time should be 30 + 20 + 15 = 65 seconds
-        $this->assertEquals(65, $result['totalStoppedTime']);
+        $this->assertEquals(65, $result['dailyData']['totalStoppedTime']);
 
         // Since total stoppage time (65s) > 60s, one stoppage should be saved
-        $this->assertEquals(1, $result['stoppageCount']);
+        $this->assertEquals(1, $result['dailyData']['stoppageCount']);
 
         // Check persisted reports - should have movement reports + 2 stoppage reports
         // (1 for detection + 1 for accumulation > 60s)
