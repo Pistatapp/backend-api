@@ -38,7 +38,7 @@ class KalmanFilter
     {
         $this->Q_metres_per_second = $noise;
         $this->R_metres = 6.0;
-        $this->variance_metres = 1;
+        $this->variance_metres = -1;
         $this->last_lat = 0.0;
         $this->last_lng = 0.0;
     }
