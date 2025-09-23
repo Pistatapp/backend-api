@@ -79,12 +79,14 @@ class ActiveTractorController extends Controller
      * Get current task of a specific tractor
      *
      * @param Tractor $tractor
-     * @return TractorTaskResource|null
+     * @return \Illuminate\Http\JsonResponse
      */
     public function getCurrentTask(Tractor $tractor)
     {
         $task = $tractor->tasks()->with(['operation', 'taskable'])->started()->first();
-        return $task ? new TractorTaskResource($task) : null;
+        return $task ?
+            new TractorTaskResource($task)
+            : response()->json(['data' => []]);
     }
 
     /**
@@ -118,5 +120,4 @@ class ActiveTractorController extends Controller
 
         return response()->json(['data' => $chartData]);
     }
-
 }
