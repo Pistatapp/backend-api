@@ -36,7 +36,7 @@ class ActiveTractorService
         // Get task-based metrics (where tractor_task_id is not null)
         $taskMetrics = $allMetrics->whereNotNull('tractor_task_id');
 
-        $latestStatus = $tractor->gpsReports()->latest('date_time')->first()->value('status');
+        $latestStatus = $tractor->gpsReports()->latest('date_time')->first()?->value('status');
         $averageSpeed = (int) $dailyReport?->average_speed;
 
         // Calculate efficiencies
