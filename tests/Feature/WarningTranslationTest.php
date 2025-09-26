@@ -45,7 +45,7 @@ class WarningTranslationTest extends TestCase
     }
 
     #[Test]
-    public function it_uses_english_messages_when_no_translation_available(): void
+    public function it_uses_persian_translations_when_locale_is_persian(): void
     {
         App::setLocale('fa');
 
@@ -55,9 +55,9 @@ class WarningTranslationTest extends TestCase
             'date' => '2024-01-15'
         ]);
 
-        // Should fall back to English since translation is not available in test
+        // Should use Persian translation from warnings.php file
         $this->assertEquals(
-            'Tractor name Tractor-001 has been stopped for more than 5 hours on 2024-01-15. Please check the reason.',
+            'تراکتور با نام Tractor-001 بیش از 5 ساعت در تاریخ 2024-01-15 متوقف بوده است. لطفا دلیل آن را بررسی کنید.',
             $message
         );
     }
@@ -76,6 +76,24 @@ class WarningTranslationTest extends TestCase
 
         $this->assertEquals(
             'Irrigation operation started on 2024-01-15 at 08:00 in plot Plot-A and ended at 10:30.',
+            $message
+        );
+    }
+
+    #[Test]
+    public function it_handles_irrigation_translation_with_parameters(): void
+    {
+        App::setLocale('fa');
+
+        $message = $this->warningService->formatWarningMessage('irrigation_start_end', [
+            'start_date' => '2024-01-15',
+            'start_time' => '08:00',
+            'plot' => 'Plot-A',
+            'end_time' => '10:30'
+        ]);
+
+        $this->assertEquals(
+            'عملیات آبیاری در تاریخ 2024-01-15 ساعت 08:00 در قطعه Plot-A شروع شد و در ساعت 10:30 به پایان رسید.',
             $message
         );
     }
@@ -152,15 +170,13 @@ class WarningTranslationTest extends TestCase
     }
 
     #[Test]
-    public function it_verifies_translation_keys_exist_in_fa_json(): void
+    public function it_verifies_translation_keys_exist_in_warnings_file(): void
     {
-        // This test verifies that the translation keys we expect exist in the fa.json file
-        $faJsonPath = base_path('lang/fa.json');
+        // This test verifies that the translation keys we expect exist in the warnings.php file
+        $warningsPath = base_path('lang/fa/warnings.php');
 
-        if (file_exists($faJsonPath)) {
-            $faTranslations = json_decode(file_get_contents($faJsonPath), true);
-
-            $this->assertArrayHasKey('warnings', $faTranslations, 'warnings section should exist in fa.json');
+        if (file_exists($warningsPath)) {
+            $warningsTranslations = include $warningsPath;
 
             $expectedWarningKeys = [
                 'tractor_stoppage',
@@ -174,11 +190,11 @@ class WarningTranslationTest extends TestCase
             ];
 
             foreach ($expectedWarningKeys as $key) {
-                $this->assertArrayHasKey($key, $faTranslations['warnings'],
-                    "Translation key '{$key}' should exist in warnings section");
+                $this->assertArrayHasKey($key, $warningsTranslations,
+                    "Translation key '{$key}' should exist in warnings.php file");
             }
         } else {
-            $this->markTestSkipped('fa.json file not found - this is expected in test environment');
+            $this->markTestSkipped('warnings.php file not found - this is expected in test environment');
         }
     }
 }

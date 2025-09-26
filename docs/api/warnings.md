@@ -20,7 +20,7 @@ Retrieves all warnings for a specific section of the farm management system.
 #### Query Parameters
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| related-to | string | Yes | The section to get warnings for (e.g., "garden", "tractors") |
+| related-to | string | Yes | The section to get warnings for (e.g., "farm", "tractors", "irrigation", "pests", "crop_types") |
 
 #### Response
 ```json
@@ -82,39 +82,16 @@ Creates or updates settings for a specific warning.
 
 ## Available Warning Types
 
-### Frost Warning
-Used for garden frost alerts.
-
-**Parameters:**
-- `days`: Number of days before frost event for warning
-
-**Example Request:**
-```json
-{
-    "key": "frost_warning",
-    "enabled": true,
-    "parameters": {
-        "days": "3"
-    }
-}
-```
-
-### Tractor Maintenance Warning
-Used for tractor maintenance scheduling.
-
-**Parameters:**
-- `hours`: Number of operation hours before maintenance is required
-
-**Example Request:**
-```json
-{
-    "key": "tractor_maintenance",
-    "enabled": true,
-    "parameters": {
-        "hours": "100"
-    }
-}
-```
+| Warning Key | Setting Message |
+|-------------|-----------------|
+| `tractor_stoppage` | "Warn me if a tractor stops for more than :hours hours." |
+| `tractor_inactivity` | "Warn me if no data is received from a tractor for more than :days days." |
+| `irrigation_start_end` | "Warn me at the start and end of irrigation." |
+| `frost_warning` | "Warn me :days days before a potential frost event." |
+| `radiative_frost_warning` | "Warn me about radiative frost risk." |
+| `oil_spray_warning` | "Warn me if chilling requirement from :start_date to :end_date is less than :hours hours." |
+| `pest_degree_day_warning` | "Warn me if degree days for :pest pest from :start_date to :end_date is less than :degree_days." |
+| `crop_type_degree_day_warning` | "Warn me if degree days for :crop_type crop_type from :start_date to :end_date is less than :degree_days." |
 
 ## Error Handling
 
