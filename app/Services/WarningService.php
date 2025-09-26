@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\App;
 
 class WarningService
 {
@@ -44,7 +45,15 @@ class WarningService
             return '';
         }
 
-        $message = $this->warningDefinitions[$key]['warning-message'];
+        // Try to get translated message first
+        $translationKey = "warnings.{$key}";
+        $message = __($translationKey);
+
+        // If translation doesn't exist, fall back to original message
+        if ($message === $translationKey) {
+            $message = $this->warningDefinitions[$key]['warning-message'];
+        }
+
         foreach ($parameters as $param => $value) {
             $message = str_replace(':' . $param, $value, $message);
         }
