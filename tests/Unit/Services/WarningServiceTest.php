@@ -219,4 +219,45 @@ class WarningServiceTest extends TestCase
             $message
         );
     }
+
+    #[Test]
+    public function it_uses_persian_translations_successfully(): void
+    {
+        App::setLocale('fa');
+
+        // Test tractor stoppage warning with Persian translation
+        $message = $this->warningService->formatWarningMessage('tractor_stoppage', [
+            'tractor_name' => 'Tractor-001',
+            'hours' => '5',
+            'date' => '2024-01-15'
+        ]);
+
+        $this->assertEquals(
+            'تراکتور با نام Tractor-001 بیش از 5 ساعت در تاریخ 2024-01-15 متوقف بوده است. لطفا دلیل آن را بررسی کنید.',
+            $message
+        );
+
+        // Test irrigation warning with Persian translation
+        $irrigationMessage = $this->warningService->formatWarningMessage('irrigation_start_end', [
+            'start_date' => '2024-01-15',
+            'start_time' => '08:00',
+            'plot' => 'Plot-A',
+            'end_time' => '10:30'
+        ]);
+
+        $this->assertEquals(
+            'عملیات آبیاری در تاریخ 2024-01-15 ساعت 08:00 در قطعه Plot-A شروع شد و در ساعت 10:30 به پایان رسید.',
+            $irrigationMessage
+        );
+
+        // Test frost warning with Persian translation
+        $frostMessage = $this->warningService->formatWarningMessage('frost_warning', [
+            'days' => '3'
+        ]);
+
+        $this->assertEquals(
+            'تا 3 روز آینده احتمال سرمازدگی در باغ شما وجود دارد. اقدامات لازم را انجام دهید.',
+            $frostMessage
+        );
+    }
 }
