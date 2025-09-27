@@ -24,6 +24,11 @@ class WarningService
             ->toArray();
     }
 
+    public function getAllWarnings(): array
+    {
+        return $this->warningDefinitions;
+    }
+
     public function getWarningDefinition(string $key): ?array
     {
         return $this->warningDefinitions[$key] ?? null;

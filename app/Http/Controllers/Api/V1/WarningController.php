@@ -16,16 +16,11 @@ class WarningController extends Controller
     ) {}
 
     /**
-     * Get warnings based on the related-to parameter
+     * Get all warnings
      */
     public function index(Request $request): JsonResponse
     {
-        $relatedTo = $request->query('related-to');
-        if (!$relatedTo) {
-            return response()->json(['message' => 'related-to parameter is required'], 400);
-        }
-
-        $warnings = $this->warningService->getWarningsByRelatedTo($relatedTo);
+        $warnings = $this->warningService->getAllWarnings();
         $workingEnvironment = $request->user()->preferences['working_environment'] ?? null;
         $userWarnings = Warning::where('farm_id', $workingEnvironment)->get();
 
@@ -41,7 +36,8 @@ class WarningController extends Controller
                 'enabled' => $userWarning?->enabled ?? false,
                 'parameters' => $userWarning?->parameters ?? [],
                 'setting_message_parameters' => $warning['setting-message-parameters'],
-                'type' => $warning['type'] ?? $userWarning?->type ?? 'one-time'
+                'type' => $warning['type'] ?? $userWarning?->type ?? 'one-time',
+                'related_to' => $warning['related-to']
             ];
         })->values();
 

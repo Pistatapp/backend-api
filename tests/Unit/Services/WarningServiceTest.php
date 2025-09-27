@@ -66,6 +66,17 @@ class WarningServiceTest extends TestCase
     }
 
     #[Test]
+    public function it_gets_all_warnings(): void
+    {
+        $allWarnings = $this->warningService->getAllWarnings();
+        $this->assertCount(4, $allWarnings);
+        $this->assertArrayHasKey('frost_warning', $allWarnings);
+        $this->assertArrayHasKey('tractor_maintenance', $allWarnings);
+        $this->assertArrayHasKey('tractor_stoppage', $allWarnings);
+        $this->assertArrayHasKey('irrigation_start_end', $allWarnings);
+    }
+
+    #[Test]
     public function it_validates_parameters(): void
     {
         // Valid parameters
