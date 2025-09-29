@@ -52,16 +52,6 @@ class TestEvent implements ShouldBroadcast
     }
 
     /**
-     * The event's broadcast name.
-     *
-     * @return string
-     */
-    public function broadcastAs(): string
-    {
-        return 'test.notification';
-    }
-
-    /**
      * Get the data to broadcast.
      *
      * @return array<string, mixed>
@@ -76,5 +66,9 @@ class TestEvent implements ShouldBroadcast
             'user_id' => $this->userId,
             'message' => 'This is a test WebSocket broadcast: ' . $this->content
         ];
+    }
+
+    public function broadcastAs() {
+        return 'test.notification';
     }
 }

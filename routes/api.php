@@ -46,7 +46,6 @@ use App\Http\Controllers\Api\V1\Tractor\TractorReportController;
 use App\Http\Controllers\Api\V1\WarningController;
 use App\Http\Controllers\Api\V1\PaymentController;
 use App\Http\Controllers\Api\V1\TestNotificationController;
-use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -197,8 +196,6 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
         Route::put('/', [UserPreferenceController::class, 'update']);
         Route::delete('/', [UserPreferenceController::class, 'reset']);
     });
-
-    Broadcast::routes();
 });
 
 Route::post('/gps/reports', GpsReportController::class)->name('gps.reports');

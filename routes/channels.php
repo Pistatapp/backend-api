@@ -34,6 +34,6 @@ Broadcast::channel('tractor.tasks.{tractorTask}', function (User $user, TractorT
 });
 
 // Public test channel for testing WebSocket functionality
-Broadcast::channel('test-channel', function () {
+Broadcast::channel('test-channel.{id}', function ($id) {
     return true; // Public channel - anyone can listen
 });
