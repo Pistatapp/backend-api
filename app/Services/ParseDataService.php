@@ -100,6 +100,7 @@ class ParseDataService
         $isStopped = ($status === 0) || ($status === 1 && $speed === 0);
 
         return [
+            'raw_data' => $data,
             'coordinate' => $coordinate,
             'speed' => $speed,
             'status' => $status,
