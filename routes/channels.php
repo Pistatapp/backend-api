@@ -4,6 +4,7 @@ use App\Models\GpsDevice;
 use App\Models\Irrigation;
 use App\Models\User;
 use App\Models\TractorTask;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Broadcast;
 
 /*
@@ -18,7 +19,7 @@ use Illuminate\Support\Facades\Broadcast;
 */
 
 Broadcast::channel('gps_devices.{gps_device}', function (User $user, GpsDevice $gps_device) {
-    return true;
+    return Auth::user()->is($user);
 });
 
 Broadcast::channel('irrigations.{irrigation}', function (User $user, Irrigation $irrigation) {
