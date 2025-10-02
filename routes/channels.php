@@ -26,7 +26,7 @@ Broadcast::channel('irrigations.{irrigation}', function (User $user, Irrigation 
     return true;
 });
 
-Broadcast::channel('user.{user}', function (User $user, $id) {
+Broadcast::channel('user.{id}', function (User $user, $id) {
     return (int) $user->id === (int) $id;
 });
 
