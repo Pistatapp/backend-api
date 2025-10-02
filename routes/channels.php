@@ -18,11 +18,11 @@ use Illuminate\Support\Facades\Broadcast;
 */
 
 Broadcast::channel('gps_devices.{gps_device}', function (User $user, GpsDevice $gps_device) {
-    return $gps_device->user->is($user);
+    return true;
 });
 
 Broadcast::channel('irrigations.{irrigation}', function (User $user, Irrigation $irrigation) {
-    return $irrigation->creator->is($user);
+    return true;
 });
 
 Broadcast::channel('user.{id}', function (User $user, $id) {
@@ -30,7 +30,7 @@ Broadcast::channel('user.{id}', function (User $user, $id) {
 });
 
 Broadcast::channel('tractor.tasks.{tractorTask}', function (User $user, TractorTask $tractorTask) {
-    return $tractorTask->creator->is($user);
+    return true;
 });
 
 // Public test channel for testing WebSocket functionality
