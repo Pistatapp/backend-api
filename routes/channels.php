@@ -26,7 +26,7 @@ Broadcast::channel('irrigations.{irrigation}', function (User $user, Irrigation 
     return true;
 });
 
-Broadcast::channel('user.{id}', function (User $user, $id) {
+Broadcast::channel('user.{user}', function (User $user, $id) {
     return (int) $user->id === (int) $id;
 });
 
@@ -35,6 +35,6 @@ Broadcast::channel('tractor.tasks.{tractorTask}', function (User $user, TractorT
 });
 
 // Public test channel for testing WebSocket functionality
-Broadcast::channel('test-channel.{id}', function ($id) {
+Broadcast::channel('test-channel.{user}', function (User $user, $id) {
     return true; // Public channel - anyone can listen
 });
