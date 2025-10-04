@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api\V1\Farm;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\FilterFarmPlanRequest;
 use App\Http\Requests\StoreFarmPlanRequest;
 use App\Http\Requests\UpdateFarmPlanRequest;
 use App\Http\Resources\FarmPlanResource;
+use App\Http\Resources\FilteredFarmPlanResource;
 use App\Models\Farm;
 use App\Models\FarmPlan;
 use App\Models\FarmPlanDetail;
@@ -30,6 +32,42 @@ class FarmPlanController extends Controller
             ->with('creator:id,username')
             ->latest()->simplePaginate(10);
         return FarmPlanResource::collection($plans);
+    }
+
+    /**
+     * Filter farm plans based on date range and treatables.
+     */
+    public function filter(FilterFarmPlanRequest $request, Farm $farm)
+    {
+        $query = FarmPlan::where('farm_id', $farm->id)
+            ->with(['details.treatable']);
+
+        // Filter by date range
+        if ($request->has('from_date')) {
+            $query->where('start_date', '>=', $request->from_date);
+        }
+
+        if ($request->has('to_date')) {
+            $query->where('end_date', '<=', $request->to_date);
+        }
+
+        // Filter by treatables
+        if ($request->has('treatable') && is_array($request->treatable)) {
+            $query->whereHas('details', function ($q) use ($request) {
+                $q->where(function ($subQuery) use ($request) {
+                    foreach ($request->treatable as $treatable) {
+                        $subQuery->orWhere(function ($treatableQuery) use ($treatable) {
+                            $treatableQuery->where('treatable_id', $treatable['treatable_id'])
+                                ->where('treatable_type', 'App\Models\\' . ucfirst($treatable['treatable_type']));
+                        });
+                    }
+                });
+            });
+        }
+
+        $plans = $query->get();
+
+        return FilteredFarmPlanResource::collection($plans);
     }
 
     /**

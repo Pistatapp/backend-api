@@ -156,6 +156,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
 
     Route::apiResource('farms.treatments', TreatmentController::class)->shallow();
     Route::apiResource('farms.farm_plans', FarmPlanController::class)->shallow();
+    Route::post('farms/{farm}/farm_plans/filter', [FarmPlanController::class, 'filter']);
     Route::post('farms/{farm}/cold_requirement', ColdRequirementController::class);
     Route::apiResource('farms.volk_oil_sprays', VolkOilSprayController::class)->shallow();
 
