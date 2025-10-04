@@ -43,6 +43,16 @@ class ReportReceived implements ShouldBroadcast
     }
 
     /**
+     * Check if the event should be broadcast.
+     *
+     * @return bool
+     */
+    public function broadcastWhen(): bool
+    {
+        return !empty($this->points);
+    }
+
+    /**
      * Get the data to broadcast.
      *
      * @return array
