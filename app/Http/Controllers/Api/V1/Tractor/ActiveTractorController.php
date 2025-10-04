@@ -120,4 +120,19 @@ class ActiveTractorController extends Controller
 
         return response()->json(['data' => $chartData]);
     }
+
+    /**
+     * Get working tractors for the farm
+     *
+     * @param Farm $farm
+     * @return \Illuminate\Http\Resources\Json\AnonymousResourceCollection
+     */
+    public function getWorkingTractors(Farm $farm)
+    {
+        $tractors = $farm->tractors()->working()
+            ->with(['gpsDevice', 'driver', 'startWorkingTime'])
+            ->get();
+
+        return ActiveTractorResource::collection($tractors);
+    }
 }

@@ -26,8 +26,8 @@ class DayDegreeCalculationRequest extends FormRequest
             'end_dt' => 'required|date',
             'model_type' => 'required|string|in:crop_type,pest',
             'model_id' => 'required|integer',
-            'min_temp' => 'nullable|integer|required_with:max_temp',
-            'max_temp' => 'nullable|integer|gte:min_temp|required_with:min_temp',
+            'min_temp' => 'nullable|numeric|required_with:max_temp',
+            'max_temp' => 'nullable|numeric|gte:min_temp|required_with:min_temp',
         ];
     }
 

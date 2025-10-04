@@ -23,6 +23,7 @@ https://your-domain.com/api
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/farms/{farm}/tractors/active` | List active tractors for a farm |
+| GET | `/farms/{farm}/tractors/working` | List working tractors for a farm |
 | GET | `/tractors/{tractor}/path` | Get tractor GPS path for a specific date |
 | GET | `/tractors/{tractor}/performance` | Get tractor performance metrics for a specific date |
 | GET | `/tractors/{tractor}/timings` | Get tractor working timings for a specific date |
@@ -87,7 +88,86 @@ GET /api/farms/{farm}/tractors/active
 
 ---
 
-## 2. Get Tractor GPS Path
+## 2. List Working Tractors for a Farm
+
+Retrieves all working tractors for a specific farm where `is_working = true`. This endpoint focuses on tractors that are currently in a working state, regardless of their GPS device or driver assignment status.
+
+### Endpoint
+```http
+GET /api/farms/{farm}/tractors/working
+```
+
+### Parameters
+
+| Parameter | Type | Description | Required |
+|-----------|------|-------------|----------|
+| farm | integer | ID of the farm to query | Yes |
+
+### Response
+
+**Success (200 OK)**
+```json
+{
+    "data": [
+        {
+            "id": 1,
+            "name": "Tractor-001",
+            "gps_device": {
+                "id": 1,
+                "imei": "863070043386100"
+            },
+            "driver": {
+                "id": 1,
+                "name": "John Doe",
+                "mobile": "09123456789"
+            },
+            "status": 1,
+            "start_working_time": "08:00:00"
+        },
+        {
+            "id": 2,
+            "name": "Tractor-002",
+            "gps_device": {
+                "id": 2,
+                "imei": "863070043386101"
+            },
+            "driver": {
+                "id": 2,
+                "name": "Jane Smith",
+                "mobile": "09123456790"
+            },
+            "status": 1,
+            "start_working_time": "09:15:00"
+        }
+    ]
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | integer | Unique tractor identifier |
+| name | string | Tractor name |
+| gps_device.id | integer | GPS device ID |
+| gps_device.imei | string | GPS device IMEI number |
+| driver.id | integer | Driver ID |
+| driver.name | string | Driver full name |
+| driver.mobile | string | Driver mobile number |
+| status | integer | Current tractor status (1=active, 0=inactive) |
+| start_working_time | string | Daily start working time (H:i:s format) |
+
+### Key Differences from Active Tractors
+
+| Feature | Active Tractors | Working Tractors |
+|---------|----------------|-----------------|
+| **Filter Criteria** | Has GPS device AND driver | `is_working = true` |
+| **Use Case** | Tractors ready for operation | Tractors currently working |
+| **Status Focus** | Equipment readiness | Operational state |
+
+---
+
+## 3. Get Tractor GPS Path
 
 Retrieves the GPS path coordinates for a specific tractor on a given date with streaming support for large datasets.
 
@@ -557,6 +637,15 @@ const response = await fetch('/api/farms/1/tractors/active', {
 });
 const data = await response.json();
 
+// Get working tractors for a farm
+const workingResponse = await fetch('/api/farms/1/tractors/working', {
+    headers: {
+        'Authorization': 'Bearer your-token',
+        'Content-Type': 'application/json'
+    }
+});
+const workingData = await workingResponse.json();
+
 // Get tractor performance
 const performanceResponse = await fetch('/api/tractors/1/performance?date=1403/09/15', {
     headers: {
@@ -569,6 +658,11 @@ const performanceData = await performanceResponse.json();
 
 ### cURL Example
 ```bash
+# Get working tractors for a farm
+curl -X GET "https://your-domain.com/api/farms/1/tractors/working" \
+  -H "Authorization: Bearer your-token" \
+  -H "Content-Type: application/json"
+
 # Get weekly efficiency chart
 curl -X GET "https://your-domain.com/api/tractors/1/weekly-efficiency-chart" \
   -H "Authorization: Bearer your-token" \

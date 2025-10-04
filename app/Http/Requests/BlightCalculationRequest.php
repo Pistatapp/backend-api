@@ -25,8 +25,8 @@ class BlightCalculationRequest extends FormRequest
             'pest_id' => 'required|exists:pests,id',
             'start_dt' => 'required|date',
             'end_dt' => 'required|date',
-            'min_temp' => 'required|integer|required_with:max_temp',
-            'max_temp' => 'required|integer|gte:min_temp|required_with:min_temp',
+            'min_temp' => 'required|numeric|required_with:max_temp',
+            'max_temp' => 'required|numeric|gte:min_temp|required_with:min_temp',
             'development_total' => 'required|numeric|min:0',
         ];
     }
