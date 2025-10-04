@@ -16,8 +16,8 @@ class ReportReceived implements ShouldBroadcast
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
     public function __construct(
-        private array $points,
-        private GpsDevice $device,
+        public array $points,
+        public GpsDevice $device,
     ) {
         //
     }

@@ -83,4 +83,24 @@ class Plot extends Model implements HasMedia
     {
         return $this->belongsToMany(Irrigation::class);
     }
+
+    /**
+     * Get the reports for the plot.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\MorphMany
+     */
+    public function reports()
+    {
+        return $this->morphMany(FarmReport::class, 'reportable');
+    }
+
+    /**
+     * Get the trees for the plot.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasManyDeep
+     */
+    public function trees()
+    {
+        return $this->hasManyDeep(Tree::class, [Row::class]);
+    }
 }

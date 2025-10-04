@@ -118,6 +118,16 @@ class Field extends Model
     }
 
     /**
+     * Get the trees for the field.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasManyDeep
+     */
+    public function trees()
+    {
+        return $this->hasManyDeep(Tree::class, [Row::class]);
+    }
+
+    /**
      * Get valves for the field.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany

@@ -59,7 +59,7 @@ class FarmReportTest extends TestCase
     }
 
     #[Test]
-    public function it_can_store_farm_report()
+    public function it_can_store_farm_report_with_multiple_reportables()
     {
         $data = [
             'date' => '1404/01/12',
@@ -67,13 +67,28 @@ class FarmReportTest extends TestCase
             'labour_id' => $this->labour->id,
             'description' => 'Test farm report',
             'value' => 42.5,
-            'reportable_type' => 'field',
-            'reportable_id' => $this->field->id
+            'reportables' => [
+                ['type' => 'field', 'id' => $this->field->id],
+                ['type' => 'farm', 'id' => $this->farm->id]
+            ]
         ];
 
         $response = $this->postJson("/api/farms/{$this->farm->id}/farm_reports", $data);
 
         $response->assertCreated();
+
+        // Check that reports were created for both reportables
+        $this->assertDatabaseHas('farm_reports', [
+            'farm_id' => $this->farm->id,
+            'operation_id' => $this->operation->id,
+            'labour_id' => $this->labour->id,
+            'description' => 'Test farm report',
+            'value' => 42.5,
+            'created_by' => $this->user->id,
+            'verified' => false,
+            'reportable_type' => 'App\\Models\\Field',
+            'reportable_id' => $this->field->id,
+        ]);
 
         $this->assertDatabaseHas('farm_reports', [
             'farm_id' => $this->farm->id,
@@ -83,6 +98,66 @@ class FarmReportTest extends TestCase
             'value' => 42.5,
             'created_by' => $this->user->id,
             'verified' => false,
+            'reportable_type' => 'App\\Models\\Farm',
+            'reportable_id' => $this->farm->id,
+        ]);
+    }
+
+    #[Test]
+    public function it_can_store_farm_report_with_hierarchical_sub_items()
+    {
+        // Create some test data for hierarchical testing
+        $plot = \App\Models\Plot::factory()->create(['field_id' => $this->field->id]);
+        $row = \App\Models\Row::factory()->create(['field_id' => $this->field->id]);
+        $tree = \App\Models\Tree::factory()->create(['row_id' => $row->id]);
+
+        $data = [
+            'date' => '1404/01/12',
+            'operation_id' => $this->operation->id,
+            'labour_id' => $this->labour->id,
+            'description' => 'Test hierarchical report',
+            'value' => 100.0,
+            'reportables' => [
+                ['type' => 'field', 'id' => $this->field->id]
+            ],
+            'include_sub_items' => true
+        ];
+
+        $response = $this->postJson("/api/farms/{$this->farm->id}/farm_reports", $data);
+
+        $response->assertCreated();
+
+        // Check that reports were created for the field and all its sub-items
+        $this->assertDatabaseHas('farm_reports', [
+            'farm_id' => $this->farm->id,
+            'description' => 'Test hierarchical report',
+            'value' => 100.0,
+            'reportable_type' => 'App\\Models\\Field',
+            'reportable_id' => $this->field->id,
+        ]);
+
+        $this->assertDatabaseHas('farm_reports', [
+            'farm_id' => $this->farm->id,
+            'description' => 'Test hierarchical report',
+            'value' => 100.0,
+            'reportable_type' => 'App\\Models\\Plot',
+            'reportable_id' => $plot->id,
+        ]);
+
+        $this->assertDatabaseHas('farm_reports', [
+            'farm_id' => $this->farm->id,
+            'description' => 'Test hierarchical report',
+            'value' => 100.0,
+            'reportable_type' => 'App\\Models\\Row',
+            'reportable_id' => $row->id,
+        ]);
+
+        $this->assertDatabaseHas('farm_reports', [
+            'farm_id' => $this->farm->id,
+            'description' => 'Test hierarchical report',
+            'value' => 100.0,
+            'reportable_type' => 'App\\Models\\Tree',
+            'reportable_id' => $tree->id,
         ]);
     }
 
@@ -92,7 +167,7 @@ class FarmReportTest extends TestCase
         $response = $this->postJson("/api/farms/{$this->farm->id}/farm_reports", []);
 
         $response->assertUnprocessable()
-            ->assertJsonValidationErrors(['date', 'operation_id', 'labour_id', 'description', 'value', 'reportable_type', 'reportable_id']);
+            ->assertJsonValidationErrors(['date', 'operation_id', 'labour_id', 'description', 'value', 'reportables']);
     }
 
     #[Test]
@@ -126,7 +201,7 @@ class FarmReportTest extends TestCase
     }
 
     #[Test]
-    public function it_can_update_farm_report()
+    public function it_can_update_farm_report_with_multiple_reportables()
     {
         $report = FarmReport::factory()->create([
             'farm_id' => $this->farm->id,
@@ -144,8 +219,10 @@ class FarmReportTest extends TestCase
             'labour_id' => $this->labour->id,
             'description' => 'Updated farm report',
             'value' => 55.5,
-            'reportable_type' => 'field',
-            'reportable_id' => $this->field->id,
+            'reportables' => [
+                ['type' => 'field', 'id' => $this->field->id],
+                ['type' => 'farm', 'id' => $this->farm->id]
+            ],
             'verified' => true
         ];
 
@@ -153,11 +230,94 @@ class FarmReportTest extends TestCase
 
         $response->assertOk();
 
+        // Check that the original report was updated
         $this->assertDatabaseHas('farm_reports', [
             'id' => $report->id,
             'description' => 'Updated farm report',
             'value' => 55.5,
             'verified' => true
+        ]);
+
+        // Check that a new report was created for the farm
+        $this->assertDatabaseHas('farm_reports', [
+            'farm_id' => $this->farm->id,
+            'description' => 'Updated farm report',
+            'value' => 55.5,
+            'verified' => false, // New reports are not verified by default
+            'reportable_type' => 'App\\Models\\Farm',
+            'reportable_id' => $this->farm->id,
+        ]);
+    }
+
+    #[Test]
+    public function it_can_update_farm_report_with_hierarchical_sub_items()
+    {
+        // Create some test data for hierarchical testing
+        $plot = \App\Models\Plot::factory()->create(['field_id' => $this->field->id]);
+        $row = \App\Models\Row::factory()->create(['field_id' => $this->field->id]);
+        $tree = \App\Models\Tree::factory()->create(['row_id' => $row->id]);
+
+        $report = FarmReport::factory()->create([
+            'farm_id' => $this->farm->id,
+            'operation_id' => $this->operation->id,
+            'labour_id' => $this->labour->id,
+            'reportable_type' => 'App\\Models\\Field',
+            'reportable_id' => $this->field->id,
+            'created_by' => $this->user->id,
+            'date' => '2025-04-01',
+        ]);
+
+        $data = [
+            'date' => '1404/01/12',
+            'operation_id' => $this->operation->id,
+            'labour_id' => $this->labour->id,
+            'description' => 'Updated hierarchical report',
+            'value' => 200.0,
+            'reportables' => [
+                ['type' => 'field', 'id' => $this->field->id]
+            ],
+            'include_sub_items' => true,
+            'verified' => true
+        ];
+
+        $response = $this->putJson("/api/farm_reports/{$report->id}", $data);
+
+        $response->assertOk();
+
+        // Check that the original report was updated
+        $this->assertDatabaseHas('farm_reports', [
+            'id' => $report->id,
+            'description' => 'Updated hierarchical report',
+            'value' => 200.0,
+            'verified' => true
+        ]);
+
+        // Check that reports were created/updated for all sub-items
+        $this->assertDatabaseHas('farm_reports', [
+            'farm_id' => $this->farm->id,
+            'description' => 'Updated hierarchical report',
+            'value' => 200.0,
+            'verified' => false, // New reports are not verified by default
+            'reportable_type' => 'App\\Models\\Plot',
+            'reportable_id' => $plot->id,
+        ]);
+
+        $this->assertDatabaseHas('farm_reports', [
+            'farm_id' => $this->farm->id,
+            'description' => 'Updated hierarchical report',
+            'value' => 200.0,
+            'verified' => false, // New reports are not verified by default
+            'reportable_type' => 'App\\Models\\Row',
+            'reportable_id' => $row->id,
+        ]);
+
+        $this->assertDatabaseHas('farm_reports', [
+            'farm_id' => $this->farm->id,
+            'description' => 'Updated hierarchical report',
+            'value' => 200.0,
+            'verified' => false, // New reports are not verified by default
+            'reportable_type' => 'App\\Models\\Tree',
+            'reportable_id' => $tree->id,
         ]);
     }
 
@@ -176,7 +336,7 @@ class FarmReportTest extends TestCase
         $response = $this->putJson("/api/farm_reports/{$report->id}", []);
 
         $response->assertUnprocessable()
-            ->assertJsonValidationErrors(['date', 'operation_id', 'labour_id', 'description', 'value', 'reportable_type', 'reportable_id']);
+            ->assertJsonValidationErrors(['date', 'operation_id', 'labour_id', 'description', 'value', 'reportables']);
     }
 
     #[Test]
@@ -264,8 +424,9 @@ class FarmReportTest extends TestCase
             'labour_id' => $this->labour->id,
             'description' => 'Updated description',
             'value' => 20.0,
-            'reportable_type' => 'field',
-            'reportable_id' => $this->field->id,
+            'reportables' => [
+                ['type' => 'field', 'id' => $this->field->id]
+            ]
         ];
 
         // Test 1: Creator can update their own report

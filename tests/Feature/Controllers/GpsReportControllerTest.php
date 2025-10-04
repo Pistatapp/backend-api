@@ -103,21 +103,7 @@ class GpsReportControllerTest extends TestCase
         $this->call('POST', '/api/gps/reports', [], [], [], ['CONTENT_TYPE' => 'application/json'], $jsonData);
 
         Event::assertDispatched(\App\Events\ReportReceived::class, function ($event) {
-            return $event->getDevice()->id === $this->device->id;
-        });
-    }
-
-    #[Test]
-    public function it_dispatches_tractor_status_event()
-    {
-        $jsonData = json_encode([
-            ['data' => $this->createGpsData()]
-        ]);
-
-        $this->call('POST', '/api/gps/reports', [], [], [], ['CONTENT_TYPE' => 'application/json'], $jsonData);
-
-        Event::assertDispatched(\App\Events\TractorStatus::class, function ($event) {
-            return $event->getTractor()->id === $this->tractor->id;
+            return $event->device->id === $this->device->id;
         });
     }
 

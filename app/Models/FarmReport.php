@@ -22,7 +22,9 @@ class FarmReport extends Model
         'description',
         'value',
         'created_by',
-        'verified'
+        'verified',
+        'reportable_type',
+        'reportable_id'
     ];
 
     /**

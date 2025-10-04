@@ -27,8 +27,10 @@ class UpdateFarmReportRequest extends FormRequest
             'labour_id' => 'required|exists:labours,id',
             'description' => 'required|string',
             'value' => 'required|numeric',
-            'reportable_type' => 'required|string|in:farm,field,row,tree',
-            'reportable_id' => 'required|integer',
+            'reportables' => 'required|array|min:1',
+            'reportables.*.type' => 'required|string|in:farm,field,plot,row,tree',
+            'reportables.*.id' => 'required|integer',
+            'include_sub_items' => 'boolean',
             'verified' => 'boolean',
         ];
     }
