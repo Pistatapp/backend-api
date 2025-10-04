@@ -22,16 +22,6 @@ class ReportReceived implements ShouldBroadcast
         //
     }
 
-    public function getDevice(): GpsDevice
-    {
-        return $this->device;
-    }
-
-    public function getData(): array
-    {
-        return $this->points;
-    }
-
     /**
      * Get the event name.
      *
