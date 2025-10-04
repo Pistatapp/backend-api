@@ -21,7 +21,13 @@ class PestPolicy
      */
     public function view(User $user, Pest $pest): bool
     {
-        return true; // All authenticated users can view individual pests
+        // Root users can only view global pests
+        if ($user->hasRole('root')) {
+            return $pest->isGlobal();
+        }
+
+        // Other users can view global pests and their own custom pests
+        return $pest->isGlobal() || $pest->isOwnedBy($user->id);
     }
 
     /**
@@ -29,7 +35,7 @@ class PestPolicy
      */
     public function create(User $user): bool
     {
-        return $user->hasRole('root');
+        return $user->hasAnyRole(['root', 'admin']);
     }
 
     /**
@@ -37,7 +43,17 @@ class PestPolicy
      */
     public function update(User $user, Pest $pest): bool
     {
-        return $user->hasRole('root');
+        // Root users can only update global pests
+        if ($user->hasRole('root')) {
+            return $pest->isGlobal();
+        }
+
+        // Admin users can only update their own pests
+        if ($user->hasRole('admin')) {
+            return $pest->isOwnedBy($user->id);
+        }
+
+        return false;
     }
 
     /**
@@ -45,7 +61,17 @@ class PestPolicy
      */
     public function delete(User $user, Pest $pest): bool
     {
-        return $user->hasRole('root');
+        // Root users can only delete global pests
+        if ($user->hasRole('root')) {
+            return $pest->isGlobal();
+        }
+
+        // Admin users can only delete their own pests
+        if ($user->hasRole('admin')) {
+            return $pest->isOwnedBy($user->id);
+        }
+
+        return false;
     }
 
     /**
@@ -53,7 +79,17 @@ class PestPolicy
      */
     public function restore(User $user, Pest $pest): bool
     {
-        return $user->hasRole('root');
+        // Root users can only restore global pests
+        if ($user->hasRole('root')) {
+            return $pest->isGlobal();
+        }
+
+        // Admin users can only restore their own pests
+        if ($user->hasRole('admin')) {
+            return $pest->isOwnedBy($user->id);
+        }
+
+        return false;
     }
 
     /**
@@ -61,6 +97,16 @@ class PestPolicy
      */
     public function forceDelete(User $user, Pest $pest): bool
     {
-        return $user->hasRole('root');
+        // Root users can only permanently delete global pests
+        if ($user->hasRole('root')) {
+            return $pest->isGlobal();
+        }
+
+        // Admin users can only permanently delete their own pests
+        if ($user->hasRole('admin')) {
+            return $pest->isOwnedBy($user->id);
+        }
+
+        return false;
     }
 }
