@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\Farm;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreFarmRequest;
 use App\Http\Requests\UpdateFarmRequest;
+use App\Http\Requests\AttachUserToFarmRequest;
 use App\Http\Resources\FarmResource;
 use App\Models\Farm;
 use Illuminate\Http\Request;
@@ -126,26 +127,30 @@ class FarmController extends Controller
     /**
      * Attach a user to a farm
      *
-     * @param Request $request
+     * @param AttachUserToFarmRequest $request
      * @param Farm $farm
      * @return \Illuminate\Http\JsonResponse
      */
-    public function attachUserToFarm(Request $request, Farm $farm)
+    public function attachUserToFarm(AttachUserToFarmRequest $request, Farm $farm)
     {
-        $request->validate([
-            'user_id' => 'required|exists:users,id',
-            'role' => 'required|string|not_in:admin,root,super-admin',
-        ]);
-
         $user = User::find($request->input('user_id'));
         $this->authorize('attach', $user);
 
+        $role = $request->input('role');
+        $permissions = $request->getValidatedPermissions();
+
         $farm->users()->attach($user->id, [
-            'role' => $request->input('role'),
+            'role' => $role,
             'is_owner' => false,
         ]);
 
-        $user->assignRole($request->input('role'));
+        // Assign role to user
+        $user->assignRole($role);
+
+        // If custom-role, assign specific permissions
+        if ($role === 'custom-role' && !empty($permissions)) {
+            $user->givePermissionTo($permissions);
+        }
 
         return response()->json(['message' => __('User attached to farm successfully.')]);
     }
