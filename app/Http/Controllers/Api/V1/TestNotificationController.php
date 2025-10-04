@@ -75,7 +75,7 @@ class TestNotificationController extends Controller
                 $results['websocket_private'] = [
                     'status' => 'success',
                     'message' => 'Private WebSocket event broadcasted successfully',
-                    'channel' => 'user.' . $user->id
+                    'channel' => 'users.' . $user->id
                 ];
             } catch (\Exception $e) {
                 $results['websocket_private'] = [
@@ -196,7 +196,7 @@ class TestNotificationController extends Controller
                 'status' => 'success',
                 'message' => 'Private WebSocket event broadcasted successfully',
                 'user_id' => $user->id,
-                'channel' => 'user.' . $user->id
+                'channel' => 'users.' . $user->id
             ]);
         } catch (\Exception $e) {
             return response()->json([

@@ -9,7 +9,7 @@ use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class TestEvent implements ShouldBroadcast
 {
@@ -30,7 +30,7 @@ class TestEvent implements ShouldBroadcast
         $this->content = $content;
         $this->type = $type;
         $this->timestamp = now()->toISOString();
-        $this->userId = $userId ?? Auth::id() ?? 0;
+        $this->userId = $userId;
     }
 
     /**
@@ -40,15 +40,9 @@ class TestEvent implements ShouldBroadcast
      */
     public function broadcastOn(): array
     {
-        if ($this->type === 'private') {
-            return [
-                new PrivateChannel('user.' . $this->userId)
-            ];
-        }
-
-        return [
-            new Channel('test-channel')
-        ];
+        return $this->type === 'private'
+            ? [new PrivateChannel('users.' . $this->userId)]
+            : [new Channel('test-channel')];
     }
 
     /**
