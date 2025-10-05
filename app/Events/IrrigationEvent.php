@@ -35,7 +35,7 @@ class IrrigationEvent implements ShouldBroadcast
      */
     public function broadcastAs(): string
     {
-        return 'irrigation.' . $this->eventType;
+        return 'irrigation-status-changed';
     }
 
     /**
