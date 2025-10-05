@@ -2,6 +2,7 @@
 
 use App\Models\GpsDevice;
 use App\Models\Irrigation;
+use App\Models\Tractor;
 use App\Models\User;
 use App\Models\TractorTask;
 use Illuminate\Support\Facades\Broadcast;
@@ -27,6 +28,10 @@ Broadcast::channel('irrigations.{irrigation}', function (User $user, Irrigation 
 
 Broadcast::channel('users.{userId}', function (User $user, $userId) {
     return (int) $user->id === (int) $userId;
+});
+
+Broadcast::channel('tractor.{tractor}', function(User $user, Tractor $tractor) {
+    return true;
 });
 
 Broadcast::channel('tractor.tasks.{tractorTask}', function (User $user, TractorTask $tractorTask) {
