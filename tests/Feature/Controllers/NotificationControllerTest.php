@@ -22,14 +22,14 @@ class NotificationControllerTest extends TestCase
         // Create some test notifications
         $this->user->notifications()->create([
             'id' => '123e4567-e89b-12d3-a456-426614174000',
-            'type' => 'App\Notifications\TestNotification',
+            'type' => 'App\Notifications\FrostNotification',
             'data' => ['message' => 'Test notification 1'],
             'read_at' => null
         ]);
 
         $this->user->notifications()->create([
             'id' => '123e4567-e89b-12d3-a456-426614174001',
-            'type' => 'App\Notifications\TestNotification',
+            'type' => 'App\Notifications\FrostNotification',
             'data' => ['message' => 'Test notification 2'],
             'read_at' => null
         ]);
@@ -106,7 +106,7 @@ class NotificationControllerTest extends TestCase
         $otherUser = User::factory()->create();
         $notification = $otherUser->notifications()->create([
             'id' => '123e4567-e89b-12d3-a456-426614174002',
-            'type' => 'App\Notifications\TestNotification',
+            'type' => 'App\Notifications\FrostNotification',
             'data' => ['message' => 'Other user notification'],
             'read_at' => null
         ]);

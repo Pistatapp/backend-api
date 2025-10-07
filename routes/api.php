@@ -45,7 +45,6 @@ use App\Http\Controllers\Api\V1\UserPreferenceController;
 use App\Http\Controllers\Api\V1\Tractor\TractorReportController;
 use App\Http\Controllers\Api\V1\WarningController;
 use App\Http\Controllers\Api\V1\PaymentController;
-use App\Http\Controllers\Api\V1\TestNotificationController;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 
@@ -187,11 +186,6 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
         Route::post('/mark_all_as_read', 'markAllAsRead');
     });
 
-    // Test notification routes
-    Route::controller(TestNotificationController::class)->prefix('test')->group(function () {
-        Route::post('/notifications', 'testNotifications');
-        Route::post('/notifications/{type}', 'testSingleNotification');
-    });
 
     // User Preferences Routes
     Route::prefix('preferences')->group(function () {
