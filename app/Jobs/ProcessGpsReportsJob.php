@@ -121,20 +121,25 @@ class ProcessGpsReportsJob implements ShouldQueue
      */
     private function updateTaskStatus(array $taskData, array $processedData): void
     {
-        if (!$taskData['task']) {
-            return;
-        }
-
         $statusService = new TractorTaskStatusService();
 
-        // If tractor is in task zone, potentially mark task as in_progress
-        $isInTaskZone = $this->isTractorInTaskZone($taskData, $processedData);
-        if ($isInTaskZone) {
-            $statusService->markTaskInProgressIfApplicable($taskData['task']);
+        if ($taskData['task']) {
+            // If tractor is in task zone, potentially mark task as in_progress
+            $isInTaskZone = $this->isTractorInTaskZone($taskData, $processedData);
+            if ($isInTaskZone) {
+                $statusService->markTaskInProgressIfApplicable($taskData['task']);
+            }
+
+            // Always update task status based on current conditions
+            $statusService->updateTaskStatusAfterGpsProcessing($taskData['task']);
         }
 
-        // Always update task status based on current conditions
-        $statusService->updateTaskStatusAfterGpsProcessing($taskData['task']);
+        // Also finalize any ended tasks for this tractor today
+        // This handles cases where reports come in after task end time
+        $statusService->finalizeEndedTasks(
+            $this->device->tractor_id,
+            today()->toDateString()
+        );
     }
 
     /**

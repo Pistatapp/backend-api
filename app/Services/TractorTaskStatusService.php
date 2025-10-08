@@ -188,5 +188,38 @@ class TractorTaskStatusService
             ]);
         }
     }
+
+    /**
+     * Finalize any ended tasks that are still in_progress or not_started status.
+     * This is useful when GPS reports come in after task end time.
+     *
+     * @param int $tractorId
+     * @param string $date
+     * @return void
+     */
+    public function finalizeEndedTasks(int $tractorId, string $date): void
+    {
+        $now = Carbon::now();
+
+        $tasks = TractorTask::where('tractor_id', $tractorId)
+            ->whereDate('date', $date)
+            ->whereIn('status', ['not_started', 'in_progress'])
+            ->get();
+
+        foreach ($tasks as $task) {
+            $taskDateTime = Carbon::parse($task->date);
+            $taskEndDateTime = $taskDateTime->copy()->setTimeFromTimeString($task->end_time);
+            $taskStartDateTime = $taskDateTime->copy()->setTimeFromTimeString($task->start_time);
+
+            if ($taskEndDateTime->lt($taskStartDateTime)) {
+                $taskEndDateTime->addDay();
+            }
+
+            // Only finalize if task has actually ended
+            if ($now->gte($taskEndDateTime)) {
+                $this->updateTaskStatus($task);
+            }
+        }
+    }
 }
 

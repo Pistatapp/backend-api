@@ -54,7 +54,7 @@ class TractorReportsFilterTest extends TestCase
                 'start_time' => date('H:i', $startTime),
                 'end_time' => date('H:i', $endTime),
                 'created_by' => $this->user->id,
-                'status' => 'finished'
+                'status' => 'done'
             ]);
 
             $task->gpsMetricsCalculation()->create([
@@ -197,7 +197,7 @@ class TractorReportsFilterTest extends TestCase
                 'start_time' => date('H:i', $startTime),
                 'end_time' => date('H:i', $endTime),
                 'created_by' => $this->user->id,
-                'status' => 'finished'
+                'status' => 'done'
             ]);
 
             $task->gpsMetricsCalculation()->create([
@@ -224,7 +224,7 @@ class TractorReportsFilterTest extends TestCase
             'start_time' => date('H:i', $startTime),
             'end_time' => date('H:i', $endTime),
             'created_by' => $this->user->id,
-            'status' => 'finished'
+            'status' => 'done'
         ]);
 
         $task->gpsMetricsCalculation()->create([
@@ -328,7 +328,7 @@ class TractorReportsFilterTest extends TestCase
                 'start_time' => '08:00',
                 'end_time' => '16:00',
                 'created_by' => $this->user->id,
-                'status' => 'finished'
+                'status' => 'done'
             ]);
 
             $task->gpsMetricsCalculation()->create([
@@ -405,7 +405,7 @@ class TractorReportsFilterTest extends TestCase
                 'start_time' => '08:00',
                 'end_time' => '16:00',
                 'created_by' => $this->user->id,
-                'status' => 'finished'
+                'status' => 'done'
             ]);
 
             $task->gpsMetricsCalculation()->create([
@@ -479,7 +479,7 @@ class TractorReportsFilterTest extends TestCase
                 'start_time' => '08:00',
                 'end_time' => '16:00',
                 'created_by' => $this->user->id,
-                'status' => 'finished'
+                'status' => 'done'
             ]);
 
             $task->gpsMetricsCalculation()->create([
@@ -556,7 +556,7 @@ class TractorReportsFilterTest extends TestCase
                 'start_time' => '08:00',
                 'end_time' => '16:00',
                 'created_by' => $this->user->id,
-                'status' => 'finished'
+                'status' => 'done'
             ]);
 
             $task->gpsMetricsCalculation()->create([
@@ -633,7 +633,7 @@ class TractorReportsFilterTest extends TestCase
                 'start_time' => '08:00',
                 'end_time' => '16:00',
                 'created_by' => $this->user->id,
-                'status' => 'finished'
+                'status' => 'done'
             ]);
 
             $task->gpsMetricsCalculation()->create([
@@ -717,7 +717,7 @@ class TractorReportsFilterTest extends TestCase
                 'start_time' => date('H:i', $startTime),
                 'end_time' => date('H:i', $endTime),
                 'created_by' => $this->user->id,
-                'status' => 'finished'
+                'status' => 'done'
             ]);
             $task->gpsMetricsCalculation()->create([
                 'tractor_id' => $tractor->id,
@@ -741,7 +741,7 @@ class TractorReportsFilterTest extends TestCase
             'start_time' => date('H:i', $startTime),
             'end_time' => date('H:i', $endTime),
             'created_by' => $this->user->id,
-            'status' => 'finished'
+            'status' => 'done'
         ]);
         $task->gpsMetricsCalculation()->create([
             'tractor_id' => $tractor->id,

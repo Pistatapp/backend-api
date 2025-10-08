@@ -71,7 +71,7 @@ class TractorTaskStatusChangedListenerTest extends TestCase
 
         // Manually trigger event listener
         $listener = new TractorTaskStatusChangedListener();
-        $event = new TractorTaskStatusChanged($this->task, 'finished');
+        $event = new TractorTaskStatusChanged($this->task, 'done');
         $listener->handle($event);
 
         Notification::assertSentTo(
@@ -91,7 +91,7 @@ class TractorTaskStatusChangedListenerTest extends TestCase
 
         // Manually trigger event listener
         $listener = new TractorTaskStatusChangedListener();
-        $event = new TractorTaskStatusChanged($this->task, 'finished');
+        $event = new TractorTaskStatusChanged($this->task, 'done');
         $listener->handle($event);
 
         Notification::assertSentTo(
@@ -122,7 +122,7 @@ class TractorTaskStatusChangedListenerTest extends TestCase
 
         // Manually trigger event listener
         $listener = new TractorTaskStatusChangedListener();
-        $event = new TractorTaskStatusChanged($this->task, 'finished');
+        $event = new TractorTaskStatusChanged($this->task, 'done');
         $listener->handle($event);
 
         Notification::assertSentTo(
@@ -138,7 +138,7 @@ class TractorTaskStatusChangedListenerTest extends TestCase
 
         // Manually trigger event listener
         $listener = new TractorTaskStatusChangedListener();
-        $event = new TractorTaskStatusChanged($this->task, 'started');
+        $event = new TractorTaskStatusChanged($this->task, 'in_progress');
         $listener->handle($event);
 
         Notification::assertNothingSent();
@@ -154,7 +154,7 @@ class TractorTaskStatusChangedListenerTest extends TestCase
 
         // Manually trigger event listener
         $listener = new TractorTaskStatusChangedListener();
-        $event = new TractorTaskStatusChanged($this->task, 'finished');
+        $event = new TractorTaskStatusChanged($this->task, 'done');
         $listener->handle($event);
 
         Notification::assertSentTo(
@@ -187,7 +187,7 @@ class TractorTaskStatusChangedListenerTest extends TestCase
 
         // Manually trigger event listener
         $listener = new TractorTaskStatusChangedListener();
-        $event = new TractorTaskStatusChanged($this->task, 'finished');
+        $event = new TractorTaskStatusChanged($this->task, 'done');
 
         $listener->handle($event);
 

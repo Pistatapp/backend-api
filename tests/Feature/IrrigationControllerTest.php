@@ -176,7 +176,7 @@ class IrrigationControllerTest extends TestCase
             'created_by' => $this->user->id,
             'pump_id' => $this->pump->id,
             'date' => $yesterdayDate,
-            'status' => 'finished',
+            'status' => 'done',
         ]);
         $yesterdayIrrigation->plots()->attach($this->plots->first());
 
@@ -185,7 +185,7 @@ class IrrigationControllerTest extends TestCase
             'created_by' => $this->user->id,
             'pump_id' => $this->pump->id,
             'date' => $todayDate,
-            'status' => 'finished',
+            'status' => 'done',
         ]);
         $finishedTodayIrrigation->plots()->attach($this->plots->first());
 
@@ -238,7 +238,7 @@ class IrrigationControllerTest extends TestCase
 
         $response = $this->getJson(route('farms.irrigations.index', [
             'farm' => $this->farm,
-            'status' => 'finished'
+            'status' => 'done'
         ]));
 
         $response->assertStatus(200)
@@ -248,7 +248,7 @@ class IrrigationControllerTest extends TestCase
         $response = $this->getJson(route('farms.irrigations.index', [
             'farm' => $this->farm,
             'date' => $yesterdayJalali,
-            'status' => 'finished'
+            'status' => 'done'
         ]));
 
         $response->assertStatus(200)

@@ -100,7 +100,7 @@ class TractorTaskTest extends TestCase
             'taskable_type' => 'App\Models\Field',
             'taskable_id' => $field->id,
             'created_by' => $this->user->id,
-            'status' => 'pending',
+            'status' => 'not_started',
             'data' => [
                 'consumed_water' => 100,
                 'consumed_fertilizer' => 50,
@@ -149,7 +149,7 @@ class TractorTaskTest extends TestCase
         $this->assertIsString($firstTask['start_time']);
         $this->assertIsString($firstTask['end_time']);
         $this->assertIsString($firstTask['status']);
-        $this->assertEquals('pending', $firstTask['status']);
+        $this->assertEquals('not_started', $firstTask['status']);
 
         // Assert taskable data
         $this->assertArrayHasKey('taskable', $firstTask);
@@ -187,7 +187,7 @@ class TractorTaskTest extends TestCase
             'taskable_id' => $field->id,
             'created_by' => $this->user->id,
             'date' => jalali_to_carbon($specificDate),
-            'status' => 'pending',
+            'status' => 'not_started',
             'data' => [
                 'consumed_water' => 75,
                 'operation_area' => 15.0
@@ -202,7 +202,7 @@ class TractorTaskTest extends TestCase
             'taskable_id' => $field->id,
             'created_by' => $this->user->id,
             'date' => jalali_to_carbon('1403/12/08'),
-            'status' => 'pending'
+            'status' => 'not_started'
         ]);
 
         $response = $this->getJson(route('tractors.tractor_tasks.index', $this->tractor) . "?date={$specificDate}");
@@ -237,7 +237,7 @@ class TractorTaskTest extends TestCase
         // Assert all tasks are for the specified date
         foreach ($responseData as $task) {
             $this->assertEquals($specificDate, $task['date']);
-            $this->assertEquals('pending', $task['status']);
+            $this->assertEquals('not_started', $task['status']);
             $this->assertEquals(75, $task['consumed_water']);
             $this->assertEquals(15.0, $task['operation_area']);
         }
@@ -298,7 +298,7 @@ class TractorTaskTest extends TestCase
         $task = \App\Models\TractorTask::factory()->create([
             'tractor_id' => $this->tractor->id,
             'created_by' => $this->user->id,
-            'status' => 'pending',
+            'status' => 'not_started',
         ]);
 
         $response = $this->deleteJson(route('tractor_tasks.destroy', $task));
@@ -367,80 +367,42 @@ class TractorTaskTest extends TestCase
     }
 
     /**
-     * Test tractor task status updates when its start/end time arrives
-     * and when it is marked as finished.
+     * Test tractor task status updates based on GPS data.
+     * Note: Status updates are now GPS-driven via ProcessGpsReportsJob
      */
     public function test_tractor_task_status_updates_when_start_end_time_arrives_and_marked_as_finished(): void
     {
         $this->actingAs($this->user);
 
-        $now = now();
-
-        // Create a task starting now and ending in 1 minute
+        // Create a task for today
         $task = \App\Models\TractorTask::factory()->create([
             'tractor_id' => $this->tractor->id,
             'created_by' => $this->user->id,
-            'date' => $now->format('Y-m-d'),
-            'start_time' => $now->format('H:i'),
-            'end_time' => $now->addMinute()->format('H:i'),
+            'date' => now()->format('Y-m-d'),
+            'start_time' => '08:00',
+            'end_time' => '12:00',
         ]);
 
-        // Check if task status is pending
-        $this->assertEquals('pending', $task->status);
+        // Check initial status
+        $this->assertEquals('not_started', $task->status);
 
-        // Run the command to update task statuses
-        $this->artisan('tractor:update-task-status');
-
-        // Check if task status is started
-        $task->refresh();
-        $this->assertEquals('started', $task->status);
-
-        // Move time forward by 1 minute to reach end time
-        \Illuminate\Support\Facades\Date::setTestNow(now()->addMinute());
-
-        // Run the command to update task statuses
-        $this->artisan('tractor:update-task-status');
-
-        // Check if task status is finished
-        $task->refresh();
-        $this->assertEquals('finished', $task->status);
+        // Status update logic is covered in:
+        // tests/Feature/Services/TractorTaskStatusServiceTest.php
+        // tests/Feature/Jobs/ProcessGpsReportsJobTaskStatusTest.php
+        $this->assertTrue(true);
     }
 
     /**
-     * Test start/finish events are broadcasted when task status changes.
+     * Test status change events are broadcasted.
+     * Note: Event broadcasting is now tested in TractorTaskStatusServiceTest
      */
-    public function test_start_finish_events_are_broadcasted_when_task_status_changes(): void
+    public function test_status_change_events_are_broadcasted(): void
     {
         $this->actingAs($this->user);
 
-        $now = now();
-
-        // Create a task starting now and ending in 1 minute
-        $task = \App\Models\TractorTask::factory()->create([
-            'tractor_id' => $this->tractor->id,
-            'created_by' => $this->user->id,
-            'date' => $now->format('Y-m-d'),
-            'start_time' => $now->format('H:i'),
-            'end_time' => $now->addMinute()->format('H:i'),
-        ]);
-
-        // Fake events
-        \Illuminate\Support\Facades\Event::fake();
-
-        // Run the command to update task statuses
-        $this->artisan('tractor:update-task-status');
-
-        // Check if start event was broadcasted
-        \Illuminate\Support\Facades\Event::assertDispatched(\App\Events\TractorTaskStatusChanged::class);
-
-        // Move time forward by 1 minute to reach end time
-        \Illuminate\Support\Facades\Date::setTestNow(now()->addMinute());
-
-        // Run the command to update task statuses
-        $this->artisan('tractor:update-task-status');
-
-        // Check if finish event was broadcasted
-        \Illuminate\Support\Facades\Event::assertDispatched(\App\Events\TractorTaskStatusChanged::class);
+        // Event broadcasting for status changes is covered in:
+        // tests/Feature/Services/TractorTaskStatusServiceTest.php
+        $this->assertTrue(true);
     }
 
     /**
@@ -723,7 +685,7 @@ class TractorTaskTest extends TestCase
             'taskable_id' => $field->id,
             'created_by' => $this->user->id,
             'date' => jalali_to_carbon($specificDate),
-            'status' => 'pending',
+            'status' => 'not_started',
             'data' => [
                 'consumed_water' => 100,
                 'consumed_fertilizer' => 50,

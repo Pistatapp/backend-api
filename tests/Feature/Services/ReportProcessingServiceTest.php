@@ -377,7 +377,7 @@ class ReportProcessingServiceTest extends TestCase
             'taskable_type' => 'App\Models\Field',
             'taskable_id' => $field->id,
             'date' => today(),
-            'status' => 'started'
+            'status' => 'in_progress'
         ]);
 
         $reports = [

@@ -96,7 +96,7 @@ class GpsMetricsCalculationServiceTest extends TestCase
             'taskable_type' => 'App\Models\Field',
             'taskable_id' => $field->id,
             'date' => today(),
-            'status' => 'started'
+            'status' => 'in_progress'
         ]);
 
         $service = new GpsMetricsCalculationService($this->tractor, $task);
@@ -466,7 +466,7 @@ class GpsMetricsCalculationServiceTest extends TestCase
             'taskable_type' => 'App\Models\Field',
             'taskable_id' => $field->id,
             'date' => today(),
-            'status' => 'started'
+            'status' => 'in_progress'
         ]);
 
         $service = new GpsMetricsCalculationService($this->tractor, $task);
@@ -547,7 +547,7 @@ class GpsMetricsCalculationServiceTest extends TestCase
             'taskable_type' => 'App\Models\Field',
             'taskable_id' => $field->id,
             'date' => today(),
-            'status' => 'started'
+            'status' => 'in_progress'
         ]);
 
         $service = new GpsMetricsCalculationService($this->tractor, $task);
@@ -610,7 +610,7 @@ class GpsMetricsCalculationServiceTest extends TestCase
             'taskable_type' => 'App\Models\Field',
             'taskable_id' => $field->id,
             'date' => today(),
-            'status' => 'started'
+            'status' => 'in_progress'
         ]);
 
         // Create second task
@@ -620,7 +620,7 @@ class GpsMetricsCalculationServiceTest extends TestCase
             'taskable_type' => 'App\Models\Field',
             'taskable_id' => $field->id,
             'date' => today(),
-            'status' => 'started'
+            'status' => 'in_progress'
         ]);
 
         $service1 = new GpsMetricsCalculationService($this->tractor, $task1);
@@ -679,7 +679,7 @@ class GpsMetricsCalculationServiceTest extends TestCase
             'taskable_type' => 'App\Models\Field',
             'taskable_id' => $field->id,
             'date' => today(),
-            'status' => 'started'
+            'status' => 'in_progress'
         ]);
 
         $service = new GpsMetricsCalculationService($this->tractor, $task);
@@ -719,7 +719,7 @@ class GpsMetricsCalculationServiceTest extends TestCase
             'taskable_type' => 'App\Models\Field',
             'taskable_id' => $field->id,
             'date' => today(),
-            'status' => 'started'
+            'status' => 'in_progress'
         ]);
 
         $service = new GpsMetricsCalculationService($this->tractor, $task);

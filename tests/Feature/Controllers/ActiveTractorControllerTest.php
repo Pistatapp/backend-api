@@ -76,7 +76,7 @@ class ActiveTractorControllerTest extends TestCase
             'operation_id' => $operation->id,
             'taskable_id' => $plot->id,
             'taskable_type' => Plot::class,
-            'status' => 'started'
+            'status' => 'in_progress'
         ]);
 
         GpsMetricsCalculation::create([

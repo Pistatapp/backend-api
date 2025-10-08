@@ -25,7 +25,8 @@ class TractorTaskStatusChangedListener implements ShouldQueue
      */
     public function handle(TractorTaskStatusChanged $event): void
     {
-        if ($event->status !== 'finished') {
+        // Only send notifications when task is completed (done or not_done)
+        if (!in_array($event->status, ['done', 'not_done'])) {
             return;
         }
 

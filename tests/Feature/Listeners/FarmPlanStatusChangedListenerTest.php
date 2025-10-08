@@ -149,7 +149,7 @@ class FarmPlanStatusChangedListenerTest extends TestCase
 
         // Manually trigger event listener with pending status
         $listener = new FarmPlanStatusChangedListener();
-        $event = new FarmPlanStatusChanged($this->plan, 'pending');
+        $event = new FarmPlanStatusChanged($this->plan, 'not_started');
         $listener->handle($event);
 
         Notification::assertNothingSent();

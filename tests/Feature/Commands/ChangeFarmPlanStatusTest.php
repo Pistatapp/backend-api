@@ -49,7 +49,7 @@ class ChangeFarmPlanStatusTest extends TestCase
             'name' => 'Test Plan',
             'start_date' => now()->subHour(), // Started an hour ago
             'end_date' => now()->addDays(30),
-            'status' => 'pending'
+            'status' => 'not_started'
         ]);
 
         // Create plan details
@@ -150,7 +150,7 @@ class ChangeFarmPlanStatusTest extends TestCase
             'created_by' => $this->user->id,
             'start_date' => now()->subHour(),
             'end_date' => now()->addDays(30),
-            'status' => 'pending'
+            'status' => 'not_started'
         ]);
 
         $activePlan = FarmPlan::factory()->create([
