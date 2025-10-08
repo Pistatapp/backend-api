@@ -56,7 +56,7 @@ class TractorZoneStatus implements ShouldBroadcast
             'task_id' => $this->zoneData['task_id'],
             'task_name' => $this->zoneData['task_name'],
             'work_duration_in_zone' => $this->zoneData['work_duration_in_zone'],
-            'timestamp' => now()->toISOString(),
+            'timestamp' => now()->toTimeString(),
         ];
     }
 }

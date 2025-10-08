@@ -186,10 +186,26 @@ class ProcessGpsReportsJob implements ShouldQueue
             $workDurationInZone = $this->formatWorkDuration($processedData['taskData']['totalMovingTime']);
         }
 
+        // Derive a user-friendly task name using related operation/taskable
+        $taskName = null;
+        if ($taskData['task']) {
+            $task = $taskData['task'];
+            $task->loadMissing(['operation:id,name', 'taskable']);
+
+            $operationName = $task->operation?->name;
+            $taskableName = $task->taskable->name ?? null;
+
+            if ($operationName && $taskableName) {
+                $taskName = $operationName . ' - ' . $taskableName;
+            } else {
+                $taskName = $operationName ?? $taskableName ?? null;
+            }
+        }
+
         $zoneData = [
             'is_in_task_zone' => $isInTaskZone,
             'task_id' => $taskData['task']?->id,
-            'task_name' => $taskData['task']?->name,
+            'task_name' => $taskName,
             'work_duration_in_zone' => $workDurationInZone,
         ];
 

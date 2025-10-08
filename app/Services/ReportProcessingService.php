@@ -280,6 +280,43 @@ class ReportProcessingService
     }
 
     /**
+     * Check if a report is within the current task's time window.
+     * Handles tasks that cross midnight.
+     */
+    private function isWithinTaskTime(array $report): bool
+    {
+        if (!$this->currentTask) {
+            return false;
+        }
+
+        $dateTime = $report['date_time'];
+
+        // Extract start/end time strings (HH:MM)
+        $startTime = is_string($this->currentTask->start_time)
+            ? $this->currentTask->start_time
+            : $this->currentTask->start_time->format('H:i');
+
+        $endTime = is_string($this->currentTask->end_time)
+            ? $this->currentTask->end_time
+            : $this->currentTask->end_time->format('H:i');
+
+        // Task date may be Carbon|string
+        $taskDate = $this->currentTask->date instanceof \Carbon\Carbon
+            ? $this->currentTask->date->toDateString()
+            : $this->currentTask->date;
+
+        $taskStart = \Carbon\Carbon::parse($taskDate . ' ' . $startTime);
+        $taskEnd = \Carbon\Carbon::parse($taskDate . ' ' . $endTime);
+
+        // Handle tasks that cross midnight
+        if ($taskEnd->lt($taskStart)) {
+            $taskEnd->addDay();
+        }
+
+        return $dateTime->gte($taskStart) && $dateTime->lte($taskEnd);
+    }
+
+    /**
      * Check if a report should be counted for a specific scope.
      *
      * @param array $report The GPS report
@@ -288,21 +325,26 @@ class ReportProcessingService
      */
     private function shouldCountReportForScope(array $report, bool $isTaskScope): bool
     {
-        // Always check working hours first for start/end time detection
+        if ($isTaskScope) {
+            // For task scope, ensure report time falls within the task's time window
+            if (!$this->isWithinTaskTime($report)) {
+                return false;
+            }
+
+            // Then ensure report is within task zone
+            if ($this->currentTask && $this->taskZone) {
+                return is_point_in_polygon($report['coordinate'], $this->taskZone);
+            }
+
+            return false; // No task/zone, don't count for task scope
+        }
+
+        // For daily scope, keep using tractor working hours
         if (!$this->isWithinWorkingHours($report)) {
             return false;
         }
 
-        if ($isTaskScope) {
-            // For task scope, check if report is within task zone
-            if ($this->currentTask && $this->taskZone) {
-                return is_point_in_polygon($report['coordinate'], $this->taskZone);
-            }
-            return false; // No task zone, so don't count for task scope
-        } else {
-            // For daily scope, count all reports within working hours
-            return true;
-        }
+        return true;
     }
 
     private function shouldCountReport(array $report): bool
