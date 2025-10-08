@@ -1,7 +1,7 @@
 # Tractor Zone Status Event
 
 ## Overview
-The `TractorZoneStatus` event is broadcast when a tractor's GPS location changes in relation to work zones. This event provides real-time updates about whether a tractor is within a task zone and tracks work duration within specific zones.
+The `TractorZoneStatus` event is broadcast when a tractor's GPS location changes in relation to work zones. This event provides real-time updates about whether a tractor is within a task zone.
 
 ## Event Details
 
@@ -19,8 +19,6 @@ When this event is received, the payload will contain:
   "device_id": 456,
   "is_in_task_zone": true,
   "task_id": 789,
-  "task_name": "Plowing Field A",
-  "work_duration_in_zone": 3600,
   "timestamp": "2024-01-15T10:30:00.000Z"
 }
 ```
@@ -33,8 +31,6 @@ When this event is received, the payload will contain:
 | `device_id` | integer | The unique identifier of the GPS device |
 | `is_in_task_zone` | boolean | Whether the tractor is currently within a task zone |
 | `task_id` | integer | The ID of the task zone (null if not in a zone) |
-| `task_name` | string | The name of the task zone (null if not in a zone) |
-| `work_duration_in_zone` | integer | Duration in seconds that the tractor has been working in the current zone |
 | `timestamp` | string | The timestamp when the zone status was determined (ISO 8601 format) |
 
 ## Frontend Implementation
@@ -98,22 +94,13 @@ function TractorZoneComponent({ tractorId }) {
             
             {zoneStatus.is_in_task_zone && (
                 <div className="zone-details">
-                    <p><strong>Task:</strong> {zoneStatus.task_name}</p>
                     <p><strong>Task ID:</strong> {zoneStatus.task_id}</p>
-                    <p><strong>Work Duration:</strong> {formatDuration(zoneStatus.work_duration_in_zone)}</p>
                 </div>
             )}
             
             <p><strong>Last Updated:</strong> {new Date(zoneStatus.timestamp).toLocaleString()}</p>
         </div>
     );
-
-    function formatDuration(seconds) {
-        const hours = Math.floor(seconds / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
-        const secs = seconds % 60;
-        return `${hours}h ${minutes}m ${secs}s`;
-    }
 }
 ```
 
@@ -127,9 +114,7 @@ function TractorZoneComponent({ tractorId }) {
         </div>
         
         <div v-if="zoneStatus.is_in_task_zone" class="zone-details">
-            <p><strong>Task:</strong> {{ zoneStatus.task_name }}</p>
             <p><strong>Task ID:</strong> {{ zoneStatus.task_id }}</p>
-            <p><strong>Work Duration:</strong> {{ formatDuration(zoneStatus.work_duration_in_zone) }}</p>
         </div>
         
         <p><strong>Last Updated:</strong> {{ formatDate(zoneStatus.timestamp) }}</p>
@@ -259,8 +244,7 @@ zoneService.onZoneStatusChange = (data) => {
     // Handle zone status change in your component
     console.log('Tractor is in zone:', data.is_in_task_zone);
     if (data.is_in_task_zone) {
-        console.log('Working on task:', data.task_name);
-        console.log('Duration:', zoneService.formatDuration(data.work_duration_in_zone));
+        console.log('Task ID:', data.task_id);
     }
 };
 ```
@@ -325,15 +309,6 @@ class TractorZoneService {
 | `is_in_task_zone` | `true` | Tractor is within a task zone | Green indicator, "In Zone" text |
 | `is_in_task_zone` | `false` | Tractor is outside task zones | Red indicator, "Out of Zone" text |
 
-## Work Duration Tracking
-
-The `work_duration_in_zone` field tracks how long the tractor has been working in the current zone:
-
-- **Format**: Seconds (integer)
-- **Reset**: Resets when entering a new zone
-- **Display**: Should be formatted as hours, minutes, and seconds
-- **Use Case**: Productivity tracking, work efficiency analysis
-
 ## Authentication Requirements
 
 Since this event uses a private channel, you must provide authentication:
@@ -372,15 +347,14 @@ const pusher = new Pusher('your-pusher-key', {
 
 1. **Authentication**: Always provide proper authentication for private channels
 2. **Tractor-Specific Subscriptions**: Only subscribe to channels for tractors the user has access to
-3. **Duration Formatting**: Format work duration in a user-friendly way (hours, minutes, seconds)
-4. **Zone Transitions**: Handle transitions between zones smoothly in your UI
-5. **Real-time Updates**: Update the UI immediately when zone status changes
-6. **Memory Management**: Unsubscribe from channels when components unmount
+3. **Zone Transitions**: Handle transitions between zones smoothly in your UI
+4. **Real-time Updates**: Update the UI immediately when zone status changes
+5. **Memory Management**: Unsubscribe from channels when components unmount
 
 ## Use Cases
 
 1. **Field Monitoring**: Track which tractors are working in specific fields
-2. **Productivity Analysis**: Monitor work duration in different zones
+2. **Zone Detection**: Monitor when tractors enter or leave assigned task zones
 3. **Task Progress**: Show real-time progress of field operations
 4. **Fleet Management**: Monitor multiple tractors across different zones
 5. **Compliance**: Ensure tractors are working in designated areas
@@ -391,7 +365,6 @@ const pusher = new Pusher('your-pusher-key', {
 1. **Authentication Failed**: Check that the auth token is valid and properly formatted
 2. **Channel Access Denied**: Verify the user has access to the specific tractor
 3. **Events Not Received**: Ensure the tractor ID is correct and the channel name is properly formatted
-4. **Duration Not Updating**: Check if the duration is being reset properly when entering new zones
 
 ### Debug Tips
 ```javascript
@@ -401,7 +374,6 @@ Echo.private('tractor.' + tractorId)
         console.log('Raw event data:', e);
         console.log('Tractor ID:', e.tractor_id);
         console.log('In Zone:', e.is_in_task_zone);
-        console.log('Task:', e.task_name);
-        console.log('Duration:', e.work_duration_in_zone);
+        console.log('Task ID:', e.task_id);
     });
 ```

@@ -64,13 +64,18 @@ class TractorTaskService
 
             // Check if report time falls within this task's time range
             if ($reportTime->gte($taskStart) && $reportTime->lte($taskEnd)) {
-                // Prioritize tasks that are already in_progress
-                if ($task->status === 'in_progress') {
-                    return $task;
-                }
-
-                // Otherwise, save as potential current task
-                if (!$currentTask) {
+                // Prioritize tasks that are already in_progress or stopped (higher priority than not_started)
+                if (in_array($task->status, ['in_progress', 'stopped'])) {
+                    // If we find an in_progress task, return it immediately
+                    if ($task->status === 'in_progress') {
+                        return $task;
+                    }
+                    // Otherwise, save as potential current task
+                    if (!$currentTask) {
+                        $currentTask = $task;
+                    }
+                } elseif (!$currentTask) {
+                    // If no priority task found yet, save as potential current task
                     $currentTask = $task;
                 }
             }

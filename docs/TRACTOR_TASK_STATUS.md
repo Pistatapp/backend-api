@@ -2,7 +2,7 @@
 
 ## Overview
 
-The tractor task status system intelligently tracks the progress of assigned tasks based on GPS data, time ranges, and tractor presence in designated zones. The system uses four status values to represent the lifecycle of a task.
+The tractor task status system intelligently tracks the progress of assigned tasks based on GPS data, time ranges, and tractor presence in designated zones. The system uses five status values to represent the lifecycle of a task.
 
 ---
 
@@ -47,7 +47,36 @@ Status: in_progress
 
 ---
 
-### 3. `done`
+### 3. `stopped`
+
+**Meaning:** The task time has not finished yet, but the tractor is currently working outside the task zone.
+
+**Conditions:**
+- Current time is within the task's time range (`start_time` to `end_time`)
+- Tractor had previously entered the task zone (task was `in_progress`)
+- GPS data confirms tractor is currently outside the assigned field/plot
+
+**Transition from `in_progress`:**
+- Happens automatically when the tractor exits the task zone during the scheduled time
+
+**Transition back to `in_progress`:**
+- Happens automatically when the tractor re-enters the task zone during the scheduled time
+
+**Example:**
+```
+Task scheduled: 08:00 - 12:00
+Current time: 10:30
+Task was: in_progress
+Tractor location: Outside task zone (e.g., refueling, moving to different field)
+Status: stopped
+```
+
+**Business Logic:**
+The stopped status allows monitoring when tractors temporarily leave their assigned work zones during task time. This could indicate refueling breaks, equipment issues, or working on unassigned areas. The task can resume (return to `in_progress`) when the tractor returns to the designated zone.
+
+---
+
+### 4. `done`
 
 **Meaning:** The task has been completed successfully.
 
@@ -68,7 +97,7 @@ The 30% threshold ensures that the tractor spent meaningful time working in the 
 
 ---
 
-### 4. `not_done`
+### 5. `not_done`
 
 **Meaning:** The task was not completed or the tractor failed to perform adequate work.
 
@@ -97,9 +126,9 @@ Status: not_done
 ## Status Transition Flow
 
 ```
-not_started → in_progress → done
-     ↓             ↓
-  not_done    not_done
+not_started → in_progress ⇄ stopped → done
+     ↓             ↓           ↓
+  not_done    not_done    not_done
 ```
 
 ### Detailed Transitions:
@@ -111,11 +140,20 @@ not_started → in_progress → done
    - If tractor enters zone → `in_progress`
    - If tractor doesn't enter zone → remains `not_started`
 
-3. **Task End Time Arrives**
+3. **During Task Execution**
+   - From `in_progress`:
+     - If tractor exits zone → `stopped`
+   - From `stopped`:
+     - If tractor re-enters zone → `in_progress`
+
+4. **Task End Time Arrives**
    - From `not_started` (never entered) → `not_done`
    - From `in_progress`:
      - If presence ≥ 30% → `done`
      - If presence < 30% → `not_done`
+   - From `stopped`:
+     - If total presence ≥ 30% → `done`
+     - If total presence < 30% → `not_done`
 
 ---
 
@@ -129,6 +167,7 @@ The system uses an intelligent time-based algorithm to identify the current acti
 - **Midnight Crossing:** Handles tasks that span across midnight (e.g., 22:00 - 02:00)
 - **Multi-Day Support:** Checks both current day and previous day tasks for midnight crossings
 - **Exclusion Logic:** Automatically excludes `done` and `not_done` tasks from consideration
+- **Zone Tracking:** Continuously monitors tractor position to detect entry/exit from task zones
 
 ### Example:
 ```
@@ -136,7 +175,8 @@ Current Time: 10:30
 Available Tasks:
   - Task A: 08:00-12:00 (not_started)
   - Task B: 09:00-11:00 (in_progress)
-  - Task C: 13:00-15:00 (not_started)
+  - Task C: 10:00-14:00 (stopped)
+  - Task D: 13:00-15:00 (not_started)
   
 Result: Task B is selected (prioritized due to in_progress status)
 ```
@@ -181,13 +221,22 @@ To adjust this threshold, modify the constant value in:
 ## Testing
 
 Comprehensive test coverage ensures reliability:
-- **32 passing tests** covering all scenarios
-- Status transition logic
+- **32+ passing tests** covering all scenarios
+- Status transition logic (including stopped status)
 - Presence percentage calculations
 - Midnight crossing tasks
+- Zone entry/exit detection
 - Edge cases and boundary conditions
 
 Test files:
 - `tests/Feature/Services/TractorTaskStatusServiceTest.php`
 - `tests/Unit/Services/TractorTaskServiceTest.php`
+
+## Real-Time Monitoring
+
+The stopped status enables:
+- **Work Interruption Detection:** Identify when tractors leave assigned zones
+- **Break Tracking:** Monitor refueling breaks and equipment maintenance
+- **Efficiency Analysis:** Analyze how often and how long tractors spend outside zones
+- **Live Dashboard Updates:** Real-time status changes via WebSocket broadcasting
 
