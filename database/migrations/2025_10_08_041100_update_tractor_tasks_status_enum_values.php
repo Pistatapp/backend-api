@@ -12,7 +12,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // First, update existing data to new values
+        // Step 1: First, expand the ENUM to include BOTH old and new values
+        Schema::table('tractor_tasks', function (Blueprint $table) {
+            $table->enum('status', [
+                'pending', 'started', 'finished',           // Old values
+                'not_started', 'not_done', 'in_progress', 'done'  // New values
+            ])->default('pending')->change();
+        });
+
+        // Step 2: Now update existing data to new values
         DB::table('tractor_tasks')
             ->where('status', 'pending')
             ->update(['status' => 'not_started']);
@@ -25,7 +33,7 @@ return new class extends Migration
             ->where('status', 'finished')
             ->update(['status' => 'done']);
 
-        // Now change the enum column
+        // Step 3: Finally, change the ENUM to only include new values
         Schema::table('tractor_tasks', function (Blueprint $table) {
             $table->enum('status', ['not_started', 'not_done', 'in_progress', 'done'])
                 ->default('not_started')
