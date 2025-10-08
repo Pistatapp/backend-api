@@ -76,6 +76,9 @@ class ActiveTractorControllerTest extends TestCase
             'operation_id' => $operation->id,
             'taskable_id' => $plot->id,
             'taskable_type' => Plot::class,
+            'date' => today(),
+            'start_time' => now()->subHour()->format('H:i'),
+            'end_time' => now()->addHour()->format('H:i'),
             'status' => 'in_progress'
         ]);
 

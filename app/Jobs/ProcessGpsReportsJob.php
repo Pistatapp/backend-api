@@ -33,7 +33,7 @@ class ProcessGpsReportsJob implements ShouldQueue
             $metricsRecords = $this->updateGpsMetricsCalculations($currentTask, $processedData);
             $this->updateTaskStatus($currentTask, $processedData);
             $this->broadcastReportReceived($metricsRecords['dailyRecord'], $processedData);
-            $this->broadcastZoneStatus($currentTask, $processedData);
+            $this->broadcastZoneStatus($currentTask, $processedData, $metricsRecords);
 
         } catch (\Exception $e) {
             $this->handleJobFailure($e);
@@ -124,14 +124,19 @@ class ProcessGpsReportsJob implements ShouldQueue
         $statusService = new TractorTaskStatusService();
 
         if ($taskData['task']) {
-            // If tractor is in task zone, potentially mark task as in_progress
+            // Determine if tractor is currently in task zone
             $isInTaskZone = $this->isTractorInTaskZone($taskData, $processedData);
+
             if ($isInTaskZone) {
+                // If tractor is in task zone, potentially mark task as in_progress
                 $statusService->markTaskInProgressIfApplicable($taskData['task']);
+            } else {
+                // If tractor is outside task zone, potentially mark task as stopped
+                $statusService->markTaskStoppedIfApplicable($taskData['task']);
             }
 
             // Always update task status based on current conditions
-            $statusService->updateTaskStatusAfterGpsProcessing($taskData['task']);
+            $statusService->updateTaskStatusAfterGpsProcessing($taskData['task'], $isInTaskZone);
         }
 
         // Also finalize any ended tasks for this tractor today
@@ -174,39 +179,27 @@ class ProcessGpsReportsJob implements ShouldQueue
      *
      * @param array $taskData Current task and zone data
      * @param array $processedData Processed GPS data with taskData and dailyData
+     * @param array $metricsRecords GPS metrics records (taskRecord and dailyRecord)
      * @return void
      */
-    private function broadcastZoneStatus(array $taskData, array $processedData): void
+    private function broadcastZoneStatus(array $taskData, array $processedData, array $metricsRecords): void
     {
         $isInTaskZone = $this->isTractorInTaskZone($taskData, $processedData);
 
-        // Use task data for zone-specific work duration if available
-        $workDurationInZone = null;
-        if ($isInTaskZone && $processedData['taskData']) {
-            $workDurationInZone = $this->formatWorkDuration($processedData['taskData']['totalMovingTime']);
-        }
+        $task = $taskData['task'];
 
-        // Derive a user-friendly task name using related operation/taskable
-        $taskName = null;
-        if ($taskData['task']) {
-            $task = $taskData['task'];
-            $task->loadMissing(['operation:id,name', 'taskable']);
-
-            $operationName = $task->operation?->name;
-            $taskableName = $task->taskable->name ?? null;
-
-            if ($operationName && $taskableName) {
-                $taskName = $operationName . ' - ' . $taskableName;
-            } else {
-                $taskName = $operationName ?? $taskableName ?? null;
-            }
+        // Load the operation relationship if task exists to get the name
+        if ($task) {
+            $task->load('operation');
         }
 
         $zoneData = [
             'is_in_task_zone' => $isInTaskZone,
-            'task_id' => $taskData['task']?->id,
-            'task_name' => $taskName,
-            'work_duration_in_zone' => $workDurationInZone,
+            'task_id' => $task?->id,
+            'task_name' => $task?->name,
+            'work_duration_in_zone' => $isInTaskZone && $metricsRecords['taskRecord']
+                ? $metricsRecords['taskRecord']->work_duration
+                : null,
         ];
 
         event(new TractorZoneStatus($zoneData, $this->device));
@@ -240,21 +233,6 @@ class ProcessGpsReportsJob implements ShouldQueue
 
         // Check if current coordinate is within task zone polygon
         return is_point_in_polygon($currentCoordinate, $taskData['zone']);
-    }
-
-    /**
-     * Format work duration in H:i:s format.
-     *
-     * @param int $seconds
-     * @return string
-     */
-    private function formatWorkDuration(int $seconds): string
-    {
-        $hours = floor($seconds / 3600);
-        $minutes = floor(($seconds % 3600) / 60);
-        $remainingSeconds = $seconds % 60;
-
-        return sprintf('%02d:%02d:%02d', $hours, $minutes, $remainingSeconds);
     }
 
     /**

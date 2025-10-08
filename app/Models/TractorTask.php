@@ -117,6 +117,16 @@ class TractorTask extends Model
     }
 
     /**
+     * Get the task name (from operation name).
+     *
+     * @return string|null
+     */
+    public function getNameAttribute()
+    {
+        return $this->operation?->name;
+    }
+
+    /**
      * Scope a query to only include tasks for a specific date.
      *
      * @param \Illuminate\Database\Eloquent\Builder $query
@@ -151,6 +161,17 @@ class TractorTask extends Model
     }
 
     /**
+     * Scope a query to only include stopped tasks.
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeStopped($query)
+    {
+        return $query->where('status', 'stopped');
+    }
+
+    /**
      * Scope a query to only include done tasks.
      *
      * @param \Illuminate\Database\Eloquent\Builder $query
@@ -158,7 +179,7 @@ class TractorTask extends Model
      */
     public function scopeDone($query)
     {
-        return $query->where('status', 'done');
+return $query->where('status', 'done');
     }
 
     /**
