@@ -37,7 +37,7 @@ class TractorTask extends Model
      * @var array<string, string>
      */
     protected $attributes = [
-        'status' => 'pending',
+        'status' => 'not_started',
     ];
 
     /**
@@ -129,35 +129,79 @@ class TractorTask extends Model
     }
 
     /**
-     * Scope a query to only include pending tasks.
+     * Scope a query to only include not started tasks.
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeNotStarted($query)
+    {
+        return $query->where('status', 'not_started');
+    }
+
+    /**
+     * Scope a query to only include tasks in progress.
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeInProgress($query)
+    {
+        return $query->where('status', 'in_progress');
+    }
+
+    /**
+     * Scope a query to only include done tasks.
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeDone($query)
+    {
+        return $query->where('status', 'done');
+    }
+
+    /**
+     * Scope a query to only include not done tasks.
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeNotDone($query)
+    {
+        return $query->where('status', 'not_done');
+    }
+
+    /**
+     * Scope a query to only include pending tasks (alias for not_started for backward compatibility).
      *
      * @param \Illuminate\Database\Eloquent\Builder $query
      * @return \Illuminate\Database\Eloquent\Builder
      */
     public function scopePending($query)
     {
-        return $query->where('status', 'pending');
+        return $query->where('status', 'not_started');
     }
 
     /**
-     * Scope a query to only include tasks that have started.
+     * Scope a query to only include tasks that have started (alias for in_progress for backward compatibility).
      *
      * @param \Illuminate\Database\Eloquent\Builder $query
      * @return \Illuminate\Database\Eloquent\Builder
      */
     public function scopeStarted($query)
     {
-        return $query->where('status', 'started');
+        return $query->where('status', 'in_progress');
     }
 
     /**
-     * Scope a query to only include finished tasks.
+     * Scope a query to only include finished tasks (alias for done for backward compatibility).
      *
      * @param \Illuminate\Database\Eloquent\Builder $query
      * @return \Illuminate\Database\Eloquent\Builder
      */
     public function scopeFinished($query)
     {
-        return $query->where('status', 'finished');
+        return $query->where('status', 'done');
     }
 }

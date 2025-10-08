@@ -6,6 +6,7 @@ use App\Models\GpsDevice;
 use App\Services\ReportProcessingService;
 use App\Services\GpsMetricsCalculationService;
 use App\Services\TractorTaskService;
+use App\Services\TractorTaskStatusService;
 use App\Events\ReportReceived;
 use App\Events\TractorZoneStatus;
 use Illuminate\Bus\Queueable;
@@ -30,6 +31,7 @@ class ProcessGpsReportsJob implements ShouldQueue
             $currentTask = $this->getCurrentTask();
             $processedData = $this->processReports($currentTask);
             $metricsRecords = $this->updateGpsMetricsCalculations($currentTask, $processedData);
+            $this->updateTaskStatus($currentTask, $processedData);
             $this->broadcastReportReceived($metricsRecords['dailyRecord'], $processedData);
             $this->broadcastZoneStatus($currentTask, $processedData);
 
@@ -40,13 +42,20 @@ class ProcessGpsReportsJob implements ShouldQueue
 
     /**
      * Get the current task and task zone for the tractor.
+     * Uses the timestamp from the GPS reports to determine which task is active.
      *
      * @return array{task: \App\Models\TractorTask|null, zone: array|null}
      */
     private function getCurrentTask(): array
     {
         $taskService = new TractorTaskService($this->device->tractor);
-        $currentTask = $taskService->getCurrentTask();
+
+        // Use the timestamp from the first report to determine current task
+        $reportTime = !empty($this->reports) && isset($this->reports[0]['date_time'])
+            ? $this->reports[0]['date_time']
+            : now();
+
+        $currentTask = $taskService->getCurrentTask($reportTime);
         $taskZone = $taskService->getTaskZone($currentTask);
 
         return [
@@ -101,6 +110,31 @@ class ProcessGpsReportsJob implements ShouldQueue
             'taskRecord' => $taskRecord,
             'dailyRecord' => $dailyRecord
         ];
+    }
+
+    /**
+     * Update the tractor task status based on GPS metrics and current conditions.
+     *
+     * @param array $taskData Current task and zone data
+     * @param array $processedData Processed GPS data with taskData and dailyData
+     * @return void
+     */
+    private function updateTaskStatus(array $taskData, array $processedData): void
+    {
+        if (!$taskData['task']) {
+            return;
+        }
+
+        $statusService = new TractorTaskStatusService();
+
+        // If tractor is in task zone, potentially mark task as in_progress
+        $isInTaskZone = $this->isTractorInTaskZone($taskData, $processedData);
+        if ($isInTaskZone) {
+            $statusService->markTaskInProgressIfApplicable($taskData['task']);
+        }
+
+        // Always update task status based on current conditions
+        $statusService->updateTaskStatusAfterGpsProcessing($taskData['task']);
     }
 
     /**

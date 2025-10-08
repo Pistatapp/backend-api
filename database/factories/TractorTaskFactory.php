@@ -25,7 +25,7 @@ class TractorTaskFactory extends Factory
             'taskable_id' => \App\Models\Field::factory(),
             'operation_id' => \App\Models\Operation::factory(),
             'created_by' => \App\Models\User::factory(),
-            'status' => 'pending'
+            'status' => 'not_started'
         ];
     }
 }
