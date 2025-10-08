@@ -95,7 +95,7 @@ class TractorTaskService
 
         // Check if the taskable model exists and has coordinates
         if ($task->taskable && isset($task->taskable->coordinates)) {
-            return $task->taskable->coordinates;
+            return $this->normalizeCoordinates($task->taskable->coordinates);
         }
 
         // For backward compatibility, try to load a relationship named after the taskable type (lowercase)
@@ -103,9 +103,40 @@ class TractorTaskService
         $relation = strtolower($modelName);
         if ($task->relationLoaded($relation) || method_exists($task, $relation)) {
             $task->loadMissing("{$relation}:id,coordinates");
-            return $task->{$relation}->coordinates ?? null;
+            $coords = $task->{$relation}->coordinates ?? null;
+            return $coords ? $this->normalizeCoordinates($coords) : null;
         }
 
         return null;
+    }
+
+    /**
+     * Normalize polygon coordinates to [[lat, lon], ...] as floats.
+     * Accepts arrays of strings like "lat,lon" or nested arrays of strings/numbers.
+     */
+    private function normalizeCoordinates(array $coordinates): array
+    {
+        $normalized = [];
+
+        foreach ($coordinates as $point) {
+            if (is_string($point)) {
+                // Format: "lat,lon"
+                [$lat, $lon] = array_map('trim', explode(',', $point));
+                $normalized[] = [ (float)$lat, (float)$lon ];
+                continue;
+            }
+
+            if (is_array($point)) {
+                // Format: [lat, lon] possibly as strings
+                if (count($point) >= 2) {
+                    $lat = is_string($point[0]) ? (float)trim($point[0]) : (float)$point[0];
+                    $lon = is_string($point[1]) ? (float)trim($point[1]) : (float)$point[1];
+                    $normalized[] = [ $lat, $lon ];
+                }
+                continue;
+            }
+        }
+
+        return $normalized;
     }
 }
