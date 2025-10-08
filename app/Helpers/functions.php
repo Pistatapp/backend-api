@@ -206,19 +206,32 @@ function getModel(string $model_type, string $model_id)
  */
 function is_point_in_polygon(array $point, array $polygon): bool
 {
+    // Normalize polygon coordinates if they are strings like "lat,lon"
+    $normalizedPolygon = array_map(function ($p) {
+        if (is_string($p)) {
+            // Explode string "lat,lon" into an array of two floats
+            return array_map('floatval', explode(',', $p));
+        }
+        return $p;
+    }, $polygon);
+
+    // Ray-Casting Algorithm implementation
     $x = $point[0];
     $y = $point[1];
     $inside = false;
-    $numPoints = count($polygon);
+    $numPoints = count($normalizedPolygon);
+    $j = $numPoints - 1;
 
-    for ($i = 0, $j = $numPoints - 1; $i < $numPoints; $j = $i++) {
-        $xi = $polygon[$i][0];
-        $yi = $polygon[$i][1];
-        $xj = $polygon[$j][0];
-        $yj = $polygon[$j][1];
+    for ($i = 0; $i < $numPoints; $j = $i++) {
+        $xi = $normalizedPolygon[$i][0];
+        $yi = $normalizedPolygon[$i][1];
+        $xj = $normalizedPolygon[$j][0];
+        $yj = $normalizedPolygon[$j][1];
 
+        // Check if the ray from the point crosses this edge
         $intersect = (($yi > $y) != ($yj > $y)) &&
-            ($x < ($xj - $xi) * ($y - $yi) / ($yj - $yi) + $xi);
+                     ($x < ($xj - $xi) * ($y - $yi) / ($yj - $yi) + $xi);
+
         if ($intersect) {
             $inside = !$inside;
         }
