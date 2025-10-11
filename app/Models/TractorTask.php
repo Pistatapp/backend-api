@@ -212,8 +212,7 @@ class TractorTask extends Model
      */
     public function scopeStarted($query)
     {
-        return $query->where('status', 'in_progress')
-            ->whereTime('start_time', '<=', now()->format('H:i:s'))
+        return $query->whereTime('start_time', '<=', now()->format('H:i:s'))
             ->whereTime('end_time', '>=', now()->format('H:i:s'));
     }
 
