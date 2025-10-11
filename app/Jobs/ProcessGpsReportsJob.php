@@ -50,12 +50,7 @@ class ProcessGpsReportsJob implements ShouldQueue
     {
         $taskService = new TractorTaskService($this->device->tractor);
 
-        // Use the timestamp from the first report to determine current task
-        $reportTime = !empty($this->reports) && isset($this->reports[0]['date_time'])
-            ? $this->reports[0]['date_time']
-            : now();
-
-        $currentTask = $taskService->getCurrentTask($reportTime);
+        $currentTask = $taskService->getCurrentTask();
         $taskZone = $taskService->getTaskZone($currentTask);
 
         return [

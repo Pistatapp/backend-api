@@ -211,9 +211,10 @@ class GpsMetricsIntegrationTest extends TestCase
             ['data' => '+Hooshnic:V1.03,3453.05000,05035.0500,000,240124,050500,020,000,1,090,0,863070043386100'],
             ['data' => '+Hooshnic:V1.03,3453.06000,05035.0600,000,240124,050600,025,000,1,180,0,863070043386100'],
 
-            // End movement (should trigger end point)
+            // End movement (should trigger end point) - need 3 consecutive stopped reports
             ['data' => '+Hooshnic:V1.03,3453.07000,05035.0700,000,240124,050700,000,000,1,270,0,863070043386100'],
             ['data' => '+Hooshnic:V1.03,3453.08000,05035.0800,000,240124,050800,000,000,1,000,0,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.09000,05035.0900,000,240124,050900,000,000,1,000,0,863070043386100'],
         ];
 
         // Process GPS reports with batch processing and async jobs

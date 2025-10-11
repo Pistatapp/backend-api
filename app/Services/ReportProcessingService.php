@@ -25,6 +25,7 @@ class ReportProcessingService
     // Stoppage accumulation properties
     private array|null $pendingStoppageReport = null; // first stoppage report in current segment
     private int $accumulatedStoppageTime = 0; // accumulated time for current stoppage segment
+    private int $consecutiveStoppedCount = 0; // count of consecutive stopped reports in current sequence
 
     public function __construct(
         private GpsDevice $device,
@@ -102,6 +103,7 @@ class ReportProcessingService
         $this->points = [];
         $this->pendingStoppageReport = null;
         $this->accumulatedStoppageTime = 0;
+        $this->consecutiveStoppedCount = 0;
     }
 
     /**
@@ -365,14 +367,31 @@ class ReportProcessingService
     /**
      * Check if a stoppage report might be needed for start/end point detection.
      * This includes reports that could be part of transition sequences.
+     *
+     * For end detection, we need 3 consecutive stopped reports, so we save
+     * the first 3 stopped reports in a sequence.
      */
     private function mightBeNeededForStartEndDetection(array $report): bool
     {
-        // Only save the first stoppage report after movement for potential end point detection
-        // This is a minimal approach that preserves detection capability while maintaining
-        // the 60-second accumulation logic for other stoppage reports
-        if ($this->previousRawReport && !$this->previousRawReport['is_stopped'] && $report['is_stopped']) {
-            return true;
+        // Save stoppage reports that could be part of end detection
+        // We need to track consecutive stopped reports for the 3-report sequence
+        if ($report['is_stopped']) {
+            // Track consecutive stopped count
+            if (!$this->previousRawReport || !$this->previousRawReport['is_stopped']) {
+                // First stoppage after movement - reset counter
+                $this->consecutiveStoppedCount = 1;
+                return true;
+            } else {
+                // Continuing stoppage sequence
+                $this->consecutiveStoppedCount++;
+                // Save up to first 3 consecutive stopped reports for end detection
+                if ($this->consecutiveStoppedCount <= 3) {
+                    return true;
+                }
+            }
+        } else {
+            // Reset counter when we encounter a moving report
+            $this->consecutiveStoppedCount = 0;
         }
 
         return false;

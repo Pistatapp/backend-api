@@ -78,11 +78,12 @@ class TractorStartEndWorkingTimeDetectionTest extends TestCase
             'end_work_time' => '17:00',
         ]);
 
-        // Sequence: moving → moving → stopped to mark ending point
+        // Sequence: moving → stopped → stopped → stopped (3 consecutive stopped reports)
         $jsonData = [
             ['data' => '+Hooshnic:V1.03,3453.04000,05035.0400,000,240124,071000,015,000,1,090,0,863070043386100'],
-            ['data' => '+Hooshnic:V1.03,3453.05000,05035.0500,000,240124,071100,012,000,1,180,0,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.05000,05035.0500,000,240124,071100,000,000,1,180,0,863070043386100'],
             ['data' => '+Hooshnic:V1.03,3453.06000,05035.0600,000,240124,071200,000,000,1,270,0,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.07000,05035.0700,000,240124,071300,000,000,1,270,0,863070043386100'],
         ];
 
         $response = $this->postJson('/api/gps/reports', $jsonData);
@@ -101,9 +102,9 @@ class TractorStartEndWorkingTimeDetectionTest extends TestCase
     }
 
     #[Test]
-    public function it_requires_sustained_movement_for_start_detection()
+    public function it_requires_three_consecutive_moving_reports_for_start_detection()
     {
-        // Transition to moving but not sustained (falls below threshold immediately)
+        // Only 2 moving reports - not enough for start detection (need 3 consecutive)
         $jsonData = [
             ['data' => '+Hooshnic:V1.03,3453.00000,05035.0000,000,240124,072000,000,000,1,000,0,863070043386100'],
             ['data' => '+Hooshnic:V1.03,3453.01000,05035.0100,000,240124,072100,003,000,1,090,0,863070043386100'],
@@ -118,7 +119,7 @@ class TractorStartEndWorkingTimeDetectionTest extends TestCase
             ->where('is_starting_point', true)
             ->first();
 
-        $this->assertNull($startingPoint, 'Start should not be detected without sustained movement.');
+        $this->assertNull($startingPoint, 'Start should not be detected without 3 consecutive moving reports.');
     }
 
     #[Test]
@@ -138,20 +139,21 @@ class TractorStartEndWorkingTimeDetectionTest extends TestCase
         ];
         $this->postJson('/api/gps/reports', $batch1)->assertStatus(200);
 
-        // End sequence
+        // End sequence - need 3 consecutive stopped reports
         $batch2 = [
             ['data' => '+Hooshnic:V1.03,3453.14000,05035.1400,000,240124,080000,010,000,1,090,0,863070043386100'],
-            ['data' => '+Hooshnic:V1.03,3453.15000,05035.1500,000,240124,080100,012,000,1,180,0,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.15000,05035.1500,000,240124,080100,000,000,1,180,0,863070043386100'],
             ['data' => '+Hooshnic:V1.03,3453.16000,05035.1600,000,240124,080200,000,000,1,270,0,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.17000,05035.1700,000,240124,080300,000,000,1,270,0,863070043386100'],
         ];
         $this->postJson('/api/gps/reports', $batch2)->assertStatus(200);
 
         // Attempt second start sequence later in the day — should not create another starting point
         $batch3 = [
-            ['data' => '+Hooshnic:V1.03,3453.17000,05035.1700,000,240124,090000,000,000,1,000,0,863070043386100'],
-            ['data' => '+Hooshnic:V1.03,3453.18000,05035.1800,000,240124,090100,005,000,1,090,0,863070043386100'],
-            ['data' => '+Hooshnic:V1.03,3453.19000,05035.1900,000,240124,090200,006,000,1,180,0,863070043386100'],
-            ['data' => '+Hooshnic:V1.03,3453.20000,05035.2000,000,240124,090300,007,000,1,180,0,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.18000,05035.1800,000,240124,090000,000,000,1,000,0,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.19000,05035.1900,000,240124,090100,005,000,1,090,0,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.20000,05035.2000,000,240124,090200,006,000,1,180,0,863070043386100'],
+            ['data' => '+Hooshnic:V1.03,3453.21000,05035.2100,000,240124,090300,007,000,1,180,0,863070043386100'],
         ];
         $this->postJson('/api/gps/reports', $batch3)->assertStatus(200);
 

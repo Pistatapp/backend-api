@@ -24,8 +24,6 @@ trait TractorWorkingTime
     protected ?Tractor $tractor = null;
 
     // Configuration defaults
-    private const DEFAULT_SPEED_THRESHOLD = 2; // km/h
-    private const DEFAULT_WINDOW_SIZE = 3; // Reports to analyze
     private const DEFAULT_CACHE_TTL = 60; // minutes
     private const DEFAULT_SHORT_CACHE_TTL = 5; // minutes
     private const DEFAULT_QUERY_WINDOW_MINUTES = 30; // minutes
@@ -326,13 +324,13 @@ trait TractorWorkingTime
     {
         $updated = false;
 
-        // Detect start point
-        if (!$detectionStatus->start && $currentIndex >= 1) {
-            $updated = $this->detectStartPoint($reports, $detectionStatus) || $updated;
+        // Detect start point - need at least 3 reports
+        if (!$detectionStatus->start && $currentIndex >= 2) {
+            $updated = $this->detectStartPoint($reports, $currentIndex, $detectionStatus) || $updated;
         }
 
-        // Detect end point
-        if (!$detectionStatus->end && $currentIndex >= $this->getWindowSize() - 1) {
+        // Detect end point - need at least 3 reports
+        if (!$detectionStatus->end && $currentIndex >= 2) {
             $updated = $this->detectEndPoint($reports, $currentIndex, $report, $detectionStatus) || $updated;
         }
 
@@ -345,45 +343,44 @@ trait TractorWorkingTime
     /**
      * Detect a start point in the reports.
      *
-     * Looks for a pattern where the tractor transitions from stationary to moving
-     * and maintains movement for the configured window size.
+     * Looks for 3 consecutive reports with status == 1 AND speed > 0.
+     * The 3rd report becomes the actual start working time.
      *
      * @param \Illuminate\Support\Collection $reports
+     * @param int $currentIndex
      * @param object $detectionStatus
      * @return bool True if start point was detected
      */
-    private function detectStartPoint($reports, object $detectionStatus): bool
+    private function detectStartPoint($reports, int $currentIndex, object $detectionStatus): bool
     {
-        $count = $reports->count();
-        $windowSize = $this->getWindowSize();
-        $speedThreshold = $this->getSpeedThreshold();
-
-        if ($count < $windowSize) {
-            return false;
-        }
-
         $reports = $reports->values();
         $startWorkTime = $this->getTractorStartWorkTimeForToday();
 
-        for ($i = 1; $i < $count; $i++) {
-            $prevReport = $reports[$i - 1];
-            $currReport = $reports[$i];
+        // Need at least 3 reports to detect start
+        if ($currentIndex < 2) {
+            return false;
+        }
 
-            // Check for speed transition from stopped to moving
-            if ($this->isSpeedTransition($prevReport->speed, $currReport->speed, $speedThreshold)) {
+        // Check last 3 reports for start pattern
+        $report1 = $reports[$currentIndex - 2];
+        $report2 = $reports[$currentIndex - 1];
+        $report3 = $reports[$currentIndex];
 
-                // Skip if before work hours
-                if ($currReport->date_time->lt($startWorkTime)) {
-                    continue;
-                }
+        // Skip if before work hours
+        if ($report3->date_time->lt($startWorkTime)) {
+            return false;
+        }
 
-                // Verify sustained movement
-                if ($this->hasSustainedMovement($reports, $i, $windowSize, $speedThreshold)) {
-                    $this->markAsStartPoint($currReport);
-                    $detectionStatus->start = true;
-                    return true;
-                }
-            }
+        // Check if all 3 reports have status == 1 AND speed > 0 (moving)
+        $isMoving1 = ($report1->status === 1 && $report1->speed > 0);
+        $isMoving2 = ($report2->status === 1 && $report2->speed > 0);
+        $isMoving3 = ($report3->status === 1 && $report3->speed > 0);
+
+        if ($isMoving1 && $isMoving2 && $isMoving3) {
+            // Mark the 3rd report as the start point
+            $this->markAsStartPoint($report3);
+            $detectionStatus->start = true;
+            return true;
         }
 
         return false;
@@ -392,8 +389,8 @@ trait TractorWorkingTime
     /**
      * Detect an end point in the reports.
      *
-     * Looks for a pattern where the tractor transitions from moving to stationary
-     * after a period of sustained movement.
+     * Looks for 3 consecutive reports with speed == 0.
+     * The 3rd (last) report becomes the actual end working time.
      *
      * @param \Illuminate\Support\Collection $reports
      * @param int $currentIndex
@@ -403,18 +400,26 @@ trait TractorWorkingTime
      */
     private function detectEndPoint($reports, int $currentIndex, GpsReport $report, object $detectionStatus): bool
     {
-        $windowSize = $this->getWindowSize();
-        $speedThreshold = $this->getSpeedThreshold();
+        $reports = $reports->values();
 
-        $window = $reports->slice($currentIndex - $windowSize + 1, $windowSize)->values();
-
-        if ($window->count() < $windowSize) {
+        // Need at least 3 reports to detect end
+        if ($currentIndex < 2) {
             return false;
         }
 
-        // Check if this is an end point pattern
-        if ($this->isEndPointPattern($window, $speedThreshold)) {
-            $this->markAsEndPoint($report);
+        // Check last 3 reports for end pattern
+        $report1 = $reports[$currentIndex - 2];
+        $report2 = $reports[$currentIndex - 1];
+        $report3 = $reports[$currentIndex];
+
+        // Check if all 3 reports have speed == 0 (stopped)
+        $isStopped1 = ($report1->speed === 0);
+        $isStopped2 = ($report2->speed === 0);
+        $isStopped3 = ($report3->speed === 0);
+
+        if ($isStopped1 && $isStopped2 && $isStopped3) {
+            // Mark the 3rd (last) report as the end point
+            $this->markAsEndPoint($report3);
             $detectionStatus->end = true;
             return true;
         }
@@ -422,60 +427,6 @@ trait TractorWorkingTime
         return false;
     }
 
-    /**
-     * Check if there's a speed transition from stopped to moving.
-     *
-     * @param int $prevSpeed
-     * @param int $currSpeed
-     * @param int $threshold
-     * @return bool
-     */
-    private function isSpeedTransition(int $prevSpeed, int $currSpeed, int $threshold): bool
-    {
-        return $prevSpeed < $threshold && $currSpeed >= $threshold;
-    }
-
-    /**
-     * Check if movement is sustained for the required window size.
-     *
-     * @param \Illuminate\Support\Collection $reports
-     * @param int $startIndex
-     * @param int $windowSize
-     * @param int $speedThreshold
-     * @return bool
-     */
-    private function hasSustainedMovement($reports, int $startIndex, int $windowSize, int $speedThreshold): bool
-    {
-        for ($j = 1; $j < $windowSize && ($startIndex + $j) < $reports->count(); $j++) {
-            if ($reports[$startIndex + $j]->speed < $speedThreshold) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /**
-     * Check if the window represents an end point pattern.
-     *
-     * @param \Illuminate\Support\Collection $window
-     * @param int $speedThreshold
-     * @return bool
-     */
-    private function isEndPointPattern($window, int $speedThreshold): bool
-    {
-        $windowSize = $window->count();
-
-        // Check that previous reports show movement
-        for ($i = 0; $i < $windowSize - 1; $i++) {
-            if ($window[$i]->speed < $speedThreshold) {
-                return false;
-            }
-        }
-
-        // Check that the last report shows stopping
-        return $window->last()->speed < $speedThreshold;
-    }
 
     /**
      * Mark a report as a start point in the database.
@@ -665,25 +616,6 @@ trait TractorWorkingTime
         return config("gps.{$key}", $default);
     }
 
-    /**
-     * Get speed threshold from configuration.
-     *
-     * @return int Speed threshold in km/h
-     */
-    private function getSpeedThreshold(): int
-    {
-        return $this->getConfig('speed_threshold', self::DEFAULT_SPEED_THRESHOLD);
-    }
-
-    /**
-     * Get window size from configuration.
-     *
-     * @return int Number of reports to analyze
-     */
-    private function getWindowSize(): int
-    {
-        return $this->getConfig('window_size', self::DEFAULT_WINDOW_SIZE);
-    }
 
     /**
      * Get cache TTL from configuration.
