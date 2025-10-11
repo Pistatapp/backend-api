@@ -212,7 +212,8 @@ class TractorTask extends Model
      */
     public function scopeStarted($query)
     {
-        return $query->whereTime('start_time', '<=', now()->format('H:i:s'))
+        return $query->where('date', now()->format('Y-m-d'))
+            ->whereTime('start_time', '<=', now()->format('H:i:s'))
             ->whereTime('end_time', '>=', now()->format('H:i:s'));
     }
 
