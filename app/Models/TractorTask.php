@@ -179,7 +179,7 @@ class TractorTask extends Model
      */
     public function scopeDone($query)
     {
-return $query->where('status', 'done');
+        return $query->where('status', 'done');
     }
 
     /**
