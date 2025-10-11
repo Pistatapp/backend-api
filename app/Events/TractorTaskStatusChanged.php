@@ -48,9 +48,8 @@ class TractorTaskStatusChanged implements ShouldBroadcast
                 'id' => $this->task->taskable->id,
                 'name' => $this->task->taskable->name,
             ],
-            'start_time' => $this->task->start_time,
-            'end_time' => $this->task->end_time,
-            'created_at' => now()->toIso8601String(),
+            'start_time' => $this->task->start_time->format('H:i:s'),
+            'end_time' => $this->task->end_time->format('H:i:s'),
         ];
     }
 

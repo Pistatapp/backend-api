@@ -188,6 +188,12 @@ class ProcessGpsReportsJob implements ShouldQueue
             $task->load('operation');
         }
 
+        Log::info('Task data', [
+            'task' => $task,
+            'isInTaskZone' => $isInTaskZone,
+            'metricsRecords' => $metricsRecords,
+        ]);
+
         $zoneData = [
             'is_in_task_zone' => $isInTaskZone,
             'task_id' => $task?->id,
