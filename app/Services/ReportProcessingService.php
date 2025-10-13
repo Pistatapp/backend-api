@@ -202,14 +202,12 @@ class ReportProcessingService
         $isStopped = $report['is_stopped'];
 
         if ($prevStopped && $isStopped) { // stopped -> stopped
-            $this->totalStoppedTime += $timeDiff;
             $this->accumulatedStoppageTime += $timeDiff;
         } elseif ($prevStopped && !$isStopped) { // stopped -> moving
             $this->totalMovingTime += $timeDiff;
             $this->totalTraveledDistance += $distanceDiff;
             $this->finalizePendingStoppage();
         } elseif (!$prevStopped && $isStopped) { // moving -> stopped
-            $this->totalStoppedTime += $timeDiff;
             $this->totalTraveledDistance += $distanceDiff;
             $this->startStoppageAccumulation($report, $timeDiff);
         } else { // moving -> moving
