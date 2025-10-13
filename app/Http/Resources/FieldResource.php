@@ -25,6 +25,7 @@ class FieldResource extends JsonResource
             'valves' => ValveResource::collection($this->whenLoaded('valves')),
             'rows_count' => $this->whenCounted('rows'),
             'plots_count' => $this->whenCounted('plots'),
+            'trees_count' => $this->whenCounted('trees'),
             'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),
             'attachments' => AttachmentResource::collection($this->whenLoaded('attachments')),
             'reports' => FarmReportResource::collection($this->whenLoaded('reports')),

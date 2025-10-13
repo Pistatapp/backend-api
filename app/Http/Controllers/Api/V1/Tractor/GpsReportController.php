@@ -7,7 +7,6 @@ use App\Http\Controllers\Controller;
 use App\Services\ParseDataService;
 use App\Jobs\ProcessGpsReportsJob;
 use App\Models\GpsDevice;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
@@ -42,7 +41,7 @@ class GpsReportController extends Controller
             $this->logErroredData($request);
         }
 
-        return new JsonResponse([], JsonResponse::HTTP_OK);
+        return response()->json([], 200);
     }
 
     /**

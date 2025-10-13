@@ -70,7 +70,7 @@ class FieldController extends Controller
             'cropType',
             'reports.operation',
             'reports.labour',
-        ])->loadCount('rows', 'plots');
+        ])->loadCount('rows', 'plots', 'trees');
 
         return new FieldResource($fields);
     }

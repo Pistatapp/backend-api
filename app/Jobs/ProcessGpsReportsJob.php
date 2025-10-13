@@ -34,7 +34,6 @@ class ProcessGpsReportsJob implements ShouldQueue
             $this->updateTaskStatus($currentTask, $processedData);
             $this->broadcastReportReceived($metricsRecords['dailyRecord'], $processedData);
             $this->broadcastZoneStatus($currentTask, $processedData, $metricsRecords);
-
         } catch (\Exception $e) {
             $this->handleJobFailure($e);
         }
@@ -188,19 +187,15 @@ class ProcessGpsReportsJob implements ShouldQueue
             $task->load('operation');
         }
 
-        Log::info('Task data', [
-            'task' => $task,
-            'isInTaskZone' => $isInTaskZone,
-            'metricsRecords' => $metricsRecords,
-        ]);
+        $workDurationInZone = $isInTaskZone && $metricsRecords['taskRecord']
+            ? to_time_format($metricsRecords['taskRecord']->work_duration)
+            : '00:00:00';
 
         $zoneData = [
             'is_in_task_zone' => $isInTaskZone,
             'task_id' => $task?->id,
             'task_name' => $task?->name,
-            'work_duration_in_zone' => $isInTaskZone && $metricsRecords['taskRecord']
-                ? $metricsRecords['taskRecord']->work_duration
-                : null,
+            'work_duration_in_zone' => $workDurationInZone,
         ];
 
         event(new TractorZoneStatus($zoneData, $this->device));

@@ -124,7 +124,7 @@ class Field extends Model
      */
     public function trees()
     {
-        return $this->hasManyDeep(Tree::class, [Row::class]);
+        return $this->hasManyThrough(Tree::class, Row::class);
     }
 
     /**

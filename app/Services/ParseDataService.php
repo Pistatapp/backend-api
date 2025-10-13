@@ -6,11 +6,6 @@ use Carbon\Carbon;
 
 class ParseDataService
 {
-    private const GPS_DATA_PATTERN = '/^\+Hooshnic:V\d+\.\d{2},\d{4,5}\.\d{5},\d{5}\.\d{4},\d{3},\d{6},\d{6},\d{3},\d{3},\d,\d{1,3},\d{1,2},\d{15}$/';
-    private const TIMEZONE_OFFSET_HOURS = 3;
-    private const TIMEZONE_OFFSET_MINUTES = 30;
-    private const COORDINATE_PRECISION = 6;
-
     /**
      * Parse the data received from the GPS device
      *
@@ -130,8 +125,8 @@ class ParseDataService
         $longitude = $this->nmeaToDecimalDegrees((float)$nmeaLongitude);
 
         return [
-            round($latitude, self::COORDINATE_PRECISION),
-            round($longitude, self::COORDINATE_PRECISION)
+            round($latitude, 6),
+            round($longitude, 6)
         ];
     }
 
@@ -158,8 +153,8 @@ class ParseDataService
     private function parseDateTime(string $date, string $time): Carbon
     {
         return Carbon::createFromFormat('ymdHis', $date . $time)
-            ->addHours(self::TIMEZONE_OFFSET_HOURS)
-            ->addMinutes(self::TIMEZONE_OFFSET_MINUTES);
+            ->addHours(3)
+            ->addMinutes(30);
     }
 
     /**
@@ -170,7 +165,8 @@ class ParseDataService
      */
     private function isValidFormat(string $data): bool
     {
-        return preg_match(self::GPS_DATA_PATTERN, $data) === 1;
+        $pattern = '/^\+Hooshnic:V\d+\.\d{2},\d{4,5}\.\d{5},\d{5}\.\d{4},\d{3},\d{6},\d{6},\d{3},\d{3},\d,\d{1,3},\d{1,2},\d{15}$/';
+        return preg_match($pattern, $data) === 1;
     }
 
     /**
@@ -209,5 +205,4 @@ class ParseDataService
 
         return $decodedData;
     }
-
 }
