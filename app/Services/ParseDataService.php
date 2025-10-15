@@ -178,6 +178,10 @@ class ParseDataService
     private function correctJsonFormat(string $data): string
     {
         $correctedData = preg_replace('/}\s*{/', '},{', $data);
+        // If data is wrapped in '()', unwrap it
+        if (substr($correctedData, 0, 1) === '(' && substr($correctedData, -1) === ')') {
+            $correctedData = substr($correctedData, 1, -1);
+        }
         return $correctedData;
     }
 
