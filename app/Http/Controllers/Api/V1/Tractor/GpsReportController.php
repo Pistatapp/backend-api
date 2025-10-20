@@ -29,6 +29,9 @@ class GpsReportController extends Controller
 
             $deviceImei = $data[0]['imei'];
 
+            // Log raw GPS data
+            $this->logRawGpsData($rawData, $deviceImei);
+
             $device = $this->fetchDeviceByImei($deviceImei);
 
             // Dispatch background job for processing
@@ -60,6 +63,27 @@ class GpsReportController extends Controller
                 ->with(['tractor'])
                 ->first();
         });
+    }
+
+    /**
+     * Log raw GPS data to a text file
+     *
+     * @param string $rawData Raw GPS data content
+     * @param string $deviceImei Device IMEI number
+     * @return void
+     */
+    private function logRawGpsData(string $rawData, string $deviceImei): void
+    {
+        $logDir = storage_path('logs');
+
+        if (!is_dir($logDir)) {
+            mkdir($logDir, 0755, true);
+        }
+
+        $logFile = $logDir . '/gps_raw_data_' . $deviceImei . '_' . date('Y-m-d') . '.txt';
+        $logEntry = date('Y-m-d H:i:s') . ' - ' . $rawData . PHP_EOL;
+
+        file_put_contents($logFile, $logEntry . '-------------------' . PHP_EOL, FILE_APPEND);
     }
 
     private function logErroredData($request): void
