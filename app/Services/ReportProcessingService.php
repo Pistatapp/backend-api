@@ -204,7 +204,6 @@ class ReportProcessingService
         if ($prevStopped && $isStopped) { // stopped -> stopped
             $this->accumulatedStoppageTime += $timeDiff;
         } elseif ($prevStopped && !$isStopped) { // stopped -> moving
-            $this->totalMovingTime += $timeDiff;
             $this->totalTraveledDistance += $distanceDiff;
             $this->finalizePendingStoppage();
         } elseif (!$prevStopped && $isStopped) { // moving -> stopped
@@ -261,11 +260,6 @@ class ReportProcessingService
         }
 
         if ($persist) {
-            // If this is a stoppage report being saved for detection purposes,
-            // ensure it has the proper stoppage_time
-            if ($report['is_stopped'] && $this->pendingStoppageReport && $this->accumulatedStoppageTime > 0) {
-                $report['stoppage_time'] = $this->accumulatedStoppageTime;
-            }
             $this->saveReport($report);
         }
     }
@@ -439,6 +433,7 @@ class ReportProcessingService
             // Save the first stoppage report with accumulated time
             $reportData = $this->pendingStoppageReport;
             $reportData['stoppage_time'] = $this->accumulatedStoppageTime;
+            $this->totalStoppedTime += $this->accumulatedStoppageTime;
 
             // Save the report
             $this->saveReport($reportData);
@@ -446,6 +441,8 @@ class ReportProcessingService
             // Add to points and increment stoppage count
             $this->points[] = $reportData;
             $this->stoppageCount++;
+        } else {
+            $this->totalMovingTime += $this->accumulatedStoppageTime;
         }
 
         // Reset accumulation state
