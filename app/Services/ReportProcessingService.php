@@ -9,8 +9,6 @@ use Illuminate\Support\Facades\Cache;
 
 class ReportProcessingService
 {
-    private GpsDevice $device;
-    private array $reports;
     private $tractor;
 
     // Metrics
@@ -38,16 +36,13 @@ class ReportProcessingService
     private CacheService $cacheService;
 
     public function __construct(
-        GpsDevice $device,
-        array $reports,
-        ?TractorTask $currentTask = null,
-        ?array $taskZone = null,
+        private GpsDevice $device,
+        private array $reports,
+        private ?TractorTask $currentTask = null,
+        private ?array $taskZone = null,
     ) {
-        $this->device = $device;
-        $this->reports = $reports;
-        $this->tractor = $device->tractor;
+        $this->tractor = $this->device->tractor;
         $this->cacheService = new CacheService($device);
-
         // Load cached state from previous batch
         $this->loadCachedState();
     }

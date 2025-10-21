@@ -46,22 +46,15 @@ class GpsDataAnalyzer
 
         $altitude = intval($parts[3]);
 
-        // Parse date and time
-        $dateStr = $parts[4]; // DDMMYY
-        $timeStr = $parts[5]; // HHMMSS
+        // Parse date and time using ymdHis format (same as ParseDataService)
+        // Format: DDMMYY HHMMSS concatenated as ymdHis
+        // Example: 251020 083042 = 2025-10-20 08:30:42
+        $dateStr = $parts[4]; // DDMMYY but parsed as ymd
+        $timeStr = $parts[5]; // HHMMSS but parsed as His
 
-        $day = substr($dateStr, 0, 2);
-        $month = substr($dateStr, 2, 2);
-        $year = '20' . substr($dateStr, 4, 2);
-
-        $hour = substr($timeStr, 0, 2);
-        $minute = substr($timeStr, 2, 2);
-        $second = substr($timeStr, 4, 2);
-
-        $timestamp = Carbon::createFromFormat(
-            'Y-m-d H:i:s',
-            "{$year}-{$month}-{$day} {$hour}:{$minute}:{$second}"
-        );
+        $timestamp = Carbon::createFromFormat('ymdHis', $dateStr . $timeStr)
+            ->addHours(3)
+            ->addMinutes(30); // Iran timezone adjustment (UTC+3:30)
 
         return [
             'latitude' => $latitude,

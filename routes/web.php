@@ -20,7 +20,7 @@ Route::get('/', function () {
 
 // GPS Data Analyzer Test Route
 Route::get('/gps-test', function () {
-    $filePath = '/Users/abbasajorloo/Downloads/gps_raw_data_863070044742822_2025-10-20.txt';
+    $filePath = '/Users/abbasajorloo/Downloads/gps_raw_data_863070046098355_2025-10-21.txt';
 
     if (!file_exists($filePath)) {
         return response()->json([
