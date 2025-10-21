@@ -88,7 +88,6 @@ class GpsMetricsCalculationService
             'stoppage_duration' => $metricsCalculation->stoppage_duration + $data['totalStoppedTime'],
             'efficiency' => $metricsCalculation->efficiency + $efficiency,
             'stoppage_count' => $metricsCalculation->stoppage_count + $data['stoppageCount'],
-            'max_speed' => $data['maxSpeed'],
         ];
 
         // Calculate average speed with the new values

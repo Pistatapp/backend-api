@@ -45,7 +45,6 @@ class GpsMetricsCalculation extends Model
         'stoppage_count' => 0,
         'stoppage_duration' => 0,
         'average_speed' => 0,
-        'max_speed' => 0,
         'efficiency' => 0,
     ];
 
