@@ -23,7 +23,7 @@ class GpsReportController extends Controller
      */
     public function __invoke(Request $request)
     {
-        try {
+        // try {
             $rawData = $request->getContent();
             $data = $this->parseDataService->parse($rawData);
 
@@ -40,9 +40,9 @@ class GpsReportController extends Controller
             $lastReportStatus = end($data)['status'];
             event(new TractorStatus($device->tractor, $lastReportStatus));
 
-        } catch (\Exception $e) {
-            $this->logErroredData($request);
-        }
+        // } catch (\Exception $e) {
+        //     $this->logErroredData($request);
+        // }
 
         return response()->json([], 200);
     }
