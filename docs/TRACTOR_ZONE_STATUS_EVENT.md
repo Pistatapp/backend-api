@@ -16,7 +16,7 @@ When this event is received, the payload will contain:
 ```json
 {
   "tractor_id": 123,
-  "device_id": 456,
+  "gps_device_id": 456,
   "is_in_task_zone": true,
   "task_id": 789,
   "timestamp": "2024-01-15T10:30:00.000Z"
@@ -28,7 +28,7 @@ When this event is received, the payload will contain:
 | Field | Type | Description |
 |-------|------|-------------|
 | `tractor_id` | integer | The unique identifier of the tractor |
-| `device_id` | integer | The unique identifier of the GPS device |
+| `gps_device_id` | integer | The unique identifier of the GPS device |
 | `is_in_task_zone` | boolean | Whether the tractor is currently within a task zone |
 | `task_id` | integer | The ID of the task zone (null if not in a zone) |
 | `timestamp` | string | The timestamp when the zone status was determined (ISO 8601 format) |

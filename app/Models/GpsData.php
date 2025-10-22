@@ -20,7 +20,7 @@ class GpsData extends Model
      * @var array<int, string>
      */
     protected $fillable = [
-        'device_id',
+        'gps_device_id',
         'coordinate',
         'speed',
         'status',
@@ -50,7 +50,7 @@ class GpsData extends Model
      */
     public function device()
     {
-        return $this->belongsTo(GpsDevice::class, 'device_id');
+        return $this->belongsTo(GpsDevice::class, 'gps_device_id');
     }
 }
 

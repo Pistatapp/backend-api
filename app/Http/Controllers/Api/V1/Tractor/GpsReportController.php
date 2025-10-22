@@ -106,7 +106,7 @@ class GpsReportController extends Controller
 
         foreach ($data as $item) {
             $gpsDataRecords[] = [
-                'device_id' => $deviceId,
+                'gps_device_id' => $deviceId,
                 'coordinate' => json_encode($item['coordinate']),
                 'speed' => $item['speed'],
                 'status' => $item['status'],

@@ -241,7 +241,7 @@ class ProcessGpsReportsJob implements ShouldQueue
     private function handleJobFailure(\Exception $exception): void
     {
         Log::error('GPS processing job failed', [
-            'device_id' => $this->device->id,
+            'gps_device_id' => $this->device->id,
             'error' => $exception->getMessage(),
             'trace' => $exception->getTraceAsString()
         ]);

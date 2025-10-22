@@ -51,7 +51,7 @@ class TractorZoneStatus implements ShouldBroadcast
     {
         return [
             'tractor_id' => $this->device->tractor->id,
-            'device_id' => $this->device->id,
+            'gps_device_id' => $this->device->id,
             'is_in_task_zone' => $this->zoneData['is_in_task_zone'],
             'task_id' => $this->zoneData['task_id'],
             'task_name' => $this->zoneData['task_name'],
