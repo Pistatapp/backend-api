@@ -204,7 +204,6 @@ class TractorWorkTimeDetectionService
     private function getOptimizedGpsData(Tractor $tractor, Carbon $date): \Illuminate\Support\Collection
     {
         return $tractor->gpsData()
-            ->select(['id', 'date_time', 'coordinate', 'speed', 'status', 'imei'])
             ->whereDate('date_time', $date)
             ->where('date_time', '>=', $date->startOfDay())
             ->where('date_time', '<=', $date->endOfDay())

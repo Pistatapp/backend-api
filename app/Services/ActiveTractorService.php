@@ -10,6 +10,7 @@ use App\Models\Farm;
 use Illuminate\Support\Collection;
 use App\Services\GpsDataAnalyzer;
 use App\Services\Tractor\TractorWorkTimeDetectionService;
+use Illuminate\Support\Facades\Log;
 
 class ActiveTractorService
 {
@@ -45,6 +46,8 @@ class ActiveTractorService
         $gpsDataAnalyzer->analyze();
 
         $results = $gpsDataAnalyzer->getResults();
+
+        Log::info('Tractor performance results', $results);
 
         $averageSpeed = $results['average_speed'];
         $latestStatus = $results['latest_status'];
