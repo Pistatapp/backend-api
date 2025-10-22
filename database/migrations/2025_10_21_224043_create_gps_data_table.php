@@ -56,7 +56,7 @@ return new class extends Migration
         ");
 
         // Enable MySQL event scheduler if not already enabled
-        DB::statement("SET GLOBAL event_scheduler = ON");
+        // DB::statement("SET GLOBAL event_scheduler = ON");
 
         // Create MySQL event to automatically create new partitions daily at midnight
         DB::statement("
