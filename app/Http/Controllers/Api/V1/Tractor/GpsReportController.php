@@ -4,6 +4,9 @@ namespace App\Http\Controllers\Api\V1\Tractor;
 
 use App\Events\TractorStatus;
 use App\Http\Controllers\Controller;
+use App\Jobs\GPSReport\StoreGpsReportJob;
+use App\Models\GpsReport;
+use App\Services\GPSReport\GpsParseService;
 use App\Services\ParseDataService;
 use App\Jobs\ProcessGpsReportsJob;
 use App\Models\GpsDevice;
@@ -14,6 +17,7 @@ class GpsReportController extends Controller
 {
     public function __construct(
         private ParseDataService $parseDataService,
+        private GpsParseService $gpsParseService,
     ) {}
 
     /**
@@ -25,23 +29,42 @@ class GpsReportController extends Controller
     {
         try {
             $rawData = $request->getContent();
-            $data = $this->parseDataService->parse($rawData);
 
-            $deviceImei = $data[0]['imei'];
+            // Parse incoming GPS data
+            $parsed = $this->gpsParseService->parse($rawData);
 
-            // Log raw GPS data
-            $this->logRawGpsData($rawData, $deviceImei);
+            if (!$parsed) {
+                \Log::warning('Invalid or unrecognized GPS data received');
+                return response()->json(['message' => 'Invalid data'], 400);
+            }
 
-            $device = $this->fetchDeviceByImei($deviceImei);
+            // Optional queue usage
+            if (config('gps.use_queue')) {
+                ProcessGpsReportsJob::dispatch($parsed);
+            } else {
+                GpsReport::create($parsed);
+            }
 
-            // Dispatch background job for processing
-            ProcessGpsReportsJob::dispatch($device, $data);
 
-            $lastReportStatus = end($data)['status'];
-            event(new TractorStatus($device->tractor, $lastReportStatus));
+//            $rawData = $request->getContent();
+//            $data = $this->parseDataService->parse($rawData);
+//            $deviceImei = $data[0]['imei'];
+//            // Log raw GPS data
+//            $this->logRawGpsData($rawData, $deviceImei);
+//            $device = $this->fetchDeviceByImei($deviceImei);
+//            // Dispatch background job for processing
+//            ProcessGpsReportsJob::dispatch($device, $data);
+//            $lastReportStatus = end($data)['status'];
+//            event(new TractorStatus($device->tractor, $lastReportStatus));
 
         } catch (\Exception $e) {
             $this->logErroredData($request);
+//            return response()->json([
+//                'status' => 'error',
+//                'message' => $e->getMessage(),
+//                'line' => $e->getLine(),
+//                'file' => $e->getFile(),
+//            ], 500);
         }
 
         return response()->json([], 200);

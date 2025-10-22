@@ -63,4 +63,13 @@ return [
 
     // Enable cache warming for better performance
     'enable_cache_warming' => env('GPS_ENABLE_CACHE_WARMING', true),
+
+    /*
+      |--------------------------------------------------------------------------
+      | Determines whether GPS report storage should be processed through a queue job.
+      | If set to true, incoming GPS data will be dispatched to a background job (StoreGpsReportJob)
+      | for asynchronous database insertion. If false, the data will be stored immediately within the request.
+      |--------------------------------------------------------------------------
+      */
+    'use_queue' => env('GPS_USE_QUEUE', false),
 ];
