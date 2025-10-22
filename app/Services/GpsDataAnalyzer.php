@@ -314,6 +314,8 @@ class GpsDataAnalyzer
             }
         }
 
+        $averageSpeed = $movementDuration > 0 ? intval($movementDistance / $movementDuration) : 0;
+
         $this->results = [
             'movement_distance_km' => round($movementDistance, 3),
             'movement_distance_meters' => round($movementDistance * 1000, 2),
@@ -335,6 +337,7 @@ class GpsDataAnalyzer
             'start_time' => $this->data[0]['timestamp']->toDateTimeString(),
             'end_time' => $this->data[$dataCount - 1]['timestamp']->toDateTimeString(),
             'latest_status' => $this->data[$dataCount - 1]['status'],
+            'average_speed' => $averageSpeed,
         ];
 
         return $this->results;
@@ -366,6 +369,7 @@ class GpsDataAnalyzer
             'start_time' => null,
             'end_time' => null,
             'latest_status' => null,
+            'average_speed' => 0,
         ];
     }
 
