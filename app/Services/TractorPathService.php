@@ -3,21 +3,22 @@
 namespace App\Services;
 
 use App\Models\Tractor;
-use App\Models\GpsReport;
 use App\Http\Resources\PointsResource;
+use App\Services\GpsDataAnalyzer;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 
 class TractorPathService
 {
-    private const CHUNK_SIZE = 1000;
+    private const MAX_POINTS_PER_PATH = 5000;
 
     public function __construct(
-        private readonly KalmanFilter $kalmanFilter
+        private GpsDataAnalyzer $gpsDataAnalyzer
     ) {}
 
     /**
-     * Retrieves the tractor path for a specific date.
+     * Retrieves the tractor movement path for a specific date using GPS data analysis.
+     * Optimized for performance without caching for real-time updates.
      *
      * @param Tractor $tractor
      * @param Carbon $date
@@ -25,116 +26,205 @@ class TractorPathService
      */
     public function getTractorPath(Tractor $tractor, Carbon $date)
     {
-        $filteredReports = collect();
-        $device = $tractor->gpsDevice;
-
-        GpsReport::where('gps_device_id', $device->id)
-            ->whereDate('date_time', $date)
-            ->orderBy('date_time')
-            ->chunk(self::CHUNK_SIZE, function ($chunk) use (&$filteredReports) {
-                $filteredChunk = $chunk->map(fn($report) => $this->applyKalmanFilter($report));
-                $filteredReports = $filteredReports->merge($filteredChunk);
-            });
-
-        return PointsResource::collection($filteredReports);
-    }
-
-    /**
-     * Retrieves the tractor path for a specific date using streamed JSON response.
-     * Uses generators and response()->streamJson for efficient, incremental delivery.
-     *
-     * @param Tractor $tractor
-     * @param Carbon $date
-     * @return \Symfony\Component\HttpFoundation\StreamedJsonResponse
-     */
-    public function getTractorPathStreamed(Tractor $tractor, Carbon $date)
-    {
-        $generator = $this->streamPointsGenerator($tractor, $date);
-
-        return response()->streamJson([
-            'data' => $generator,
-        ], 200, [
-            'Cache-Control' => 'no-cache, no-store, must-revalidate',
-            'X-Accel-Buffering' => 'no',
-        ]);
-    }
-
-    /**
-     * Create a generator that yields filtered and transformed GPS reports.
-     *
-     * @param Tractor $tractor
-     * @param Carbon $date
-     * @return \Generator
-     */
-    private function streamPointsGenerator(Tractor $tractor, Carbon $date): \Generator
-    {
-        $device = $tractor->gpsDevice;
-
-        $cursor = GpsReport::where('gps_device_id', $device->id)
-            ->whereDate('date_time', $date)
-            ->orderBy('date_time')
-            ->cursor();
-
-        $count = 0;
-        foreach ($cursor as $report) {
-            $filteredReport = $this->applyKalmanFilter($report);
-            $resource = new PointsResource($filteredReport);
-            yield $resource->toArray(request());
-
-            // Optionally flush in long streams to push data more aggressively
-            if ((++$count % self::CHUNK_SIZE) === 0) {
-                if (function_exists('flush')) {
-                    @ob_flush();
-                    @flush();
-                }
-            }
-        }
-    }
-
-    /**
-     * Apply Kalman filter to a GPS report.
-     *
-     * @param GpsReport $report
-     * @return GpsReport
-     */
-    private function applyKalmanFilter(GpsReport $report): GpsReport
-    {
-        $filtered = $this->kalmanFilter->filter($report->coordinate[0], $report->coordinate[1]);
-        $report->coordinate = [$filtered['latitude'], $filtered['longitude']];
-        return $report;
-    }
-
-
-    /**
-     * Get the chunk size used for processing GPS reports.
-     *
-     * @return int
-     */
-    public function getChunkSize(): int
-    {
-        return self::CHUNK_SIZE;
-    }
-
-    /**
-     * Prepare streamed JSON response for tractor path data.
-     *
-     * @param Tractor $tractor
-     * @param Carbon $date
-     * @return \Illuminate\Http\StreamedResponse|\Illuminate\Http\JsonResponse
-     */
-    public function prepareStreamedResponse(Tractor $tractor, Carbon $date)
-    {
         try {
-            return $this->getTractorPathStreamed($tractor, $date);
+            // Check if tractor has GPS device
+            if (!$tractor->gpsDevice) {
+                return PointsResource::collection(collect());
+            }
+
+            // Get optimized GPS data for the specified date
+            $gpsData = $this->getOptimizedGpsData($tractor, $date);
+
+            if ($gpsData->isEmpty()) {
+                return PointsResource::collection(collect());
+            }
+
+            // Analyze GPS data to get movement details
+            $analysisResults = $this->gpsDataAnalyzer
+                ->loadFromRecords($gpsData)
+                ->analyze();
+
+            // Extract movement and strategic stoppage points from analysis results
+            $pathPoints = $this->extractMovementPoints($gpsData, $analysisResults);
+
+            // Convert to PointsResource format
+            $formattedPathPoints = $this->convertToPathPoints($pathPoints);
+
+            return PointsResource::collection($formattedPathPoints);
+
         } catch (\Exception $e) {
-            Log::error("Failed to create streamed response", [
+            Log::error('Failed to get tractor path', [
                 'tractor_id' => $tractor->id,
+                'date' => $date->toDateString(),
                 'error' => $e->getMessage()
             ]);
 
-            return response()->json([
-                'error' => 'Failed to create streamed response'
-            ], 500);
+            return PointsResource::collection(collect());
         }
+    }
+
+    /**
+     * Get optimized GPS data for the specified date
+     *
+     * @param Tractor $tractor
+     * @param Carbon $date
+     * @return \Illuminate\Support\Collection
+     */
+    private function getOptimizedGpsData(Tractor $tractor, Carbon $date): \Illuminate\Support\Collection
+    {
+        return $tractor->gpsData()
+            ->select(['id', 'date_time', 'coordinate', 'speed', 'status', 'imei'])
+            ->whereDate('date_time', $date)
+            ->where('date_time', '>=', $date->startOfDay())
+            ->where('date_time', '<=', $date->endOfDay())
+            ->orderBy('date_time', 'asc')
+            ->limit(self::MAX_POINTS_PER_PATH)
+            ->get();
+    }
+
+    /**
+     * Extract movement points and strategic stoppage points from GPS data
+     * Rules:
+     * - Every movement point should be present in the path
+     * - Only the first stoppage point after the last movement point should be present
+     * - Consecutive stoppage points should be excluded
+     * - Calculate stoppage duration for each stoppage point
+     *
+     * @param \Illuminate\Support\Collection $gpsData
+     * @param array $analysisResults
+     * @return \Illuminate\Support\Collection
+     */
+    private function extractMovementPoints($gpsData, array $analysisResults): \Illuminate\Support\Collection
+    {
+        $pathPoints = collect();
+        $lastPointWasMovement = false;
+        $lastMovementIndex = -1;
+        $stoppageStartIndex = null;
+        $gpsDataArray = $gpsData->toArray();
+
+        foreach ($gpsData as $index => $point) {
+            $isMovement = $point->speed > 2;
+            $isStoppage = $point->speed <= 2;
+
+            if ($isMovement) {
+                // Calculate stoppage duration if we were in a stoppage period
+                if ($stoppageStartIndex !== null) {
+                    $stoppageDuration = $this->calculateStoppageDuration($gpsDataArray, $stoppageStartIndex, $index - 1);
+                    // Update the last stoppage point with duration
+                    if ($pathPoints->isNotEmpty()) {
+                        $lastPoint = $pathPoints->last();
+                        if ($lastPoint->speed <= 2) {
+                            $lastPoint->stoppage_duration = $stoppageDuration;
+                        }
+                    }
+                    $stoppageStartIndex = null;
+                }
+
+                // Always include movement points
+                $pathPoints->push($point);
+                $lastPointWasMovement = true;
+                $lastMovementIndex = $index;
+            } elseif ($isStoppage && $lastPointWasMovement && $index === $lastMovementIndex + 1) {
+                // Include only the first stoppage point immediately after a movement
+                $pathPoints->push($point);
+                $lastPointWasMovement = false;
+                $stoppageStartIndex = $index;
+            } else {
+                // Skip consecutive stoppage points but continue tracking stoppage duration
+                $lastPointWasMovement = false;
+                if ($stoppageStartIndex !== null) {
+                    // Continue stoppage duration calculation
+                } else {
+                    $stoppageStartIndex = $index;
+                }
+            }
+        }
+
+        // Handle final stoppage if we end with a stoppage
+        if ($stoppageStartIndex !== null) {
+            $stoppageDuration = $this->calculateStoppageDuration($gpsDataArray, $stoppageStartIndex, count($gpsDataArray) - 1);
+            if ($pathPoints->isNotEmpty()) {
+                $lastPoint = $pathPoints->last();
+                if ($lastPoint->speed <= 2) {
+                    $lastPoint->stoppage_duration = $stoppageDuration;
+                }
+            }
+        }
+
+        return $pathPoints;
+    }
+
+    /**
+     * Calculate stoppage duration between start and end indices
+     * Based on the same logic as GpsDataAnalyzer
+     *
+     * @param array $gpsDataArray
+     * @param int $startIndex
+     * @param int $endIndex
+     * @return int Duration in seconds
+     */
+    private function calculateStoppageDuration(array $gpsDataArray, int $startIndex, int $endIndex): int
+    {
+        $duration = 0;
+
+        for ($i = $startIndex + 1; $i <= $endIndex; $i++) {
+            if (isset($gpsDataArray[$i]) && isset($gpsDataArray[$i - 1])) {
+                $timeDiff = $gpsDataArray[$i]['date_time']->timestamp - $gpsDataArray[$i - 1]['date_time']->timestamp;
+                $duration += $timeDiff;
+            }
+        }
+
+        return $duration;
+    }
+
+    /**
+     * Convert movement and stoppage points to PointsResource format
+     *
+     * @param \Illuminate\Support\Collection $pathPoints
+     * @return \Illuminate\Support\Collection
+     */
+    private function convertToPathPoints($pathPoints): \Illuminate\Support\Collection
+    {
+        return $pathPoints->map(function ($point) {
+            $isStopped = $point->speed <= 2;
+            $stoppageDuration = $isStopped ? ($point->stoppage_duration ?? 0) : 0;
+
+            // Create a mock object that matches PointsResource expectations
+            return (object) [
+                'id' => $point->id,
+                'coordinate' => $point->coordinate,
+                'speed' => $point->speed,
+                'status' => $point->status,
+                'is_starting_point' => false,
+                'is_ending_point' => false,
+                'is_stopped' => $isStopped,
+                'directions' => null,
+                'stoppage_time' => $stoppageDuration, // Actual calculated stoppage duration
+                'date_time' => $point->date_time,
+            ];
+        });
+    }
+
+
+    /**
+     * Get the maximum points per path for performance optimization.
+     *
+     * @return int
+     */
+    public function getMaxPointsPerPath(): int
+    {
+        return self::MAX_POINTS_PER_PATH;
+    }
+
+    /**
+     * Get optimized tractor path with movement analysis
+     *
+     * @param Tractor $tractor
+     * @param Carbon $date
+     * @return \Illuminate\Http\Resources\Json\AnonymousResourceCollection
+     */
+    public function getOptimizedTractorPath(Tractor $tractor, Carbon $date)
+    {
+        return $this->getTractorPath($tractor, $date);
     }
 }

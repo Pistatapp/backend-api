@@ -51,4 +51,14 @@ class GpsDevice extends Model
     {
         return $this->hasMany(GpsReport::class);
     }
+
+    /**
+     * Get the gps data for the gps device.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function data()
+    {
+        return $this->hasMany(GpsData::class);
+    }
 }

@@ -10,12 +10,14 @@ use Illuminate\Http\Request;
 use App\Models\Farm;
 use App\Services\ActiveTractorService;
 use App\Services\TractorPathService;
+use App\Services\Tractor\TractorWorkTimeDetectionService;
 
 class ActiveTractorController extends Controller
 {
     public function __construct(
         private ActiveTractorService $activeTractorService,
-        private TractorPathService $tractorPathService
+        private TractorPathService $tractorPathService,
+        private TractorWorkTimeDetectionService $tractorWorkTimeDetectionService
     ) {}
 
     /**
@@ -26,9 +28,10 @@ class ActiveTractorController extends Controller
      */
     public function index(Farm $farm)
     {
-        $tractors = $farm->tractors()->active()
-            ->with(['gpsDevice', 'driver', 'startWorkingTime'])
-            ->get();
+        $tractors = $farm->tractors()->active()->with('gpsDevice')->get();
+
+        // Calculate work times for each tractor using the dedicated service
+        $tractors = $this->tractorWorkTimeDetectionService->detectWorkTimesForTractors($tractors);
 
         return ActiveTractorResource::collection($tractors);
     }
@@ -47,11 +50,6 @@ class ActiveTractorController extends Controller
         ]);
 
         $date = jalali_to_carbon($request->date);
-
-        // Check if streaming is requested via query parameter
-        if ($request->boolean('stream', true)) {
-            return $this->tractorPathService->prepareStreamedResponse($tractor, $date);
-        }
 
         // Fallback to regular response for backward compatibility
         return $this->tractorPathService->getTractorPath($tractor, $date);
@@ -129,10 +127,16 @@ class ActiveTractorController extends Controller
      */
     public function getWorkingTractors(Farm $farm)
     {
-        $tractors = $farm->tractors()->working()
-            ->with(['gpsDevice', 'driver', 'startWorkingTime'])
-            ->get();
+        $tractors = $farm->tractors()->working()->with(['gpsDevice', 'driver'])->get();
 
-        return ActiveTractorResource::collection($tractors);
+        return response()->json([
+            'data' => $tractors->map(function ($tractor) {
+                return [
+                    'id' => $tractor->id,
+                    'name' => $tractor->name,
+                    'status' => $tractor->is_working,
+                ];
+            }),
+        ]);
     }
 }

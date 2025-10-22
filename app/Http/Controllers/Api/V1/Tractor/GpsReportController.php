@@ -2,11 +2,10 @@
 
 namespace App\Http\Controllers\Api\V1\Tractor;
 
-use App\Events\TractorStatus;
 use App\Http\Controllers\Controller;
 use App\Services\ParseDataService;
-use App\Jobs\ProcessGpsReportsJob;
 use App\Models\GpsDevice;
+use App\Models\GpsData;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
@@ -23,7 +22,7 @@ class GpsReportController extends Controller
      */
     public function __invoke(Request $request)
     {
-        // try {
+        try {
             $rawData = $request->getContent();
             $data = $this->parseDataService->parse($rawData);
 
@@ -34,15 +33,16 @@ class GpsReportController extends Controller
 
             $device = $this->fetchDeviceByImei($deviceImei);
 
-            // Dispatch background job for processing
-            ProcessGpsReportsJob::dispatch($device, $data);
+            // Save parsed GPS data to database
+            $this->saveGpsData($data, $device->id);
 
-            $lastReportStatus = end($data)['status'];
-            event(new TractorStatus($device->tractor, $lastReportStatus));
-
-        // } catch (\Exception $e) {
-        //     $this->logErroredData($request);
-        // }
+            // Update tractor status
+            $tractor = $device->tractor;
+            $lastStatus = end($data)['status'];
+            $tractor->update(['is_working' => $lastStatus]);
+        } catch (\Exception $e) {
+            //
+        }
 
         return response()->json([], 200);
     }
@@ -74,29 +74,49 @@ class GpsReportController extends Controller
      */
     private function logRawGpsData(string $rawData, string $deviceImei): void
     {
-        $logDir = storage_path('logs');
+        $baseLogDir = storage_path('logs');
+        $imeiDir = $baseLogDir . '/' . $deviceImei;
 
-        if (!is_dir($logDir)) {
-            mkdir($logDir, 0755, true);
+        // Create logs directory if it doesn't exist
+        if (!is_dir($baseLogDir)) {
+            mkdir($baseLogDir, 0755, true);
         }
 
-        $logFile = $logDir . '/gps_raw_data_' . $deviceImei . '_' . date('Y-m-d') . '.txt';
+        // Create IMEI-specific directory if it doesn't exist
+        if (!is_dir($imeiDir)) {
+            mkdir($imeiDir, 0755, true);
+        }
+
+        $logFile = $imeiDir . '/gps_raw_data_' . date('Y-m-d') . '.txt';
         $logEntry = date('Y-m-d H:i:s') . ' - ' . $rawData . PHP_EOL;
 
         file_put_contents($logFile, $logEntry . '-------------------' . PHP_EOL, FILE_APPEND);
     }
 
-    private function logErroredData($request): void
+    /**
+     * Save parsed GPS data to database
+     *
+     * @param array $data Parsed GPS data array
+     * @param int $deviceId GPS device ID
+     * @return void
+     */
+    private function saveGpsData(array $data, int $deviceId): void
     {
-        $logDir = storage_path('logs/gps-data');
+        $gpsDataRecords = [];
 
-        if (!is_dir($logDir)) {
-            mkdir($logDir, 0755, true);
+        foreach ($data as $item) {
+            $gpsDataRecords[] = [
+                'device_id' => $deviceId,
+                'coordinate' => json_encode($item['coordinate']),
+                'speed' => $item['speed'],
+                'status' => $item['status'],
+                'directions' => json_encode($item['directions']),
+                'imei' => $item['imei'],
+                'date_time' => $item['date_time'],
+            ];
         }
 
-        $logFile = $logDir . '/' . date('Y-m-d') . '.log';
-        $errorMessage = date('Y-m-d H:i:s') . ' - Error: ' . $request->getContent() . PHP_EOL;
-
-        file_put_contents($logFile, $errorMessage . '-------------------' . PHP_EOL, FILE_APPEND);
+        // Use bulk insert for better performance
+        GpsData::insert($gpsDataRecords);
     }
 }

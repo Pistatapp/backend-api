@@ -6,6 +6,10 @@ use App\Models\Tractor;
 use Carbon\Carbon;
 use App\Http\Resources\DriverResource;
 use Morilog\Jalali\Jalalian;
+use App\Models\Farm;
+use Illuminate\Support\Collection;
+use App\Services\GpsDataAnalyzer;
+use App\Services\Tractor\TractorWorkTimeDetectionService;
 
 class ActiveTractorService
 {
@@ -13,8 +17,17 @@ class ActiveTractorService
     private const DEFAULT_DECIMAL_PLACES = 2;
     private const EFFICIENCY_HISTORY_DAYS = 7;
 
-    public function __construct() {}
+    public function __construct(
+        private GpsDataAnalyzer $gpsDataAnalyzer,
+        private TractorWorkTimeDetectionService $tractorWorkTimeDetectionService
+    ) {}
 
+    public function getActiveTractors(Farm $farm): Collection
+    {
+        $tractors = $farm->tractors()->active()->get();
+
+        return $tractors;
+    }
 
     /**
      * Returns tractor performance.
@@ -27,31 +40,39 @@ class ActiveTractorService
     {
         $tractor->load(['driver']);
 
-        // Get all GPS metrics calculations for the specified date
-        $allMetrics = $tractor->gpsMetricsCalculations()->where('date', $date)->get();
+        $gpsData = $tractor->gpsData()->whereDate('date_time', $date)->get();
+        $gpsDataAnalyzer = $this->gpsDataAnalyzer->loadFromRecords($gpsData);
+        $gpsDataAnalyzer->analyze();
 
-        // Get daily metrics (where tractor_task_id is null)
-        $dailyReport = $allMetrics->whereNull('tractor_task_id')->first();
+        $results = $gpsDataAnalyzer->getResults();
 
-        // Get task-based metrics (where tractor_task_id is not null)
-        $taskMetrics = $allMetrics->whereNotNull('tractor_task_id');
+        $averageSpeed = $results['average_speed'];
+        $latestStatus = $results['latest_status'];
+        $stoppageCount = $results['stoppage_count'];
 
-        $latestStatus = $tractor->gpsReports()->latest('date_time')->first()?->value('status');
-        $averageSpeed = (int) $dailyReport?->average_speed;
-
-        // Calculate efficiencies
-        $efficiencies = $this->calculateEfficiencies($dailyReport, $taskMetrics);
+        // Calculate total efficiency
+        $workDurationSeconds = $results['movement_duration_seconds'];
+        $expectedDailyWorkHours = $tractor->expected_daily_work_time ?? 8; // Default to 8 hours if not set
+        $expectedDailyWorkSeconds = $expectedDailyWorkHours * 3600;
+        $totalEfficiency = $expectedDailyWorkSeconds > 0 ? ($workDurationSeconds / $expectedDailyWorkSeconds) * 100 : 0;
 
         return [
             'id' => $tractor->id,
             'name' => $tractor->name,
+            'on_time' => $results['device_on_time'],
+            'start_working_time' => $results['first_movement_time'],
             'speed' => $averageSpeed,
             'status' => $latestStatus,
-            'traveled_distance' => $this->formatDistance($dailyReport?->traveled_distance),
-            'work_duration' => $this->formatDuration($dailyReport?->work_duration),
-            'stoppage_count' => $dailyReport?->stoppage_count,
-            'stoppage_duration' => $this->formatDuration($dailyReport?->stoppage_duration),
-            'efficiencies' => $efficiencies,
+            'traveled_distance' => $results['movement_distance_km'],
+            'work_duration' => $results['movement_duration_formatted'],
+            'stoppage_count' => $stoppageCount,
+            'stoppage_duration' => $results['stoppage_duration_formatted'],
+            'stoppage_duration_while_on' => $results['stoppage_duration_while_on_formatted'],
+            'stoppage_duration_while_off' => $results['stoppage_duration_while_off_formatted'],
+            'efficiencies' => [
+                'total' => round($totalEfficiency, 2),
+                'task-based' => null
+            ],
             'driver' => new DriverResource($tractor->driver)
         ];
     }
@@ -65,96 +86,110 @@ class ActiveTractorService
      */
     public function getTractorTimings(Tractor $tractor, Carbon $date)
     {
-        $workingTimes = $tractor->getWorkingTimes($date);
+        // Use the new work time detection service
+        $workTimes = $this->tractorWorkTimeDetectionService->detectWorkTimes($tractor, $date);
 
         return [
-            'start_working_time' => $this->formatWorkingTime($workingTimes['start_working_time']),
-            'end_working_time' => $this->formatWorkingTime($workingTimes['end_working_time']),
-            'on_time' => $this->formatWorkingTime($workingTimes['on_time']),
+            'start_working_time' => $workTimes['start_work_time'],
+            'end_working_time' => $workTimes['end_work_time'],
+            'on_time' => $workTimes['on_time'],
         ];
     }
 
     /**
      * Get weekly efficiency chart data for both total and task-based metrics.
+     * Uses GpsDataAnalyzer for real-time calculation of past 7 days (excluding current day).
+     * Results are cached until the end of the day for performance.
      *
      * @param Tractor $tractor
      * @return array
      */
     public function getWeeklyEfficiencyChart(Tractor $tractor): array
     {
-        // Get the last 7 days from today
-        $endDate = Carbon::today();
+        // Create cache key based on tractor ID and date
+        $cacheKey = "weekly_efficiency_chart_tractor_{$tractor->id}_" . Carbon::today()->format('Y-m-d');
+
+        // Try to get cached results first
+        $cachedResults = cache()->get($cacheKey);
+        if ($cachedResults !== null) {
+            return $cachedResults;
+        }
+
+        // Get the past 7 days excluding current day
+        $endDate = Carbon::yesterday(); // Exclude current day
         $startDate = $endDate->copy()->subDays(6);
 
-        // Get all GPS metrics for the 7-day period
-        $weeklyMetrics = $tractor->gpsMetricsCalculations()
-            ->whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
+        // Pre-calculate expected daily work seconds for performance
+        $expectedDailyWorkHours = $tractor->expected_daily_work_time ?? 8;
+        $expectedDailyWorkSeconds = $expectedDailyWorkHours * 3600;
+
+        // Batch fetch all GPS data for the 7-day period to reduce database queries
+        $allGpsData = $tractor->gpsData()
+            ->whereBetween('date_time', [$startDate->startOfDay(), $endDate->endOfDay()])
+            ->orderBy('date_time')
             ->get()
-            ->groupBy('date');
+            ->groupBy(function ($item) {
+                return $item->date_time->format('Y-m-d');
+            });
 
         $totalEfficiencies = [];
         $taskBasedEfficiencies = [];
 
-        // Process each day
+        // Process each day using GpsDataAnalyzer for real-time calculation
         for ($i = 0; $i < 7; $i++) {
             $currentDate = $startDate->copy()->addDays($i);
             $dateString = $currentDate->format('Y-m-d');
             $shamsiDate = $this->convertToShamsi($currentDate);
 
-            $dayMetrics = $weeklyMetrics->get($dateString, collect());
+            // Get GPS data for the specific day from batched data
+            $gpsData = $allGpsData->get($dateString, collect());
 
-            // Get daily metrics (total efficiency)
-            $dailyMetric = $dayMetrics->whereNull('tractor_task_id')->first();
-            $totalEfficiency = $dailyMetric ? $this->formatEfficiency($dailyMetric->efficiency) : '0.00';
+            if ($gpsData->isEmpty()) {
+                // No data for this day - use default values
+                $totalEfficiencies[] = [
+                    'efficiency' => '0.00',
+                    'date' => $shamsiDate
+                ];
+                $taskBasedEfficiencies[] = [
+                    'efficiency' => '0.00',
+                    'date' => $shamsiDate
+                ];
+                continue;
+            }
+
+            // Analyze GPS data using GpsDataAnalyzer
+            $gpsDataAnalyzer = $this->gpsDataAnalyzer->loadFromRecords($gpsData);
+            $gpsDataAnalyzer->analyze();
+            $results = $gpsDataAnalyzer->getResults();
+
+            // Calculate total efficiency
+            $workDurationSeconds = $results['movement_duration_seconds'];
+            $totalEfficiency = $expectedDailyWorkSeconds > 0 ? ($workDurationSeconds / $expectedDailyWorkSeconds) * 100 : 0;
+
             $totalEfficiencies[] = [
-                'efficiency' => $totalEfficiency,
+                'efficiency' => $this->formatEfficiency($totalEfficiency),
                 'date' => $shamsiDate
             ];
 
-            // Get task-based metrics
-            $taskMetrics = $dayMetrics->whereNotNull('tractor_task_id');
-            if ($taskMetrics->isNotEmpty()) {
-                $averageTaskEfficiency = $taskMetrics->avg('efficiency');
-                $taskBasedEfficiency = $this->formatEfficiency($averageTaskEfficiency);
-            } else {
-                $taskBasedEfficiency = '0.00';
-            }
-
+            // Task-based efficiency is set to null as requested
             $taskBasedEfficiencies[] = [
-                'efficiency' => $taskBasedEfficiency,
+                'efficiency' => '0.00', // Set to null or calculate if needed
                 'date' => $shamsiDate
             ];
         }
 
-        return [
+        $results = [
             'total_efficiencies' => $totalEfficiencies,
             'task_based_efficiencies' => $taskBasedEfficiencies
         ];
-    }
 
+        // Cache results until end of day
+        $cacheUntil = Carbon::today()->endOfDay();
+        $cacheTtl = $cacheUntil->diffInSeconds(Carbon::now());
 
-    /**
-     * Format working time with consistent formatting.
-     */
-    private function formatWorkingTime($workingTime): ?string
-    {
-        return $workingTime?->date_time?->format(self::DEFAULT_TIME_FORMAT) ?? null;
-    }
+        cache()->put($cacheKey, $results, $cacheTtl);
 
-    /**
-     * Format distance with consistent decimal places.
-     */
-    private function formatDistance(?float $distance): string
-    {
-        return number_format($distance, self::DEFAULT_DECIMAL_PLACES);
-    }
-
-    /**
-     * Format duration in H:i:s format.
-     */
-    private function formatDuration(?int $duration): string
-    {
-        return gmdate(self::DEFAULT_TIME_FORMAT, $duration);
+        return $results;
     }
 
     /**
@@ -165,34 +200,6 @@ class ActiveTractorService
         return number_format($efficiency, self::DEFAULT_DECIMAL_PLACES);
     }
 
-    /**
-     * Calculate efficiencies for daily and task-based metrics.
-     *
-     * @param \App\Models\GpsMetricsCalculation|null $dailyReport
-     * @param \Illuminate\Support\Collection $taskMetrics
-     * @return array
-     */
-    private function calculateEfficiencies($dailyReport, $taskMetrics): array
-    {
-        $efficiencies = [
-            'total' => $this->formatEfficiency($dailyReport?->efficiency),
-            'task-based' => null
-        ];
-
-        // Calculate task-based efficiency
-        if ($taskMetrics->isNotEmpty()) {
-            if ($taskMetrics->count() === 1) {
-                // If there's only one task metric, use its efficiency
-                $efficiencies['task-based'] = $this->formatEfficiency($taskMetrics->first()->efficiency);
-            } else {
-                // If there are multiple task metrics, calculate average efficiency
-                $averageEfficiency = $taskMetrics->avg('efficiency');
-                $efficiencies['task-based'] = $this->formatEfficiency($averageEfficiency);
-            }
-        }
-
-        return $efficiencies;
-    }
 
     /**
      * Convert Gregorian date to Shamsi (Persian) date.

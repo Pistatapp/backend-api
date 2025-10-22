@@ -20,7 +20,7 @@ class TreeController extends Controller
      */
     public function index(Row $row)
     {
-        $trees = $row->trees()->select('id', 'row_id', 'location')->get();
+        $trees = $row->trees()->get();
         return TreeResource::collection($trees);
     }
 

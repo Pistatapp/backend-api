@@ -68,7 +68,15 @@ class FarmController extends Controller
             ->load(['crop', 'users' => function ($query) {
                 $query->wherePivot('is_owner', false);
             }])
-            ->loadCount(['trees', 'fields', 'labours', 'tractors', 'plans']);
+            ->loadCount([
+                'trees',
+                'fields',
+                'labours',
+                'plans',
+                'tractors' => function ($query) {
+                    $query->active();
+                }
+            ]);
 
         return new FarmResource($farm);
     }

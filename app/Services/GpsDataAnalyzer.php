@@ -2,142 +2,45 @@
 
 namespace App\Services;
 
-use Carbon\Carbon;
-
 class GpsDataAnalyzer
 {
     private array $data = [];
     private array $results = [];
     private array $movements = [];
     private array $stoppages = [];
-    private bool $analyzed = false;
 
     /**
-     * Parse a GPS data record from Hooshnic format
-     * Format: +Hooshnic:V1.06,LAT,LON,ALT,DATE,TIME,SPEED,HEADING,STATUS,SATELLITES,FIX,IMEI
+     * Load GPS data from GpsData model records or array
+     * Accepts either a Collection of GpsData models or an array of data
+     *
+     * @param \Illuminate\Support\Collection|array $data
+     * @return self
      */
-    private function parseRecord(string $line): ?array
-    {
-        // Extract JSON from line
-        if (!preg_match('/"data":"(.+?)"/', $line, $matches)) {
-            return null;
-        }
-
-        $data = $matches[1];
-        $parts = explode(',', $data);
-
-        if (count($parts) < 12) {
-            return null;
-        }
-
-        // Parse coordinates in NMEA format: DDMM.MMMM (degrees and decimal minutes)
-        // Example: 3556.42915 = 35° 56.42915' = 35 + (56.42915 / 60) degrees
-        $latRaw = floatval($parts[1]);
-        $lonRaw = floatval($parts[2]);
-
-        // Convert DDMM.MMMM to DD.DDDDDD
-        $latDegrees = floor($latRaw / 100);
-        $latMinutes = $latRaw - ($latDegrees * 100);
-        $latitude = $latDegrees + ($latMinutes / 60);
-
-        $lonDegrees = floor($lonRaw / 100);
-        $lonMinutes = $lonRaw - ($lonDegrees * 100);
-        $longitude = $lonDegrees + ($lonMinutes / 60);
-
-        $altitude = intval($parts[3]);
-
-        // Parse date and time using ymdHis format (same as ParseDataService)
-        // Format: DDMMYY HHMMSS concatenated as ymdHis
-        // Example: 251020 083042 = 2025-10-20 08:30:42
-        $dateStr = $parts[4]; // DDMMYY but parsed as ymd
-        $timeStr = $parts[5]; // HHMMSS but parsed as His
-
-        $timestamp = Carbon::createFromFormat('ymdHis', $dateStr . $timeStr)
-            ->addHours(3)
-            ->addMinutes(30); // Iran timezone adjustment (UTC+3:30)
-
-        return [
-            'latitude' => $latitude,
-            'longitude' => $longitude,
-            'altitude' => $altitude,
-            'timestamp' => $timestamp,
-            'speed' => intval($parts[6]), // km/h
-            'heading' => intval($parts[7]), // degrees
-            'status' => intval($parts[8]), // 0=off, 1=on
-            'satellites' => intval($parts[9]),
-            'fix' => intval($parts[10]),
-            'imei' => $parts[11],
-        ];
-    }
-
-    /**
-     * Calculate distance between two GPS points using Haversine formula
-     * Returns distance in kilometers
-     */
-    private function calculateDistance(array $point1, array $point2): float
-    {
-        $earthRadius = 6371; // km
-
-        $lat1 = deg2rad($point1['latitude']);
-        $lon1 = deg2rad($point1['longitude']);
-        $lat2 = deg2rad($point2['latitude']);
-        $lon2 = deg2rad($point2['longitude']);
-
-        $deltaLat = $lat2 - $lat1;
-        $deltaLon = $lon2 - $lon1;
-
-        $a = sin($deltaLat / 2) * sin($deltaLat / 2) +
-             cos($lat1) * cos($lat2) *
-             sin($deltaLon / 2) * sin($deltaLon / 2);
-
-        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
-
-        return $earthRadius * $c;
-    }
-
-    /**
-     * Load and parse GPS data from file
-     */
-    public function loadFromFile(string $filePath): self
+    public function loadFromRecords($data): self
     {
         $this->data = [];
-        $this->analyzed = false; // Reset analysis flag
         $this->movements = [];
         $this->stoppages = [];
         $this->results = [];
 
-        $lines = file($filePath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-
-        foreach ($lines as $line) {
-            // Handle multiple JSON objects in one line
-            preg_match_all('/\{"data":"[^}]+"\}/', $line, $matches);
-
-            foreach ($matches[0] as $jsonStr) {
-                $record = $this->parseRecord($jsonStr);
-                if ($record) {
-                    $this->data[] = $record;
-                }
+        // Convert GpsData models to internal format
+        foreach ($data as $record) {
+            // Handle both GpsData model instances and arrays
+            if (is_object($record)) {
+                // GpsData model instance
+                $this->data[] = [
+                    'latitude' => $record->coordinate[0],
+                    'longitude' => $record->coordinate[1],
+                    'timestamp' => $record->date_time,
+                    'speed' => $record->speed,
+                    'status' => $record->status,
+                    'imei' => $record->imei,
+                ];
+            } else {
+                // Already in array format
+                $this->data[] = $record;
             }
         }
-
-        // Sort by timestamp
-        usort($this->data, function ($a, $b) {
-            return $a['timestamp']->timestamp <=> $b['timestamp']->timestamp;
-        });
-
-        return $this;
-    }
-
-    /**
-     * Load GPS data from array
-     */
-    public function loadFromArray(array $data): self
-    {
-        $this->data = $data;
-        $this->analyzed = false; // Reset analysis flag
-        $this->movements = [];
-        $this->stoppages = [];
-        $this->results = [];
 
         // Sort by timestamp
         usort($this->data, function ($a, $b) {
@@ -158,11 +61,6 @@ class GpsDataAnalyzer
     {
         if (empty($this->data)) {
             return $this->getEmptyResults();
-        }
-
-        // Return cached results if already analyzed
-        if ($this->analyzed) {
-            return $this->results;
         }
 
         // Initialize counters
@@ -228,7 +126,10 @@ class GpsDataAnalyzer
             // Transition: Moving -> Stopped
             if ($isStopped && $isCurrentlyMoving) {
                 // Add transition to movement
-                $distance = $this->calculateDistance($previousPoint, $currentPoint);
+                $distance = calculate_distance(
+                    [$previousPoint['latitude'], $previousPoint['longitude']],
+                    [$currentPoint['latitude'], $currentPoint['longitude']]
+                );
                 $movementSegmentDistance += $distance;
                 $movementDistance += $distance;
                 $movementDuration += $timeDiff;
@@ -241,7 +142,7 @@ class GpsDataAnalyzer
                     'start_time' => $this->data[$movementStartIndex]['timestamp']->toDateTimeString(),
                     'end_time' => $currentPoint['timestamp']->toDateTimeString(),
                     'duration_seconds' => $duration,
-                    'duration_formatted' => $this->formatDuration($duration),
+                    'duration_formatted' => to_time_format($duration),
                     'distance_km' => round($movementSegmentDistance, 3),
                     'distance_meters' => round($movementSegmentDistance * 1000, 2),
                     'start_location' => [
@@ -293,7 +194,7 @@ class GpsDataAnalyzer
                     'start_time' => $this->data[$stoppageStartIndex]['timestamp']->toDateTimeString(),
                     'end_time' => $currentPoint['timestamp']->toDateTimeString(),
                     'duration_seconds' => $tempDuration,
-                    'duration_formatted' => $this->formatDuration($tempDuration),
+                    'duration_formatted' => to_time_format($tempDuration),
                     'location' => [
                         'latitude' => $this->data[$stoppageStartIndex]['latitude'],
                         'longitude' => $this->data[$stoppageStartIndex]['longitude'],
@@ -321,7 +222,10 @@ class GpsDataAnalyzer
             }
             // Continue moving
             elseif ($isMoving && $isCurrentlyMoving) {
-                $distance = $this->calculateDistance($previousPoint, $currentPoint);
+                $distance = calculate_distance(
+                    [$previousPoint['latitude'], $previousPoint['longitude']],
+                    [$currentPoint['latitude'], $currentPoint['longitude']]
+                );
                 $movementSegmentDistance += $distance;
                 $movementDistance += $distance;
                 $movementDuration += $timeDiff;
@@ -345,7 +249,7 @@ class GpsDataAnalyzer
                 'start_time' => $this->data[$movementStartIndex]['timestamp']->toDateTimeString(),
                 'end_time' => $previousPoint['timestamp']->toDateTimeString(),
                 'duration_seconds' => $duration,
-                'duration_formatted' => $this->formatDuration($duration),
+                'duration_formatted' => to_time_format($duration),
                 'distance_km' => round($movementSegmentDistance, 3),
                 'distance_meters' => round($movementSegmentDistance * 1000, 2),
                 'start_location' => [
@@ -389,7 +293,7 @@ class GpsDataAnalyzer
                 'start_time' => $this->data[$stoppageStartIndex]['timestamp']->toDateTimeString(),
                 'end_time' => $previousPoint['timestamp']->toDateTimeString(),
                 'duration_seconds' => $tempDuration,
-                'duration_formatted' => $this->formatDuration($tempDuration),
+                'duration_formatted' => to_time_format($tempDuration),
                 'location' => [
                     'latitude' => $this->data[$stoppageStartIndex]['latitude'],
                     'longitude' => $this->data[$stoppageStartIndex]['longitude'],
@@ -414,39 +318,26 @@ class GpsDataAnalyzer
             'movement_distance_km' => round($movementDistance, 3),
             'movement_distance_meters' => round($movementDistance * 1000, 2),
             'movement_duration_seconds' => $movementDuration,
-            'movement_duration_formatted' => $this->formatDuration($movementDuration),
+            'movement_duration_formatted' => to_time_format($movementDuration),
             'stoppage_duration_seconds' => $stoppageDuration,
-            'stoppage_duration_formatted' => $this->formatDuration($stoppageDuration),
+            'stoppage_duration_formatted' => to_time_format($stoppageDuration),
             'stoppage_duration_while_on_seconds' => $stoppageDurationWhileOn,
-            'stoppage_duration_while_on_formatted' => $this->formatDuration($stoppageDurationWhileOn),
+            'stoppage_duration_while_on_formatted' => to_time_format($stoppageDurationWhileOn),
             'stoppage_duration_while_off_seconds' => $stoppageDurationWhileOff,
-            'stoppage_duration_while_off_formatted' => $this->formatDuration($stoppageDurationWhileOff),
+            'stoppage_duration_while_off_formatted' => to_time_format($stoppageDurationWhileOff),
             'stoppage_count' => $stoppageCount,
             'ignored_stoppage_count' => $ignoredStoppageCount,
             'ignored_stoppage_duration_seconds' => $ignoredStoppageDuration,
-            'ignored_stoppage_duration_formatted' => $this->formatDuration($ignoredStoppageDuration),
+            'ignored_stoppage_duration_formatted' => to_time_format($ignoredStoppageDuration),
             'device_on_time' => $deviceOnTime,
             'first_movement_time' => $firstMovementTime,
             'total_records' => $dataCount,
             'start_time' => $this->data[0]['timestamp']->toDateTimeString(),
             'end_time' => $this->data[$dataCount - 1]['timestamp']->toDateTimeString(),
+            'latest_status' => $this->data[$dataCount - 1]['status'],
         ];
 
-        $this->analyzed = true; // Mark as analyzed for caching
         return $this->results;
-    }
-
-
-    /**
-     * Format duration in seconds to human-readable format
-     */
-    private function formatDuration(int $seconds): string
-    {
-        $hours = floor($seconds / 3600);
-        $minutes = floor(($seconds % 3600) / 60);
-        $secs = $seconds % 60;
-
-        return sprintf('%02d:%02d:%02d', $hours, $minutes, $secs);
     }
 
     /**
@@ -474,6 +365,7 @@ class GpsDataAnalyzer
             'total_records' => 0,
             'start_time' => null,
             'end_time' => null,
+            'latest_status' => null,
         ];
     }
 
@@ -485,56 +377,10 @@ class GpsDataAnalyzer
      */
     public function getStoppageDetails(): array
     {
-        // Auto-analyze if not done yet
-        if (!$this->analyzed) {
-            $this->analyze();
-        }
+
+        $this->analyze();
 
         return $this->stoppages;
-    }
-
-    /**
-     * Get detailed movement information (optimized - returns cached data)
-     * Note: Speed > 2 km/h is considered movement
-     * Note: First stoppage point in batch = last movement point
-     */
-    public function getMovementDetails(): array
-    {
-        // Auto-analyze if not done yet
-        if (!$this->analyzed) {
-            $this->analyze();
-        }
-
-        return $this->movements;
-    }
-
-    /**
-     * Get combined movement and stoppage details in chronological order (optimized)
-     */
-    public function getChronologicalDetails(): array
-    {
-        // Auto-analyze if not done yet
-        if (!$this->analyzed) {
-            $this->analyze();
-        }
-
-        // Combine cached arrays with type identifier
-        $combined = [];
-
-        foreach ($this->movements as $movement) {
-            $combined[] = array_merge($movement, ['type' => 'movement']);
-        }
-
-        foreach ($this->stoppages as $stoppage) {
-            $combined[] = array_merge($stoppage, ['type' => 'stoppage']);
-        }
-
-        // Sort by start time (using timestamp for faster comparison)
-        usort($combined, function ($a, $b) {
-            return strtotime($a['start_time']) <=> strtotime($b['start_time']);
-        });
-
-        return $combined;
     }
 
     /**
@@ -545,4 +391,3 @@ class GpsDataAnalyzer
         return $this->results;
     }
 }
-

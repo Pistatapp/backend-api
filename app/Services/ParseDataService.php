@@ -92,10 +92,7 @@ class ParseDataService
         $nsDirection = (int)$dataFields[10];
         $imei = $dataFields[11];
 
-        $isStopped = ($status === 0) || ($status === 1 && $speed === 0);
-
         return [
-            'raw_data' => $data,
             'coordinate' => $coordinate,
             'speed' => $speed,
             'status' => $status,
@@ -103,10 +100,6 @@ class ParseDataService
                 'ew' => $ewDirection,
                 'ns' => $nsDirection,
             ],
-            'is_starting_point' => false,
-            'is_ending_point' => false,
-            'is_stopped' => $isStopped,
-            'stoppage_time' => 0,
             'date_time' => $dateTime,
             'imei' => $imei,
         ];
@@ -152,9 +145,7 @@ class ParseDataService
      */
     private function parseDateTime(string $date, string $time): Carbon
     {
-        return Carbon::createFromFormat('ymdHis', $date . $time)
-            ->addHours(3)
-            ->addMinutes(30);
+        return Carbon::createFromFormat('ymdHis', $date . $time)->addHours(3)->addMinutes(30);
     }
 
     /**
