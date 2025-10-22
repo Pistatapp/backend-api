@@ -28,7 +28,7 @@ class ActiveTractorController extends Controller
      */
     public function index(Farm $farm)
     {
-        $tractors = $farm->tractors()->active()->with('gpsDevice')->get();
+        $tractors = $farm->tractors()->active()->with('gpsDevice', 'driver')->get();
 
         // Calculate work times for each tractor using the dedicated service
         $tractors = $this->tractorWorkTimeDetectionService->detectWorkTimesForTractors($tractors);
