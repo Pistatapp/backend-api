@@ -3,7 +3,6 @@
 namespace App\Services\Tractor;
 
 use App\Models\Tractor;
-use App\Services\GpsDataAnalyzer;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
@@ -13,9 +12,7 @@ class TractorWorkTimeDetectionService
     private const CACHE_PREFIX = 'tractor_work_time_detection';
     private const MIN_SPEED_FOR_WORK = 2; // Minimum speed to consider as actual work
 
-    public function __construct(
-        private GpsDataAnalyzer $gpsDataAnalyzer
-    ) {}
+    public function __construct() {}
 
     /**
      * Detect all work time events for a tractor using GPS data analysis
@@ -95,7 +92,6 @@ class TractorWorkTimeDetectionService
             Cache::put($cacheKey, $result, $cacheTtl);
 
             return $result;
-
         } catch (\Exception $e) {
             // Log error and return null if analysis fails
             Log::error('Failed to detect work times for tractor ' . $tractor->id . ': ' . $e->getMessage());
@@ -226,36 +222,37 @@ class TractorWorkTimeDetectionService
         $startWorkTime = null;
         $endWorkTime = null;
 
-        // Find the first point with status 1 after user specified start work time (on_time)
+        // Process GPS data in chronological order to detect state transitions
         foreach ($gpsData as $point) {
             $pointTime = Carbon::parse($point->date_time);
 
-            if ($point->status == 1 && $pointTime->gt($workStartToday)) {
+            // Skip points before user specified start work time
+            if ($pointTime->lt($workStartToday)) {
+                continue;
+            }
+
+            // Detect on_time: first point with status 1 after user specified start work time
+            if ($onTime === null && $point->status == 1) {
                 $onTime = $pointTime->format('H:i:s');
-                break;
             }
-        }
 
-        // Find the first point with status 1 and speed > 2 after user specified start work time (actual start work time)
-        foreach ($gpsData as $point) {
-            $pointTime = Carbon::parse($point->date_time);
-
-            if ($point->status == 1 &&
-                $point->speed > self::MIN_SPEED_FOR_WORK &&
-                $pointTime->gt($workStartToday)) {
+            // Detect start_work_time: first point with status 1 and speed > 2 after user specified start work time
+            if ($startWorkTime === null &&
+                $point->status == 1 &&
+                $point->speed > self::MIN_SPEED_FOR_WORK) {
                 $startWorkTime = $pointTime->format('H:i:s');
-                break;
             }
-        }
 
-        // Find the first point with status 0 and speed 0 after user specified end work time (end work time)
-        foreach ($gpsData as $point) {
-            $pointTime = Carbon::parse($point->date_time);
-
-            if ($point->status == 0 &&
-                $point->speed == 0 &&
-                $pointTime->gt($workEndToday)) {
+            // Detect end_work_time: first point with status 0 and speed 0 after user specified end work time
+            if ($pointTime->gt($workEndToday) &&
+                $endWorkTime === null &&
+                $point->status == 0 &&
+                $point->speed == 0) {
                 $endWorkTime = $pointTime->format('H:i:s');
+            }
+
+            // Early exit if we've found all required times
+            if ($onTime !== null && $startWorkTime !== null && $endWorkTime !== null) {
                 break;
             }
         }
