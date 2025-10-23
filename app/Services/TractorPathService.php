@@ -35,6 +35,8 @@ class TractorPathService
             // Get optimized GPS data for the specified date
             $gpsData = $this->getOptimizedGpsData($tractor, $date);
 
+            return PointsResource::collection($gpsData);
+
             if ($gpsData->isEmpty()) {
                 return PointsResource::collection(collect());
             }
@@ -48,7 +50,7 @@ class TractorPathService
             $pathPoints = $this->extractMovementPoints($gpsData, $analysisResults);
 
             // Convert to PointsResource format
-            $formattedPathPoints = $this->convertToPathPoints($gpsData);
+            $formattedPathPoints = $this->convertToPathPoints($pathPoints);
 
             return PointsResource::collection($formattedPathPoints);
 
