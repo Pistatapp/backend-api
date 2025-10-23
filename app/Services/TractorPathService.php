@@ -35,8 +35,6 @@ class TractorPathService
             // Get optimized GPS data for the specified date
             $gpsData = $this->getOptimizedGpsData($tractor, $date);
 
-            return PointsResource::collection($gpsData);
-
             if ($gpsData->isEmpty()) {
                 return PointsResource::collection(collect());
             }
@@ -167,7 +165,19 @@ class TractorPathService
 
         for ($i = $startIndex + 1; $i <= $endIndex; $i++) {
             if (isset($gpsDataArray[$i]) && isset($gpsDataArray[$i - 1])) {
-                $timeDiff = $gpsDataArray[$i]['date_time']->timestamp - $gpsDataArray[$i - 1]['date_time']->timestamp;
+                // Handle both Carbon instances and string dates
+                $currentTime = $gpsDataArray[$i]['date_time'];
+                $previousTime = $gpsDataArray[$i - 1]['date_time'];
+
+                // Convert to Carbon if it's a string
+                if (is_string($currentTime)) {
+                    $currentTime = \Carbon\Carbon::parse($currentTime);
+                }
+                if (is_string($previousTime)) {
+                    $previousTime = \Carbon\Carbon::parse($previousTime);
+                }
+
+                $timeDiff = $currentTime->timestamp - $previousTime->timestamp;
                 $duration += $timeDiff;
             }
         }
