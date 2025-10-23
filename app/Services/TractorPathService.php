@@ -48,7 +48,7 @@ class TractorPathService
             $pathPoints = $this->extractMovementPoints($gpsData, $analysisResults);
 
             // Convert to PointsResource format
-            $formattedPathPoints = $this->convertToPathPoints($pathPoints);
+            $formattedPathPoints = $this->convertToPathPoints($gpsData);
 
             return PointsResource::collection($formattedPathPoints);
 
