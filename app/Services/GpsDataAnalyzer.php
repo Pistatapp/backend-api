@@ -359,13 +359,16 @@ class GpsDataAnalyzer
 
         $averageSpeed = $movementDuration > 0 ? intval($movementDistance / $movementDuration) : 0;
 
+        // Calculate total stoppage duration including ignored stoppages
+        $totalStoppageDuration = $stoppageDuration + $ignoredStoppageDuration;
+
         $this->results = [
             'movement_distance_km' => round($movementDistance, 3),
             'movement_distance_meters' => round($movementDistance * 1000, 2),
             'movement_duration_seconds' => $movementDuration,
             'movement_duration_formatted' => to_time_format($movementDuration),
-            'stoppage_duration_seconds' => $stoppageDuration,
-            'stoppage_duration_formatted' => to_time_format($stoppageDuration),
+            'stoppage_duration_seconds' => $totalStoppageDuration,
+            'stoppage_duration_formatted' => to_time_format($totalStoppageDuration),
             'stoppage_duration_while_on_seconds' => $stoppageDurationWhileOn,
             'stoppage_duration_while_on_formatted' => to_time_format($stoppageDurationWhileOn),
             'stoppage_duration_while_off_seconds' => $stoppageDurationWhileOff,
