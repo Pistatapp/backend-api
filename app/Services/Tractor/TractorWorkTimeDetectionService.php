@@ -230,19 +230,19 @@ class TractorWorkTimeDetectionService
         foreach ($gpsData as $point) {
             $pointTime = Carbon::parse($point->date_time);
 
-            if ($point->status == 1 && $pointTime->gte($workStartToday)) {
+            if ($point->status == 1 && $pointTime->gt($workStartToday)) {
                 $onTime = $pointTime->format('H:i:s');
                 break;
             }
         }
 
-        // Find the first point with status 1 and speed > 2 after on_time (actual start work time)
+        // Find the first point with status 1 and speed > 2 after user specified start work time (actual start work time)
         foreach ($gpsData as $point) {
             $pointTime = Carbon::parse($point->date_time);
 
             if ($point->status == 1 &&
                 $point->speed > self::MIN_SPEED_FOR_WORK &&
-                $pointTime->gte($workStartToday)) {
+                $pointTime->gt($workStartToday)) {
                 $startWorkTime = $pointTime->format('H:i:s');
                 break;
             }
@@ -254,7 +254,7 @@ class TractorWorkTimeDetectionService
 
             if ($point->status == 0 &&
                 $point->speed == 0 &&
-                $pointTime->gte($workEndToday)) {
+                $pointTime->gt($workEndToday)) {
                 $endWorkTime = $pointTime->format('H:i:s');
                 break;
             }
