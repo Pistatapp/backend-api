@@ -1,4 +1,6 @@
-<?php namespace App\Jobs\GPSReport;
+<?php
+
+namespace App\Jobs\GPSReport;
 
 use App\Models\GpsReport;
 use Illuminate\Bus\Queueable;
@@ -6,13 +8,14 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 
 class StoreGpsReportJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     /**
-     * The parsed GPS report data ready for insertion.
+     * Parsed GPS report data (one or many records)
      *
      * @var array
      */
@@ -21,7 +24,7 @@ class StoreGpsReportJob implements ShouldQueue
     /**
      * Create a new job instance.
      *
-     * @param  array  $parsedData  Parsed GPS report from GpsParseService
+     * @param  array  $parsedData
      */
     public function __construct(array $parsedData)
     {
@@ -29,13 +32,20 @@ class StoreGpsReportJob implements ShouldQueue
     }
 
     /**
-     * Execute the job and store the GPS report in the database.
-     *
-     * @return void
+     * Execute the job.
      */
     public function handle(): void
     {
-        // Insert the parsed GPS record directly into the gps_reports table.
-        GpsReport::create($this->parsedData);
+        try {
+            // Insert each parsed GPS record
+            foreach ($this->parsedData as $record) {
+                GpsReport::create($record);
+            }
+        } catch (\Throwable $e) {
+            Log::error('StoreGpsReportsJob failed to insert GPS data', [
+                'error' => $e->getMessage(),
+                'data'  => $this->parsedData,
+            ]);
+        }
     }
 }

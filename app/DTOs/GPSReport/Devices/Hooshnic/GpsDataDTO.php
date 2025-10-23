@@ -1,4 +1,4 @@
-<?php namespace App\DTOs;
+<?php namespace App\DTOs\GPSReport\Devices\Hooshnic;
 
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Validator;
@@ -108,23 +108,33 @@ readonly class GpsDataDTO
     }
 
     /**
-     * Log invalid records for debugging.
+     * Log invalid GPS records to file for later inspection.
      */
     private static function logInvalid(string $raw, string $reason): void
     {
         $file = storage_path('logs/invalid_gps_data.json');
+
         $entry = [
             'timestamp' => now()->toDateTimeString(),
-            'raw_data' => $raw,
-            'reason' => $reason,
+            'raw_data'  => $raw,
+            'reason'    => $reason,
         ];
 
-        $existing = file_exists($file)
-            ? (json_decode(file_get_contents($file), true) ?? [])
-            : [];
+        $existing = [];
+
+        // Read existing file safely (use global functions with leading backslash)
+        if (\file_exists($file)) {
+            $content = \file_get_contents($file);
+            $decoded = @\json_decode($content, true);
+            if (is_array($decoded)) {
+                $existing = $decoded;
+            }
+        }
 
         $existing[] = $entry;
-        file_put_contents($file, json_encode($existing, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+
+        // Write back (overwrite). Using global json_encode and file_put_contents.
+        \file_put_contents($file, \json_encode($existing, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
     }
 
     /**

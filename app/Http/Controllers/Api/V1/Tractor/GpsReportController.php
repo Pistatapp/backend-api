@@ -2,47 +2,55 @@
 
 namespace App\Http\Controllers\Api\V1\Tractor;
 
-use App\Events\TractorStatus;
 use App\Http\Controllers\Controller;
 use App\Jobs\GPSReport\StoreGpsReportJob;
 use App\Models\GpsReport;
-use App\Services\GPSReport\GpsParseService;
+use App\Services\GPSReport\GpsParserManager;
 use App\Services\ParseDataService;
-use App\Jobs\ProcessGpsReportsJob;
 use App\Models\GpsDevice;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class GpsReportController extends Controller
 {
     public function __construct(
-        private ParseDataService $parseDataService,
-        private GpsParseService $gpsParseService,
-    ) {}
+        private ParseDataService          $parseDataService,
+        private readonly GpsParserManager $gpsParserManager,
+    )
+    {
+    }
 
     /**
      * Store a newly created resource in storage.
      *
-     * @param  \Illuminate\Http\Request  $request
+     * @param Request $request
+     * @return JsonResponse
      */
     public function __invoke(Request $request)
     {
         try {
             $rawData = $request->getContent();
 
-            // Parse incoming GPS data
-            $parsed = $this->gpsParseService->parse($rawData);
+            // Parse the raw data using GpsParserManager (auto-detects device)
+            $parsed = $this->gpsParserManager->parse($rawData);
 
             if (!$parsed) {
-                \Log::warning('Invalid or unrecognized GPS data received');
+                Log::warning('Invalid or unrecognized GPS data received', [
+                    'payload' => substr($rawData, 0, 120)
+                ]);
+
                 return response()->json(['message' => 'Invalid data'], 400);
             }
 
-            // Optional queue usage
+            // Queue or direct insert
             if (config('gps.use_queue')) {
-                ProcessGpsReportsJob::dispatch($parsed);
+                StoreGpsReportJob::dispatch($parsed);
             } else {
-                GpsReport::create($parsed);
+                foreach ($parsed as $record) {
+                    GpsReport::create($record);
+                }
             }
 
 
