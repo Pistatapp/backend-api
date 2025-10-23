@@ -74,10 +74,7 @@ class TractorPathService
     {
         return $tractor->gpsData()
             ->whereDate('date_time', $date)
-            ->where('date_time', '>=', $date->startOfDay())
-            ->where('date_time', '<=', $date->endOfDay())
-            ->orderBy('date_time', 'asc')
-            ->limit(self::MAX_POINTS_PER_PATH)
+            ->orderBy('date_time')
             ->get();
     }
 
