@@ -8,6 +8,8 @@ class GpsDataAnalyzer
     private array $results = [];
     private array $movements = [];
     private array $stoppages = [];
+    private ?\Carbon\Carbon $workingStartTime = null;
+    private ?\Carbon\Carbon $workingEndTime = null;
 
     /**
      * Load GPS data from GpsData model records or array
@@ -51,6 +53,20 @@ class GpsDataAnalyzer
     }
 
     /**
+     * Set working time boundaries for filtering GPS data
+     *
+     * @param \Carbon\Carbon|null $startTime
+     * @param \Carbon\Carbon|null $endTime
+     * @return self
+     */
+    public function setWorkingTimeBoundaries(?\Carbon\Carbon $startTime, ?\Carbon\Carbon $endTime): self
+    {
+        $this->workingStartTime = $startTime;
+        $this->workingEndTime = $endTime;
+        return $this;
+    }
+
+    /**
      * Analyze GPS data and calculate all metrics
      * Note: Speed > 2 km/h is considered movement, speed <= 2 km/h is stopped
      * Note: Stoppages less than 60 seconds are considered as movements
@@ -59,6 +75,33 @@ class GpsDataAnalyzer
      */
     public function analyze(): array
     {
+        if (empty($this->data)) {
+            return $this->getEmptyResults();
+        }
+
+        // Filter data by working time boundaries if set
+        if ($this->workingStartTime || $this->workingEndTime) {
+            $this->data = array_filter($this->data, function ($point) {
+                $pointTime = $point['timestamp'];
+
+                // If working start time is set, filter out points before it
+                if ($this->workingStartTime && $pointTime->lt($this->workingStartTime)) {
+                    return false;
+                }
+
+                // If working end time is set, filter out points after it
+                if ($this->workingEndTime && $pointTime->gt($this->workingEndTime)) {
+                    return false;
+                }
+
+                return true;
+            });
+
+            // Re-index array after filtering
+            $this->data = array_values($this->data);
+        }
+
+        // Check if we have any data left after filtering
         if (empty($this->data)) {
             return $this->getEmptyResults();
         }
