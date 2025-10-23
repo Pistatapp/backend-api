@@ -66,7 +66,7 @@ class TractorWorkTimeDetectionService
             // Get GPS data with optimized query
             $gpsData = $this->getOptimizedGpsData($tractor, $targetDate);
 
-            Log::debug('TractorWorkTimeDetectionService: GPS data', ['gpsData' => $gpsData]);
+            Log::info('GPS Data', ['gpsData' => $gpsData]);
 
             if ($gpsData->isEmpty()) {
                 $result = [
