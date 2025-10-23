@@ -66,22 +66,7 @@ class TractorWorkTimeDetectionService
             // Get GPS data with optimized query
             $gpsData = $this->getOptimizedGpsData($tractor, $targetDate);
 
-            if ($gpsData->count() >= 2) {
-                $pointsToLog = $gpsData->take(2)->map(function($point) {
-                    return [
-                        'id' => $point->id,
-                        'date_time' => (string) $point->date_time,
-                        'coordinate' => $point->coordinate,
-                        'speed' => $point->speed,
-                        'status' => $point->status ?? null,
-                    ];
-                });
-                Log::debug('TractorWorkTimeDetectionService: First two GPS points', [
-                    'tractor_id' => $tractor->id,
-                    'date' => $dateString,
-                    'points' => $pointsToLog,
-                ]);
-            }
+            Log::debug('TractorWorkTimeDetectionService: GPS data', ['gpsData' => $gpsData]);
 
             if ($gpsData->isEmpty()) {
                 $result = [
