@@ -56,10 +56,10 @@ class ReportReceived implements ShouldBroadcast
                     'speed' => $point['speed'],
                     'status' => $point['status'],
                     'directions' => $point['directions'],
-                    'is_starting_point' => $point['is_starting_point'],
-                    'is_ending_point' => $point['is_ending_point'],
-                    'is_stopped' => $point['is_stopped'],
-                    'stoppage_time' => gmdate('H:i:s', $point['stoppage_time']),
+                    'is_starting_point' => $point['is_starting_point'] ?? false,
+                    'is_ending_point' => $point['is_ending_point'] ?? false,
+                    'is_stopped' => $point['is_stopped'] ?? false,
+                    'stoppage_time' => gmdate('H:i:s', $point['stoppage_time'] ?? 0),
                     'date_time' => jdate($point['date_time'])->format('Y/m/d H:i:s'),
                 ];
         })->toArray();

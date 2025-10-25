@@ -23,6 +23,18 @@ class Driver extends Model
     ];
 
     /**
+     * Get the mobile number for the driver.
+     *
+     * @param string $driver
+     * @param \Illuminate\Notifications\Notification|null $notification
+     * @return string|array
+     */
+    public function routeNotificationForKavenegar($driver, $notification = null)
+    {
+        return $this->mobile;
+    }
+
+    /**
      * Set the employee code for the Driver
      *
      * @param string $value

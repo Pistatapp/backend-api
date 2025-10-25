@@ -5,29 +5,15 @@ namespace App\Services;
 use App\Models\Tractor;
 use Carbon\Carbon;
 use App\Http\Resources\DriverResource;
-use Morilog\Jalali\Jalalian;
-use App\Models\Farm;
-use Illuminate\Support\Collection;
 use App\Services\GpsDataAnalyzer;
 use App\Services\Tractor\TractorWorkTimeDetectionService;
 
 class ActiveTractorService
 {
-    private const DEFAULT_TIME_FORMAT = 'H:i:s';
-    private const DEFAULT_DECIMAL_PLACES = 2;
-    private const EFFICIENCY_HISTORY_DAYS = 7;
-
     public function __construct(
         private GpsDataAnalyzer $gpsDataAnalyzer,
         private TractorWorkTimeDetectionService $tractorWorkTimeDetectionService
     ) {}
-
-    public function getActiveTractors(Farm $farm): Collection
-    {
-        $tractors = $farm->tractors()->active()->get();
-
-        return $tractors;
-    }
 
     /**
      * Returns tractor performance.
@@ -84,7 +70,7 @@ class ActiveTractorService
             'stoppage_duration_while_on' => $results['stoppage_duration_while_on_formatted'],
             'stoppage_duration_while_off' => $results['stoppage_duration_while_off_formatted'],
             'efficiencies' => [
-                'total' => round($totalEfficiency, 2),
+                'total' => number_format($totalEfficiency, 2),
                 'task-based' => null
             ],
             'driver' => new DriverResource($tractor->driver)
@@ -153,7 +139,7 @@ class ActiveTractorService
         for ($i = 0; $i < 7; $i++) {
             $currentDate = $startDate->copy()->addDays($i);
             $dateString = $currentDate->format('Y-m-d');
-            $shamsiDate = $this->convertToShamsi($currentDate);
+            $shamsiDate = jdate($currentDate)->format('Y/m/d');
 
             // Get GPS data for the specific day from batched data
             $gpsData = $allGpsData->get($dateString, collect());
@@ -188,7 +174,7 @@ class ActiveTractorService
             $totalEfficiency = $expectedDailyWorkSeconds > 0 ? ($workDurationSeconds / $expectedDailyWorkSeconds) * 100 : 0;
 
             $totalEfficiencies[] = [
-                'efficiency' => $this->formatEfficiency($totalEfficiency),
+                'efficiency' => number_format($totalEfficiency, 2),
                 'date' => $shamsiDate
             ];
 
@@ -211,25 +197,5 @@ class ActiveTractorService
         cache()->put($cacheKey, $results, $cacheTtl);
 
         return $results;
-    }
-
-    /**
-     * Format efficiency with consistent decimal places.
-     */
-    private function formatEfficiency(?float $efficiency): string
-    {
-        return number_format($efficiency, self::DEFAULT_DECIMAL_PLACES);
-    }
-
-
-    /**
-     * Convert Gregorian date to Shamsi (Persian) date.
-     *
-     * @param Carbon $date
-     * @return string
-     */
-    private function convertToShamsi(Carbon $date): string
-    {
-        return Jalalian::fromCarbon($date)->format('Y/m/d');
     }
 }

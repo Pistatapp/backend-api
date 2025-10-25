@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -108,65 +107,6 @@ class Tractor extends Model
     public function gpsMetricsCalculations()
     {
         return $this->hasMany(GpsMetricsCalculation::class);
-    }
-
-    /**
-     * Get the start working time for the tractor.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasOneThrough
-     */
-    public function startWorkingTime()
-    {
-        return $this->hasOneThrough(GpsReport::class, GpsDevice::class)
-            ->whereDate('date_time', now()->toDateString())
-            ->where('is_starting_point', 1);
-    }
-
-    /**
-     * Get the end working time for the tractor.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasOneThrough
-     */
-    public function endWorkingTime()
-    {
-        return $this->hasOneThrough(GpsReport::class, GpsDevice::class)
-            ->whereDate('date_time', now()->toDateString())
-            ->where('is_ending_point', 1);
-    }
-
-    /**
-     * Get all working times for the tractor on a specific date.
-     *
-     * @param \Carbon\Carbon $date
-     * @return array{start_working_time: \App\Models\GpsReport|null, end_working_time: \App\Models\GpsReport|null, on_time: \App\Models\GpsReport|null}
-     */
-    public function getWorkingTimes(\Carbon\Carbon $date): array
-    {
-        $reports = $this->gpsReports()
-            ->select([
-                'gps_reports.id',
-                'gps_reports.date_time',
-                'gps_reports.is_starting_point',
-                'gps_reports.is_ending_point',
-                'gps_reports.on_time'
-            ])
-            ->whereDate('gps_reports.date_time', $date)
-            ->where(function ($query) {
-                $query->where('gps_reports.is_starting_point', 1)
-                    ->orWhere('gps_reports.is_ending_point', 1)
-                    ->orWhereNotNull('gps_reports.on_time');
-            })
-            ->get();
-
-        $startWorkingTime = $reports->where('is_starting_point', 1)->first();
-        $endWorkingTime = $reports->where('is_ending_point', 1)->first();
-        $onTime = $reports->whereNotNull('on_time')->first();
-
-        return [
-            'start_working_time' => $startWorkingTime,
-            'end_working_time' => $endWorkingTime,
-            'on_time' => $onTime,
-        ];
     }
 
     /**

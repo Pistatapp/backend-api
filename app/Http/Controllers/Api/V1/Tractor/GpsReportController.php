@@ -8,6 +8,8 @@ use App\Models\GpsDevice;
 use App\Models\GpsData;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use App\Events\TractorStatus;
+use App\Events\ReportReceived;
 
 class GpsReportController extends Controller
 {
@@ -40,6 +42,8 @@ class GpsReportController extends Controller
             $tractor = $device->tractor;
             $lastStatus = end($data)['status'];
             $tractor->update(['is_working' => $lastStatus]);
+            event(new TractorStatus($tractor, $lastStatus));
+            event(new ReportReceived($data, $device));
         } catch (\Exception $e) {
             //
         }
