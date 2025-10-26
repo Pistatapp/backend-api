@@ -18,9 +18,7 @@ class ReportReceived implements ShouldBroadcast
     public function __construct(
         public array $points,
         public GpsDevice $device,
-    ) {
-        //
-    }
+    ) {}
 
     /**
      * Get the event name.
@@ -39,7 +37,12 @@ class ReportReceived implements ShouldBroadcast
      */
     public function broadcastWhen(): bool
     {
-        return !empty($this->points);
+        // Broadcast only if $points is not empty
+        if (empty($this->points)) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -49,8 +52,13 @@ class ReportReceived implements ShouldBroadcast
      */
     public function broadcastWith(): array
     {
-        return collect($this->points)->map(function ($point) {
-            return [
+        return collect($this->points)
+            ->filter(function ($point) {
+                return (isset($point['status']) && $point['status'] == 1)
+                    && (isset($point['speed']) && $point['speed'] > 0);
+            })
+            ->map(function ($point) {
+                return [
                     'latitude' => $point['coordinate'][0],
                     'longitude' => $point['coordinate'][1],
                     'speed' => $point['speed'],
@@ -62,7 +70,8 @@ class ReportReceived implements ShouldBroadcast
                     'stoppage_time' => gmdate('H:i:s', $point['stoppage_time'] ?? 0),
                     'date_time' => jdate($point['date_time'])->format('Y/m/d H:i:s'),
                 ];
-        })->toArray();
+            })
+            ->toArray();
     }
 
     /**
