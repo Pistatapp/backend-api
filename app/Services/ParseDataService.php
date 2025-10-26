@@ -169,6 +169,8 @@ class ParseDataService
     private function correctJsonFormat(string $data): string
     {
         $correctedData = preg_replace('/}\s*{/', '},{', $data);
+        // Remove any '(' or ')' characters from the data
+        $correctedData = str_replace(['(', ')'], '', $correctedData);
         return $correctedData;
     }
 
