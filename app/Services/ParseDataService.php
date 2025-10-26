@@ -68,14 +68,12 @@ class ParseDataService
      */
     private function processDataItem(string $data, Carbon $today): ?array
     {
-        // Clean the data by removing parentheses and extracting the core GPS data
-        $cleanedData = $this->cleanGpsData($data);
 
-        if (!$this->isValidFormat($cleanedData)) {
+        if (!$this->isValidFormat($data)) {
             return null;
         }
 
-        $dataFields = explode(',', $cleanedData);
+        $dataFields = explode(',', $data);
 
         // Validate required fields exist - the format has 12 fields
         if (count($dataFields) < 12) {
@@ -152,28 +150,6 @@ class ParseDataService
     }
 
     /**
-     * Clean GPS data by removing parentheses and extracting core data
-     *
-     * @param string $data
-     * @return string
-     */
-    private function cleanGpsData(string $data): string
-    {
-        // Remove parentheses from the data
-        $cleaned = trim($data, '()');
-
-        // Extract the GPS data part after the colon
-        if (strpos($cleaned, ':') !== false) {
-            $parts = explode(':', $cleaned, 2);
-            if (count($parts) === 2) {
-                return $parts[1];
-            }
-        }
-
-        return $cleaned;
-    }
-
-    /**
      * Check the format of the data received from the GPS device
      *
      * @param string $data
@@ -218,6 +194,8 @@ class ParseDataService
     {
         $trimmedData = rtrim($jsonData, ".");
         $correctedData = $this->correctJsonFormat($trimmedData);
+
+        $correctedData = str_replace(['(', ')'], '', $correctedData);
 
         $decodedData = json_decode($correctedData, true);
 
