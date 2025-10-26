@@ -68,13 +68,16 @@ class ParseDataService
      */
     private function processDataItem(string $data, Carbon $today): ?array
     {
-        if (!$this->isValidFormat($data)) {
+        // Clean the data by removing parentheses and extracting the core GPS data
+        $cleanedData = $this->cleanGpsData($data);
+
+        if (!$this->isValidFormat($cleanedData)) {
             return null;
         }
 
-        $dataFields = explode(',', $data);
+        $dataFields = explode(',', $cleanedData);
 
-        // Validate required fields exist
+        // Validate required fields exist - the format has 12 fields
         if (count($dataFields) < 12) {
             return null;
         }
@@ -149,6 +152,28 @@ class ParseDataService
     }
 
     /**
+     * Clean GPS data by removing parentheses and extracting core data
+     *
+     * @param string $data
+     * @return string
+     */
+    private function cleanGpsData(string $data): string
+    {
+        // Remove parentheses from the data
+        $cleaned = trim($data, '()');
+
+        // Extract the GPS data part after the colon
+        if (strpos($cleaned, ':') !== false) {
+            $parts = explode(':', $cleaned, 2);
+            if (count($parts) === 2) {
+                return $parts[1];
+            }
+        }
+
+        return $cleaned;
+    }
+
+    /**
      * Check the format of the data received from the GPS device
      *
      * @param string $data
@@ -156,7 +181,9 @@ class ParseDataService
      */
     private function isValidFormat(string $data): bool
     {
-        $pattern = '/^\+Hooshnic:V\d+\.\d{2},\d{4,5}\.\d{5},\d{5}\.\d{4},\d{3},\d{6},\d{6},\d{3},\d{3},\d,\d{1,3},\d{1,2},\d{15}$/';
+        // Updated pattern to match the actual GPS data format:
+        // V1.06,3637.75850,05254.9086,000,251016,182121,000,000,1,3,1,86806407317902
+        $pattern = '/^V\d+\.\d{2},\d{4,5}\.\d{5},\d{5}\.\d{4},\d{3},\d{6},\d{6},\d{3},\d{3},\d,\d{1,3},\d{1,2},\d{14}$/';
         return preg_match($pattern, $data) === 1;
     }
 
@@ -169,6 +196,14 @@ class ParseDataService
     private function correctJsonFormat(string $data): string
     {
         $correctedData = preg_replace('/}\s*{/', '},{', $data);
+
+        // Handle the specific format with parentheses around GPS data
+        // Convert "(+Hooshnic:V1.06,...)" to "+Hooshnic:V1.06,..."
+        $correctedData = preg_replace('/\("([^"]+)"\)/', '"$1"', $correctedData);
+
+        // Remove any remaining '(' or ')' characters from the data
+        $correctedData = str_replace(['(', ')'], '', $correctedData);
+
         return $correctedData;
     }
 
@@ -183,11 +218,6 @@ class ParseDataService
     {
         $trimmedData = rtrim($jsonData, ".");
         $correctedData = $this->correctJsonFormat($trimmedData);
-
-        // If data is wrapped in parentheses, unwrap it
-        if (is_string($correctedData) && strlen($correctedData) > 2 && $correctedData[0] === '(' && $correctedData[strlen($correctedData) - 1] === ')') {
-            $correctedData = substr($correctedData, 1, -1);
-        }
 
         $decodedData = json_decode($correctedData, true);
 
