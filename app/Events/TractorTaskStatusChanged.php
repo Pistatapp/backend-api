@@ -36,6 +36,13 @@ class TractorTaskStatusChanged implements ShouldBroadcast
      */
     public function broadcastWith(): array
     {
+        // Get work duration from GPS metrics
+        $metrics = \App\Models\GpsMetricsCalculation::where('tractor_task_id', $this->task->id)
+            ->where('date', $this->task->date)
+            ->first();
+
+        $workDuration = $metrics ? $metrics->work_duration : 0;
+
         return [
             'task_id' => $this->task->id,
             'tractor_id' => $this->task->tractor_id,
@@ -50,6 +57,7 @@ class TractorTaskStatusChanged implements ShouldBroadcast
             ],
             'start_time' => $this->task->start_time->format('H:i:s'),
             'end_time' => $this->task->end_time->format('H:i:s'),
+            'work_duration' => $workDuration,
         ];
     }
 

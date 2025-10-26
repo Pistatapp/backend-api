@@ -116,6 +116,7 @@ class GpsDataAnalyzer
         $stoppageCount = 0;
         $ignoredStoppageCount = 0;
         $ignoredStoppageDuration = 0;
+        $maxSpeed = 0;
 
         // State tracking
         $previousPoint = null;
@@ -151,6 +152,11 @@ class GpsDataAnalyzer
         };
 
         foreach ($this->data as $index => $currentPoint) {
+            // Track max speed
+            if ($currentPoint['speed'] > $maxSpeed) {
+                $maxSpeed = $currentPoint['speed'];
+            }
+
             // Track activation times inline (optimization: single pass)
             if ($deviceOnTime === null && $currentPoint['status'] == 1) {
                 $deviceOnTime = $currentPoint['timestamp']->toDateTimeString();
@@ -395,6 +401,7 @@ class GpsDataAnalyzer
             'end_time' => $this->data[$dataCount - 1]['timestamp']->toDateTimeString(),
             'latest_status' => $this->data[$dataCount - 1]['status'],
             'average_speed' => $averageSpeed,
+            'max_speed' => $maxSpeed,
         ];
 
         return $this->results;
@@ -427,6 +434,7 @@ class GpsDataAnalyzer
             'end_time' => null,
             'latest_status' => null,
             'average_speed' => 0,
+            'max_speed' => 0,
         ];
     }
 
