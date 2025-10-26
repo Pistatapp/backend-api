@@ -10,7 +10,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use App\Events\TractorStatus;
 use App\Events\ReportReceived;
-use Illuminate\Support\Facades\Log;
 
 class GpsReportController extends Controller
 {
@@ -27,7 +26,6 @@ class GpsReportController extends Controller
     {
         try {
             $rawData = $request->getContent();
-            Log::info('Raw data: ' . $rawData);
             $data = $this->parseDataService->parse($rawData);
 
             $deviceImei = $data[0]['imei'];
