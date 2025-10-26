@@ -28,16 +28,6 @@ class TractorStatus implements ShouldBroadcast
         ]);
     }
 
-    public function getTractor(): Tractor
-    {
-        return $this->tractor;
-    }
-
-    public function getStatus(): int
-    {
-        return $this->status;
-    }
-
     /**
      * The event's broadcast name.
      *

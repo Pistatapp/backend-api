@@ -41,7 +41,6 @@ class GpsReportController extends Controller
             // Update tractor status
             $tractor = $device->tractor;
             $lastStatus = end($data)['status'];
-            $tractor->update(['is_working' => $lastStatus]);
             event(new TractorStatus($tractor, $lastStatus));
             event(new ReportReceived($data, $device));
         } catch (\Exception $e) {
