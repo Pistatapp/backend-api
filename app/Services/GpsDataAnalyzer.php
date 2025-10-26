@@ -68,7 +68,8 @@ class GpsDataAnalyzer
 
     /**
      * Analyze GPS data and calculate all metrics
-     * Note: Speed > 2 km/h is considered movement, speed <= 2 km/h is stopped
+     * Note: Movement = status == 1 && speed >= 2
+     * Note: Stoppage = status == 0 && speed == 0 || status == 1 && speed == 0
      * Note: Stoppages less than 60 seconds are considered as movements
      * Note: First stoppage point in batch = last movement point
      * Note: First movement point in batch = last stoppage point
@@ -139,21 +140,31 @@ class GpsDataAnalyzer
 
         $dataCount = count($this->data);
 
+        // Helper function to check if point is moving
+        $isMovingPoint = function($point) {
+            return $point['status'] == 1 && $point['speed'] >= 2;
+        };
+
+        // Helper function to check if point is stopped
+        $isStoppedPoint = function($point) {
+            return ($point['status'] == 0 && $point['speed'] == 0) || ($point['status'] == 1 && $point['speed'] == 0);
+        };
+
         foreach ($this->data as $index => $currentPoint) {
             // Track activation times inline (optimization: single pass)
             if ($deviceOnTime === null && $currentPoint['status'] == 1) {
                 $deviceOnTime = $currentPoint['timestamp']->toDateTimeString();
             }
-            if ($firstMovementTime === null && $currentPoint['status'] == 1 && $currentPoint['speed'] > 2) {
+            if ($firstMovementTime === null && $isMovingPoint($currentPoint)) {
                 $firstMovementTime = $currentPoint['timestamp']->toDateTimeString();
             }
 
             if ($previousPoint === null) {
                 // First point
-                if ($currentPoint['speed'] <= 2) {
+                if ($isStoppedPoint($currentPoint)) {
                     $isCurrentlyStopped = true;
                     $stoppageStartIndex = $index;
-                } else {
+                } else if ($isMovingPoint($currentPoint)) {
                     $isCurrentlyMoving = true;
                     $movementStartIndex = $index;
                     $movementSegmentDistance = 0;
@@ -163,8 +174,8 @@ class GpsDataAnalyzer
             }
 
             $timeDiff = $currentPoint['timestamp']->timestamp - $previousPoint['timestamp']->timestamp;
-            $isStopped = $currentPoint['speed'] <= 2;
-            $isMoving = $currentPoint['speed'] > 2;
+            $isStopped = $isStoppedPoint($currentPoint);
+            $isMoving = $isMovingPoint($currentPoint);
 
             // Transition: Moving -> Stopped
             if ($isStopped && $isCurrentlyMoving) {
@@ -422,7 +433,7 @@ class GpsDataAnalyzer
     /**
      * Get detailed stoppage information (optimized - returns cached data)
      * Includes all stoppages with 'ignored' flag for those < 60 seconds
-     * Note: Speed <= 2 km/h is considered stopped
+     * Note: Stoppage = status == 0 && speed == 0 || status == 1 && speed == 0
      * Note: First movement point in batch = last stoppage point
      */
     public function getStoppageDetails(): array
