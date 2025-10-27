@@ -16,6 +16,7 @@ class FilteredFarmPlanResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
+            'id' => $this->id,
             'from_date' => jdate($this->start_date)->format('Y/m/d'),
             'to_date' => jdate($this->end_date)->format('Y/m/d'),
             'name' => $this->name,
