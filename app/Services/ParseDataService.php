@@ -157,9 +157,7 @@ class ParseDataService
      */
     private function isValidFormat(string $data): bool
     {
-        // Updated pattern to match the actual GPS data format:
-        // V1.06,3637.75850,05254.9086,000,251016,182121,000,000,1,3,1,86806407317902
-        $pattern = '/^V\d+\.\d{2},\d{4,5}\.\d{5},\d{5}\.\d{4},\d{3},\d{6},\d{6},\d{3},\d{3},\d,\d{1,3},\d{1,2},\d{14}$/';
+        $pattern = '/^\+Hooshnic:V\d+\.\d{2},\d{4,5}\.\d{5},\d{5}\.\d{4},\d{3},\d{6},\d{6},\d{3},\d{3},\d,\d{1,3},\d{1,2},\d{14}$/';
         return preg_match($pattern, $data) === 1;
     }
 
@@ -172,13 +170,6 @@ class ParseDataService
     private function correctJsonFormat(string $data): string
     {
         $correctedData = preg_replace('/}\s*{/', '},{', $data);
-
-        // Handle the specific format with parentheses around GPS data
-        // Convert "(+Hooshnic:V1.06,...)" to "+Hooshnic:V1.06,..."
-        $correctedData = preg_replace('/\("([^"]+)"\)/', '"$1"', $correctedData);
-
-        // Remove any remaining '(' or ')' characters from the data
-        $correctedData = str_replace(['(', ')'], '', $correctedData);
 
         return $correctedData;
     }
@@ -194,7 +185,6 @@ class ParseDataService
     {
         $trimmedData = rtrim($jsonData, ".");
         $correctedData = $this->correctJsonFormat($trimmedData);
-
         $correctedData = str_replace(['(', ')'], '', $correctedData);
 
         $decodedData = json_decode($correctedData, true);
