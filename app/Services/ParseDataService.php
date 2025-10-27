@@ -68,11 +68,6 @@ class ParseDataService
      */
     private function processDataItem(string $data, Carbon $today): ?array
     {
-
-        if (!$this->isValidFormat($data)) {
-            return null;
-        }
-
         $dataFields = explode(',', $data);
 
         // Validate required fields exist - the format has 12 fields
@@ -147,18 +142,6 @@ class ParseDataService
     private function parseDateTime(string $date, string $time): Carbon
     {
         return Carbon::createFromFormat('ymdHis', $date . $time)->addHours(3)->addMinutes(30);
-    }
-
-    /**
-     * Check the format of the data received from the GPS device
-     *
-     * @param string $data
-     * @return bool
-     */
-    private function isValidFormat(string $data): bool
-    {
-        $pattern = '/^\+Hooshnic:V\d+\.\d{2},\d{4,5}\.\d{5},\d{5}\.\d{4},\d{3},\d{6},\d{6},\d{3},\d{3},\d,\d{1,3},\d,\d{14}$/';
-        return preg_match($pattern, $data) === 1;
     }
 
     /**
