@@ -68,12 +68,12 @@ class ParseDataService
      */
     private function processDataItem(string $data, Carbon $today): ?array
     {
-        $dataFields = explode(',', $data);
-
-        // Validate required fields exist - the format has 12 fields
-        if (count($dataFields) < 12) {
+        // Validate data format before processing
+        if (!$this->isValidDataFormat($data)) {
             return null;
         }
+
+        $dataFields = explode(',', $data);
 
         $coordinate = $this->convertNmeaToDecimalDegrees($dataFields[1], $dataFields[2]);
         $dateTime = $this->parseDateTime($dataFields[4], $dataFields[5]);
@@ -99,6 +99,20 @@ class ParseDataService
             'date_time' => $dateTime,
             'imei' => $imei,
         ];
+    }
+
+    /**
+     * Validate if the data follows the expected GPS device format
+     * Expected format: +Hooshnic:V1.06,3637.76590,05254.8993,000,251028,164931,000,004,1,3,1,868064073179027
+     *
+     * @param string $data
+     * @return bool
+     */
+    private function isValidDataFormat(string $data): bool
+    {
+        $pattern = '/^\+[A-Za-z]+:[A-Za-z0-9.]+,\d{4}\.\d{5},\d{5}\.\d{4},\d{3},\d{6},\d{6},\d{3},\d{3},\d,\d,\d,\d{15}$/';
+
+        return preg_match($pattern, $data) === 1;
     }
 
     /**
@@ -144,42 +158,17 @@ class ParseDataService
         return Carbon::createFromFormat('ymdHis', $date . $time)->addHours(3)->addMinutes(30);
     }
 
-    /**
-     * Correct the data format to be a valid JSON format
-     *
-     * @param string $data
-     * @return string
-     */
-    private function correctJsonFormat(string $data): string
-    {
-        $correctedData = preg_replace('/}\s*{/', '},{', $data);
-
-        return $correctedData;
-    }
 
     /**
      * Decode and prepare the data received from the GPS device
      *
      * @param string $jsonData
      * @return array
-     * @throws \JsonException
      */
     private function decodeJsonData(string $jsonData): array
     {
         $trimmedData = rtrim($jsonData, ".");
-        $correctedData = $this->correctJsonFormat($trimmedData);
-        $correctedData = str_replace(['(', ')'], '', $correctedData);
 
-        $decodedData = json_decode($correctedData, true);
-
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new \JsonException('JSON decode error: ' . json_last_error_msg());
-        }
-
-        if (!is_array($decodedData)) {
-            throw new \JsonException('Decoded data is not an array');
-        }
-
-        return $decodedData;
+        return json_decode($trimmedData, true);
     }
 }
