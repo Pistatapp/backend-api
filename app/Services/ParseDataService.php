@@ -14,7 +14,7 @@ class ParseDataService
      * @throws \JsonException
      * @throws \InvalidArgumentException
      */
-    public function parse(string $data): array
+    public function parse(string $data)
     {
         if (empty($data)) {
             throw new \InvalidArgumentException('Input data cannot be empty');
