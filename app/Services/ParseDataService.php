@@ -167,7 +167,9 @@ class ParseDataService
      */
     private function decodeJsonData(string $jsonData): array
     {
-        $trimmedData = rtrim($jsonData, ".");
+        // Remove newlines and carriage returns, then trim trailing dots
+        $cleanedData = str_replace(["\n", "\r"], '', $jsonData);
+        $trimmedData = rtrim($cleanedData, ".");
 
         $decoded = json_decode($trimmedData, true);
 
