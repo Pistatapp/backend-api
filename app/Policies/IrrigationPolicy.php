@@ -38,7 +38,11 @@ class IrrigationPolicy
      */
     public function update(User $user, Irrigation $irrigation): bool
     {
-        return $irrigation->creator->is($user) && $irrigation->updated_at->isToday();
+        // Allow update if irrigation status is pending AND (user is creator OR farm admin)
+        return $irrigation->status === 'pending' && (
+            $irrigation->creator->is($user) ||
+            $irrigation->farm->admins->contains($user)
+        );
     }
 
     /**
@@ -46,6 +50,10 @@ class IrrigationPolicy
      */
     public function delete(User $user, Irrigation $irrigation): bool
     {
-        return $irrigation->creator->is($user);
+        // Allow delete if irrigation status is pending AND (user is creator OR farm admin)
+        return $irrigation->status === 'pending' && (
+            $irrigation->creator->is($user) ||
+            $irrigation->farm->admins->contains($user)
+        );
     }
 }

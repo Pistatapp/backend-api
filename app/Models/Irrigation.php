@@ -18,7 +18,8 @@ class Irrigation extends Model
         'labour_id',
         'farm_id',
         'pump_id',
-        'date',
+        'start_date',
+        'end_date',
         'start_time',
         'end_time',
         'created_by',
@@ -43,11 +44,21 @@ class Irrigation extends Model
     protected function casts()
     {
         return [
-            'date' => 'date',
+            'start_date' => 'date',
+            'end_date' => 'date',
             'start_time' => 'datetime',
             'end_time' => 'datetime',
         ];
     }
+
+    /**
+     * The attributes that should be appended to the model.
+     *
+     * @var array<string>
+     */
+    protected $appends = [
+        'duration',
+    ];
 
     /**
      * Get the duration of the Irrigation

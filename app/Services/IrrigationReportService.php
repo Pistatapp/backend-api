@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\Plot;
 use App\Models\Irrigation;
 use App\Models\Valve;
 use Carbon\Carbon;
@@ -136,8 +135,14 @@ class IrrigationReportService
                     $query->whereIn('valves.id', $filters['valves']);
                 });
             })
-            ->whereDate('date', '>=', $filters['from_date']->format('Y-m-d'))
-            ->whereDate('date', '<=', $filters['to_date']->format('Y-m-d'))
+            ->where(function ($query) use ($filters) {
+                $query->whereDate('start_date', '<=', $filters['to_date']->format('Y-m-d'))
+                    ->where(function ($q) use ($filters) {
+                        $q->whereDate('end_date', '>=', $filters['from_date']->format('Y-m-d'))
+                            ->orWhereNull('end_date')
+                            ->whereDate('start_date', '>=', $filters['from_date']->format('Y-m-d'));
+                    });
+            })
             ->with([
                 'valves' => function ($query) use ($filters) {
                     if (isset($filters['valves'])) {
@@ -165,7 +170,8 @@ class IrrigationReportService
 
         while ($currentDate->lte($toDate)) {
             $dailyIrrigations = $irrigations->filter(function ($irrigation) use ($currentDate) {
-                return $irrigation->date->isSameDay($currentDate);
+                return $irrigation->start_date->lte($currentDate) &&
+                       ($irrigation->end_date === null || $irrigation->end_date->gte($currentDate));
             });
 
             $dailyReport = $this->calculateDailyTotals($dailyIrrigations, $currentDate);
@@ -196,7 +202,8 @@ class IrrigationReportService
 
         while ($currentDate->lte($toDate)) {
             $dailyIrrigations = $irrigations->filter(function ($irrigation) use ($currentDate) {
-                return $irrigation->date->isSameDay($currentDate);
+                return $irrigation->start_date->lte($currentDate) &&
+                       ($irrigation->end_date === null || $irrigation->end_date->gte($currentDate));
             });
 
             $irrigationPerValve = [];
@@ -355,52 +362,5 @@ class IrrigationReportService
     {
         $parts = explode(':', $timeFormat);
         return ($parts[0] * 3600) + ($parts[1] * 60) + $parts[2];
-    }
-
-    /**
-     * Generate irrigation reports for filtered irrigations
-     *
-     * @param Collection $irrigations
-     * @param Carbon $startDate
-     * @param Carbon $endDate
-     * @return array
-     */
-    private function generateIrrigationReports(Collection $irrigations, Carbon $startDate, Carbon $endDate): array
-    {
-        $irrigationReports = [];
-        $currentDate = $startDate->copy();
-
-        while ($currentDate->lte($endDate)) {
-            $dailyIrrigations = $irrigations->filter(function ($irrigation) use ($currentDate) {
-                return $irrigation->date->isSameDay($currentDate);
-            });
-
-            $totalDuration = 0;
-            $totalVolume = 0;
-            $totalVolumePerHectare = 0;
-
-            foreach ($dailyIrrigations as $irrigation) {
-                $durationInSeconds = $irrigation->start_time->diffInSeconds($irrigation->end_time);
-                $totalDuration += $durationInSeconds;
-
-                foreach ($irrigation->valves as $valve) {
-                    // Volume calculation: (dripper_count * dripper_flow_rate) * hours
-                    $totalVolume += ($valve->dripper_count * $valve->dripper_flow_rate) * ($durationInSeconds / 3600);
-                    $totalVolumePerHectare += $totalVolume / $valve->irrigation_area;
-                }
-            }
-
-            $irrigationReports[] = [
-                'date' => jdate($currentDate)->format('Y/m/d'),
-                'total_duration' => to_time_format($totalDuration),
-                'total_volume' => $totalVolume / 1000, // Convert to cubic meters
-                'total_volume_per_hectare' => $totalVolumePerHectare / 1000, // Convert to cubic meters per hectare
-                'irrigation_count' => $dailyIrrigations->count()
-            ];
-
-            $currentDate->addDay();
-        }
-
-        return $irrigationReports;
     }
 }

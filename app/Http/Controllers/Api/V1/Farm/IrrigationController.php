@@ -13,7 +13,6 @@ use App\Models\Plot;
 use App\Services\IrrigationReportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class IrrigationController extends Controller
 {
@@ -28,11 +27,18 @@ class IrrigationController extends Controller
      */
     public function index(Request $request, Farm $farm)
     {
-        $date = $request->has('date') ? jalali_to_carbon($request->query('date')) : today();
+        $date = $request->has('date') ? jalali_to_carbon($request->query('date')) : today()->toDateString();
         $status = $request->query('status', 'all');
 
         $irrigations = Irrigation::whereBelongsTo($farm)
-            ->whereDate('date', $date)
+            ->where(function ($query) use ($date) {
+                $query->whereDate('start_date', '<=', $date)
+                    ->where(function ($q) use ($date) {
+                        $q->whereDate('end_date', '>=', $date)
+                            ->orWhereNull('end_date')
+                            ->whereDate('start_date', $date);
+                    });
+            })
             ->when($status !== 'all', function ($query) use ($status) {
                 $query->filter($status);
             })->with('creator', 'plots')->latest()->get();
@@ -48,7 +54,8 @@ class IrrigationController extends Controller
             $irrigation = $farm->irrigations()->create([
                 'labour_id' => $request->labour_id,
                 'pump_id' => $request->pump_id,
-                'date' => $request->date,
+                'start_date' => $request->start_date,
+                'end_date' => $request->end_date,
                 'start_time' => $request->start_time,
                 'end_time' => $request->end_time,
                 'created_by' => $request->user()->id,
@@ -80,7 +87,8 @@ class IrrigationController extends Controller
         $irrigation->update([
             'labour_id' => $request->labour_id,
             'pump_id' => $request->pump_id,
-            'date' => $request->date,
+            'start_date' => $request->start_date,
+            'end_date' => $request->end_date,
             'start_time' => $request->start_time,
             'end_time' => $request->end_time,
             'note' => $request->note,
@@ -112,9 +120,25 @@ class IrrigationController extends Controller
     {
         $irrigations = $plot->irrigations()->with(['labour', 'valves', 'creator'])
             ->when(request()->has('date'), function ($query) {
-                $query->where('date', jalali_to_carbon(request()->query('date')));
+                $date = jalali_to_carbon(request()->query('date'));
+                $query->where(function ($q) use ($date) {
+                    $q->whereDate('start_date', '<=', $date)
+                        ->where(function ($subQuery) use ($date) {
+                            $subQuery->whereDate('end_date', '>=', $date)
+                                ->orWhereNull('end_date')
+                                ->whereDate('start_date', $date);
+                        });
+                });
             }, function ($query) {
-                $query->whereDate('date', today());
+                $today = today();
+                $query->where(function ($q) use ($today) {
+                    $q->whereDate('start_date', '<=', $today)
+                        ->where(function ($subQuery) use ($today) {
+                            $subQuery->whereDate('end_date', '>=', $today)
+                                ->orWhereNull('end_date')
+                                ->whereDate('start_date', $today);
+                        });
+                });
             })
             ->when(request()->has('status'), function ($query) {
                 $query->filter(request()->query('status'));
@@ -133,8 +157,16 @@ class IrrigationController extends Controller
      */
     public function getIrrigationReportForPlot(Request $request, Plot $plot)
     {
-        $date = $request->has('date') ? jalali_to_carbon($request->query('date')) : today();
-        $irrigations = $plot->irrigations()->filter('finished')->with('valves')->whereDate('date', $date)->get();
+        $date = $request->has('date') ? jalali_to_carbon($request->query('date')) : today()->toDateString();
+        $irrigations = $plot->irrigations()->filter('finished')->with('valves')
+            ->where(function ($query) use ($date) {
+                $query->whereDate('start_date', '<=', $date)
+                    ->where(function ($q) use ($date) {
+                        $q->whereDate('end_date', '>=', $date)
+                            ->orWhereNull('end_date')
+                            ->whereDate('start_date', $date);
+                    });
+            })->get();
 
         $totalDuration = 0;
         $totalVolume = 0;
