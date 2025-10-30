@@ -68,7 +68,7 @@ class GpsDataAnalyzer
 
     /**
      * Analyze GPS data and calculate all metrics
-     * Note: Movement = status == 1 && speed >= 2
+     * Note: Movement = status == 1 && speed > 0
      * Note: Stoppage = status == 0 && speed == 0 || status == 1 && speed == 0
      * Note: Stoppages less than 60 seconds are considered as movements
      * Note: First stoppage point in batch = last movement point
@@ -143,12 +143,12 @@ class GpsDataAnalyzer
 
         // Helper function to check if point is moving
         $isMovingPoint = function($point) {
-            return $point['status'] == 1 && $point['speed'] >= 2;
+            return $point['status'] == 1 && $point['speed'] > 0;
         };
 
         // Helper function to check if point is stopped
         $isStoppedPoint = function($point) {
-            return ($point['status'] == 0 && $point['speed'] == 0) || ($point['status'] == 1 && $point['speed'] == 0);
+            return $point['speed'] == 0;
         };
 
         foreach ($this->data as $index => $currentPoint) {
@@ -374,7 +374,7 @@ class GpsDataAnalyzer
             }
         }
 
-        $averageSpeed = $movementDuration > 0 ? intval($movementDistance / $movementDuration) : 0;
+        $averageSpeed = $movementDuration > 0 ? intval($movementDistance * 3600 / $movementDuration) : 0;
 
         // Calculate total stoppage duration including ignored stoppages
         $totalStoppageDuration = $stoppageDuration + $ignoredStoppageDuration;
