@@ -99,8 +99,8 @@ class TractorPathService
         $gpsDataArray = $gpsData->toArray();
 
         foreach ($gpsData as $index => $point) {
-            $isMovement = $point->speed > 2;
-            $isStoppage = $point->speed <= 2;
+            $isMovement = $point->status == 1 && $point->speed > 0;
+            $isStoppage = $point->status == 0 && $point->speed == 0;
 
             if ($isMovement) {
                 // Calculate stoppage duration if we were in a stoppage period
@@ -109,7 +109,7 @@ class TractorPathService
                     // Update the last stoppage point with duration
                     if ($pathPoints->isNotEmpty()) {
                         $lastPoint = $pathPoints->last();
-                        if ($lastPoint->speed <= 2) {
+                        if ($lastPoint->status == 0 && $lastPoint->speed == 0) {
                             $lastPoint->stoppage_duration = $stoppageDuration;
                         }
                     }
@@ -141,7 +141,7 @@ class TractorPathService
             $stoppageDuration = $this->calculateStoppageDuration($gpsDataArray, $stoppageStartIndex, count($gpsDataArray) - 1);
             if ($pathPoints->isNotEmpty()) {
                 $lastPoint = $pathPoints->last();
-                if ($lastPoint->speed <= 2) {
+                if ($lastPoint->status == 0 && $lastPoint->speed == 0) {
                     $lastPoint->stoppage_duration = $stoppageDuration;
                 }
             }
@@ -194,7 +194,7 @@ class TractorPathService
     private function convertToPathPoints($pathPoints): \Illuminate\Support\Collection
     {
         return $pathPoints->map(function ($point) {
-            $isStopped = $point->speed <= 2;
+            $isStopped = $point->status == 0 && $point->speed == 0;
             $stoppageDuration = $isStopped ? ($point->stoppage_duration ?? 0) : 0;
 
             // Create a mock object that matches PointsResource expectations
