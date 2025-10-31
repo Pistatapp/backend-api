@@ -85,13 +85,8 @@ class GpsDataAnalyzer
             $this->data = array_filter($this->data, function ($point) {
                 $pointTime = $point['timestamp'];
 
-                // If working start time is set, filter out points before it
-                if ($this->workingStartTime && $pointTime->lt($this->workingStartTime)) {
-                    return false;
-                }
-
-                // If working end time is set, filter out points after it
-                if ($this->workingEndTime && $pointTime->gt($this->workingEndTime)) {
+                // Filter out points outside working time boundaries
+                if(!$pointTime->between($this->workingStartTime, $this->workingEndTime)) {
                     return false;
                 }
 
