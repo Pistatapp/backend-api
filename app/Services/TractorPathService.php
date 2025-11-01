@@ -48,17 +48,11 @@ class TractorPathService
                 return PointsResource::collection(collect());
             }
 
-            // Get start work time for the tractor
-            $startWorkTime = null;
-            if ($tractor->start_work_time) {
-                $startWorkTime = Carbon::parse($date->toDateString() . ' ' . $tractor->start_work_time);
-            }
-
             // Extract movement and stoppage points according to the algorithm
             $pathPoints = $this->extractMovementPoints($gpsData);
 
             // Convert to PointsResource format
-            $formattedPathPoints = $this->convertToPathPoints($pathPoints, $startWorkTime);
+            $formattedPathPoints = $this->convertToPathPoints($pathPoints);
 
             return PointsResource::collection($formattedPathPoints);
 
@@ -237,33 +231,23 @@ class TractorPathService
 
     /**
      * Convert movement and stoppage points to PointsResource format
+     * Detects the first 3 consecutive movement points and marks the first as starting point.
      *
      * @param \Illuminate\Support\Collection $pathPoints
-     * @param Carbon|null $startWorkTime
      * @return \Illuminate\Support\Collection
      */
-    private function convertToPathPoints($pathPoints, ?Carbon $startWorkTime): \Illuminate\Support\Collection
+    private function convertToPathPoints($pathPoints): \Illuminate\Support\Collection
     {
-        $startingPointMarked = false;
+        // Find the first 3 consecutive movement points
+        $startingPointIndex = $this->findFirstConsecutiveMovementPoints($pathPoints);
 
-        return $pathPoints->map(function ($point) use ($startWorkTime, &$startingPointMarked) {
+        return $pathPoints->map(function ($point, $index) use ($startingPointIndex) {
             $isStopped = $point->status == 0 && $point->speed == 0;
             $stoppageDuration = $isStopped ? ($point->stoppage_duration ?? 0) : 0;
             $isMovement = $point->status == 1 && $point->speed > 0;
 
-            // Determine if this is the starting point
-            // Mark the first movement point after start work time as starting point
-            $isStartingPoint = false;
-            if (!$startingPointMarked && $isMovement && $startWorkTime) {
-                $pointTime = is_string($point->date_time)
-                    ? Carbon::parse($point->date_time)
-                    : $point->date_time;
-
-                if ($pointTime->gte($startWorkTime)) {
-                    $isStartingPoint = true;
-                    $startingPointMarked = true;
-                }
-            }
+            // Mark the first of the 3 consecutive movement points as starting point
+            $isStartingPoint = $index === $startingPointIndex;
 
             // Create a mock object that matches PointsResource expectations
             return (object) [
@@ -279,6 +263,45 @@ class TractorPathService
                 'date_time' => $point->date_time,
             ];
         });
+    }
+
+    /**
+     * Find the index of the first point in the first 3 consecutive movement points
+     *
+     * @param \Illuminate\Support\Collection $pathPoints
+     * @return int|null Index of the starting point, or null if not found
+     */
+    private function findFirstConsecutiveMovementPoints($pathPoints): ?int
+    {
+        $consecutiveMovementCount = 0;
+        $firstMovementIndex = null;
+
+        foreach ($pathPoints as $index => $point) {
+            $isMovement = $point->status == 1 && $point->speed > 0;
+
+            if ($isMovement) {
+                if ($consecutiveMovementCount === 0) {
+                    // Start tracking a potential sequence
+                    $firstMovementIndex = $index;
+                    $consecutiveMovementCount = 1;
+                } else {
+                    // Continue the sequence
+                    $consecutiveMovementCount++;
+                }
+
+                // Found 3 consecutive movement points
+                if ($consecutiveMovementCount >= 3) {
+                    return $firstMovementIndex;
+                }
+            } else {
+                // Reset counter if we encounter a non-movement point
+                $consecutiveMovementCount = 0;
+                $firstMovementIndex = null;
+            }
+        }
+
+        // Less than 3 consecutive movement points found
+        return null;
     }
 
 
