@@ -54,7 +54,8 @@ class GpsDataAnalyzer
      * Analyze GPS data and calculate all metrics
      * Note: Movement = status == 1 && speed > 0
      * Note: Stoppage = speed == 0
-     * Note: Stoppages less than 60 seconds are considered as movements
+     * Note: Stoppages less than 60 seconds are considered as movements and are NOT included in stoppages array
+     * Note: Only stoppages >= 60 seconds are counted and included in stoppages details (matches TractorPathService behavior)
      * Note: First stoppage point in batch = last movement point
      * Note: First movement point in batch = last stoppage point
      * Note: firstMovementTime is set when 3 consecutive movement points are detected, using the timestamp of the first point
@@ -246,28 +247,27 @@ class GpsDataAnalyzer
 
                 $isIgnored = $tempDuration < 60;
 
-                // Save stoppage detail
-                if ($isIgnored) {
-                    $ignoredStoppageDetailIndex++;
-                    $displayIndex = "I{$ignoredStoppageDetailIndex}";
-                } else {
+                // Only save stoppage detail if duration >= 60 seconds (match TractorPathService behavior)
+                if (!$isIgnored) {
                     $stoppageDetailIndex++;
                     $displayIndex = $stoppageDetailIndex;
-                }
 
-                $this->stoppages[] = [
-                    'index' => $displayIndex,
-                    'start_time' => $this->data[$stoppageStartIndex]['timestamp']->toTimeString(),
-                    'end_time' => $currentPoint['timestamp']->toTimeString(),
-                    'duration_seconds' => $tempDuration,
-                    'duration_formatted' => to_time_format($tempDuration),
-                    'location' => [
-                        'latitude' => $this->data[$stoppageStartIndex]['latitude'],
-                        'longitude' => $this->data[$stoppageStartIndex]['longitude'],
-                    ],
-                    'status' => $this->data[$stoppageStartIndex]['status'] == 1 ? 'on' : 'off',
-                    'ignored' => $isIgnored,
-                ];
+                    $this->stoppages[] = [
+                        'index' => $displayIndex,
+                        'start_time' => $this->data[$stoppageStartIndex]['timestamp']->toTimeString(),
+                        'end_time' => $currentPoint['timestamp']->toTimeString(),
+                        'duration_seconds' => $tempDuration,
+                        'duration_formatted' => to_time_format($tempDuration),
+                        'location' => [
+                            'latitude' => $this->data[$stoppageStartIndex]['latitude'],
+                            'longitude' => $this->data[$stoppageStartIndex]['longitude'],
+                        ],
+                        'status' => $this->data[$stoppageStartIndex]['status'] == 1 ? 'on' : 'off',
+                        'ignored' => false,
+                    ];
+                } else {
+                    $ignoredStoppageDetailIndex++;
+                }
 
                 // Update totals
                 if ($tempDuration >= 60) {
@@ -360,27 +360,27 @@ class GpsDataAnalyzer
 
             $isIgnored = $tempDuration < 60;
 
-            if ($isIgnored) {
-                $ignoredStoppageDetailIndex++;
-                $displayIndex = "I{$ignoredStoppageDetailIndex}";
-            } else {
+            // Only save stoppage detail if duration >= 60 seconds (match TractorPathService behavior)
+            if (!$isIgnored) {
                 $stoppageDetailIndex++;
                 $displayIndex = $stoppageDetailIndex;
-            }
 
-            $this->stoppages[] = [
-                'index' => $displayIndex,
-                'start_time' => $this->data[$stoppageStartIndex]['timestamp']->toTimeString(),
-                'end_time' => $previousPoint['timestamp']->toTimeString(),
-                'duration_seconds' => $tempDuration,
-                'duration_formatted' => to_time_format($tempDuration),
-                'location' => [
-                    'latitude' => $this->data[$stoppageStartIndex]['latitude'],
-                    'longitude' => $this->data[$stoppageStartIndex]['longitude'],
-                ],
-                'status' => $this->data[$stoppageStartIndex]['status'] == 1 ? 'on' : 'off',
-                'ignored' => $isIgnored,
-            ];
+                $this->stoppages[] = [
+                    'index' => $displayIndex,
+                    'start_time' => $this->data[$stoppageStartIndex]['timestamp']->toTimeString(),
+                    'end_time' => $previousPoint['timestamp']->toTimeString(),
+                    'duration_seconds' => $tempDuration,
+                    'duration_formatted' => to_time_format($tempDuration),
+                    'location' => [
+                        'latitude' => $this->data[$stoppageStartIndex]['latitude'],
+                        'longitude' => $this->data[$stoppageStartIndex]['longitude'],
+                    ],
+                    'status' => $this->data[$stoppageStartIndex]['status'] == 1 ? 'on' : 'off',
+                    'ignored' => false,
+                ];
+            } else {
+                $ignoredStoppageDetailIndex++;
+            }
 
             if ($tempDuration >= 60) {
                 // Final stoppage >= 60 seconds: count as actual stoppage
@@ -398,32 +398,24 @@ class GpsDataAnalyzer
 
         $averageSpeed = $movementDuration > 0 ? intval($movementDistance * 3600 / $movementDuration) : 0;
 
-        // Calculate total stoppage duration including ignored stoppages
-        $totalStoppageDuration = $stoppageDuration + $ignoredStoppageDuration;
-
+        // Stoppage duration only includes stoppages >= 60 seconds (ignored stoppages excluded)
         $this->results = [
             'movement_distance_km' => round($movementDistance, 3),
             'movement_distance_meters' => round($movementDistance * 1000, 2),
             'movement_duration_seconds' => $movementDuration,
             'movement_duration_formatted' => to_time_format($movementDuration),
-            'stoppage_duration_seconds' => $totalStoppageDuration,
-            'stoppage_duration_formatted' => to_time_format($totalStoppageDuration),
+            'stoppage_duration_seconds' => $stoppageDuration,
+            'stoppage_duration_formatted' => to_time_format($stoppageDuration),
             'stoppage_duration_while_on_seconds' => $stoppageDurationWhileOn,
             'stoppage_duration_while_on_formatted' => to_time_format($stoppageDurationWhileOn),
             'stoppage_duration_while_off_seconds' => $stoppageDurationWhileOff,
             'stoppage_duration_while_off_formatted' => to_time_format($stoppageDurationWhileOff),
             'stoppage_count' => $stoppageCount,
-            'ignored_stoppage_count' => $ignoredStoppageCount,
-            'ignored_stoppage_duration_seconds' => $ignoredStoppageDuration,
-            'ignored_stoppage_duration_formatted' => to_time_format($ignoredStoppageDuration),
             'device_on_time' => $deviceOnTime,
             'first_movement_time' => $firstMovementTime,
-            'total_records' => $dataCount,
             'start_time' => $this->data[0]['timestamp']->toTimeString(),
-            'end_time' => $this->data[$dataCount - 1]['timestamp']->toTimeString(),
             'latest_status' => $this->data[$dataCount - 1]['status'],
             'average_speed' => $averageSpeed,
-            'max_speed' => $maxSpeed,
         ];
 
         return $this->results;
@@ -446,23 +438,17 @@ class GpsDataAnalyzer
             'stoppage_duration_while_off_seconds' => 0,
             'stoppage_duration_while_off_formatted' => '00:00:00',
             'stoppage_count' => 0,
-            'ignored_stoppage_count' => 0,
-            'ignored_stoppage_duration_seconds' => 0,
-            'ignored_stoppage_duration_formatted' => '00:00:00',
             'device_on_time' => null,
             'first_movement_time' => null,
-            'total_records' => 0,
             'start_time' => null,
-            'end_time' => null,
             'latest_status' => null,
             'average_speed' => 0,
-            'max_speed' => 0,
         ];
     }
 
     /**
      * Get detailed stoppage information (optimized - returns cached data)
-     * Includes all stoppages with 'ignored' flag for those < 60 seconds
+     * Only includes stoppages >= 60 seconds (short stoppages are excluded, matching TractorPathService behavior)
      * Note: Stoppage = status == 0 && speed == 0 || status == 1 && speed == 0
      * Note: First movement point in batch = last stoppage point
      */
