@@ -28,10 +28,7 @@ class ActiveTractorService
     {
         $tractor->load(['driver']);
 
-        $gpsData = $tractor->gpsData()->whereDate('date_time', $date)->get();
-
-        $gpsDataAnalyzer = $this->gpsDataAnalyzer->loadFromRecords($gpsData);
-        $results = $gpsDataAnalyzer->analyze();
+        $results = $this->gpsDataAnalyzer->loadRecordsFor($tractor, $date)->analyze();
 
         $averageSpeed = $results['average_speed'];
         $latestStatus = $results['latest_status'];
@@ -94,28 +91,19 @@ class ActiveTractorService
         $expectedDailyWorkHours = $tractor->expected_daily_work_time ?? 8;
         $expectedDailyWorkSeconds = $expectedDailyWorkHours * 3600;
 
-        // Batch fetch all GPS data for the 7-day period to reduce database queries
-        $allGpsData = $tractor->gpsData()
-            ->whereBetween('date_time', [$startDate->startOfDay(), $endDate->endOfDay()])
-            ->orderBy('date_time')
-            ->get()
-            ->groupBy(function ($item) {
-                return $item->date_time->format('Y-m-d');
-            });
-
         $totalEfficiencies = [];
         $taskBasedEfficiencies = [];
 
         // Process each day using GpsDataAnalyzer for real-time calculation
         for ($i = 0; $i < 7; $i++) {
             $currentDate = $startDate->copy()->addDays($i);
-            $dateString = $currentDate->format('Y-m-d');
             $shamsiDate = jdate($currentDate)->format('Y/m/d');
 
-            // Get GPS data for the specific day from batched data
-            $gpsData = $allGpsData->get($dateString, collect());
+            // Analyze GPS data using GpsDataAnalyzer with working time window
+            $results = $this->gpsDataAnalyzer->loadRecordsFor($tractor, $currentDate)->analyze();
 
-            if ($gpsData->isEmpty()) {
+            // Check if there's any data for this day
+            if (empty($results['start_time'])) {
                 // No data for this day - use default values
                 $totalEfficiencies[] = [
                     'efficiency' => '0.00',
@@ -127,10 +115,6 @@ class ActiveTractorService
                 ];
                 continue;
             }
-
-            // Analyze GPS data using GpsDataAnalyzer
-            $gpsDataAnalyzer = $this->gpsDataAnalyzer->loadFromRecords($gpsData);
-            $results = $gpsDataAnalyzer->analyze();
 
             // Calculate total efficiency
             $workDurationSeconds = $results['movement_duration_seconds'];
@@ -270,9 +254,19 @@ class ActiveTractorService
             return null;
         }
 
-        // Use GpsDataAnalyzer to calculate metrics
-        $analyzer = $this->gpsDataAnalyzer->loadFromRecords($gpsData);
-        $results = $analyzer->analyze();
+        // Get task time window for analysis
+        $taskDateTime = Carbon::parse($task->date);
+        $taskStartDateTime = $taskDateTime->copy()->setTimeFromTimeString($task->start_time);
+        $taskEndDateTime = $taskDateTime->copy()->setTimeFromTimeString($task->end_time);
+
+        if ($taskEndDateTime->lt($taskStartDateTime)) {
+            $taskEndDateTime->addDay();
+        }
+
+        // Use GpsDataAnalyzer to calculate metrics with task time window
+        // Since we have pre-filtered GPS data by task zone and time, we use loadFromRecords
+        // but pass task time window to analyze() to scope calculations
+        $results = $this->gpsDataAnalyzer->loadFromRecords($gpsData)->analyze($taskStartDateTime, $taskEndDateTime);
 
         // Create and save metrics record
         $metrics = GpsMetricsCalculation::create([

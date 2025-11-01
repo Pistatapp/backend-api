@@ -2,12 +2,48 @@
 
 namespace App\Services;
 
+use Carbon\Carbon;
+use App\Models\Tractor;
+
 class GpsDataAnalyzer
 {
     private array $data = [];
     private array $results = [];
     private array $movements = [];
     private array $stoppages = [];
+    private ?Carbon $workingStartTime = null;
+    private ?Carbon $workingEndTime = null;
+
+    /**
+     * Load GPS records for a tractor on a specific date and set working time window
+     * This method fetches GPS data and automatically configures working time from tractor settings
+     *
+     * @param Tractor $tractor
+     * @param Carbon $date
+     * @return self
+     */
+    public function loadRecordsFor(Tractor $tractor, Carbon $date): self
+    {
+        // Fetch GPS data for the tractor on the specified date
+        $gpsData = $tractor->gpsData()->whereDate('date_time', $date)->get();
+
+        // Load records
+        $this->loadFromRecords($gpsData);
+
+        // Get and form tractor working time window
+        if ($tractor->start_work_time && $tractor->end_work_time) {
+            // Create Carbon instances with the date and time from tractor settings
+            $this->workingStartTime = $date->copy()->setTimeFromTimeString($tractor->start_work_time);
+            $this->workingEndTime = $date->copy()->setTimeFromTimeString($tractor->end_work_time);
+
+            // Handle case where end time is before start time (crosses midnight)
+            if ($this->workingEndTime->lt($this->workingStartTime)) {
+                $this->workingEndTime->addDay();
+            }
+        }
+
+        return $this;
+    }
 
     /**
      * Load GPS data from GpsData model records or array
@@ -22,6 +58,9 @@ class GpsDataAnalyzer
         $this->movements = [];
         $this->stoppages = [];
         $this->results = [];
+        // Reset working time when loading records directly (will be set by loadRecordsFor if needed)
+        $this->workingStartTime = null;
+        $this->workingEndTime = null;
 
         // Convert GpsData models to internal format
         foreach ($data as $record) {
@@ -62,11 +101,28 @@ class GpsDataAnalyzer
      * Note: stoppage_time calculation:
      *   - For stoppage points: stoppage_time = total duration from start of stoppage segment to end of segment (when movement begins)
      *   - For movement points: stoppage_time = 0 (end of stoppage / start of movement)
+     * Note: Working time scope:
+     *   - If workingStartTime is provided, calculations start from that time even if points exist before it
+     *   - If workingEndTime is provided, calculations end at that time even if points exist after it
+     *   - Stoppages that start before workingStartTime count only from workingStartTime
+     *   - Stoppages/movements that extend beyond workingEndTime count only until workingEndTime
+     *
+     * @param Carbon|null $workingStartTime Optional working start time to scope calculations
+     * @param Carbon|null $workingEndTime Optional working end time to scope calculations
+     * @return array
      */
-    public function analyze(): array
+    public function analyze(?Carbon $workingStartTime = null, ?Carbon $workingEndTime = null): array
     {
         if (empty($this->data)) {
             return $this->getEmptyResults();
+        }
+
+        // Use stored working time if parameters are not provided
+        if ($workingStartTime === null && $this->workingStartTime !== null) {
+            $workingStartTime = $this->workingStartTime;
+        }
+        if ($workingEndTime === null && $this->workingEndTime !== null) {
+            $workingEndTime = $this->workingEndTime;
         }
 
         // Initialize counters
@@ -171,7 +227,13 @@ class GpsDataAnalyzer
                 continue;
             }
 
-            $timeDiff = $currentPoint['timestamp']->timestamp - $previousPoint['timestamp']->timestamp;
+            // Calculate time difference within working time boundaries
+            $timeDiff = $this->calculateDurationWithinWorkingTime(
+                $previousPoint['timestamp'],
+                $currentPoint['timestamp'],
+                $workingStartTime,
+                $workingEndTime
+            );
             $isStopped = $isStoppedPoint($currentPoint);
             $isMoving = $isMovingPoint($currentPoint);
 
@@ -188,11 +250,24 @@ class GpsDataAnalyzer
 
                 // Save movement detail
                 $movementDetailIndex++;
-                $duration = $currentPoint['timestamp']->timestamp - $this->data[$movementStartIndex]['timestamp']->timestamp;
+                $effectiveMovementStart = $this->getEffectiveStartTime(
+                    $this->data[$movementStartIndex]['timestamp'],
+                    $workingStartTime
+                );
+                $effectiveMovementEnd = $this->getEffectiveEndTime(
+                    $currentPoint['timestamp'],
+                    $workingEndTime
+                );
+                $duration = $this->calculateDurationWithinWorkingTime(
+                    $this->data[$movementStartIndex]['timestamp'],
+                    $currentPoint['timestamp'],
+                    $workingStartTime,
+                    $workingEndTime
+                );
                 $this->movements[] = [
                     'index' => $movementDetailIndex,
-                    'start_time' => $this->data[$movementStartIndex]['timestamp']->toTimeString(),
-                    'end_time' => $currentPoint['timestamp']->toTimeString(),
+                    'start_time' => $effectiveMovementStart->toTimeString(),
+                    'end_time' => $effectiveMovementEnd->toTimeString(),
                     'duration_seconds' => $duration,
                     'duration_formatted' => to_time_format($duration),
                     'distance_km' => round($movementSegmentDistance, 3),
@@ -219,19 +294,86 @@ class GpsDataAnalyzer
             }
             // Transition: Stopped -> Moving
             elseif ($isMoving && $isCurrentlyStopped) {
-                // Calculate stoppage inline (optimization: no separate method call)
-                $tempDuration = 0;
+                // Calculate stoppage inline with working time boundaries
+                // Get effective start and end times for the stoppage segment
+                $stoppageStartTimestamp = $this->data[$stoppageStartIndex]['timestamp'];
+                $stoppageEndTimestamp = $currentPoint['timestamp'];
+
+                // Calculate total duration within working time boundaries
+                $tempDuration = $this->calculateDurationWithinWorkingTime(
+                    $stoppageStartTimestamp,
+                    $stoppageEndTimestamp,
+                    $workingStartTime,
+                    $workingEndTime
+                );
+
+                // Calculate on/off durations by iterating through points within working time
                 $tempDurationOn = 0;
                 $tempDurationOff = 0;
 
-                for ($i = $stoppageStartIndex + 1; $i <= $index; $i++) {
-                    $td = $this->data[$i]['timestamp']->timestamp - $this->data[$i - 1]['timestamp']->timestamp;
-                    $tempDuration += $td;
+                // Determine the first point index to consider (within working time)
+                $firstPointIndex = $stoppageStartIndex;
+                if ($workingStartTime && $stoppageStartTimestamp->lt($workingStartTime)) {
+                    // Stoppage starts before working time - add duration from workingStartTime to first point after it
+                    // Use status from stoppageStartIndex point for this duration
+                    for ($i = $stoppageStartIndex + 1; $i <= $index; $i++) {
+                        if ($this->data[$i]['timestamp']->gte($workingStartTime)) {
+                            $firstPointIndex = $i;
+                            $td = $this->calculateDurationWithinWorkingTime(
+                                $workingStartTime,
+                                $this->data[$i]['timestamp'],
+                                $workingStartTime,
+                                $workingEndTime
+                            );
+                            // Use status from stoppageStartIndex point for this interval (from workingStartTime to first point)
+                            if ($this->data[$stoppageStartIndex]['status'] == 1) {
+                                $tempDurationOn += $td;
+                            } else {
+                                $tempDurationOff += $td;
+                            }
+                            break;
+                        }
+                    }
+                    // If no point found after workingStartTime, use stoppageStartIndex status for remaining duration
+                    if ($firstPointIndex == $stoppageStartIndex) {
+                        $td = $this->calculateDurationWithinWorkingTime(
+                            $workingStartTime,
+                            $stoppageEndTimestamp,
+                            $workingStartTime,
+                            $workingEndTime
+                        );
+                        if ($this->data[$stoppageStartIndex]['status'] == 1) {
+                            $tempDurationOn += $td;
+                        } else {
+                            $tempDurationOff += $td;
+                        }
+                    }
+                }
+
+                // Iterate through remaining points
+                for ($i = $firstPointIndex + 1; $i <= $index; $i++) {
+                    $td = $this->calculateDurationWithinWorkingTime(
+                        $this->data[$i - 1]['timestamp'],
+                        $this->data[$i]['timestamp'],
+                        $workingStartTime,
+                        $workingEndTime
+                    );
                     if ($this->data[$i]['status'] == 1) {
                         $tempDurationOn += $td;
                     } else {
                         $tempDurationOff += $td;
                     }
+                }
+
+                // If stoppage extends beyond workingEndTime, we've already clamped it in calculateDurationWithinWorkingTime
+                // But we need to make sure on/off split is proportional to the clamped duration
+                // If tempDuration is less than the sum of on+off, adjust proportionally
+                $totalCalculatedDuration = $tempDurationOn + $tempDurationOff;
+                if ($totalCalculatedDuration > 0 && $totalCalculatedDuration != $tempDuration) {
+                    // Adjust proportionally to match the clamped duration
+                    $ratio = $tempDuration / $totalCalculatedDuration;
+                    $tempDurationOn = intval($tempDurationOn * $ratio);
+                    $tempDurationOff = $tempDuration - $tempDurationOn;
                 }
 
                 // Calculate stoppage_time for all points in the stoppage segment
@@ -252,10 +394,19 @@ class GpsDataAnalyzer
                     $stoppageDetailIndex++;
                     $displayIndex = $stoppageDetailIndex;
 
+                    $effectiveStoppageStart = $this->getEffectiveStartTime(
+                        $this->data[$stoppageStartIndex]['timestamp'],
+                        $workingStartTime
+                    );
+                    $effectiveStoppageEnd = $this->getEffectiveEndTime(
+                        $currentPoint['timestamp'],
+                        $workingEndTime
+                    );
+
                     $this->stoppages[] = [
                         'index' => $displayIndex,
-                        'start_time' => $this->data[$stoppageStartIndex]['timestamp']->toTimeString(),
-                        'end_time' => $currentPoint['timestamp']->toTimeString(),
+                        'start_time' => $effectiveStoppageStart->toTimeString(),
+                        'end_time' => $effectiveStoppageEnd->toTimeString(),
                         'duration_seconds' => $tempDuration,
                         'duration_formatted' => to_time_format($tempDuration),
                         'location' => [
@@ -293,6 +444,8 @@ class GpsDataAnalyzer
                 // Movement points have stoppage_time = 0
                 $this->data[$index]['stoppage_time'] = 0;
 
+                // Only count movement if both points are within working time or the segment crosses working time
+                // Distance is always counted, but duration only within working time
                 $distance = calculate_distance(
                     [$previousPoint['latitude'], $previousPoint['longitude']],
                     [$currentPoint['latitude'], $currentPoint['longitude']]
@@ -317,11 +470,24 @@ class GpsDataAnalyzer
             $this->data[$dataCount - 1]['stoppage_time'] = 0;
 
             $movementDetailIndex++;
-            $duration = $previousPoint['timestamp']->timestamp - $this->data[$movementStartIndex]['timestamp']->timestamp;
+            $effectiveMovementStart = $this->getEffectiveStartTime(
+                $this->data[$movementStartIndex]['timestamp'],
+                $workingStartTime
+            );
+            $effectiveMovementEnd = $this->getEffectiveEndTime(
+                $previousPoint['timestamp'],
+                $workingEndTime
+            );
+            $duration = $this->calculateDurationWithinWorkingTime(
+                $this->data[$movementStartIndex]['timestamp'],
+                $previousPoint['timestamp'],
+                $workingStartTime,
+                $workingEndTime
+            );
             $this->movements[] = [
                 'index' => $movementDetailIndex,
-                'start_time' => $this->data[$movementStartIndex]['timestamp']->toTimeString(),
-                'end_time' => $previousPoint['timestamp']->toTimeString(),
+                'start_time' => $effectiveMovementStart->toTimeString(),
+                'end_time' => $effectiveMovementEnd->toTimeString(),
                 'duration_seconds' => $duration,
                 'duration_formatted' => to_time_format($duration),
                 'distance_km' => round($movementSegmentDistance, 3),
@@ -338,18 +504,80 @@ class GpsDataAnalyzer
             ];
         } elseif ($isCurrentlyStopped && $stoppageStartIndex !== null) {
             // End final stoppage
-            $tempDuration = 0;
+            $stoppageStartTimestamp = $this->data[$stoppageStartIndex]['timestamp'];
+            $stoppageEndTimestamp = $previousPoint['timestamp'];
+
+            // Calculate total duration within working time boundaries
+            $tempDuration = $this->calculateDurationWithinWorkingTime(
+                $stoppageStartTimestamp,
+                $stoppageEndTimestamp,
+                $workingStartTime,
+                $workingEndTime
+            );
+
+            // Calculate on/off durations by iterating through points within working time
             $tempDurationOn = 0;
             $tempDurationOff = 0;
 
-            for ($i = $stoppageStartIndex + 1; $i < $dataCount; $i++) {
-                $td = $this->data[$i]['timestamp']->timestamp - $this->data[$i - 1]['timestamp']->timestamp;
-                $tempDuration += $td;
+            // Determine the first point index to consider (within working time)
+            $firstPointIndex = $stoppageStartIndex;
+            if ($workingStartTime && $stoppageStartTimestamp->lt($workingStartTime)) {
+                // Stoppage starts before working time - add duration from workingStartTime to first point after it
+                for ($i = $stoppageStartIndex + 1; $i < $dataCount; $i++) {
+                    if ($this->data[$i]['timestamp']->gte($workingStartTime)) {
+                        $firstPointIndex = $i;
+                        $td = $this->calculateDurationWithinWorkingTime(
+                            $workingStartTime,
+                            $this->data[$i]['timestamp'],
+                            $workingStartTime,
+                            $workingEndTime
+                        );
+                        // Use status from stoppageStartIndex point for this interval
+                        if ($this->data[$stoppageStartIndex]['status'] == 1) {
+                            $tempDurationOn += $td;
+                        } else {
+                            $tempDurationOff += $td;
+                        }
+                        break;
+                    }
+                }
+                // If no point found after workingStartTime, use stoppageStartIndex status for remaining duration
+                if ($firstPointIndex == $stoppageStartIndex) {
+                    $td = $this->calculateDurationWithinWorkingTime(
+                        $workingStartTime,
+                        $stoppageEndTimestamp,
+                        $workingStartTime,
+                        $workingEndTime
+                    );
+                    if ($this->data[$stoppageStartIndex]['status'] == 1) {
+                        $tempDurationOn += $td;
+                    } else {
+                        $tempDurationOff += $td;
+                    }
+                }
+            }
+
+            // Iterate through remaining points
+            for ($i = $firstPointIndex + 1; $i < $dataCount; $i++) {
+                $td = $this->calculateDurationWithinWorkingTime(
+                    $this->data[$i - 1]['timestamp'],
+                    $this->data[$i]['timestamp'],
+                    $workingStartTime,
+                    $workingEndTime
+                );
                 if ($this->data[$i]['status'] == 1) {
                     $tempDurationOn += $td;
                 } else {
                     $tempDurationOff += $td;
                 }
+            }
+
+            // If stoppage extends beyond workingEndTime, adjust on/off split proportionally
+            $totalCalculatedDuration = $tempDurationOn + $tempDurationOff;
+            if ($totalCalculatedDuration > 0 && $totalCalculatedDuration != $tempDuration) {
+                $ratio = $tempDuration / $totalCalculatedDuration;
+                $tempDurationOn = intval($tempDurationOn * $ratio);
+                $tempDurationOff = $tempDuration - $tempDurationOn;
             }
 
             // Calculate stoppage_time for all points in the final stoppage segment
@@ -365,10 +593,19 @@ class GpsDataAnalyzer
                 $stoppageDetailIndex++;
                 $displayIndex = $stoppageDetailIndex;
 
+                $effectiveStoppageStart = $this->getEffectiveStartTime(
+                    $this->data[$stoppageStartIndex]['timestamp'],
+                    $workingStartTime
+                );
+                $effectiveStoppageEnd = $this->getEffectiveEndTime(
+                    $previousPoint['timestamp'],
+                    $workingEndTime
+                );
+
                 $this->stoppages[] = [
                     'index' => $displayIndex,
-                    'start_time' => $this->data[$stoppageStartIndex]['timestamp']->toTimeString(),
-                    'end_time' => $previousPoint['timestamp']->toTimeString(),
+                    'start_time' => $effectiveStoppageStart->toTimeString(),
+                    'end_time' => $effectiveStoppageEnd->toTimeString(),
                     'duration_seconds' => $tempDuration,
                     'duration_formatted' => to_time_format($tempDuration),
                     'location' => [
@@ -419,6 +656,87 @@ class GpsDataAnalyzer
         ];
 
         return $this->results;
+    }
+
+    /**
+     * Clamp a timestamp to working time boundaries
+     * If timestamp is before workingStartTime, return workingStartTime
+     * If timestamp is after workingEndTime, return workingEndTime
+     * Otherwise return the timestamp as-is
+     *
+     * @param Carbon $timestamp
+     * @param Carbon|null $workingStartTime
+     * @param Carbon|null $workingEndTime
+     * @return Carbon
+     */
+    private function clampToWorkingTime(Carbon $timestamp, ?Carbon $workingStartTime, ?Carbon $workingEndTime): Carbon
+    {
+        if ($workingStartTime && $timestamp->lt($workingStartTime)) {
+            return $workingStartTime->copy();
+        }
+        if ($workingEndTime && $timestamp->gt($workingEndTime)) {
+            return $workingEndTime->copy();
+        }
+        return $timestamp;
+    }
+
+    /**
+     * Calculate duration between two timestamps within working time boundaries
+     *
+     * @param Carbon $startTime
+     * @param Carbon $endTime
+     * @param Carbon|null $workingStartTime
+     * @param Carbon|null $workingEndTime
+     * @return int Duration in seconds
+     */
+    private function calculateDurationWithinWorkingTime(
+        Carbon $startTime,
+        Carbon $endTime,
+        ?Carbon $workingStartTime,
+        ?Carbon $workingEndTime
+    ): int {
+        // Clamp both timestamps to working time boundaries
+        $clampedStart = $this->clampToWorkingTime($startTime, $workingStartTime, $workingEndTime);
+        $clampedEnd = $this->clampToWorkingTime($endTime, $workingStartTime, $workingEndTime);
+
+        // If clamped start is after clamped end, duration is 0
+        if ($clampedStart->gte($clampedEnd)) {
+            return 0;
+        }
+
+        return $clampedEnd->timestamp - $clampedStart->timestamp;
+    }
+
+    /**
+     * Get the effective start time for a stoppage or movement segment
+     * If the actual start is before workingStartTime, use workingStartTime
+     *
+     * @param Carbon $actualStartTime
+     * @param Carbon|null $workingStartTime
+     * @return Carbon
+     */
+    private function getEffectiveStartTime(Carbon $actualStartTime, ?Carbon $workingStartTime): Carbon
+    {
+        if ($workingStartTime && $actualStartTime->lt($workingStartTime)) {
+            return $workingStartTime->copy();
+        }
+        return $actualStartTime;
+    }
+
+    /**
+     * Get the effective end time for a stoppage or movement segment
+     * If the actual end is after workingEndTime, use workingEndTime
+     *
+     * @param Carbon $actualEndTime
+     * @param Carbon|null $workingEndTime
+     * @return Carbon
+     */
+    private function getEffectiveEndTime(Carbon $actualEndTime, ?Carbon $workingEndTime): Carbon
+    {
+        if ($workingEndTime && $actualEndTime->gt($workingEndTime)) {
+            return $workingEndTime->copy();
+        }
+        return $actualEndTime;
     }
 
     /**
