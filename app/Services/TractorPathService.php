@@ -48,11 +48,14 @@ class TractorPathService
                 return PointsResource::collection(collect());
             }
 
-            // Extract movement and stoppage points according to the algorithm
-            $pathPoints = $this->extractMovementPoints($gpsData);
+            // Smooth out GPS errors (single-point anomalies)
+            $smoothedGpsData = $this->smoothGpsErrors($gpsData);
 
-            // Convert to PointsResource format
-            $formattedPathPoints = $this->convertToPathPoints($pathPoints, $gpsData);
+            // Extract movement and stoppage points according to the algorithm
+            $pathPoints = $this->extractMovementPoints($smoothedGpsData);
+
+            // Convert to PointsResource format (use smoothed data for consistency)
+            $formattedPathPoints = $this->convertToPathPoints($pathPoints, $smoothedGpsData);
 
             return PointsResource::collection($formattedPathPoints);
 
@@ -80,6 +83,77 @@ class TractorPathService
             ->whereDate('date_time', $date)
             ->orderBy('date_time')
             ->get();
+    }
+
+    /**
+     * Smooth out GPS errors by correcting single-point anomalies.
+     *
+     * Rules:
+     * - If a movement point is surrounded by stoppage points (before and after), treat it as stoppage
+     * - If a stoppage point is surrounded by movement points (before and after), treat it as movement
+     *
+     * @param \Illuminate\Support\Collection $gpsData
+     * @return \Illuminate\Support\Collection Collection with corrected points
+     */
+    private function smoothGpsErrors($gpsData): \Illuminate\Support\Collection
+    {
+        if ($gpsData->count() < 3) {
+            // Need at least 3 points to detect anomalies
+            return $gpsData;
+        }
+
+        $smoothedData = collect();
+        $dataArray = $gpsData->values()->all();
+
+        foreach ($dataArray as $index => $point) {
+            $isFirstPoint = $index === 0;
+            $isLastPoint = $index === count($dataArray) - 1;
+
+            // Skip smoothing for first and last points (no neighbors on both sides)
+            if ($isFirstPoint || $isLastPoint) {
+                $smoothedData->push($point);
+                continue;
+            }
+
+            $currentIsMovement = $point->status == 1 && $point->speed > 0;
+            $currentIsStoppage = $point->status == 0 && $point->speed == 0;
+
+            $previousPoint = $dataArray[$index - 1];
+            $nextPoint = $dataArray[$index + 1];
+
+            $previousIsMovement = $previousPoint->status == 1 && $previousPoint->speed > 0;
+            $previousIsStoppage = $previousPoint->status == 0 && $previousPoint->speed == 0;
+
+            $nextIsMovement = $nextPoint->status == 1 && $nextPoint->speed > 0;
+            $nextIsStoppage = $nextPoint->status == 0 && $nextPoint->speed == 0;
+
+            // Case 1: Movement point surrounded by stoppage points -> treat as stoppage
+            if ($currentIsMovement && $previousIsStoppage && $nextIsStoppage) {
+                // Create a copy with corrected status
+                $correctedPoint = clone $point;
+                $correctedPoint->status = 0;
+                $correctedPoint->speed = 0;
+                $smoothedData->push($correctedPoint);
+                continue;
+            }
+
+            // Case 2: Stoppage point surrounded by movement points -> treat as movement
+            if ($currentIsStoppage && $previousIsMovement && $nextIsMovement) {
+                // Create a copy with corrected status
+                // Use average speed from neighbors or default to a small value
+                $avgSpeed = ($previousPoint->speed + $nextPoint->speed) / 2;
+                $correctedPoint = clone $point;
+                $correctedPoint->status = 1;
+                $correctedPoint->speed = $avgSpeed > 0 ? $avgSpeed : 1;
+                $smoothedData->push($correctedPoint);
+                continue;
+            }
+
+            // No correction needed
+            $smoothedData->push($point);
+        }
+
+        return $smoothedData;
     }
 
     /**
