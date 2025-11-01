@@ -105,6 +105,9 @@ class GpsDataAnalyzer
         $consecutiveMovementCount = 0;
         $firstConsecutiveMovementIndex = null;
 
+        // Track if we've seen movement (match TractorPathService behavior - only count stoppages after movement)
+        $hasSeenMovement = false;
+
         $dataCount = count($this->data);
 
         // Helper function to check if point is moving
@@ -177,6 +180,9 @@ class GpsDataAnalyzer
 
             // Transition: Moving -> Stopped
             if ($isStopped && $isCurrentlyMoving) {
+                // Mark that we've seen movement
+                $hasSeenMovement = true;
+
                 // Add transition to movement
                 $distance = calculate_distance(
                     [$previousPoint['latitude'], $previousPoint['longitude']],
@@ -247,8 +253,10 @@ class GpsDataAnalyzer
 
                 $isIgnored = $tempDuration < 60;
 
-                // Only save stoppage detail if duration >= 60 seconds (match TractorPathService behavior)
-                if (!$isIgnored) {
+                // Only save stoppage detail if duration >= 60 seconds AND movement has been seen (match TractorPathService behavior)
+                // This excludes initial stoppages (before any movement) - TractorPathService only counts stoppages after movement
+                // The first point is included in the path but NOT counted as a stoppage segment
+                if (!$isIgnored && $hasSeenMovement) {
                     $stoppageDetailIndex++;
                     $displayIndex = $stoppageDetailIndex;
 
@@ -271,17 +279,23 @@ class GpsDataAnalyzer
 
                 // Update totals
                 if ($tempDuration >= 60) {
-                    // Stoppage >= 60 seconds: count as actual stoppage
-                    $stoppageCount++;
-                    $stoppageDuration += $tempDuration;
-                    $stoppageDurationWhileOn += $tempDurationOn;
-                    $stoppageDurationWhileOff += $tempDurationOff;
+                    // Stoppage >= 60 seconds: count as actual stoppage (only if movement has been seen)
+                    // Exclude initial stoppages - they are not counted as stoppage segments
+                    if ($hasSeenMovement) {
+                        $stoppageCount++;
+                        $stoppageDuration += $tempDuration;
+                        $stoppageDurationWhileOn += $tempDurationOn;
+                        $stoppageDurationWhileOff += $tempDurationOff;
+                    }
                 } else {
                     // Stoppage < 60 seconds: treat as movement (add to movement duration)
                     $ignoredStoppageCount++;
                     $ignoredStoppageDuration += $tempDuration;
                     $movementDuration += $tempDuration; // Add short stoppage time to movement duration
                 }
+
+                // Mark that movement has started (after checking stoppage)
+                $hasSeenMovement = true;
 
                 $isCurrentlyStopped = false;
                 $isCurrentlyMoving = true;
@@ -290,6 +304,9 @@ class GpsDataAnalyzer
             }
             // Continue moving
             elseif ($isMoving && $isCurrentlyMoving) {
+                // Mark that we've seen movement
+                $hasSeenMovement = true;
+
                 // Movement points have stoppage_time = 0
                 $this->data[$index]['stoppage_time'] = 0;
 
@@ -360,8 +377,10 @@ class GpsDataAnalyzer
 
             $isIgnored = $tempDuration < 60;
 
-            // Only save stoppage detail if duration >= 60 seconds (match TractorPathService behavior)
-            if (!$isIgnored) {
+            // Only save stoppage detail if duration >= 60 seconds AND movement has been seen (match TractorPathService behavior)
+            // This excludes initial stoppages (before any movement)
+            // The first point is included in the path but NOT counted as a stoppage segment
+            if (!$isIgnored && $hasSeenMovement) {
                 $stoppageDetailIndex++;
                 $displayIndex = $stoppageDetailIndex;
 
@@ -382,12 +401,16 @@ class GpsDataAnalyzer
                 $ignoredStoppageDetailIndex++;
             }
 
+            // Update totals for final stoppage (only if movement has been seen)
             if ($tempDuration >= 60) {
-                // Final stoppage >= 60 seconds: count as actual stoppage
-                $stoppageCount++;
-                $stoppageDuration += $tempDuration;
-                $stoppageDurationWhileOn += $tempDurationOn;
-                $stoppageDurationWhileOff += $tempDurationOff;
+                // Final stoppage >= 60 seconds: count as actual stoppage (only if movement has been seen)
+                // Exclude initial stoppages - they are not counted as stoppage segments
+                if ($hasSeenMovement) {
+                    $stoppageCount++;
+                    $stoppageDuration += $tempDuration;
+                    $stoppageDurationWhileOn += $tempDurationOn;
+                    $stoppageDurationWhileOff += $tempDurationOff;
+                }
             } else {
                 // Final stoppage < 60 seconds: treat as movement (add to movement duration)
                 $ignoredStoppageCount++;
