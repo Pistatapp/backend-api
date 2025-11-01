@@ -124,9 +124,9 @@ class TractorPathService
     /**
      * Extract movement points and stoppage points from GPS data
      * Algorithm:
+     * - The first point of the day is always included (stoppage or movement)
      * - All movement points (status == 1 && speed > 0) are included
      * - For stoppage segments, only the first stoppage point after a movement point is included
-     * - The first point of the day (if it's a stoppage) is excluded
      * - Calculate stoppage duration from first stoppage point to consecutive stoppage points
      * - Consecutive stoppage points are excluded from the final path
      *
@@ -145,6 +145,7 @@ class TractorPathService
         foreach ($gpsData as $index => $point) {
             $isMovement = $point->status == 1 && $point->speed > 0;
             $isStoppage = $point->status == 0 && $point->speed == 0;
+            $isFirstPoint = $index === 0; // Check if this is the first point of the day
 
             if ($isMovement) {
                 // Mark that we've seen movement
@@ -169,9 +170,13 @@ class TractorPathService
                 $lastPointType = 'movement';
 
             } elseif ($isStoppage) {
-                // Only include stoppage points that come after a movement point
-                // Exclude the first point of the day if it's a stoppage
-                if ($hasSeenMovement && $lastPointType !== 'stoppage') {
+                // Always include the first point of the day, even if it's a stoppage
+                if ($isFirstPoint) {
+                    $pathPoints->push($point);
+                    $stoppageStartIndex = $index;
+                    $inStoppageSegment = true;
+                    $lastPointType = 'stoppage';
+                } elseif ($hasSeenMovement && $lastPointType !== 'stoppage') {
                     // This is the first stoppage point in a new stoppage segment (after movement)
                     $pathPoints->push($point);
                     $stoppageStartIndex = $index;
@@ -186,7 +191,7 @@ class TractorPathService
                     // Update last point type but don't add to path
                     $lastPointType = 'stoppage';
                 } else {
-                    // This is a stoppage point before any movement (first point of day) - skip it
+                    // This is a stoppage point before any movement (but not first point) - skip it
                     $lastPointType = 'stoppage';
                 }
             }
