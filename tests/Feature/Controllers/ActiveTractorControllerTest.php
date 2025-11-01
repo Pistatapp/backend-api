@@ -199,40 +199,6 @@ class ActiveTractorControllerTest extends TestCase
     }
 
     #[Test]
-    public function it_can_get_tractor_timings()
-    {
-        $response = $this->getJson("/api/tractors/{$this->tractor->id}/timings?date=" . jdate(today())->format('Y/m/d'));
-
-        $response->assertOk()
-            ->assertJsonStructure([
-                'start_working_time',
-                'end_working_time',
-                'on_time'
-            ]);
-    }
-
-    #[Test]
-    public function it_can_get_tractor_current_task()
-    {
-        $response = $this->getJson("/api/tractors/{$this->tractor->id}/current-task");
-
-        $response->assertOk()
-            ->assertJsonStructure([
-                'data' => [
-                    'id',
-                    'status',
-                    'operation' => [
-                        'id',
-                        'name'
-                    ],
-                    'taskable' => [
-                        'id'
-                    ]
-                ]
-            ]);
-    }
-
-    #[Test]
     public function it_can_get_weekly_efficiency_chart()
     {
         // Create metrics for the last 7 days

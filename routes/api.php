@@ -119,8 +119,6 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::get('/farms/{farm}/tractors/working', [ActiveTractorController::class, 'getWorkingTractors']);
     Route::get('/tractors/{tractor}/path', [ActiveTractorController::class, 'getPath']);
     Route::get('/tractors/{tractor}/performance', [ActiveTractorController::class, 'getPerformance']);
-    Route::get('/tractors/{tractor}/timings', [ActiveTractorController::class, 'getTimings']);
-    Route::get('/tractors/{tractor}/current-task', [ActiveTractorController::class, 'getCurrentTask']);
     Route::get('/tractors/{tractor}/weekly-efficiency-chart', [ActiveTractorController::class, 'getWeeklyEfficiencyChart']);
 
     Route::apiResource('farms.tractors', TractorController::class)->shallow();

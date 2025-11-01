@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Carbon\Carbon;
 
 class TractorTaskResource extends JsonResource
 {
@@ -39,6 +40,7 @@ class TractorTaskResource extends JsonResource
             'start_time' => $this->start_time->format('H:i:s'),
             'end_time' => $this->end_time->format('H:i:s'),
             'status' => $this->status,
+            'is_current' => $this->isCurrent(),
             $this->mergeWhen($this->data, [
                 'consumed_water' => data_get($this->data, 'consumed_water'),
                 'consumed_fertilizer' => data_get($this->data, 'consumed_fertilizer'),
@@ -58,5 +60,30 @@ class TractorTaskResource extends JsonResource
                 'delete' => $request->user()->can('delete', $this->resource),
             ],
         ];
+    }
+
+    /**
+     * Check if the current time falls within the task's date and start/end time
+     *
+     * @return bool
+     */
+    private function isCurrent(): bool
+    {
+        $now = Carbon::now();
+        $taskDateTime = Carbon::parse($this->date);
+
+        // Get time string from start_time and end_time (they are cast as datetime objects)
+        $startTimeString = $this->start_time->format('H:i');
+        $endTimeString = $this->end_time->format('H:i');
+
+        $taskStartDateTime = $taskDateTime->copy()->setTimeFromTimeString($startTimeString);
+        $taskEndDateTime = $taskDateTime->copy()->setTimeFromTimeString($endTimeString);
+
+        // Handle midnight crossing (e.g., 22:00 - 02:00)
+        if ($taskEndDateTime->lt($taskStartDateTime)) {
+            $taskEndDateTime->addDay();
+        }
+
+        return $now->gte($taskStartDateTime) && $now->lt($taskEndDateTime);
     }
 }

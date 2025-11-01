@@ -140,6 +140,28 @@ class Tractor extends Model
     }
 
     /**
+     * Get the start work time for the tractor.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasOne
+     */
+    /**
+     * Get the earliest GpsData (with status=1) for this tractor via its devices.
+     *
+     * Note: This defines a hasOneThrough relationship with constraints so it can be eager loaded.
+     * To always get the first (earliest), use ->with('startWorkTime') and access as $tractor->startWorkTime.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasOneThrough
+     */
+    public function startWorkTime()
+    {
+        return $this->hasOneThrough(GpsData::class, GpsDevice::class)
+            ->where('status', 1)
+            ->where('speed', '>', 0)
+            ->whereDate('date_time', now()->toDateString())
+            ->orderBy('date_time', 'asc');
+    }
+
+    /**
      * Get the maintenance reports for the tractor.
      *
      * @return \Illuminate\Database\Eloquent\Relations\MorphMany

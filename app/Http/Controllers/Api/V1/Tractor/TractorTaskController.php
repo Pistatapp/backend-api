@@ -11,13 +11,15 @@ use App\Models\Tractor;
 use App\Models\TractorTask;
 use Illuminate\Http\Request;
 use App\Services\TractorReportFilterService;
+use App\Services\TractorTaskService;
 use Illuminate\Support\Facades\Notification;
 use App\Notifications\TractorTaskCreated;
 
 class TractorTaskController extends Controller
 {
     public function __construct(
-        private TractorReportFilterService $reportFilterService
+        private TractorReportFilterService $reportFilterService,
+        private TractorTaskService $tractorTaskService
     ) {
         $this->authorizeResource(TractorTask::class);
     }
@@ -27,16 +29,12 @@ class TractorTaskController extends Controller
      */
     public function index(Request $request, Tractor $tractor)
     {
-        $query = $tractor->tasks()->with('taskable', 'tractor.driver', 'operation')->latest();
+        $request->validate([
+            'date' => 'required|shamsi_date'
+        ]);
 
-        if ($request->has('date')) {
-            $date = jalali_to_carbon($request->query('date'))->toDateString();
-            $query->forDate($date);
-
-            return TractorTaskResource::collection($query->get());
-        }
-
-        $tasks = $query->simplePaginate();
+        $date = jalali_to_carbon($request->query('date'));
+        $tasks = $this->tractorTaskService->getAllTasksForDate($tractor, $date);
 
         return TractorTaskResource::collection($tasks);
     }

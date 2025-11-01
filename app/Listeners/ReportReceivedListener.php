@@ -3,7 +3,6 @@
 namespace App\Listeners;
 
 use App\Events\ReportReceived;
-use App\Events\TractorZoneStatus;
 use App\Services\TractorTaskService;
 use App\Services\TractorTaskStatusService;
 use Carbon\Carbon;
@@ -70,11 +69,8 @@ class ReportReceivedListener implements ShouldQueue
         // Check if point is in task zone
         $isInZone = $this->tractorTaskService->isPointInTaskZone($coordinate, $currentTask);
 
-        // Update task status based on zone entry/exit
+        // Update task status based on zone entry/exit (passes zone info to event)
         $this->updateTaskStatus($currentTask, $isInZone);
-
-        // Fire zone status event
-        $this->fireZoneStatusEvent($tractor->gpsDevice, $currentTask, $isInZone);
     }
 
     /**
@@ -87,29 +83,12 @@ class ReportReceivedListener implements ShouldQueue
     {
         if ($isInZone) {
             // Tractor entered zone - mark as in_progress if applicable
+            // Zone info will be passed through markTaskInProgressIfApplicable
             $this->tractorTaskStatusService->markTaskInProgressIfApplicable($task);
         } else {
             // Tractor exited zone - mark as stopped if applicable
+            // Zone info will be passed through markTaskStoppedIfApplicable
             $this->tractorTaskStatusService->markTaskStoppedIfApplicable($task);
         }
-    }
-
-    /**
-     * Fire TractorZoneStatus event.
-     *
-     * @param \App\Models\GpsDevice $device
-     * @param \App\Models\TractorTask $task
-     * @param bool $isInZone
-     */
-    private function fireZoneStatusEvent($device, $task, bool $isInZone): void
-    {
-        event(new TractorZoneStatus(
-            [
-                'is_in_task_zone' => $isInZone,
-                'task_id' => $task->id,
-                'task_name' => $task->operation?->name ?? 'Unknown Task',
-            ],
-            $device
-        ));
     }
 }

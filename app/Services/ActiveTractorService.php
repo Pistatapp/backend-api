@@ -8,14 +8,12 @@ use App\Models\GpsMetricsCalculation;
 use Carbon\Carbon;
 use App\Http\Resources\DriverResource;
 use App\Services\GpsDataAnalyzer;
-use App\Services\Tractor\TractorWorkTimeDetectionService;
 use App\Services\TractorTaskService;
 
 class ActiveTractorService
 {
     public function __construct(
         private GpsDataAnalyzer $gpsDataAnalyzer,
-        private TractorWorkTimeDetectionService $tractorWorkTimeDetectionService,
         private TractorTaskService $tractorTaskService
     ) {}
 
@@ -81,25 +79,6 @@ class ActiveTractorService
                 'task-based' => $taskBasedEfficiency
             ],
             'driver' => new DriverResource($tractor->driver)
-        ];
-    }
-
-    /**
-     * Get timings of a specific tractor
-     *
-     * @param Tractor $tractor
-     * @param Carbon $date
-     * @return array
-     */
-    public function getTractorTimings(Tractor $tractor, Carbon $date)
-    {
-        // Use the new work time detection service
-        $workTimes = $this->tractorWorkTimeDetectionService->detectWorkTimes($tractor, $date);
-
-        return [
-            'start_working_time' => $workTimes['start_work_time'],
-            'end_working_time' => $workTimes['end_work_time'],
-            'on_time' => $workTimes['on_time'],
         ];
     }
 

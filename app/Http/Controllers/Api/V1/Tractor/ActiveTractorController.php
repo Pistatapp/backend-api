@@ -4,20 +4,17 @@ namespace App\Http\Controllers\Api\V1\Tractor;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ActiveTractorResource;
-use App\Http\Resources\TractorTaskResource;
 use App\Models\Tractor;
 use Illuminate\Http\Request;
 use App\Models\Farm;
 use App\Services\ActiveTractorService;
 use App\Services\TractorPathService;
-use App\Services\Tractor\TractorWorkTimeDetectionService;
 
 class ActiveTractorController extends Controller
 {
     public function __construct(
         private ActiveTractorService $activeTractorService,
-        private TractorPathService $tractorPathService,
-        private TractorWorkTimeDetectionService $tractorWorkTimeDetectionService
+        private TractorPathService $tractorPathService
     ) {}
 
     /**
@@ -28,10 +25,9 @@ class ActiveTractorController extends Controller
      */
     public function index(Farm $farm)
     {
-        $tractors = $farm->tractors()->active()->with('gpsDevice', 'driver')->get();
-
-        // Calculate work times for each tractor using the dedicated service
-        $tractors = $this->tractorWorkTimeDetectionService->detectWorkTimesForTractors($tractors);
+        $tractors = $farm->tractors()->active()
+            ->with('gpsDevice', 'driver', 'startWorkTime')
+            ->get();
 
         return ActiveTractorResource::collection($tractors);
     }
@@ -53,38 +49,6 @@ class ActiveTractorController extends Controller
 
         // Fallback to regular response for backward compatibility
         return $this->tractorPathService->getTractorPath($tractor, $date);
-    }
-
-
-    /**
-     * Get timings of a specific tractor
-     *
-     * @param Request $request
-     * @param Tractor $tractor
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function getTimings(Request $request, Tractor $tractor)
-    {
-        $request->validate([
-            'date' => 'required|shamsi_date'
-        ]);
-
-        $date = jalali_to_carbon($request->date);
-        return $this->activeTractorService->getTractorTimings($tractor, $date);
-    }
-
-    /**
-     * Get current task of a specific tractor
-     *
-     * @param Tractor $tractor
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function getCurrentTask(Tractor $tractor)
-    {
-        $task = $tractor->tasks()->with(['operation', 'taskable'])->started()->first();
-        return $task ?
-            new TractorTaskResource($task)
-            : response()->json(['data' => []]);
     }
 
     /**

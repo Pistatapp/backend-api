@@ -18,7 +18,8 @@ class TractorTaskStatusChanged implements ShouldBroadcast
      */
     public function __construct(
         public TractorTask $task,
-        public string $status
+        public string $status,
+        public ?bool $isInZone = null
     ) {
         //
     }
@@ -36,28 +37,11 @@ class TractorTaskStatusChanged implements ShouldBroadcast
      */
     public function broadcastWith(): array
     {
-        // Get work duration from GPS metrics
-        $metrics = \App\Models\GpsMetricsCalculation::where('tractor_task_id', $this->task->id)
-            ->where('date', $this->task->date)
-            ->first();
-
-        $workDuration = $metrics ? $metrics->work_duration : 0;
-
         return [
             'task_id' => $this->task->id,
             'tractor_id' => $this->task->tractor_id,
             'status' => $this->status, // pending, started, finished
-            'operation' => [
-                'id' => $this->task->operation->id,
-                'name' => $this->task->operation->name,
-            ],
-            'taskable' => [
-                'id' => $this->task->taskable->id,
-                'name' => $this->task->taskable->name,
-            ],
-            'start_time' => $this->task->start_time->format('H:i:s'),
-            'end_time' => $this->task->end_time->format('H:i:s'),
-            'work_duration' => $workDuration,
+            'is_in_task_zone' => $this->isInZone,
         ];
     }
 

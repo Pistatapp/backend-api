@@ -32,7 +32,7 @@ class TractorTaskStatusService
 
         if ($oldStatus !== $newStatus) {
             $task->update(['status' => $newStatus]);
-            event(new TractorTaskStatusChanged($task, $newStatus));
+            event(new TractorTaskStatusChanged($task, $newStatus, $isCurrentlyInZone));
         }
     }
 
@@ -193,7 +193,7 @@ class TractorTaskStatusService
             $now->lt($taskEndDateTime)) {
 
             $task->update(['status' => 'in_progress']);
-            event(new TractorTaskStatusChanged($task, 'in_progress'));
+            event(new TractorTaskStatusChanged($task, 'in_progress', true));
 
             Log::info('Tractor task marked as in_progress', [
                 'task_id' => $task->id,
@@ -260,7 +260,7 @@ class TractorTaskStatusService
             $now->lt($taskEndDateTime)) {
 
             $task->update(['status' => 'stopped']);
-            event(new TractorTaskStatusChanged($task, 'stopped'));
+            event(new TractorTaskStatusChanged($task, 'stopped', false));
 
             Log::info('Tractor task marked as stopped', [
                 'task_id' => $task->id,

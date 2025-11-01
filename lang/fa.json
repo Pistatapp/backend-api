@@ -139,5 +139,10 @@
     "The degree days for :pest pest from :start_date to :end_date was :degree_days.": "میزان درجه روز آفت :pest از تاریخ :start_date تا تاریخ :end_date کمتر از عدد :degree_days بوده است.",
     "The selected time overlaps with an existing report.": "زمان انتخاب شده با گزارشی که قبلا ثبت شده است تداخل دارد.",
     "notifications.tractor_task_created.title": "وظیفه ای برای تراکتور :tractor_name ایجاد شد.",
-    "notifications.tractor_task_created.body": "عملیات :operation_name باید از ساعت :start_time تا :end_time در تاریخ :task_date اجرا شود. محل اجرای عملیات :taskable_name می باشد."
+    "notifications.tractor_task_created.body": "عملیات :operation_name باید از ساعت :start_time تا :end_time در تاریخ :task_date اجرا شود. محل اجرای عملیات :taskable_name می باشد.",
+    "On :date, tractor :tractor_name successfully completed :operation operation in :taskable_type :taskable_name for :duration.": "در تاریخ :date تراکتور :tractor_name بمدت :duration در :taskable_type :taskable_name عملیات :operation را با موفقیت به پایان رساند.",
+    "On :date, tractor :tractor_name did not complete the assigned task and did not enter :taskable_type :taskable_name for :operation operation at the scheduled time.": "در تاریخ :date تراکتور :tractor_name وظیفه تعیین شده را انجام نداده و برای عملیات :operation در ساعت تعیین شده وارد :taskable_type :taskable_name نگردیده است.",
+    "farm": "مزرعه",
+    "plot": "کرت",
+    "area": "منطقه"
 }
