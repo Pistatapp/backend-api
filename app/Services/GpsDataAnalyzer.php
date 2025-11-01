@@ -53,11 +53,14 @@ class GpsDataAnalyzer
     /**
      * Analyze GPS data and calculate all metrics
      * Note: Movement = status == 1 && speed > 0
-     * Note: Stoppage = status == 0 && speed == 0 || status == 1 && speed == 0
+     * Note: Stoppage = speed == 0
      * Note: Stoppages less than 60 seconds are considered as movements
      * Note: First stoppage point in batch = last movement point
      * Note: First movement point in batch = last stoppage point
      * Note: firstMovementTime is set when 3 consecutive movement points are detected, using the timestamp of the first point
+     * Note: stoppage_time calculation:
+     *   - For stoppage points: stoppage_time = total duration from start of stoppage segment to end of segment (when movement begins)
+     *   - For movement points: stoppage_time = 0 (end of stoppage / start of movement)
      */
     public function analyze(): array
     {
@@ -113,6 +116,11 @@ class GpsDataAnalyzer
             return $point['speed'] == 0;
         };
 
+        // Initialize stoppage_time for all points (will be calculated during iteration)
+        foreach ($this->data as $index => $point) {
+            $this->data[$index]['stoppage_time'] = 0;
+        }
+
         foreach ($this->data as $index => $currentPoint) {
             // Track max speed
             if ($currentPoint['speed'] > $maxSpeed) {
@@ -148,9 +156,12 @@ class GpsDataAnalyzer
             if ($previousPoint === null) {
                 // First point
                 if ($isStoppedPoint($currentPoint)) {
+                    // First point is stoppage - stoppage_time will be calculated when movement begins or at end
                     $isCurrentlyStopped = true;
                     $stoppageStartIndex = $index;
                 } else if ($isMovingPoint($currentPoint)) {
+                    // First point is movement - stoppage_time = 0
+                    $this->data[$index]['stoppage_time'] = 0;
                     $isCurrentlyMoving = true;
                     $movementStartIndex = $index;
                     $movementSegmentDistance = 0;
@@ -196,6 +207,10 @@ class GpsDataAnalyzer
                     'avg_speed' => $duration > 0 ? round(($movementSegmentDistance / $duration) * 3600, 2) : 0,
                 ];
 
+                // End of movement / Start of stoppage
+                // Previous point (last movement point) has stoppage_time = 0
+                $this->data[$index - 1]['stoppage_time'] = 0;
+
                 $isCurrentlyMoving = false;
                 $isCurrentlyStopped = true;
                 $stoppageStartIndex = $index;
@@ -217,6 +232,17 @@ class GpsDataAnalyzer
                         $tempDurationOff += $td;
                     }
                 }
+
+                // Calculate stoppage_time for all points in the stoppage segment
+                // stoppage_time = total duration from start of stoppage segment to end of segment (when movement begins)
+                for ($i = $stoppageStartIndex; $i < $index; $i++) {
+                    // Set stoppage_time for each point in the segment (all points get the total segment duration)
+                    $this->data[$i]['stoppage_time'] = $tempDuration;
+                }
+
+                // End of stoppage / Start of movement
+                // Current point (first movement point) has stoppage_time = 0
+                $this->data[$index]['stoppage_time'] = 0;
 
                 $isIgnored = $tempDuration < 60;
 
@@ -262,6 +288,9 @@ class GpsDataAnalyzer
             }
             // Continue moving
             elseif ($isMoving && $isCurrentlyMoving) {
+                // Movement points have stoppage_time = 0
+                $this->data[$index]['stoppage_time'] = 0;
+
                 $distance = calculate_distance(
                     [$previousPoint['latitude'], $previousPoint['longitude']],
                     [$currentPoint['latitude'], $currentPoint['longitude']]
@@ -282,6 +311,9 @@ class GpsDataAnalyzer
         // Handle final state
         if ($isCurrentlyMoving && $movementStartIndex !== null) {
             // End final movement
+            // Ensure last movement point has stoppage_time = 0
+            $this->data[$dataCount - 1]['stoppage_time'] = 0;
+
             $movementDetailIndex++;
             $duration = $previousPoint['timestamp']->timestamp - $this->data[$movementStartIndex]['timestamp']->timestamp;
             $this->movements[] = [
@@ -316,6 +348,12 @@ class GpsDataAnalyzer
                 } else {
                     $tempDurationOff += $td;
                 }
+            }
+
+            // Calculate stoppage_time for all points in the final stoppage segment
+            // stoppage_time = cumulative duration from start of stoppage segment to end of data
+            for ($i = $stoppageStartIndex; $i < $dataCount; $i++) {
+                $this->data[$i]['stoppage_time'] = $tempDuration;
             }
 
             $isIgnored = $tempDuration < 60;

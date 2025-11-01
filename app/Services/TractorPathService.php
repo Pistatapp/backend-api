@@ -89,8 +89,8 @@ class TractorPathService
      * Smooth out GPS errors by correcting single-point anomalies.
      *
      * Rules:
-     * - If a movement point is surrounded by stoppage points (before and after), treat it as stoppage
-     * - If a stoppage point is surrounded by movement points (before and after), treat it as movement
+     * - If a movement point is surrounded by stoppage points (before and after), treat it as stoppage (set status=0, speed=0)
+     * - If a stoppage point is surrounded by movement points (before and after), treat it as movement (set status=1, speed=average of neighbors)
      *
      * @param \Illuminate\Support\Collection $gpsData
      * @return \Illuminate\Support\Collection Collection with corrected points
@@ -102,58 +102,59 @@ class TractorPathService
             return $gpsData;
         }
 
-        $smoothedData = collect();
+        // Convert to array for easier manipulation
         $dataArray = $gpsData->values()->all();
+        $maxIterations = 5; // Prevent infinite loops
+        $iteration = 0;
 
-        foreach ($dataArray as $index => $point) {
-            $isFirstPoint = $index === 0;
-            $isLastPoint = $index === count($dataArray) - 1;
+        // Iterate until no more corrections are needed
+        do {
+            $hasCorrections = false;
 
-            // Skip smoothing for first and last points (no neighbors on both sides)
-            if ($isFirstPoint || $isLastPoint) {
-                $smoothedData->push($point);
-                continue;
+            for ($index = 1; $index < count($dataArray) - 1; $index++) {
+                $point = $dataArray[$index];
+                $previousPoint = $dataArray[$index - 1];
+                $nextPoint = $dataArray[$index + 1];
+
+                // Get current values from points (which may have been corrected in previous iterations)
+                // Ensure proper type conversion (speed and status might be strings in DB)
+                $currentStatus = (int)$point->status;
+                $currentSpeed = (float)$point->speed;
+                $prevStatus = (int)$previousPoint->status;
+                $prevSpeed = (float)$previousPoint->speed;
+                $nextStatus = (int)$nextPoint->status;
+                $nextSpeed = (float)$nextPoint->speed;
+
+                // Strict rules:
+                // Stoppage = speed == 0
+                // Movement = status == 1 AND speed > 0
+                $currentIsMovement = ($currentStatus == 1 && $currentSpeed > 0);
+                $currentIsStoppage = ($currentSpeed == 0);
+
+                $previousIsMovement = ($prevStatus == 1 && $prevSpeed > 0);
+                $previousIsStoppage = ($prevSpeed == 0);
+
+                $nextIsMovement = ($nextStatus == 1 && $nextSpeed > 0);
+                $nextIsStoppage = ($nextSpeed == 0);
+
+                // Case 1: Movement point surrounded by stoppage points -> set speed to 0 (don't touch status)
+                if ($currentIsMovement && $previousIsStoppage && $nextIsStoppage) {
+                    $point->speed = 0;
+                    $hasCorrections = true;
+                }
+                // Case 2: Stoppage point surrounded by movement points -> set speed to average of neighbors (don't touch status)
+                elseif ($currentIsStoppage && $previousIsMovement && $nextIsMovement) {
+                    $avgSpeed = ($prevSpeed + $nextSpeed) / 2;
+                    $point->speed = $avgSpeed > 0 ? $avgSpeed : 1;
+                    $hasCorrections = true;
+                }
             }
 
-            $currentIsMovement = $point->status == 1 && $point->speed > 0;
-            $currentIsStoppage = $point->status == 0 && $point->speed == 0;
+            $iteration++;
+        } while ($hasCorrections && $iteration < $maxIterations);
 
-            $previousPoint = $dataArray[$index - 1];
-            $nextPoint = $dataArray[$index + 1];
-
-            $previousIsMovement = $previousPoint->status == 1 && $previousPoint->speed > 0;
-            $previousIsStoppage = $previousPoint->status == 0 && $previousPoint->speed == 0;
-
-            $nextIsMovement = $nextPoint->status == 1 && $nextPoint->speed > 0;
-            $nextIsStoppage = $nextPoint->status == 0 && $nextPoint->speed == 0;
-
-            // Case 1: Movement point surrounded by stoppage points -> treat as stoppage
-            if ($currentIsMovement && $previousIsStoppage && $nextIsStoppage) {
-                // Create a copy with corrected status
-                $correctedPoint = clone $point;
-                $correctedPoint->status = 0;
-                $correctedPoint->speed = 0;
-                $smoothedData->push($correctedPoint);
-                continue;
-            }
-
-            // Case 2: Stoppage point surrounded by movement points -> treat as movement
-            if ($currentIsStoppage && $previousIsMovement && $nextIsMovement) {
-                // Create a copy with corrected status
-                // Use average speed from neighbors or default to a small value
-                $avgSpeed = ($previousPoint->speed + $nextPoint->speed) / 2;
-                $correctedPoint = clone $point;
-                $correctedPoint->status = 1;
-                $correctedPoint->speed = $avgSpeed > 0 ? $avgSpeed : 1;
-                $smoothedData->push($correctedPoint);
-                continue;
-            }
-
-            // No correction needed
-            $smoothedData->push($point);
-        }
-
-        return $smoothedData;
+        // Return the corrected collection
+        return collect($dataArray);
     }
 
     /**
@@ -179,7 +180,8 @@ class TractorPathService
      */
     private function convertSinglePointToResource($point): object
     {
-        $isStopped = $point->status == 0 && $point->speed == 0;
+        // Strict rule: Stoppage = speed == 0
+        $isStopped = ((float)$point->speed == 0);
 
         return (object) [
             'id' => $point->id,
@@ -201,7 +203,9 @@ class TractorPathService
      * - The first point of the day is always included (stoppage or movement)
      * - All movement points (status == 1 && speed > 0) are included
      * - For stoppage segments, only the first stoppage point after a movement point is included
-     * - Calculate stoppage duration from first stoppage point to consecutive stoppage points
+     * - Calculate stoppage_time for each point:
+     *   * For stoppage points: stoppage_time = cumulative duration from start of stoppage segment to end of segment (when movement begins)
+     *   * For movement points: stoppage_time = 0
      * - Consecutive stoppage points are excluded from the final path
      *
      * @param \Illuminate\Support\Collection $gpsData
@@ -217,22 +221,27 @@ class TractorPathService
         $hasSeenMovement = false; // Track if we've seen at least one movement point
 
         foreach ($gpsData as $index => $point) {
-            $isMovement = $point->status == 1 && $point->speed > 0;
-            $isStoppage = $point->status == 0 && $point->speed == 0;
+            // Strict rules:
+            // Stoppage = speed == 0
+            // Movement = status == 1 AND speed > 0
+            $isMovement = ((int)$point->status == 1 && (float)$point->speed > 0);
+            $isStoppage = ((float)$point->speed == 0);
             $isFirstPoint = $index === 0; // Check if this is the first point of the day
 
             if ($isMovement) {
                 // Mark that we've seen movement
                 $hasSeenMovement = true;
 
-                // If we were in a stoppage segment, calculate and update the stoppage duration
+                // If we were in a stoppage segment, calculate and update the stoppage_time
+                // stoppage_time = duration from start of stoppage segment to when movement begins (current index - 1)
                 if ($inStoppageSegment && $stoppageStartIndex !== null) {
                     $stoppageDuration = $this->calculateStoppageDuration($gpsDataArray, $stoppageStartIndex, $index - 1);
-                    // Update the last stoppage point with duration
+                    // Update the last stoppage point with stoppage_time
                     if ($pathPoints->isNotEmpty()) {
                         $lastPoint = $pathPoints->last();
-                        if ($lastPoint->status == 0 && $lastPoint->speed == 0) {
-                            $lastPoint->stoppage_duration = $stoppageDuration;
+                        // Strict rule: Stoppage = speed == 0
+                        if ((float)$lastPoint->speed == 0) {
+                            $lastPoint->stoppage_time = $stoppageDuration;
                         }
                     }
                     $stoppageStartIndex = null;
@@ -240,18 +249,24 @@ class TractorPathService
                 }
 
                 // Always include movement points
+                // Movement points have stoppage_time = 0 (end of stoppage / start of movement)
+                $point->stoppage_time = 0;
                 $pathPoints->push($point);
                 $lastPointType = 'movement';
 
             } elseif ($isStoppage) {
                 // Always include the first point of the day, even if it's a stoppage
                 if ($isFirstPoint) {
+                    // Start of stoppage segment - stoppage_time will be calculated when movement begins
+                    $point->stoppage_time = 0; // Will be updated when movement begins or segment ends
                     $pathPoints->push($point);
                     $stoppageStartIndex = $index;
                     $inStoppageSegment = true;
                     $lastPointType = 'stoppage';
                 } elseif ($hasSeenMovement && $lastPointType !== 'stoppage') {
                     // This is the first stoppage point in a new stoppage segment (after movement)
+                    // End of movement / start of stoppage - stoppage_time will be calculated when movement begins
+                    $point->stoppage_time = 0; // Will be updated when movement begins or segment ends
                     $pathPoints->push($point);
                     $stoppageStartIndex = $index;
                     $inStoppageSegment = true;
@@ -273,11 +288,13 @@ class TractorPathService
 
         // Handle final stoppage if we end with a stoppage segment
         if ($inStoppageSegment && $stoppageStartIndex !== null) {
+            // Calculate stoppage_time from start of segment to the end of data
             $stoppageDuration = $this->calculateStoppageDuration($gpsDataArray, $stoppageStartIndex, count($gpsDataArray) - 1);
             if ($pathPoints->isNotEmpty()) {
                 $lastPoint = $pathPoints->last();
-                if ($lastPoint->status == 0 && $lastPoint->speed == 0) {
-                    $lastPoint->stoppage_duration = $stoppageDuration;
+                // Strict rule: Stoppage = speed == 0
+                if ((float)$lastPoint->speed == 0) {
+                    $lastPoint->stoppage_time = $stoppageDuration;
                 }
             }
         }
@@ -335,9 +352,13 @@ class TractorPathService
         $firstMovementPointId = $this->findFirstMovementPointIdFromOriginalData($gpsData);
 
         return $pathPoints->map(function ($point, $index) use ($firstMovementPointId) {
-            $isStopped = $point->status == 0 && $point->speed == 0;
-            $stoppageDuration = $isStopped ? ($point->stoppage_duration ?? 0) : 0;
-            $isMovement = $point->status == 1 && $point->speed > 0;
+            // Strict rules:
+            // Stoppage = speed == 0
+            // Movement = status == 1 AND speed > 0
+            $isStopped = ((float)$point->speed == 0);
+            // stoppage_time is already calculated in extractMovementPoints
+            $stoppageTime = $point->stoppage_time ?? 0;
+            $isMovement = ((int)$point->status == 1 && (float)$point->speed > 0);
 
             // Mark the point as starting point if it matches the first movement point from original data
             $isStartingPoint = $firstMovementPointId !== null && $point->id == $firstMovementPointId;
@@ -352,7 +373,7 @@ class TractorPathService
                 'is_ending_point' => false,
                 'is_stopped' => $isStopped,
                 'directions' => $point->directions,
-                'stoppage_time' => $stoppageDuration, // Actual calculated stoppage duration
+                'stoppage_time' => $stoppageTime, // Calculated stoppage_time from segment start to movement begin
                 'date_time' => $point->date_time,
             ];
         });
@@ -371,8 +392,8 @@ class TractorPathService
         $firstMovementPoint = null;
 
         foreach ($gpsData as $point) {
-            // Use the same movement detection logic as GpsDataAnalyzer: status == 1 && speed > 0
-            $isMovement = $point->status == 1 && $point->speed > 0;
+            // Strict rule: Movement = status == 1 AND speed > 0
+            $isMovement = ((int)$point->status == 1 && (float)$point->speed > 0);
 
             if ($isMovement) {
                 if ($consecutiveMovementCount === 0) {
