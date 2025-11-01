@@ -39,16 +39,17 @@ class TractorPathService
                 return PointsResource::collection(collect());
             }
 
-            // Analyze GPS data to get movement details
-            $analysisResults = $this->gpsDataAnalyzer
-                ->loadFromRecords($gpsData)
-                ->analyze();
+            // Get start work time for the tractor
+            $startWorkTime = null;
+            if ($tractor->start_work_time) {
+                $startWorkTime = Carbon::parse($date->toDateString() . ' ' . $tractor->start_work_time);
+            }
 
-            // Extract movement and strategic stoppage points from analysis results
-            $pathPoints = $this->extractMovementPoints($gpsData, $analysisResults);
+            // Extract movement and stoppage points according to the algorithm
+            $pathPoints = $this->extractMovementPoints($gpsData);
 
             // Convert to PointsResource format
-            $formattedPathPoints = $this->convertToPathPoints($pathPoints);
+            $formattedPathPoints = $this->convertToPathPoints($pathPoints, $startWorkTime);
 
             return PointsResource::collection($formattedPathPoints);
 
@@ -79,32 +80,30 @@ class TractorPathService
     }
 
     /**
-     * Extract movement points and strategic stoppage points from GPS data
-     * Rules:
-     * - Every movement point should be present in the path
-     * - Only the first stoppage point after the last movement point should be present
-     * - Consecutive stoppage points should be excluded
-     * - Calculate stoppage duration for each stoppage point
+     * Extract movement points and stoppage points from GPS data
+     * Algorithm:
+     * - All movement points (status == 1 && speed > 0) are included
+     * - For stoppage segments, only the first stoppage point is included
+     * - Calculate stoppage duration for each stoppage segment and add to the first stoppage point
      *
      * @param \Illuminate\Support\Collection $gpsData
-     * @param array $analysisResults
      * @return \Illuminate\Support\Collection
      */
-    private function extractMovementPoints($gpsData, array $analysisResults): \Illuminate\Support\Collection
+    private function extractMovementPoints($gpsData): \Illuminate\Support\Collection
     {
         $pathPoints = collect();
-        $lastPointWasMovement = false;
-        $lastMovementIndex = -1;
-        $stoppageStartIndex = null;
         $gpsDataArray = $gpsData->toArray();
+        $stoppageStartIndex = null;
+        $inStoppageSegment = false;
+        $lastPointType = null; // 'movement' or 'stoppage'
 
         foreach ($gpsData as $index => $point) {
             $isMovement = $point->status == 1 && $point->speed > 0;
             $isStoppage = $point->status == 0 && $point->speed == 0;
 
             if ($isMovement) {
-                // Calculate stoppage duration if we were in a stoppage period
-                if ($stoppageStartIndex !== null) {
+                // If we were in a stoppage segment, calculate and update the stoppage duration
+                if ($inStoppageSegment && $stoppageStartIndex !== null) {
                     $stoppageDuration = $this->calculateStoppageDuration($gpsDataArray, $stoppageStartIndex, $index - 1);
                     // Update the last stoppage point with duration
                     if ($pathPoints->isNotEmpty()) {
@@ -114,30 +113,33 @@ class TractorPathService
                         }
                     }
                     $stoppageStartIndex = null;
+                    $inStoppageSegment = false;
                 }
 
                 // Always include movement points
                 $pathPoints->push($point);
-                $lastPointWasMovement = true;
-                $lastMovementIndex = $index;
-            } elseif ($isStoppage && $lastPointWasMovement && $index === $lastMovementIndex + 1) {
-                // Include only the first stoppage point immediately after a movement
-                $pathPoints->push($point);
-                $lastPointWasMovement = false;
-                $stoppageStartIndex = $index;
-            } else {
-                // Skip consecutive stoppage points but continue tracking stoppage duration
-                $lastPointWasMovement = false;
-                if ($stoppageStartIndex !== null) {
-                    // Continue stoppage duration calculation
-                } else {
+                $lastPointType = 'movement';
+
+            } elseif ($isStoppage) {
+                // Check if this is the start of a new stoppage segment
+                if ($lastPointType !== 'stoppage') {
+                    // This is the first stoppage point in a new stoppage segment
+                    $pathPoints->push($point);
                     $stoppageStartIndex = $index;
+                    $inStoppageSegment = true;
+                } else {
+                    // This is a consecutive stoppage point - skip it but track for duration calculation
+                    if ($stoppageStartIndex === null) {
+                        // Should not happen, but handle edge case
+                        $stoppageStartIndex = $index;
+                    }
                 }
+                $lastPointType = 'stoppage';
             }
         }
 
-        // Handle final stoppage if we end with a stoppage
-        if ($stoppageStartIndex !== null) {
+        // Handle final stoppage if we end with a stoppage segment
+        if ($inStoppageSegment && $stoppageStartIndex !== null) {
             $stoppageDuration = $this->calculateStoppageDuration($gpsDataArray, $stoppageStartIndex, count($gpsDataArray) - 1);
             if ($pathPoints->isNotEmpty()) {
                 $lastPoint = $pathPoints->last();
@@ -189,13 +191,31 @@ class TractorPathService
      * Convert movement and stoppage points to PointsResource format
      *
      * @param \Illuminate\Support\Collection $pathPoints
+     * @param Carbon|null $startWorkTime
      * @return \Illuminate\Support\Collection
      */
-    private function convertToPathPoints($pathPoints): \Illuminate\Support\Collection
+    private function convertToPathPoints($pathPoints, ?Carbon $startWorkTime): \Illuminate\Support\Collection
     {
-        return $pathPoints->map(function ($point) {
+        $startingPointMarked = false;
+
+        return $pathPoints->map(function ($point) use ($startWorkTime, &$startingPointMarked) {
             $isStopped = $point->status == 0 && $point->speed == 0;
             $stoppageDuration = $isStopped ? ($point->stoppage_duration ?? 0) : 0;
+            $isMovement = $point->status == 1 && $point->speed > 0;
+
+            // Determine if this is the starting point
+            // Mark the first movement point after start work time as starting point
+            $isStartingPoint = false;
+            if (!$startingPointMarked && $isMovement && $startWorkTime) {
+                $pointTime = is_string($point->date_time)
+                    ? Carbon::parse($point->date_time)
+                    : $point->date_time;
+
+                if ($pointTime->gte($startWorkTime)) {
+                    $isStartingPoint = true;
+                    $startingPointMarked = true;
+                }
+            }
 
             // Create a mock object that matches PointsResource expectations
             return (object) [
@@ -203,10 +223,10 @@ class TractorPathService
                 'coordinate' => $point->coordinate,
                 'speed' => $point->speed,
                 'status' => $point->status,
-                'is_starting_point' => false,
+                'is_starting_point' => $isStartingPoint,
                 'is_ending_point' => false,
                 'is_stopped' => $isStopped,
-                'directions' => null,
+                'directions' => $point->directions,
                 'stoppage_time' => $stoppageDuration, // Actual calculated stoppage duration
                 'date_time' => $point->date_time,
             ];
