@@ -52,7 +52,7 @@ class TractorPathService
             $pathPoints = $this->extractMovementPoints($gpsData);
 
             // Convert to PointsResource format
-            $formattedPathPoints = $this->convertToPathPoints($pathPoints);
+            $formattedPathPoints = $this->convertToPathPoints($pathPoints, $gpsData);
 
             return PointsResource::collection($formattedPathPoints);
 
@@ -232,22 +232,24 @@ class TractorPathService
     /**
      * Convert movement and stoppage points to PointsResource format
      * Detects the first 3 consecutive movement points and marks the first as starting point.
+     * Uses the original GPS data to find the first movement point (same algorithm as GpsDataAnalyzer).
      *
      * @param \Illuminate\Support\Collection $pathPoints
+     * @param \Illuminate\Support\Collection $gpsData Original GPS data to find first movement point
      * @return \Illuminate\Support\Collection
      */
-    private function convertToPathPoints($pathPoints): \Illuminate\Support\Collection
+    private function convertToPathPoints($pathPoints, $gpsData): \Illuminate\Support\Collection
     {
-        // Find the first 3 consecutive movement points
-        $startingPointIndex = $this->findFirstConsecutiveMovementPoints($pathPoints);
+        // Find the first movement point ID from the original GPS data using the same algorithm as GpsDataAnalyzer
+        $firstMovementPointId = $this->findFirstMovementPointIdFromOriginalData($gpsData);
 
-        return $pathPoints->map(function ($point, $index) use ($startingPointIndex) {
+        return $pathPoints->map(function ($point, $index) use ($firstMovementPointId) {
             $isStopped = $point->status == 0 && $point->speed == 0;
             $stoppageDuration = $isStopped ? ($point->stoppage_duration ?? 0) : 0;
             $isMovement = $point->status == 1 && $point->speed > 0;
 
-            // Mark the first of the 3 consecutive movement points as starting point
-            $isStartingPoint = $index === $startingPointIndex;
+            // Mark the point as starting point if it matches the first movement point from original data
+            $isStartingPoint = $firstMovementPointId !== null && $point->id == $firstMovementPointId;
 
             // Create a mock object that matches PointsResource expectations
             return (object) [
@@ -266,37 +268,39 @@ class TractorPathService
     }
 
     /**
-     * Find the index of the first point in the first 3 consecutive movement points
+     * Find the ID of the first point in the first 3 consecutive movement points from original GPS data
+     * Uses the same algorithm as GpsDataAnalyzer to ensure consistency
      *
-     * @param \Illuminate\Support\Collection $pathPoints
-     * @return int|null Index of the starting point, or null if not found
+     * @param \Illuminate\Support\Collection $gpsData Original GPS data (all points)
+     * @return int|null ID of the first movement point, or null if not found
      */
-    private function findFirstConsecutiveMovementPoints($pathPoints): ?int
+    private function findFirstMovementPointIdFromOriginalData($gpsData): ?int
     {
         $consecutiveMovementCount = 0;
-        $firstMovementIndex = null;
+        $firstMovementPoint = null;
 
-        foreach ($pathPoints as $index => $point) {
+        foreach ($gpsData as $point) {
+            // Use the same movement detection logic as GpsDataAnalyzer: status == 1 && speed > 0
             $isMovement = $point->status == 1 && $point->speed > 0;
 
             if ($isMovement) {
                 if ($consecutiveMovementCount === 0) {
-                    // Start tracking a potential sequence
-                    $firstMovementIndex = $index;
+                    // Start tracking a potential sequence - save the first point
+                    $firstMovementPoint = $point;
                     $consecutiveMovementCount = 1;
                 } else {
                     // Continue the sequence
                     $consecutiveMovementCount++;
                 }
 
-                // Found 3 consecutive movement points
+                // Found 3 consecutive movement points - return the ID of the first point
                 if ($consecutiveMovementCount >= 3) {
-                    return $firstMovementIndex;
+                    return $firstMovementPoint->id;
                 }
             } else {
-                // Reset counter if we encounter a non-movement point
+                // Non-moving point breaks the sequence - reset
                 $consecutiveMovementCount = 0;
-                $firstMovementIndex = null;
+                $firstMovementPoint = null;
             }
         }
 
