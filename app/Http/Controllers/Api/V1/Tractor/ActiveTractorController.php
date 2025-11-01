@@ -9,25 +9,38 @@ use Illuminate\Http\Request;
 use App\Models\Farm;
 use App\Services\ActiveTractorService;
 use App\Services\TractorPathService;
+use App\Services\TractorWorkTimeDetectionService;
+use Carbon\Carbon;
 
 class ActiveTractorController extends Controller
 {
     public function __construct(
         private ActiveTractorService $activeTractorService,
-        private TractorPathService $tractorPathService
+        private TractorPathService $tractorPathService,
+        private TractorWorkTimeDetectionService $tractorWorkTimeDetectionService
     ) {}
 
     /**
      * Get active tractors for the farm
      *
+     * @param Request $request
      * @param Farm $farm
      * @return \Illuminate\Http\Resources\Json\AnonymousResourceCollection
      */
-    public function index(Farm $farm)
+    public function index(Request $request, Farm $farm)
     {
+        $request->validate([
+            'date' => 'sometimes|shamsi_date'
+        ]);
+
+        $date = $request->has('date') ? jalali_to_carbon($request->date) : Carbon::today();
+
         $tractors = $farm->tractors()->active()
-            ->with('gpsDevice', 'driver', 'startWorkTime')
+            ->with('gpsDevice', 'driver')
             ->get();
+
+        // Detect work times for all tractors using the service
+        $tractors = $this->tractorWorkTimeDetectionService->detectWorkTimesForTractors($tractors, $date);
 
         return ActiveTractorResource::collection($tractors);
     }

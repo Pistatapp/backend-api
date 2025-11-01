@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Tractor;
+namespace App\Services;
 
 use App\Models\Tractor;
 use Carbon\Carbon;
@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Log;
 
 class TractorWorkTimeDetectionService
 {
-    private const MIN_SPEED_FOR_WORK = 2; // Minimum speed to consider as actual work
+    private const MIN_SPEED_FOR_WORK = 1; // Minimum speed to consider as actual work
 
     public function __construct() {}
 
