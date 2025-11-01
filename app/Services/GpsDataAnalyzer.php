@@ -637,7 +637,7 @@ class GpsDataAnalyzer
 
         // Stoppage duration only includes stoppages >= 60 seconds (ignored stoppages excluded)
         $this->results = [
-            'movement_distance_km' => round($movementDistance, 3),
+            'movement_distance_km' => round($movementDistance, 1),
             'movement_distance_meters' => round($movementDistance * 1000, 2),
             'movement_duration_seconds' => $movementDuration,
             'movement_duration_formatted' => to_time_format($movementDuration),
