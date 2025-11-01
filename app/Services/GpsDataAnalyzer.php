@@ -57,6 +57,7 @@ class GpsDataAnalyzer
      * Note: Stoppages less than 60 seconds are considered as movements
      * Note: First stoppage point in batch = last movement point
      * Note: First movement point in batch = last stoppage point
+     * Note: firstMovementTime is set when 3 consecutive movement points are detected, using the timestamp of the first point
      */
     public function analyze(): array
     {
@@ -96,6 +97,10 @@ class GpsDataAnalyzer
         $deviceOnTime = null;
         $firstMovementTime = null;
 
+        // Track consecutive movements for firstMovementTime detection
+        $consecutiveMovementCount = 0;
+        $firstConsecutiveMovementIndex = null;
+
         $dataCount = count($this->data);
 
         // Helper function to check if point is moving
@@ -118,8 +123,26 @@ class GpsDataAnalyzer
             if ($deviceOnTime === null && $currentPoint['status'] == 1) {
                 $deviceOnTime = $currentPoint['timestamp']->toTimeString();
             }
-            if ($firstMovementTime === null && $isMovingPoint($currentPoint)) {
-                $firstMovementTime = $currentPoint['timestamp']->toTimeString();
+
+            // Track consecutive movements for firstMovementTime
+            if ($firstMovementTime === null) {
+                if ($isMovingPoint($currentPoint)) {
+                    // Start or continue consecutive movement sequence
+                    if ($consecutiveMovementCount == 0) {
+                        // First point in new sequence
+                        $firstConsecutiveMovementIndex = $index;
+                    }
+                    $consecutiveMovementCount++;
+
+                    // When we reach 3 consecutive movements, set firstMovementTime to the first point
+                    if ($consecutiveMovementCount == 3) {
+                        $firstMovementTime = $this->data[$firstConsecutiveMovementIndex]['timestamp']->toTimeString();
+                    }
+                } else {
+                    // Non-moving point breaks the sequence
+                    $consecutiveMovementCount = 0;
+                    $firstConsecutiveMovementIndex = null;
+                }
             }
 
             if ($previousPoint === null) {
