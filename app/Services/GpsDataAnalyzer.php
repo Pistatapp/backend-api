@@ -271,14 +271,16 @@ class GpsDataAnalyzer
 
                 // Update totals
                 if ($tempDuration >= 60) {
+                    // Stoppage >= 60 seconds: count as actual stoppage
                     $stoppageCount++;
                     $stoppageDuration += $tempDuration;
                     $stoppageDurationWhileOn += $tempDurationOn;
                     $stoppageDurationWhileOff += $tempDurationOff;
                 } else {
+                    // Stoppage < 60 seconds: treat as movement (add to movement duration)
                     $ignoredStoppageCount++;
                     $ignoredStoppageDuration += $tempDuration;
-                    $movementDuration += $tempDuration;
+                    $movementDuration += $tempDuration; // Add short stoppage time to movement duration
                 }
 
                 $isCurrentlyStopped = false;
@@ -381,14 +383,16 @@ class GpsDataAnalyzer
             ];
 
             if ($tempDuration >= 60) {
+                // Final stoppage >= 60 seconds: count as actual stoppage
                 $stoppageCount++;
                 $stoppageDuration += $tempDuration;
                 $stoppageDurationWhileOn += $tempDurationOn;
                 $stoppageDurationWhileOff += $tempDurationOff;
             } else {
+                // Final stoppage < 60 seconds: treat as movement (add to movement duration)
                 $ignoredStoppageCount++;
                 $ignoredStoppageDuration += $tempDuration;
-                $movementDuration += $tempDuration;
+                $movementDuration += $tempDuration; // Add short stoppage time to movement duration
             }
         }
 

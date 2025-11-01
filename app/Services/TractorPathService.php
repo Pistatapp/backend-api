@@ -202,6 +202,7 @@ class TractorPathService
      * - The first point of the day is always included (stoppage or movement)
      * - All movement points (status == 1 && speed > 0) are included
      * - For stoppage segments, only the first stoppage point after a movement point is included
+     * - Stoppage segments less than 60 seconds are ignored (treated as movement, not included in path)
      * - Calculate stoppage_time for each point inline
      * - Consecutive stoppage points are excluded from the final path
      *
@@ -213,12 +214,14 @@ class TractorPathService
         $pathPoints = [];
         $count = $gpsData->count();
         $stoppageStartIndex = null;
+        $stoppagePointPathIndex = null; // Track index in pathPoints array where stoppage point was added
         $inStoppageSegment = false;
         $lastPointType = null;
         $hasSeenMovement = false;
         $firstMovementPointId = null;
         $consecutiveMovementCount = 0;
         $firstConsecutiveMovementPoint = null;
+        $minStoppageSeconds = 60; // Ignore stoppages less than 60 seconds
 
         // Pre-cache timestamps for efficient duration calculation
         $timestamps = [];
@@ -254,19 +257,30 @@ class TractorPathService
             if ($isMovement) {
                 $hasSeenMovement = true;
 
-                // If we were in a stoppage segment, calculate stoppage_time inline
+                // If we were in a stoppage segment, check duration and decide whether to keep or remove
                 if ($inStoppageSegment && $stoppageStartIndex !== null) {
                     // Calculate duration efficiently using pre-cached timestamps
                     $duration = 0;
                     for ($i = $stoppageStartIndex + 1; $i < $index; $i++) {
                         $duration += $timestamps[$i] - $timestamps[$i - 1];
                     }
-                    // Update the last stoppage point
-                    $lastPathIdx = count($pathPoints) - 1;
-                    if ($lastPathIdx >= 0 && (float)$pathPoints[$lastPathIdx]->speed == 0) {
-                        $pathPoints[$lastPathIdx]->stoppage_time = $duration;
+
+                    // If stoppage duration < 60 seconds, remove the stoppage point from path (treat as movement)
+                    if ($duration < $minStoppageSeconds) {
+                        // Remove the stoppage point that was added to pathPoints
+                        if ($stoppagePointPathIndex !== null && isset($pathPoints[$stoppagePointPathIndex])) {
+                            array_splice($pathPoints, $stoppagePointPathIndex, 1);
+                        }
+                        // Continue as movement - no stoppage point in path
+                    } else {
+                        // Stoppage >= 60 seconds, keep it and set stoppage_time
+                        if ($stoppagePointPathIndex !== null && isset($pathPoints[$stoppagePointPathIndex])) {
+                            $pathPoints[$stoppagePointPathIndex]->stoppage_time = $duration;
+                        }
                     }
+
                     $stoppageStartIndex = null;
+                    $stoppagePointPathIndex = null;
                     $inStoppageSegment = false;
                 }
 
@@ -276,32 +290,48 @@ class TractorPathService
 
             } elseif ($isStoppage) {
                 if ($isFirstPoint) {
+                    // First point is always included even if stoppage
                     $point->stoppage_time = 0;
                     $pathPoints[] = $point;
                     $stoppageStartIndex = $index;
+                    $stoppagePointPathIndex = count($pathPoints) - 1;
                     $inStoppageSegment = true;
                     $lastPointType = 'stoppage';
                 } elseif ($hasSeenMovement && $lastPointType !== 'stoppage') {
+                    // First stoppage point after movement - add it but may remove later if < 60 seconds
                     $point->stoppage_time = 0;
                     $pathPoints[] = $point;
                     $stoppageStartIndex = $index;
+                    $stoppagePointPathIndex = count($pathPoints) - 1;
                     $inStoppageSegment = true;
                     $lastPointType = 'stoppage';
                 } else {
+                    // Consecutive stoppage point - track but don't add to path
                     $lastPointType = 'stoppage';
                 }
             }
         }
 
-        // Handle final stoppage
+        // Handle final stoppage segment
         if ($inStoppageSegment && $stoppageStartIndex !== null && $count > 0) {
             $duration = 0;
             for ($i = $stoppageStartIndex + 1; $i < $count; $i++) {
                 $duration += $timestamps[$i] - $timestamps[$i - 1];
             }
-            $lastPathIdx = count($pathPoints) - 1;
-            if ($lastPathIdx >= 0 && (float)$pathPoints[$lastPathIdx]->speed == 0) {
-                $pathPoints[$lastPathIdx]->stoppage_time = $duration;
+
+            // First point is always included even if stoppage < 60 seconds
+            $isFirstPointStoppage = ($stoppageStartIndex === 0);
+
+            // If final stoppage duration < 60 seconds, remove it from path (unless it's the first point)
+            if ($duration < $minStoppageSeconds && !$isFirstPointStoppage) {
+                if ($stoppagePointPathIndex !== null && isset($pathPoints[$stoppagePointPathIndex])) {
+                    array_splice($pathPoints, $stoppagePointPathIndex, 1);
+                }
+            } else {
+                // Keep final stoppage and set stoppage_time
+                if ($stoppagePointPathIndex !== null && isset($pathPoints[$stoppagePointPathIndex])) {
+                    $pathPoints[$stoppagePointPathIndex]->stoppage_time = $duration;
+                }
             }
         }
 
