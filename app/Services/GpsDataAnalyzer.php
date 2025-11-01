@@ -8,8 +8,6 @@ class GpsDataAnalyzer
     private array $results = [];
     private array $movements = [];
     private array $stoppages = [];
-    private ?\Carbon\Carbon $workingStartTime = null;
-    private ?\Carbon\Carbon $workingEndTime = null;
 
     /**
      * Load GPS data from GpsData model records or array
@@ -53,20 +51,6 @@ class GpsDataAnalyzer
     }
 
     /**
-     * Set working time boundaries for filtering GPS data
-     *
-     * @param \Carbon\Carbon|null $startTime
-     * @param \Carbon\Carbon|null $endTime
-     * @return self
-     */
-    public function setWorkingTimeBoundaries(?\Carbon\Carbon $startTime, ?\Carbon\Carbon $endTime): self
-    {
-        $this->workingStartTime = $startTime;
-        $this->workingEndTime = $endTime;
-        return $this;
-    }
-
-    /**
      * Analyze GPS data and calculate all metrics
      * Note: Movement = status == 1 && speed > 0
      * Note: Stoppage = status == 0 && speed == 0 || status == 1 && speed == 0
@@ -76,28 +60,6 @@ class GpsDataAnalyzer
      */
     public function analyze(): array
     {
-        if (empty($this->data)) {
-            return $this->getEmptyResults();
-        }
-
-        // Filter data by working time boundaries if set
-        if ($this->workingStartTime || $this->workingEndTime) {
-            $this->data = array_filter($this->data, function ($point) {
-                $pointTime = $point['timestamp'];
-
-                // Filter out points outside working time boundaries
-                if(!$pointTime->between($this->workingStartTime, $this->workingEndTime)) {
-                    return false;
-                }
-
-                return true;
-            });
-
-            // Re-index array after filtering
-            $this->data = array_values($this->data);
-        }
-
-        // Check if we have any data left after filtering
         if (empty($this->data)) {
             return $this->getEmptyResults();
         }

@@ -30,22 +30,7 @@ class ActiveTractorService
 
         $gpsData = $tractor->gpsData()->whereDate('date_time', $date)->get();
 
-        // Get working time boundaries from tractor
-        $workingStartTime = null;
-        $workingEndTime = null;
-
-        if ($tractor->start_work_time && $tractor->end_work_time) {
-            $workingStartTime = Carbon::parse($date->toDateString() . ' ' . $tractor->start_work_time);
-            $workingEndTime = Carbon::parse($date->toDateString() . ' ' . $tractor->end_work_time);
-        }
-
         $gpsDataAnalyzer = $this->gpsDataAnalyzer->loadFromRecords($gpsData);
-
-        // Set working time boundaries if they exist
-        if ($workingStartTime && $workingEndTime) {
-            $gpsDataAnalyzer->setWorkingTimeBoundaries($workingStartTime, $workingEndTime);
-        }
-
         $results = $gpsDataAnalyzer->analyze();
 
         $averageSpeed = $results['average_speed'];
@@ -145,14 +130,6 @@ class ActiveTractorService
 
             // Analyze GPS data using GpsDataAnalyzer
             $gpsDataAnalyzer = $this->gpsDataAnalyzer->loadFromRecords($gpsData);
-
-            // Set working time boundaries if they exist
-            if ($tractor->start_work_time && $tractor->end_work_time) {
-                $workingStartTime = Carbon::parse($dateString . ' ' . $tractor->start_work_time);
-                $workingEndTime = Carbon::parse($dateString . ' ' . $tractor->end_work_time);
-                $gpsDataAnalyzer->setWorkingTimeBoundaries($workingStartTime, $workingEndTime);
-            }
-
             $results = $gpsDataAnalyzer->analyze();
 
             // Calculate total efficiency
@@ -295,17 +272,6 @@ class ActiveTractorService
 
         // Use GpsDataAnalyzer to calculate metrics
         $analyzer = $this->gpsDataAnalyzer->loadFromRecords($gpsData);
-
-        // Set working time boundaries for the task
-        $taskDateTime = Carbon::parse($task->date);
-        $taskStartDateTime = $taskDateTime->copy()->setTimeFromTimeString($task->start_time);
-        $taskEndDateTime = $taskDateTime->copy()->setTimeFromTimeString($task->end_time);
-
-        if ($taskEndDateTime->lt($taskStartDateTime)) {
-            $taskEndDateTime->addDay();
-        }
-
-        $analyzer->setWorkingTimeBoundaries($taskStartDateTime, $taskEndDateTime);
         $results = $analyzer->analyze();
 
         // Create and save metrics record
