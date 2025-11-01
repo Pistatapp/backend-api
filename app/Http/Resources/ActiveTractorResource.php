@@ -31,9 +31,7 @@ class ActiveTractorResource extends JsonResource
                 ];
             }),
             'status' => $this->is_working,
-            'start_working_time' => $this->whenLoaded('startWorkTime', function () {
-                return $this->startWorkTimed->date_time->format('H:i:s');
-            }, '00:00:00'),
+            'start_working_time' => $this->startWorkTime?->date_time?->format('H:i:s'),
         ];
     }
 }
