@@ -116,10 +116,10 @@ class GpsDataAnalyzer
 
             // Track activation times inline (optimization: single pass)
             if ($deviceOnTime === null && $currentPoint['status'] == 1) {
-                $deviceOnTime = $currentPoint['timestamp']->toDateTimeString();
+                $deviceOnTime = $currentPoint['timestamp']->toTimeString();
             }
             if ($firstMovementTime === null && $isMovingPoint($currentPoint)) {
-                $firstMovementTime = $currentPoint['timestamp']->toDateTimeString();
+                $firstMovementTime = $currentPoint['timestamp']->toTimeString();
             }
 
             if ($previousPoint === null) {
@@ -156,8 +156,8 @@ class GpsDataAnalyzer
                 $duration = $currentPoint['timestamp']->timestamp - $this->data[$movementStartIndex]['timestamp']->timestamp;
                 $this->movements[] = [
                     'index' => $movementDetailIndex,
-                    'start_time' => $this->data[$movementStartIndex]['timestamp']->toDateTimeString(),
-                    'end_time' => $currentPoint['timestamp']->toDateTimeString(),
+                    'start_time' => $this->data[$movementStartIndex]['timestamp']->toTimeString(),
+                    'end_time' => $currentPoint['timestamp']->toTimeString(),
                     'duration_seconds' => $duration,
                     'duration_formatted' => to_time_format($duration),
                     'distance_km' => round($movementSegmentDistance, 3),
@@ -208,8 +208,8 @@ class GpsDataAnalyzer
 
                 $this->stoppages[] = [
                     'index' => $displayIndex,
-                    'start_time' => $this->data[$stoppageStartIndex]['timestamp']->toDateTimeString(),
-                    'end_time' => $currentPoint['timestamp']->toDateTimeString(),
+                    'start_time' => $this->data[$stoppageStartIndex]['timestamp']->toTimeString(),
+                    'end_time' => $currentPoint['timestamp']->toTimeString(),
                     'duration_seconds' => $tempDuration,
                     'duration_formatted' => to_time_format($tempDuration),
                     'location' => [
@@ -263,8 +263,8 @@ class GpsDataAnalyzer
             $duration = $previousPoint['timestamp']->timestamp - $this->data[$movementStartIndex]['timestamp']->timestamp;
             $this->movements[] = [
                 'index' => $movementDetailIndex,
-                'start_time' => $this->data[$movementStartIndex]['timestamp']->toDateTimeString(),
-                'end_time' => $previousPoint['timestamp']->toDateTimeString(),
+                'start_time' => $this->data[$movementStartIndex]['timestamp']->toTimeString(),
+                'end_time' => $previousPoint['timestamp']->toTimeString(),
                 'duration_seconds' => $duration,
                 'duration_formatted' => to_time_format($duration),
                 'distance_km' => round($movementSegmentDistance, 3),
@@ -307,8 +307,8 @@ class GpsDataAnalyzer
 
             $this->stoppages[] = [
                 'index' => $displayIndex,
-                'start_time' => $this->data[$stoppageStartIndex]['timestamp']->toDateTimeString(),
-                'end_time' => $previousPoint['timestamp']->toDateTimeString(),
+                'start_time' => $this->data[$stoppageStartIndex]['timestamp']->toTimeString(),
+                'end_time' => $previousPoint['timestamp']->toTimeString(),
                 'duration_seconds' => $tempDuration,
                 'duration_formatted' => to_time_format($tempDuration),
                 'location' => [
@@ -354,8 +354,8 @@ class GpsDataAnalyzer
             'device_on_time' => $deviceOnTime,
             'first_movement_time' => $firstMovementTime,
             'total_records' => $dataCount,
-            'start_time' => $this->data[0]['timestamp']->toDateTimeString(),
-            'end_time' => $this->data[$dataCount - 1]['timestamp']->toDateTimeString(),
+            'start_time' => $this->data[0]['timestamp']->toTimeString(),
+            'end_time' => $this->data[$dataCount - 1]['timestamp']->toTimeString(),
             'latest_status' => $this->data[$dataCount - 1]['status'],
             'average_speed' => $averageSpeed,
             'max_speed' => $maxSpeed,
