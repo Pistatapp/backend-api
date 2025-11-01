@@ -35,7 +35,16 @@ class TractorPathService
             // Get optimized GPS data for the specified date
             $gpsData = $this->getOptimizedGpsData($tractor, $date);
 
+            // If no points exist for the specified date, fetch the last point from the previous date
             if ($gpsData->isEmpty()) {
+                $lastPointFromPreviousDate = $this->getLastPointFromPreviousDate($tractor, $date);
+
+                if ($lastPointFromPreviousDate) {
+                    // Convert the single point to PointsResource format
+                    $formattedPoint = $this->convertSinglePointToResource($lastPointFromPreviousDate);
+                    return PointsResource::collection(collect([$formattedPoint]));
+                }
+
                 return PointsResource::collection(collect());
             }
 
@@ -77,6 +86,45 @@ class TractorPathService
             ->whereDate('date_time', $date)
             ->orderBy('date_time')
             ->get();
+    }
+
+    /**
+     * Get the last point from the previous date
+     *
+     * @param Tractor $tractor
+     * @param Carbon $date
+     * @return object|null
+     */
+    private function getLastPointFromPreviousDate(Tractor $tractor, Carbon $date): ?object
+    {
+        return $tractor->gpsData()
+            ->whereDate('date_time', '<', $date)
+            ->orderBy('date_time', 'desc')
+            ->first();
+    }
+
+    /**
+     * Convert a single point to PointsResource format
+     *
+     * @param object $point
+     * @return object
+     */
+    private function convertSinglePointToResource($point): object
+    {
+        $isStopped = $point->status == 0 && $point->speed == 0;
+
+        return (object) [
+            'id' => $point->id,
+            'coordinate' => $point->coordinate,
+            'speed' => $point->speed,
+            'status' => $point->status,
+            'is_starting_point' => false,
+            'is_ending_point' => false,
+            'is_stopped' => $isStopped,
+            'directions' => $point->directions,
+            'stoppage_time' => 0,
+            'date_time' => $point->date_time,
+        ];
     }
 
     /**
