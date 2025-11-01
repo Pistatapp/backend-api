@@ -125,8 +125,10 @@ class TractorPathService
      * Extract movement points and stoppage points from GPS data
      * Algorithm:
      * - All movement points (status == 1 && speed > 0) are included
-     * - For stoppage segments, only the first stoppage point is included
-     * - Calculate stoppage duration for each stoppage segment and add to the first stoppage point
+     * - For stoppage segments, only the first stoppage point after a movement point is included
+     * - The first point of the day (if it's a stoppage) is excluded
+     * - Calculate stoppage duration from first stoppage point to consecutive stoppage points
+     * - Consecutive stoppage points are excluded from the final path
      *
      * @param \Illuminate\Support\Collection $gpsData
      * @return \Illuminate\Support\Collection
@@ -138,12 +140,16 @@ class TractorPathService
         $stoppageStartIndex = null;
         $inStoppageSegment = false;
         $lastPointType = null; // 'movement' or 'stoppage'
+        $hasSeenMovement = false; // Track if we've seen at least one movement point
 
         foreach ($gpsData as $index => $point) {
             $isMovement = $point->status == 1 && $point->speed > 0;
             $isStoppage = $point->status == 0 && $point->speed == 0;
 
             if ($isMovement) {
+                // Mark that we've seen movement
+                $hasSeenMovement = true;
+
                 // If we were in a stoppage segment, calculate and update the stoppage duration
                 if ($inStoppageSegment && $stoppageStartIndex !== null) {
                     $stoppageDuration = $this->calculateStoppageDuration($gpsDataArray, $stoppageStartIndex, $index - 1);
@@ -163,20 +169,26 @@ class TractorPathService
                 $lastPointType = 'movement';
 
             } elseif ($isStoppage) {
-                // Check if this is the start of a new stoppage segment
-                if ($lastPointType !== 'stoppage') {
-                    // This is the first stoppage point in a new stoppage segment
+                // Only include stoppage points that come after a movement point
+                // Exclude the first point of the day if it's a stoppage
+                if ($hasSeenMovement && $lastPointType !== 'stoppage') {
+                    // This is the first stoppage point in a new stoppage segment (after movement)
                     $pathPoints->push($point);
                     $stoppageStartIndex = $index;
                     $inStoppageSegment = true;
-                } else {
+                    $lastPointType = 'stoppage';
+                } elseif ($lastPointType === 'stoppage') {
                     // This is a consecutive stoppage point - skip it but track for duration calculation
-                    if ($stoppageStartIndex === null) {
-                        // Should not happen, but handle edge case
+                    if ($stoppageStartIndex === null && $inStoppageSegment) {
+                        // Edge case: should not happen, but handle it
                         $stoppageStartIndex = $index;
                     }
+                    // Update last point type but don't add to path
+                    $lastPointType = 'stoppage';
+                } else {
+                    // This is a stoppage point before any movement (first point of day) - skip it
+                    $lastPointType = 'stoppage';
                 }
-                $lastPointType = 'stoppage';
             }
         }
 
