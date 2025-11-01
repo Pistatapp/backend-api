@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 use App\Models\Farm;
 use App\Services\ActiveTractorService;
 use App\Services\TractorPathService;
-use App\Services\TractorWorkTimeDetectionService;
+use App\Services\TractorStartMovementTimeDetectionService;
 use Carbon\Carbon;
 
 class ActiveTractorController extends Controller
@@ -17,7 +17,7 @@ class ActiveTractorController extends Controller
     public function __construct(
         private ActiveTractorService $activeTractorService,
         private TractorPathService $tractorPathService,
-        private TractorWorkTimeDetectionService $tractorWorkTimeDetectionService
+        private TractorStartMovementTimeDetectionService $tractorStartMovementTimeDetectionService
     ) {}
 
     /**
@@ -39,8 +39,8 @@ class ActiveTractorController extends Controller
             ->with('gpsDevice', 'driver')
             ->get();
 
-        // Detect work times for all tractors using the service
-        $tractors = $this->tractorWorkTimeDetectionService->detectWorkTimesForTractors($tractors, $date);
+        // Detect start movement time for all tractors using the service
+        $tractors = $this->tractorStartMovementTimeDetectionService->detectStartMovementTimeForTractors($tractors, $date);
 
         return ActiveTractorResource::collection($tractors);
     }
