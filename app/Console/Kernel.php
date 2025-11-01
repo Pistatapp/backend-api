@@ -24,6 +24,9 @@ class Kernel extends ConsoleKernel
         // Check for tractor activity status every minute
         $schedule->command('tractor:check-activity-status')->everyMinute();
 
+        // Update ended tractor tasks every minute
+        $schedule->command('tractor:update-ended-tasks')->everyMinute();
+
         // Check for inactive tractors daily at 8 AM
         $schedule->command('tractors:check-inactivity')
             ->dailyAt('08:00')
