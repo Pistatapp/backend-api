@@ -32,32 +32,35 @@ class TractorPathService
                 return PointsResource::collection(collect());
             }
 
-            // Get optimized GPS data for the specified date
-            $gpsData = $this->getOptimizedGpsData($tractor, $date);
+            // Efficient existence check without loading all rows
+            $hasData = $tractor->gpsData()
+                ->whereDate('date_time', $date)
+                ->limit(1)
+                ->exists();
 
-            // If no points exist for the specified date, fetch the last point from the previous date
-            if ($gpsData->isEmpty()) {
+            if (!$hasData) {
                 $lastPointFromPreviousDate = $this->getLastPointFromPreviousDate($tractor, $date);
-
                 if ($lastPointFromPreviousDate) {
-                    // Convert the single point to PointsResource format
                     $formattedPoint = $this->convertSinglePointToResource($lastPointFromPreviousDate);
                     return PointsResource::collection(collect([$formattedPoint]));
                 }
-
                 return PointsResource::collection(collect());
             }
 
-            // Smooth out GPS errors (single-point anomalies) and extract path in optimized way
-            $smoothedGpsData = $this->smoothGpsErrors($gpsData);
+            // Stream GPS data with minimal memory
+            $cursor = $tractor->gpsData()
+                ->select(['id', 'coordinate', 'speed', 'status', 'directions', 'date_time'])
+                ->whereDate('date_time', $date)
+                ->orderBy('date_time')
+                ->cursor();
 
-            // Extract movement points and find first movement point ID in single pass
-            [$pathPoints, $firstMovementPointId] = $this->extractMovementPointsOptimized($smoothedGpsData);
+            // Single-pass smoothing via 3-point sliding window
+            $smoothedStream = $this->smoothGpsErrorsStream($cursor);
 
-            // Convert to PointsResource format
-            $formattedPathPoints = $this->convertToPathPointsOptimized($pathPoints, $firstMovementPointId);
+            // Build final path in one pass (also computes stoppage durations and starting point)
+            $pathPoints = $this->buildPathFromSmoothedStream($smoothedStream);
 
-            return PointsResource::collection($formattedPathPoints);
+            return PointsResource::collection(collect($pathPoints));
 
         } catch (\Exception $e) {
             Log::error('Failed to get tractor path', [
@@ -153,6 +156,55 @@ class TractorPathService
         } while ($hasCorrections && $iteration < $maxIterations);
 
         return $gpsData;
+    }
+
+    /**
+     * Stream-based smoothing: correct single-point anomalies using a 3-point window without loading all rows.
+     *
+     * @param \Traversable $points
+     * @return \Generator
+     */
+    private function smoothGpsErrorsStream($points): \Generator
+    {
+        $buffer = [];
+        foreach ($points as $p) {
+            $buffer[] = $p;
+            if (count($buffer) < 3) {
+                continue;
+            }
+
+            [$prev, $curr, $next] = $buffer;
+
+            $prevSpeed = (float)$prev->speed;
+            $nextSpeed = (float)$next->speed;
+            $currSpeed = (float)$curr->speed;
+
+            $prevIsMovement = ((int)$prev->status === 1 && $prevSpeed > 0);
+            $nextIsMovement = ((int)$next->status === 1 && $nextSpeed > 0);
+            $prevIsStoppage = ($prevSpeed == 0);
+            $nextIsStoppage = ($nextSpeed == 0);
+            $currIsMovement = ((int)$curr->status === 1 && $currSpeed > 0);
+            $currIsStoppage = ($currSpeed == 0);
+
+            if ($currIsMovement && $prevIsStoppage && $nextIsStoppage) {
+                $curr->speed = 0;
+            } elseif ($currIsStoppage && $prevIsMovement && $nextIsMovement) {
+                $avgSpeed = ($prevSpeed + $nextSpeed) / 2;
+                $curr->speed = $avgSpeed > 0 ? $avgSpeed : 1;
+            }
+
+            yield $curr;
+
+            array_shift($buffer);
+        }
+
+        // Flush remaining points in buffer as-is
+        if (count($buffer) === 2) {
+            yield $buffer[0];
+            yield $buffer[1];
+        } elseif (count($buffer) === 1) {
+            yield $buffer[0];
+        }
     }
 
     /**
@@ -336,6 +388,162 @@ class TractorPathService
         }
 
         return [collect($pathPoints), $firstMovementPointId];
+    }
+
+    /**
+     * Streamed path extraction with minimal memory.
+     * Applies the same inclusion rules and stoppage-time calculation as the optimized batch version.
+     *
+     * @param \Traversable $points Smoothed GPS points in chronological order
+     * @return array Array of stdClass items ready for PointsResource
+     */
+    private function buildPathFromSmoothedStream($points): array
+    {
+        $pathPoints = [];
+        $hasSeenMovement = false;
+        $lastPointType = null;
+        $inStoppageSegment = false;
+        $stoppageDuration = 0;
+        $stoppageAddedIndex = null;
+        $stoppageStartedAtFirstPoint = false;
+        $consecutiveMovementCount = 0;
+        $firstMovementCandidateObj = null;
+        $minStoppageSeconds = 60;
+
+        $firstPointProcessed = false;
+        $prevTimestamp = null;
+
+        foreach ($points as $point) {
+            $status = (int)$point->status;
+            $speed = (float)$point->speed;
+            $isMovement = ($status === 1 && $speed > 0);
+            $isStoppage = ($speed == 0);
+            $isFirstPoint = !$firstPointProcessed;
+
+            // Timestamp normalization
+            $ts = $point->date_time;
+            $timestamp = is_string($ts) ? \Carbon\Carbon::parse($ts)->timestamp : $ts->timestamp;
+
+            // Accumulate stoppage duration while inside a stoppage segment
+            if ($inStoppageSegment && $prevTimestamp !== null && $isStoppage) {
+                $stoppageDuration += max(0, $timestamp - $prevTimestamp);
+            }
+
+            if ($isMovement) {
+                $hasSeenMovement = true;
+
+                // If we are closing a stoppage segment, decide to keep or drop the recorded stoppage point
+                if ($inStoppageSegment && $stoppageAddedIndex !== null) {
+                    if ($stoppageDuration < $minStoppageSeconds && !$stoppageStartedAtFirstPoint) {
+                        // Remove previously added stoppage marker (treat short stoppage as movement)
+                        array_splice($pathPoints, $stoppageAddedIndex, 1);
+                    } else {
+                        // Keep and set stoppage_time
+                        if (isset($pathPoints[$stoppageAddedIndex])) {
+                            $pathPoints[$stoppageAddedIndex]->stoppage_time = $stoppageDuration;
+                        }
+                    }
+                }
+
+                // Reset stoppage trackers
+                $inStoppageSegment = false;
+                $stoppageDuration = 0;
+                $stoppageAddedIndex = null;
+                $stoppageStartedAtFirstPoint = false;
+
+                // Build movement path object
+                $obj = (object) [
+                    'id' => $point->id,
+                    'coordinate' => $point->coordinate,
+                    'speed' => $point->speed,
+                    'status' => $point->status,
+                    'is_starting_point' => false,
+                    'is_ending_point' => false,
+                    'is_stopped' => false,
+                    'directions' => $point->directions,
+                    'stoppage_time' => 0,
+                    'date_time' => $point->date_time,
+                ];
+
+                $pathPoints[] = $obj;
+
+                // Track first 3 consecutive movement points
+                if ($consecutiveMovementCount === 0) {
+                    $firstMovementCandidateObj = $obj;
+                }
+                $consecutiveMovementCount++;
+                if ($consecutiveMovementCount >= 3 && $firstMovementCandidateObj && $firstMovementCandidateObj->is_starting_point === false) {
+                    $firstMovementCandidateObj->is_starting_point = true;
+                    // Do not reset candidate; future sequences are irrelevant
+                }
+
+                $lastPointType = 'movement';
+
+            } elseif ($isStoppage) {
+                // Any stoppage breaks movement streak
+                $consecutiveMovementCount = 0;
+                $firstMovementCandidateObj = null;
+
+                if ($isFirstPoint) {
+                    $obj = (object) [
+                        'id' => $point->id,
+                        'coordinate' => $point->coordinate,
+                        'speed' => $point->speed,
+                        'status' => $point->status,
+                        'is_starting_point' => false,
+                        'is_ending_point' => false,
+                        'is_stopped' => true,
+                        'directions' => $point->directions,
+                        'stoppage_time' => 0,
+                        'date_time' => $point->date_time,
+                    ];
+                    $pathPoints[] = $obj;
+                    $stoppageAddedIndex = count($pathPoints) - 1;
+                    $inStoppageSegment = true;
+                    $stoppageDuration = 0;
+                    $stoppageStartedAtFirstPoint = true;
+                    $lastPointType = 'stoppage';
+                } elseif ($hasSeenMovement && $lastPointType !== 'stoppage') {
+                    $obj = (object) [
+                        'id' => $point->id,
+                        'coordinate' => $point->coordinate,
+                        'speed' => $point->speed,
+                        'status' => $point->status,
+                        'is_starting_point' => false,
+                        'is_ending_point' => false,
+                        'is_stopped' => true,
+                        'directions' => $point->directions,
+                        'stoppage_time' => 0,
+                        'date_time' => $point->date_time,
+                    ];
+                    $pathPoints[] = $obj;
+                    $stoppageAddedIndex = count($pathPoints) - 1;
+                    $inStoppageSegment = true;
+                    $stoppageDuration = 0;
+                    $stoppageStartedAtFirstPoint = false;
+                    $lastPointType = 'stoppage';
+                } else {
+                    // Consecutive stoppage; do not add another point
+                    $lastPointType = 'stoppage';
+                }
+            }
+
+            $firstPointProcessed = true;
+            $prevTimestamp = $timestamp;
+        }
+
+        // Finalize a trailing stoppage segment (end of day)
+        if ($inStoppageSegment && $stoppageAddedIndex !== null) {
+            if ($stoppageDuration < $minStoppageSeconds && !$stoppageStartedAtFirstPoint) {
+                array_splice($pathPoints, $stoppageAddedIndex, 1);
+            } else {
+                if (isset($pathPoints[$stoppageAddedIndex])) {
+                    $pathPoints[$stoppageAddedIndex]->stoppage_time = $stoppageDuration;
+                }
+            }
+        }
+
+        return $pathPoints;
     }
 
     /**
