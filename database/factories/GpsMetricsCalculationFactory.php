@@ -20,7 +20,6 @@ class GpsMetricsCalculationFactory extends Factory
             'stoppage_count' => $this->faker->numberBetween(0, 10),
             'stoppage_duration' => $this->faker->numberBetween(0, 3600),
             'average_speed' => $this->faker->randomFloat(2, 0, 50),
-            'max_speed' => $this->faker->randomFloat(2, 0, 100),
             'efficiency' => $this->faker->randomFloat(2, 0, 100),
             'date' => $this->faker->date(),
             'tractor_task_id' => TractorTask::factory(),

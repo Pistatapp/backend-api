@@ -115,7 +115,6 @@ class GpsMetricsIntegrationTest extends TestCase
         $this->assertGreaterThan(0, $dailyReport->work_duration);
         $this->assertGreaterThan(0, $dailyReport->stoppage_duration);
         $this->assertGreaterThan(0, $dailyReport->stoppage_count);
-        $this->assertGreaterThan(0, $dailyReport->max_speed);
 
         // Check that events were dispatched
         Event::assertDispatched(\App\Events\ReportReceived::class);

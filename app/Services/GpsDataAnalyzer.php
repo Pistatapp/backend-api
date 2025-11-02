@@ -45,9 +45,12 @@ class GpsDataAnalyzer
                 ->orderBy('gps_data.date_time', 'desc')
                 ->first();
 
+            // The use of toBase() here tells Eloquent to return generic stdClass results instead of full Eloquent model instances.
+            // This reduces memory usage and speeds up processing when only projection of fields is needed.
+            // After toBase(), you get a query builder that returns simple PHP objects, not models.
             $windowPoints = $tractor->gpsData()
                 ->select(['gps_data.coordinate', 'gps_data.speed', 'gps_data.status', 'gps_data.date_time', 'gps_data.imei'])
-                ->toBase()
+                ->toBase() // switches the result to base query so results are stdClass, not model instances
                 ->whereBetween('gps_data.date_time', [$startDateTime, $endDateTime])
                 ->orderBy('gps_data.date_time')
                 ->get();

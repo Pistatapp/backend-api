@@ -10,7 +10,6 @@ use App\Models\Farm;
 use App\Services\ActiveTractorService;
 use App\Services\TractorPathService;
 use App\Services\TractorStartMovementTimeDetectionService;
-use Carbon\Carbon;
 
 class ActiveTractorController extends Controller
 {
@@ -33,11 +32,9 @@ class ActiveTractorController extends Controller
             'date' => 'sometimes|shamsi_date'
         ]);
 
-        $date = $request->has('date') ? jalali_to_carbon($request->date) : Carbon::today();
+        $date = $request->has('date') ? jalali_to_carbon($request->date) : now()->toDateString();
 
-        $tractors = $farm->tractors()->active()
-            ->with('gpsDevice', 'driver')
-            ->get();
+        $tractors = $farm->tractors()->active()->with('gpsDevice', 'driver')->get();
 
         // Detect start movement time for all tractors using the service
         $tractors = $this->tractorStartMovementTimeDetectionService->detectStartMovementTimeForTractors($tractors, $date);
@@ -60,7 +57,6 @@ class ActiveTractorController extends Controller
 
         $date = jalali_to_carbon($request->date);
 
-        // Fallback to regular response for backward compatibility
         return $this->tractorPathService->getTractorPath($tractor, $date);
     }
 

@@ -2,8 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Jobs\CalculateTaskGpsMetricsJob;
 use App\Models\TractorTask;
-use App\Services\TractorTaskStatusService;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 
@@ -26,9 +26,8 @@ class UpdateEndedTractorTasks extends Command
     /**
      * Create a new command instance.
      */
-    public function __construct(
-        private TractorTaskStatusService $taskStatusService
-    ) {
+    public function __construct()
+    {
         parent::__construct();
     }
 
@@ -37,57 +36,27 @@ class UpdateEndedTractorTasks extends Command
      */
     public function handle(): int
     {
-        $this->info('Checking for ended tractor tasks...');
+        $this->info('Checking for ended tractor tasks for current day...');
 
         try {
             $now = Carbon::now();
-            $updatedCount = 0;
+            $today = $now->toDateString();
 
-            // Get all tasks that haven't been finalized yet (excluding already done/not_done tasks)
-            $tasks = TractorTask::whereIn('status', ['not_started', 'in_progress', 'stopped'])
-                ->get();
-
-            foreach ($tasks as $task) {
-                $taskDateTime = Carbon::parse($task->date);
-                $taskEndDateTime = $taskDateTime->copy()->setTimeFromTimeString($task->end_time);
-
-                // Handle case where end time is before start time (crosses midnight)
-                $taskStartDateTime = $taskDateTime->copy()->setTimeFromTimeString($task->start_time);
-                if ($taskEndDateTime->lt($taskStartDateTime)) {
-                    $taskEndDateTime->addDay();
-                }
-
-                // Check if task end time has passed
-                if ($now->gte($taskEndDateTime)) {
-                    $oldStatus = $task->status;
-                    $this->taskStatusService->updateTaskStatus($task);
-                    $task->refresh();
-
-                    if ($oldStatus !== $task->status) {
-                        $updatedCount++;
-                        $this->line(sprintf(
-                            'Updated task #%d (tractor_id: %d) from "%s" to "%s"',
-                            $task->id,
-                            $task->tractor_id,
-                            $oldStatus,
-                            $task->status
-                        ));
+            // Query tasks for current day where end time has passed
+            TractorTask::whereDate('date', $today)
+                ->whereRaw('CONCAT(date, " ", end_time) <= ?', [$now->format('Y-m-d H:i:s')])
+                ->chunk(100, function ($tasks) {
+                    foreach ($tasks as $task) {
+                        // Dispatch job to calculate metrics and update status
+                        CalculateTaskGpsMetricsJob::dispatch($task);
                     }
-                }
-            }
-
-            if ($updatedCount > 0) {
-                $this->info(sprintf('Successfully updated %d task(s).', $updatedCount));
-            } else {
-                $this->info('No tasks needed updating.');
-            }
+                });
 
             return Command::SUCCESS;
         } catch (\Exception $e) {
-            $this->error('Error updating ended tractor tasks: ' . $e->getMessage());
+            $this->error('Error checking ended tractor tasks: ' . $e->getMessage());
             $this->error($e->getTraceAsString());
             return Command::FAILURE;
         }
     }
 }
-

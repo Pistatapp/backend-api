@@ -4,8 +4,11 @@ use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 use App\Models\VolkOilSpray;
+use App\Models\Tractor;
 use App\Jobs\CalculateColdRequirementJob;
 use App\Jobs\CalculateFrostbiteRiskJob;
+use App\Jobs\CalculateGpsMetricsJob;
+use Carbon\Carbon;
 
 /*
 |--------------------------------------------------------------------------
@@ -33,3 +36,16 @@ Schedule::call(function () {
 Schedule::call(function () {
     CalculateFrostbiteRiskJob::dispatch();
 })->daily();
+
+Schedule::call(function () {
+    $today = Carbon::today();
+
+    // Use chunking to handle large datasets and avoid memory issues
+    Tractor::chunk(100, function ($tractors) use ($today) {
+        foreach ($tractors as $tractor) {
+            // Calculate metrics for the entire day
+            // The job will check if metrics already exist
+            CalculateGpsMetricsJob::dispatch($tractor, $today)->delay(now()->addSeconds(10));
+        }
+    });
+})->dailyAt('23:00:00');
