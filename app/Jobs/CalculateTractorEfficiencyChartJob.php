@@ -11,6 +11,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class CalculateTractorEfficiencyChartJob implements ShouldQueue
 {
@@ -36,15 +37,24 @@ class CalculateTractorEfficiencyChartJob implements ShouldQueue
      */
     public function handle(): void
     {
+        // Disable query log to reduce memory usage in long-running jobs
+        DB::disableQueryLog();
+
         // Calculate efficiency for the previous day only
         $previousDay = Carbon::yesterday();
 
-        // Process all tractors in chunks to avoid memory issues
-        Tractor::chunk(100, function ($tractors) use ($previousDay) {
-            foreach ($tractors as $tractor) {
-                $this->calculateEfficiencyForDate($tractor, $previousDay);
-            }
-        });
+        // Process all tractors in chunks with minimal selected columns
+        Tractor::query()
+            ->select(['id', 'expected_daily_work_time', 'start_work_time', 'end_work_time'])
+            ->chunkById(100, function ($tractors) use ($previousDay) {
+                foreach ($tractors as $tractor) {
+                    $this->calculateEfficiencyForDate($tractor, $previousDay);
+
+                    // Aggressively free memory between tractors
+                    unset($tractor);
+                    gc_collect_cycles();
+                }
+            });
     }
 
     /**
@@ -93,16 +103,26 @@ class CalculateTractorEfficiencyChartJob implements ShouldQueue
         Tractor $tractor,
         Carbon $date
     ): float {
-        $gpsDataAnalyzer = app(\App\Services\GpsDataAnalyzer::class);
-        $results = $gpsDataAnalyzer->loadRecordsFor($tractor, $date)->analyzeLight();
+        // Determine optional working window
+        $startDateTime = null;
+        $endDateTime = null;
+        if ($tractor->start_work_time && $tractor->end_work_time) {
+            $startDateTime = $date->copy()->setTimeFromTimeString($tractor->start_work_time);
+            $endDateTime = $date->copy()->setTimeFromTimeString($tractor->end_work_time);
+            if ($endDateTime->lt($startDateTime)) {
+                $endDateTime->addDay();
+            }
+        } else {
+            // Whole day window
+            $startDateTime = $date->copy()->startOfDay();
+            $endDateTime = $date->copy()->endOfDay();
+        }
 
-        // Check if there's any data for this day
-        if (empty($results['start_time'])) {
+        $workDurationSeconds = $this->streamMovementDuration($tractor, $startDateTime, $endDateTime, null);
+        if ($workDurationSeconds <= 0) {
             return 0.00;
         }
 
-        // Calculate total efficiency
-        $workDurationSeconds = $results['movement_duration_seconds'];
         $expectedDailyWorkHours = $tractor->expected_daily_work_time ?? 8;
         $expectedDailyWorkSeconds = $expectedDailyWorkHours * 3600;
         $totalEfficiency = $expectedDailyWorkSeconds > 0 ? ($workDurationSeconds / $expectedDailyWorkSeconds) * 100 : 0;
@@ -129,36 +149,37 @@ class CalculateTractorEfficiencyChartJob implements ShouldQueue
         }
 
         $taskEfficiencies = [];
-        $gpsDataAnalyzer = app(\App\Services\GpsDataAnalyzer::class);
 
         foreach ($tasks as $task) {
-            // Get GPS metrics for this task
-            $gpsData = $this->getGpsDataForTask($tractor, $task, $date);
-
-            if ($gpsData->isEmpty()) {
-                continue;
-            }
-
-            // Get task time window for analysis
+            // Task window
             $taskDateTime = Carbon::parse($task->date);
             $taskStartDateTime = $taskDateTime->copy()->setTimeFromTimeString($task->start_time);
             $taskEndDateTime = $taskDateTime->copy()->setTimeFromTimeString($task->end_time);
-
             if ($taskEndDateTime->lt($taskStartDateTime)) {
                 $taskEndDateTime->addDay();
             }
 
-            // Calculate metrics with task time window
-            $results = $gpsDataAnalyzer->loadFromRecords($gpsData)->analyzeLight($taskStartDateTime, $taskEndDateTime);
+            // Zone filter (if any)
+            $taskZone = $tractorTaskService->getTaskZone($task);
+            $pointFilter = null;
+            if ($taskZone) {
+                $pointFilter = function (float $lat, float $lon) use ($taskZone): bool {
+                    return is_point_in_polygon([$lat, $lon], $taskZone);
+                };
+            }
 
-            if ($results['movement_duration_seconds'] > 0) {
+            $movementDuration = $this->streamMovementDuration($tractor, $taskStartDateTime, $taskEndDateTime, $pointFilter);
+            if ($movementDuration > 0) {
                 $expectedDailyWorkHours = $tractor->expected_daily_work_time ?? 8;
                 $expectedDailyWorkSeconds = $expectedDailyWorkHours * 3600;
                 $efficiency = $expectedDailyWorkSeconds > 0
-                    ? ($results['movement_duration_seconds'] / $expectedDailyWorkSeconds) * 100
+                    ? ($movementDuration / $expectedDailyWorkSeconds) * 100
                     : 0;
                 $taskEfficiencies[] = $efficiency;
             }
+
+            // Free memory aggressively in loop
+            unset($taskZone, $pointFilter);
         }
 
         if (empty($taskEfficiencies)) {
@@ -205,5 +226,82 @@ class CalculateTractorEfficiencyChartJob implements ShouldQueue
         return $gpsData->filter(function ($point) use ($taskZone) {
             return is_point_in_polygon($point->coordinate, $taskZone);
         });
+    }
+
+    /**
+     * Stream GPS rows to compute movement duration without loading all records into memory.
+     * Movement is defined as status == 1 and speed > 0.
+     * Optionally filters points by a predicate on latitude/longitude.
+     *
+     * @param Tractor $tractor
+     * @param Carbon $start
+     * @param Carbon $end
+     * @param callable|null $pointFilter function(float $lat, float $lon): bool
+     * @return int movement duration in seconds
+     */
+    private function streamMovementDuration(Tractor $tractor, Carbon $start, Carbon $end, ?callable $pointFilter): int
+    {
+        $movementDuration = 0;
+        $previous = null; // ['timestamp' => Carbon, 'moving' => bool]
+
+        // Build minimal base query
+        $query = $tractor->gpsData()
+            ->select(['gps_data.coordinate', 'gps_data.speed', 'gps_data.status', 'gps_data.date_time'])
+            ->toBase()
+            ->whereBetween('gps_data.date_time', [$start, $end])
+            ->orderBy('gps_data.date_time');
+
+        $query->chunk(1000, function ($rows) use (&$movementDuration, &$previous, $start, $end, $pointFilter) {
+            foreach ($rows as $row) {
+                // Optional zone filter
+                if ($pointFilter !== null) {
+                    $coord = $row->coordinate;
+                    if (is_string($coord)) {
+                        $parts = array_map('floatval', explode(',', $coord));
+                        $lat = $parts[0] ?? 0.0;
+                        $lon = $parts[1] ?? 0.0;
+                    } else {
+                        $lat = isset($coord[0]) ? (float)$coord[0] : 0.0;
+                        $lon = isset($coord[1]) ? (float)$coord[1] : 0.0;
+                    }
+                    if (!$pointFilter($lat, $lon)) {
+                        // Skip points outside zone
+                        $currentTimestamp = $row->date_time instanceof Carbon ? $row->date_time : Carbon::parse($row->date_time);
+                        // Maintain previous for continuity but no duration added when outside
+                        $previous = [
+                            'timestamp' => $currentTimestamp,
+                            'moving' => false,
+                        ];
+                        continue;
+                    }
+                }
+
+                $currentTimestamp = $row->date_time instanceof Carbon ? $row->date_time : Carbon::parse($row->date_time);
+                $isMoving = ((int)$row->status) === 1 && ((float)$row->speed) > 0;
+
+                if ($previous !== null) {
+                    // Clamp interval to [start, end]
+                    $intervalStart = $previous['timestamp']->greaterThan($start) ? $previous['timestamp'] : $start;
+                    $intervalEnd = $currentTimestamp->lessThan($end) ? $currentTimestamp : $end;
+
+                    if ($intervalEnd->gt($intervalStart)) {
+                        $diff = $intervalEnd->diffInSeconds($intervalStart);
+                        // Attribute the interval to the current point's movement state
+                        if ($isMoving) {
+                            $movementDuration += $diff;
+                        }
+                    }
+                }
+
+                $previous = [
+                    'timestamp' => $currentTimestamp,
+                    'moving' => $isMoving,
+                ];
+            }
+            // Encourage releasing chunk memory
+            unset($rows);
+        });
+
+        return $movementDuration;
     }
 }
