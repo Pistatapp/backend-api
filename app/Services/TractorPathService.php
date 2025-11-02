@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Log;
 class TractorPathService
 {
     private const MAX_POINTS_PER_PATH = 5000;
+    private const MAX_GPS_DATA_POINTS = 50000; // Maximum GPS points to process per day to prevent memory exhaustion
 
     public function __construct(
         private GpsDataAnalyzer $gpsDataAnalyzer
@@ -51,11 +52,20 @@ class TractorPathService
             // Smooth out GPS errors (single-point anomalies) and extract path in optimized way
             $smoothedGpsData = $this->smoothGpsErrors($gpsData);
 
+            // Free memory from original GPS data collection
+            unset($gpsData);
+
             // Extract movement points and find first movement point ID in single pass
             [$pathPoints, $firstMovementPointId] = $this->extractMovementPointsOptimized($smoothedGpsData);
 
+            // Free memory from smoothed GPS data
+            unset($smoothedGpsData);
+
             // Convert to PointsResource format
             $formattedPathPoints = $this->convertToPathPointsOptimized($pathPoints, $firstMovementPointId);
+
+            // Free memory from path points
+            unset($pathPoints);
 
             return PointsResource::collection($formattedPathPoints);
 
@@ -72,6 +82,8 @@ class TractorPathService
 
     /**
      * Get optimized GPS data for the specified date
+     * Optimized for memory efficiency by selecting only necessary columns
+     * and implementing intelligent sampling for large datasets
      *
      * @param Tractor $tractor
      * @param Carbon $date
@@ -79,15 +91,71 @@ class TractorPathService
      */
     private function getOptimizedGpsData(Tractor $tractor, Carbon $date): \Illuminate\Support\Collection
     {
-        return $tractor->gpsData()
+        // Select only necessary columns to reduce memory footprint
+        $baseQuery = $tractor->gpsData()
+            ->select('id', 'coordinate', 'speed', 'status', 'directions', 'date_time')
             ->whereDate('date_time', $date)
-            ->orderBy('date_time')
-            ->get();
+            ->orderBy('date_time');
+
+        // First, try to get data with a limit slightly above our max to check size
+        // This is more efficient than count() + get()
+        $gpsData = (clone $baseQuery)->limit(self::MAX_GPS_DATA_POINTS + 1)->get();
+
+        // If we got more than MAX_GPS_DATA_POINTS, we need to sample
+        if ($gpsData->count() > self::MAX_GPS_DATA_POINTS) {
+            // Get total count only if we exceeded the limit
+            $totalCount = (clone $baseQuery)->count();
+
+            // For very large datasets, use intelligent sampling
+            $sampleRate = (int)ceil($totalCount / self::MAX_GPS_DATA_POINTS);
+
+            Log::warning('GPS data exceeds memory limit, applying sampling', [
+                'tractor_id' => $tractor->id,
+                'date' => $date->toDateString(),
+                'total_points' => $totalCount,
+                'sample_rate' => $sampleRate,
+                'max_points' => self::MAX_GPS_DATA_POINTS
+            ]);
+
+            // Use chunking to process data in batches for memory efficiency
+            // This prevents loading all data into memory at once
+            $sampled = [];
+            $index = 0;
+            $lastPoint = null;
+            $lastPointIndex = null;
+
+            // Process data in chunks to avoid loading everything into memory
+            (clone $baseQuery)->chunk(1000, function ($chunk) use (&$sampled, &$index, $sampleRate, &$lastPoint, &$lastPointIndex) {
+                foreach ($chunk as $point) {
+                    // Always keep first point
+                    if ($index === 0) {
+                        $sampled[] = $point;
+                    }
+                    // Sample every Nth point
+                    elseif ($index % $sampleRate === 0) {
+                        $sampled[] = $point;
+                    }
+                    // Track last point to include it at the end
+                    $lastPoint = $point;
+                    $lastPointIndex = $index;
+                    $index++;
+                }
+            });
+
+            // Always include last point if it wasn't already included (not first point, not sampled)
+            if ($lastPoint !== null && $lastPointIndex !== null && $lastPointIndex !== 0 && $lastPointIndex % $sampleRate !== 0) {
+                $sampled[] = $lastPoint;
+            }
+
+            return collect($sampled);
+        }
+
+        return $gpsData;
     }
 
     /**
      * Smooth out GPS errors by correcting single-point anomalies.
-     * Optimized single-pass algorithm.
+     * Optimized single-pass algorithm with memory efficiency.
      *
      * Rules:
      * - If a movement point is surrounded by stoppage points (before and after), treat it as stoppage (set speed=0)
@@ -103,54 +171,61 @@ class TractorPathService
             return $gpsData;
         }
 
-        // Pre-cache type conversions for all points to avoid repeated casting
-        $points = $gpsData->all();
-        $cached = [];
-        foreach ($points as $idx => $point) {
-            $cached[$idx] = [
-                'status' => (int)$point->status,
-                'speed' => (float)$point->speed,
-                'point' => $point,
-            ];
+        // Use lightweight arrays instead of nested arrays to reduce memory
+        // Store only essential values: status and speed as integers
+        $statuses = [];
+        $speeds = [];
+        $pointsArray = [];
+
+        foreach ($gpsData as $idx => $point) {
+            $statuses[$idx] = (int)$point->status;
+            $speeds[$idx] = (float)$point->speed;
+            $pointsArray[$idx] = $point; // Keep reference for modifications
         }
 
         $maxIterations = 3; // Reduced from 5 - usually converges faster
         $iteration = 0;
 
-        // Optimized iteration with cached values
+        // Optimized iteration with lightweight arrays
         do {
             $hasCorrections = false;
 
             for ($i = 1; $i < $count - 1; $i++) {
-                $current = &$cached[$i];
-                $prev = $cached[$i - 1];
-                $next = $cached[$i + 1];
+                $currentStatus = $statuses[$i];
+                $currentSpeed = $speeds[$i];
+                $prevSpeed = $speeds[$i - 1];
+                $nextSpeed = $speeds[$i + 1];
+                $prevStatus = $statuses[$i - 1];
+                $nextStatus = $statuses[$i + 1];
 
-                $currentIsMovement = ($current['status'] == 1 && $current['speed'] > 0);
-                $previousIsStoppage = ($prev['speed'] == 0);
-                $nextIsStoppage = ($next['speed'] == 0);
-                $previousIsMovement = ($prev['status'] == 1 && $prev['speed'] > 0);
-                $nextIsMovement = ($next['status'] == 1 && $next['speed'] > 0);
-                $currentIsStoppage = ($current['speed'] == 0);
+                $currentIsMovement = ($currentStatus == 1 && $currentSpeed > 0);
+                $previousIsStoppage = ($prevSpeed == 0);
+                $nextIsStoppage = ($nextSpeed == 0);
+                $previousIsMovement = ($prevStatus == 1 && $prevSpeed > 0);
+                $nextIsMovement = ($nextStatus == 1 && $nextSpeed > 0);
+                $currentIsStoppage = ($currentSpeed == 0);
 
                 // Case 1: Movement point surrounded by stoppage points
                 if ($currentIsMovement && $previousIsStoppage && $nextIsStoppage) {
-                    $current['point']->speed = 0;
-                    $current['speed'] = 0;
+                    $pointsArray[$i]->speed = 0;
+                    $speeds[$i] = 0;
                     $hasCorrections = true;
                 }
                 // Case 2: Stoppage point surrounded by movement points
                 elseif ($currentIsStoppage && $previousIsMovement && $nextIsMovement) {
-                    $avgSpeed = ($prev['speed'] + $next['speed']) / 2;
+                    $avgSpeed = ($prevSpeed + $nextSpeed) / 2;
                     $newSpeed = $avgSpeed > 0 ? $avgSpeed : 1;
-                    $current['point']->speed = $newSpeed;
-                    $current['speed'] = $newSpeed;
+                    $pointsArray[$i]->speed = $newSpeed;
+                    $speeds[$i] = $newSpeed;
                     $hasCorrections = true;
                 }
             }
 
             $iteration++;
         } while ($hasCorrections && $iteration < $maxIterations);
+
+        // Free memory
+        unset($statuses, $speeds, $pointsArray);
 
         return $gpsData;
     }
@@ -223,7 +298,7 @@ class TractorPathService
         $firstConsecutiveMovementPoint = null;
         $minStoppageSeconds = 60; // Ignore stoppages less than 60 seconds
 
-        // Pre-cache timestamps for efficient duration calculation
+        // Pre-cache timestamps as integers for efficient duration calculation and memory efficiency
         $timestamps = [];
         foreach ($gpsData as $idx => $point) {
             $ts = $point->date_time;
@@ -335,6 +410,23 @@ class TractorPathService
             }
         }
 
+        // Free memory
+        unset($timestamps);
+
+        // Limit path points to prevent memory issues
+        if (count($pathPoints) > self::MAX_POINTS_PER_PATH) {
+            // Sample path points evenly to stay within limit
+            $sampleRate = (int)ceil(count($pathPoints) / self::MAX_POINTS_PER_PATH);
+            $sampledPoints = [];
+            foreach ($pathPoints as $idx => $point) {
+                if ($idx % $sampleRate === 0 || $idx === 0 || $idx === count($pathPoints) - 1) {
+                    // Always include first and last points, sample others
+                    $sampledPoints[] = $point;
+                }
+            }
+            $pathPoints = $sampledPoints;
+        }
+
         return [collect($pathPoints), $firstMovementPointId];
     }
 
@@ -377,6 +469,7 @@ class TractorPathService
     /**
      * Convert movement and stoppage points to PointsResource format (optimized)
      * Uses pre-calculated firstMovementPointId to avoid additional iteration
+     * Memory optimized to use arrays instead of objects where possible
      *
      * @param \Illuminate\Support\Collection $pathPoints
      * @param int|null $firstMovementPointId Pre-calculated first movement point ID
@@ -384,15 +477,18 @@ class TractorPathService
      */
     private function convertToPathPointsOptimized($pathPoints, ?int $firstMovementPointId): \Illuminate\Support\Collection
     {
-        return $pathPoints->map(function ($point) use ($firstMovementPointId) {
+        $result = [];
+        $pathPointsArray = $pathPoints->all();
+
+        foreach ($pathPointsArray as $point) {
             // Pre-cast types once
             $speed = (float)$point->speed;
             $isStopped = ($speed == 0);
             $stoppageTime = $point->stoppage_time ?? 0;
             $isStartingPoint = ($firstMovementPointId !== null && $point->id == $firstMovementPointId);
 
-            // Create optimized object
-            return (object) [
+            // Create optimized object (using stdClass for compatibility)
+            $result[] = (object) [
                 'id' => $point->id,
                 'coordinate' => $point->coordinate,
                 'speed' => $point->speed,
@@ -404,7 +500,12 @@ class TractorPathService
                 'stoppage_time' => $stoppageTime,
                 'date_time' => $point->date_time,
             ];
-        });
+        }
+
+        // Free memory
+        unset($pathPointsArray);
+
+        return collect($result);
     }
 
     /**
