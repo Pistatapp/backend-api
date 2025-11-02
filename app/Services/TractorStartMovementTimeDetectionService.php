@@ -14,7 +14,6 @@ class TractorStartMovementTimeDetectionService
      * Detect start movement time for a tractor using GPS data analysis.
      * Uses the same algorithm as TractorPathService: finds the first point in the first 3 consecutive movement points.
      * Movement = status == 1 AND speed > 0
-     * Results are cached per tractor and date for performance optimization.
      *
      * @param Tractor $tractor
      * @param Carbon|null $date Optional date to analyze (defaults to today)
@@ -30,49 +29,26 @@ class TractorStartMovementTimeDetectionService
         // Use provided date or default to today
         $targetDate = $date ?? Carbon::today();
 
-        // Generate cache key unique per tractor/device and date
-        $cacheKey = $this->getCacheKey($tractor, $targetDate);
-
-        // Try to get cached result first for performance optimization
-        // Use has() to distinguish between "not cached" and "cached as null"
-        if (cache()->has($cacheKey)) {
-            return cache()->get($cacheKey);
-        }
-
         try {
             // Get GPS data with optimized query
             $gpsData = $this->getOptimizedGpsData($tractor, $targetDate);
 
             if ($gpsData->isEmpty()) {
-                // Cache null result but with shorter TTL (in case GPS data arrives later)
-                // Cache until end of day, or minimum 1 hour
-                $cacheUntil = $targetDate->copy()->endOfDay();
-                $cacheTtl = max($cacheUntil->diffInSeconds(Carbon::now()), 3600);
-                cache()->put($cacheKey, null, $cacheTtl);
                 return null;
             }
 
             // Find first movement point using the same algorithm as TractorPathService
             $firstMovementPoint = $this->findFirstMovementPoint($gpsData);
 
-            $result = null;
-            if ($firstMovementPoint) {
-                $pointTime = is_string($firstMovementPoint->date_time)
-                    ? Carbon::parse($firstMovementPoint->date_time)
-                    : $firstMovementPoint->date_time;
-                $result = $pointTime->format('H:i:s');
+            if (!$firstMovementPoint) {
+                return null;
             }
 
-            // Cache the result until end of day (start movement time won't change once detected)
-            $cacheUntil = $targetDate->copy()->endOfDay();
-            $cacheTtl = $cacheUntil->diffInSeconds(Carbon::now());
+            $pointTime = is_string($firstMovementPoint->date_time)
+                ? Carbon::parse($firstMovementPoint->date_time)
+                : $firstMovementPoint->date_time;
 
-            // Only cache if TTL is positive (not in the past)
-            if ($cacheTtl > 0) {
-                cache()->put($cacheKey, $result, $cacheTtl);
-            }
-
-            return $result;
+            return $pointTime->format('H:i:s');
         } catch (\Exception $e) {
             // Log error and return null if analysis fails
             Log::error('Failed to detect start movement time for tractor ' . $tractor->id . ': ' . $e->getMessage());
@@ -96,26 +72,6 @@ class TractorStartMovementTimeDetectionService
             $tractor->calculated_start_work_time = $startMovementTime;
             return $tractor;
         });
-    }
-
-    /**
-     * Generate cache key for a specific tractor/device and date
-     *
-     * Uses GPS device id (or IMEI) when available to avoid collisions when
-     * tractors are hydrated without primary key selected.
-     *
-     * @param Tractor $tractor
-     * @param Carbon $date
-     * @return string
-     */
-    private function getCacheKey(Tractor $tractor, Carbon $date): string
-    {
-        $tractorId = $tractor->getKey();
-        $device = $tractor->gpsDevice;
-        $deviceId = $device ? ($device->getKey() ?? $device->imei ?? 'device-unknown') : null;
-        $idForCache = $deviceId ?? ($tractorId ?? 'tractor-unknown');
-
-        return "tractor_start_movement_time_{$idForCache}_{$date->format('Y-m-d')}";
     }
 
     /**
