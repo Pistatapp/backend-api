@@ -30,8 +30,8 @@ class TractorStartMovementTimeDetectionService
         // Use provided date or default to today
         $targetDate = $date ?? Carbon::today();
 
-        // Generate cache key unique per tractor and date
-        $cacheKey = $this->getCacheKey($tractor->id, $targetDate);
+        // Generate cache key unique per tractor/device and date
+        $cacheKey = $this->getCacheKey($tractor, $targetDate);
 
         // Try to get cached result first for performance optimization
         // Use has() to distinguish between "not cached" and "cached as null"
@@ -99,15 +99,23 @@ class TractorStartMovementTimeDetectionService
     }
 
     /**
-     * Generate cache key for a specific tractor and date
+     * Generate cache key for a specific tractor/device and date
      *
-     * @param int $tractorId
+     * Uses GPS device id (or IMEI) when available to avoid collisions when
+     * tractors are hydrated without primary key selected.
+     *
+     * @param Tractor $tractor
      * @param Carbon $date
      * @return string
      */
-    private function getCacheKey(int $tractorId, Carbon $date): string
+    private function getCacheKey(Tractor $tractor, Carbon $date): string
     {
-        return "tractor_start_movement_time_{$tractorId}_{$date->format('Y-m-d')}";
+        $tractorId = $tractor->getKey();
+        $device = $tractor->gpsDevice;
+        $deviceId = $device ? ($device->getKey() ?? $device->imei ?? 'device-unknown') : null;
+        $idForCache = $deviceId ?? ($tractorId ?? 'tractor-unknown');
+
+        return "tractor_start_movement_time_{$idForCache}_{$date->format('Y-m-d')}";
     }
 
     /**
@@ -120,8 +128,9 @@ class TractorStartMovementTimeDetectionService
     private function getOptimizedGpsData(Tractor $tractor, Carbon $date): \Illuminate\Support\Collection
     {
         return $tractor->gpsData()
-            ->whereDate('date_time', $date)
-            ->orderBy('date_time')
+            ->select(['gps_data.id', 'gps_data.coordinate', 'gps_data.speed', 'gps_data.status', 'gps_data.directions', 'gps_data.date_time'])
+            ->whereDate('gps_data.date_time', $date)
+            ->orderBy('gps_data.date_time')
             ->get();
     }
 
