@@ -4,17 +4,12 @@ namespace App\Services;
 
 use App\Models\Tractor;
 use App\Http\Resources\PointsResource;
-use App\Services\GpsDataAnalyzer;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 
 class TractorPathService
 {
     private const MAX_POINTS_PER_PATH = 5000;
-
-    public function __construct(
-        private GpsDataAnalyzer $gpsDataAnalyzer
-    ) {}
 
     /**
      * Retrieves the tractor movement path for a specific date using GPS data analysis.
@@ -73,90 +68,6 @@ class TractorPathService
         }
     }
 
-    /**
-     * Get optimized GPS data for the specified date
-     *
-     * @param Tractor $tractor
-     * @param Carbon $date
-     * @return \Illuminate\Support\Collection
-     */
-    private function getOptimizedGpsData(Tractor $tractor, Carbon $date): \Illuminate\Support\Collection
-    {
-        return $tractor->gpsData()
-            ->whereDate('gps_data.date_time', $date)
-            ->orderBy('gps_data.date_time')
-            ->get();
-    }
-
-    /**
-     * Smooth out GPS errors by correcting single-point anomalies.
-     * Optimized single-pass algorithm.
-     *
-     * Rules:
-     * - If a movement point is surrounded by stoppage points (before and after), treat it as stoppage (set speed=0)
-     * - If a stoppage point is surrounded by movement points (before and after), treat it as movement (set speed=average of neighbors)
-     *
-     * @param \Illuminate\Support\Collection $gpsData
-     * @return \Illuminate\Support\Collection Collection with corrected points
-     */
-    private function smoothGpsErrors($gpsData): \Illuminate\Support\Collection
-    {
-        $count = $gpsData->count();
-        if ($count < 3) {
-            return $gpsData;
-        }
-
-        // Pre-cache type conversions for all points to avoid repeated casting
-        $points = $gpsData->all();
-        $cached = [];
-        foreach ($points as $idx => $point) {
-            $cached[$idx] = [
-                'status' => (int)$point->status,
-                'speed' => (float)$point->speed,
-                'point' => $point,
-            ];
-        }
-
-        $maxIterations = 3; // Reduced from 5 - usually converges faster
-        $iteration = 0;
-
-        // Optimized iteration with cached values
-        do {
-            $hasCorrections = false;
-
-            for ($i = 1; $i < $count - 1; $i++) {
-                $current = &$cached[$i];
-                $prev = $cached[$i - 1];
-                $next = $cached[$i + 1];
-
-                $currentIsMovement = ($current['status'] == 1 && $current['speed'] > 0);
-                $previousIsStoppage = ($prev['speed'] == 0);
-                $nextIsStoppage = ($next['speed'] == 0);
-                $previousIsMovement = ($prev['status'] == 1 && $prev['speed'] > 0);
-                $nextIsMovement = ($next['status'] == 1 && $next['speed'] > 0);
-                $currentIsStoppage = ($current['speed'] == 0);
-
-                // Case 1: Movement point surrounded by stoppage points
-                if ($currentIsMovement && $previousIsStoppage && $nextIsStoppage) {
-                    $current['point']->speed = 0;
-                    $current['speed'] = 0;
-                    $hasCorrections = true;
-                }
-                // Case 2: Stoppage point surrounded by movement points
-                elseif ($currentIsStoppage && $previousIsMovement && $nextIsMovement) {
-                    $avgSpeed = ($prev['speed'] + $next['speed']) / 2;
-                    $newSpeed = $avgSpeed > 0 ? $avgSpeed : 1;
-                    $current['point']->speed = $newSpeed;
-                    $current['speed'] = $newSpeed;
-                    $hasCorrections = true;
-                }
-            }
-
-            $iteration++;
-        } while ($hasCorrections && $iteration < $maxIterations);
-
-        return $gpsData;
-    }
 
     /**
      * Stream-based smoothing: correct single-point anomalies using a 3-point window without loading all rows.
@@ -247,148 +158,6 @@ class TractorPathService
         ];
     }
 
-    /**
-     * Extract movement points and stoppage points from GPS data (optimized)
-     * Also finds first movement point ID in the same pass
-     * Algorithm:
-     * - The first point of the day is always included (stoppage or movement)
-     * - All movement points (status == 1 && speed > 0) are included
-     * - For stoppage segments, only the first stoppage point after a movement point is included
-     * - Stoppage segments less than 60 seconds are ignored (treated as movement, not included in path)
-     * - Calculate stoppage_time for each point inline
-     * - Consecutive stoppage points are excluded from the final path
-     *
-     * @param \Illuminate\Support\Collection $gpsData
-     * @return array [pathPoints, firstMovementPointId]
-     */
-    private function extractMovementPointsOptimized($gpsData): array
-    {
-        $pathPoints = [];
-        $count = $gpsData->count();
-        $stoppageStartIndex = null;
-        $stoppagePointPathIndex = null; // Track index in pathPoints array where stoppage point was added
-        $inStoppageSegment = false;
-        $lastPointType = null;
-        $hasSeenMovement = false;
-        $firstMovementPointId = null;
-        $consecutiveMovementCount = 0;
-        $firstConsecutiveMovementPoint = null;
-        $minStoppageSeconds = 60; // Ignore stoppages less than 60 seconds
-
-        // Pre-cache timestamps for efficient duration calculation
-        $timestamps = [];
-        foreach ($gpsData as $idx => $point) {
-            $ts = $point->date_time;
-            $timestamps[$idx] = is_string($ts) ? \Carbon\Carbon::parse($ts)->timestamp : $ts->timestamp;
-        }
-
-        foreach ($gpsData as $index => $point) {
-            // Pre-cast types once per point
-            $status = (int)$point->status;
-            $speed = (float)$point->speed;
-            $isMovement = ($status == 1 && $speed > 0);
-            $isStoppage = ($speed == 0);
-            $isFirstPoint = ($index === 0);
-
-            // Track first movement point (3 consecutive movements)
-            if ($firstMovementPointId === null) {
-                if ($isMovement) {
-                    if ($consecutiveMovementCount === 0) {
-                        $firstConsecutiveMovementPoint = $point;
-                    }
-                    $consecutiveMovementCount++;
-                    if ($consecutiveMovementCount >= 3) {
-                        $firstMovementPointId = $firstConsecutiveMovementPoint->id;
-                    }
-                } else {
-                    $consecutiveMovementCount = 0;
-                    $firstConsecutiveMovementPoint = null;
-                }
-            }
-
-            if ($isMovement) {
-                $hasSeenMovement = true;
-
-                // If we were in a stoppage segment, check duration and decide whether to keep or remove
-                if ($inStoppageSegment && $stoppageStartIndex !== null) {
-                    // Calculate duration efficiently using pre-cached timestamps
-                    $duration = 0;
-                    for ($i = $stoppageStartIndex + 1; $i < $index; $i++) {
-                        $duration += $timestamps[$i] - $timestamps[$i - 1];
-                    }
-
-                    // If stoppage duration < 60 seconds, remove the stoppage point from path (treat as movement)
-                    if ($duration < $minStoppageSeconds) {
-                        // Remove the stoppage point that was added to pathPoints
-                        if ($stoppagePointPathIndex !== null && isset($pathPoints[$stoppagePointPathIndex])) {
-                            array_splice($pathPoints, $stoppagePointPathIndex, 1);
-                        }
-                        // Continue as movement - no stoppage point in path
-                    } else {
-                        // Stoppage >= 60 seconds, keep it and set stoppage_time
-                        if ($stoppagePointPathIndex !== null && isset($pathPoints[$stoppagePointPathIndex])) {
-                            $pathPoints[$stoppagePointPathIndex]->stoppage_time = $duration;
-                        }
-                    }
-
-                    $stoppageStartIndex = null;
-                    $stoppagePointPathIndex = null;
-                    $inStoppageSegment = false;
-                }
-
-                $point->stoppage_time = 0;
-                $pathPoints[] = $point;
-                $lastPointType = 'movement';
-
-            } elseif ($isStoppage) {
-                if ($isFirstPoint) {
-                    // First point is always included even if stoppage
-                    $point->stoppage_time = 0;
-                    $pathPoints[] = $point;
-                    $stoppageStartIndex = $index;
-                    $stoppagePointPathIndex = count($pathPoints) - 1;
-                    $inStoppageSegment = true;
-                    $lastPointType = 'stoppage';
-                } elseif ($hasSeenMovement && $lastPointType !== 'stoppage') {
-                    // First stoppage point after movement - add it but may remove later if < 60 seconds
-                    $point->stoppage_time = 0;
-                    $pathPoints[] = $point;
-                    $stoppageStartIndex = $index;
-                    $stoppagePointPathIndex = count($pathPoints) - 1;
-                    $inStoppageSegment = true;
-                    $lastPointType = 'stoppage';
-                } else {
-                    // Consecutive stoppage point - track but don't add to path
-                    $lastPointType = 'stoppage';
-                }
-            }
-        }
-
-        // Handle final stoppage segment
-        if ($inStoppageSegment && $stoppageStartIndex !== null && $count > 0) {
-            $duration = 0;
-            for ($i = $stoppageStartIndex + 1; $i < $count; $i++) {
-                $duration += $timestamps[$i] - $timestamps[$i - 1];
-            }
-
-            // First point is always included even if stoppage < 60 seconds
-            $isFirstPointStoppage = ($stoppageStartIndex === 0);
-
-            // If final stoppage duration < 60 seconds, remove it from path (unless it's the first point)
-            if ($duration < $minStoppageSeconds && !$isFirstPointStoppage) {
-                if ($stoppagePointPathIndex !== null && isset($pathPoints[$stoppagePointPathIndex])) {
-                    array_splice($pathPoints, $stoppagePointPathIndex, 1);
-                }
-            } else {
-                // Keep final stoppage and set stoppage_time
-                if ($stoppagePointPathIndex !== null && isset($pathPoints[$stoppagePointPathIndex])) {
-                    $pathPoints[$stoppagePointPathIndex]->stoppage_time = $duration;
-                }
-            }
-        }
-
-        return [collect($pathPoints), $firstMovementPointId];
-    }
 
     /**
      * Streamed path extraction with minimal memory.
@@ -546,116 +315,6 @@ class TractorPathService
         return $pathPoints;
     }
 
-    /**
-     * Calculate stoppage duration between start and end indices
-     * Based on the same logic as GpsDataAnalyzer
-     * NOTE: This method is kept for backward compatibility but is no longer used in optimized path
-     *
-     * @param array $gpsDataArray
-     * @param int $startIndex
-     * @param int $endIndex
-     * @return int Duration in seconds
-     */
-    private function calculateStoppageDuration(array $gpsDataArray, int $startIndex, int $endIndex): int
-    {
-        $duration = 0;
-
-        for ($i = $startIndex + 1; $i <= $endIndex; $i++) {
-            if (isset($gpsDataArray[$i]) && isset($gpsDataArray[$i - 1])) {
-                // Handle both Carbon instances and string dates
-                $currentTime = $gpsDataArray[$i]['date_time'];
-                $previousTime = $gpsDataArray[$i - 1]['date_time'];
-
-                // Convert to Carbon if it's a string
-                if (is_string($currentTime)) {
-                    $currentTime = \Carbon\Carbon::parse($currentTime);
-                }
-                if (is_string($previousTime)) {
-                    $previousTime = \Carbon\Carbon::parse($previousTime);
-                }
-
-                $timeDiff = $currentTime->timestamp - $previousTime->timestamp;
-                $duration += $timeDiff;
-            }
-        }
-
-        return $duration;
-    }
-
-    /**
-     * Convert movement and stoppage points to PointsResource format (optimized)
-     * Uses pre-calculated firstMovementPointId to avoid additional iteration
-     *
-     * @param \Illuminate\Support\Collection $pathPoints
-     * @param int|null $firstMovementPointId Pre-calculated first movement point ID
-     * @return \Illuminate\Support\Collection
-     */
-    private function convertToPathPointsOptimized($pathPoints, ?int $firstMovementPointId): \Illuminate\Support\Collection
-    {
-        return $pathPoints->map(function ($point) use ($firstMovementPointId) {
-            // Pre-cast types once
-            $speed = (float)$point->speed;
-            $isStopped = ($speed == 0);
-            $stoppageTime = $point->stoppage_time ?? 0;
-            $isStartingPoint = ($firstMovementPointId !== null && $point->id == $firstMovementPointId);
-
-            // Create optimized object
-            return (object) [
-                'id' => $point->id,
-                'coordinate' => $point->coordinate,
-                'speed' => $point->speed,
-                'status' => $point->status,
-                'is_starting_point' => $isStartingPoint,
-                'is_ending_point' => false,
-                'is_stopped' => $isStopped,
-                'directions' => $point->directions,
-                'stoppage_time' => $stoppageTime,
-                'date_time' => $point->date_time,
-            ];
-        });
-    }
-
-    /**
-     * Find the ID of the first point in the first 3 consecutive movement points from original GPS data
-     * NOTE: This method is kept for backward compatibility but is no longer used in optimized path
-     * The first movement point ID is now calculated during extractMovementPointsOptimized
-     *
-     * @param \Illuminate\Support\Collection $gpsData Original GPS data (all points)
-     * @return int|null ID of the first movement point, or null if not found
-     */
-    private function findFirstMovementPointIdFromOriginalData($gpsData): ?int
-    {
-        $consecutiveMovementCount = 0;
-        $firstMovementPoint = null;
-
-        foreach ($gpsData as $point) {
-            // Strict rule: Movement = status == 1 AND speed > 0
-            $isMovement = ((int)$point->status == 1 && (float)$point->speed > 0);
-
-            if ($isMovement) {
-                if ($consecutiveMovementCount === 0) {
-                    // Start tracking a potential sequence - save the first point
-                    $firstMovementPoint = $point;
-                    $consecutiveMovementCount = 1;
-                } else {
-                    // Continue the sequence
-                    $consecutiveMovementCount++;
-                }
-
-                // Found 3 consecutive movement points - return the ID of the first point
-                if ($consecutiveMovementCount >= 3) {
-                    return $firstMovementPoint->id;
-                }
-            } else {
-                // Non-moving point breaks the sequence - reset
-                $consecutiveMovementCount = 0;
-                $firstMovementPoint = null;
-            }
-        }
-
-        // Less than 3 consecutive movement points found
-        return null;
-    }
 
 
     /**
@@ -666,17 +325,5 @@ class TractorPathService
     public function getMaxPointsPerPath(): int
     {
         return self::MAX_POINTS_PER_PATH;
-    }
-
-    /**
-     * Get optimized tractor path with movement analysis
-     *
-     * @param Tractor $tractor
-     * @param Carbon $date
-     * @return \Illuminate\Http\Resources\Json\AnonymousResourceCollection
-     */
-    public function getOptimizedTractorPath(Tractor $tractor, Carbon $date)
-    {
-        return $this->getTractorPath($tractor, $date);
     }
 }
