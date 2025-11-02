@@ -52,7 +52,7 @@ class ActiveTractorService
             'stoppage_duration' => $results['stoppage_duration_formatted'],
             'stoppage_duration_while_on' => $results['stoppage_duration_while_on_formatted'],
             'stoppage_duration_while_off' => $results['stoppage_duration_while_off_formatted'],
-            'efficiency' => [
+            'efficiencies' => [
                 'total' => number_format($totalEfficiency, 2),
                 'task-based' => 0,
             ],
