@@ -32,7 +32,7 @@ class ActiveTractorController extends Controller
             'date' => 'sometimes|shamsi_date'
         ]);
 
-        $date = $request->has('date') ? jalali_to_carbon($request->date) : now()->toDateString();
+        $date = $request->has('date') ? jalali_to_carbon($request->date) : null;
 
         $tractors = $farm->tractors()->active()->with('gpsDevice', 'driver')->get();
 
