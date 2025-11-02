@@ -99,24 +99,35 @@ class GpsDataAnalyzer
         foreach ($data as $record) {
             // Handle both GpsData model instances and arrays
             if (is_object($record)) {
+                // Convert date_time to Carbon if it's a string (from toBase() queries)
+                $timestamp = $record->date_time;
+                if (!($timestamp instanceof Carbon)) {
+                    $timestamp = Carbon::parse($timestamp);
+                }
+
                 // GpsData model instance
                 $this->data[] = [
                     'latitude' => $record->coordinate[0],
                     'longitude' => $record->coordinate[1],
-                    'timestamp' => $record->date_time,
+                    'timestamp' => $timestamp,
                     'speed' => $record->speed,
                     'status' => $record->status,
                     'imei' => $record->imei,
                 ];
             } else {
-                // Already in array format
+                // Already in array format - ensure timestamp is Carbon
+                if (isset($record['timestamp']) && is_string($record['timestamp'])) {
+                    $record['timestamp'] = Carbon::parse($record['timestamp']);
+                }
                 $this->data[] = $record;
             }
         }
 
-        // Sort by timestamp
+        // Sort by timestamp (ensure both are Carbon instances)
         usort($this->data, function ($a, $b) {
-            return $a['timestamp']->timestamp <=> $b['timestamp']->timestamp;
+            $tsA = $a['timestamp'] instanceof Carbon ? $a['timestamp']->timestamp : Carbon::parse($a['timestamp'])->timestamp;
+            $tsB = $b['timestamp'] instanceof Carbon ? $b['timestamp']->timestamp : Carbon::parse($b['timestamp'])->timestamp;
+            return $tsA <=> $tsB;
         });
 
         return $this;
