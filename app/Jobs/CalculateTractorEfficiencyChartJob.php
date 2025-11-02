@@ -47,14 +47,14 @@ class CalculateTractorEfficiencyChartJob implements ShouldQueue
         Tractor::query()
             ->select(['id', 'expected_daily_work_time', 'start_work_time', 'end_work_time'])
             ->chunkById(100, function ($tractors) use ($previousDay) {
-                foreach ($tractors as $tractor) {
-                    $this->calculateEfficiencyForDate($tractor, $previousDay);
+            foreach ($tractors as $tractor) {
+                $this->calculateEfficiencyForDate($tractor, $previousDay);
 
                     // Aggressively free memory between tractors
                     unset($tractor);
                     gc_collect_cycles();
-                }
-            });
+            }
+        });
     }
 
     /**
@@ -265,9 +265,8 @@ class CalculateTractorEfficiencyChartJob implements ShouldQueue
                         $lon = isset($coord[1]) ? (float)$coord[1] : 0.0;
                     }
                     if (!$pointFilter($lat, $lon)) {
-                        // Skip points outside zone
+                        // For points outside the zone, reset continuity so time outside isn't counted
                         $currentTimestamp = $row->date_time instanceof Carbon ? $row->date_time : Carbon::parse($row->date_time);
-                        // Maintain previous for continuity but no duration added when outside
                         $previous = [
                             'timestamp' => $currentTimestamp,
                             'moving' => false,
@@ -286,8 +285,11 @@ class CalculateTractorEfficiencyChartJob implements ShouldQueue
 
                     if ($intervalEnd->gt($intervalStart)) {
                         $diff = $intervalEnd->diffInSeconds($intervalStart);
-                        // Attribute the interval to the current point's movement state
-                        if ($isMoving) {
+                        // Attribute the interval to the previous point's state
+                        // Also treat short stoppages (<60s) as movement (to match analyzeLight)
+                        if ($previous['moving']) {
+                            $movementDuration += $diff;
+                        } elseif ($diff < 60) {
                             $movementDuration += $diff;
                         }
                     }
