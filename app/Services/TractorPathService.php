@@ -34,7 +34,7 @@ class TractorPathService
 
             // Efficient existence check without loading all rows
             $hasData = $tractor->gpsData()
-                ->whereDate('date_time', $date)
+                ->whereDate('gps_data.date_time', $date)
                 ->limit(1)
                 ->exists();
 
@@ -49,9 +49,9 @@ class TractorPathService
 
             // Stream GPS data with minimal memory
             $cursor = $tractor->gpsData()
-                ->select(['id', 'coordinate', 'speed', 'status', 'directions', 'date_time'])
-                ->whereDate('date_time', $date)
-                ->orderBy('date_time')
+                ->select(['gps_data.id as id', 'gps_data.coordinate', 'gps_data.speed', 'gps_data.status', 'gps_data.directions', 'gps_data.date_time'])
+                ->whereDate('gps_data.date_time', $date)
+                ->orderBy('gps_data.date_time')
                 ->cursor();
 
             // Single-pass smoothing via 3-point sliding window
@@ -83,8 +83,8 @@ class TractorPathService
     private function getOptimizedGpsData(Tractor $tractor, Carbon $date): \Illuminate\Support\Collection
     {
         return $tractor->gpsData()
-            ->whereDate('date_time', $date)
-            ->orderBy('date_time')
+            ->whereDate('gps_data.date_time', $date)
+            ->orderBy('gps_data.date_time')
             ->get();
     }
 
@@ -217,8 +217,8 @@ class TractorPathService
     private function getLastPointFromPreviousDate(Tractor $tractor, Carbon $date): ?object
     {
         return $tractor->gpsData()
-            ->whereDate('date_time', '<', $date)
-            ->orderBy('date_time', 'desc')
+            ->whereDate('gps_data.date_time', '<', $date)
+            ->orderBy('gps_data.date_time', 'desc')
             ->first();
     }
 
