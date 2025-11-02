@@ -28,7 +28,7 @@ class ActiveTractorService
     {
         $tractor->load(['driver']);
 
-        $results = $this->gpsDataAnalyzer->loadRecordsFor($tractor, $date)->analyze();
+        $results = $this->gpsDataAnalyzer->loadRecordsFor($tractor, $date)->analyzeLight();
 
         $averageSpeed = $results['average_speed'];
         $latestStatus = $results['latest_status'];
@@ -100,7 +100,7 @@ class ActiveTractorService
             $shamsiDate = jdate($currentDate)->format('Y/m/d');
 
             // Analyze GPS data using GpsDataAnalyzer with working time window
-            $results = $this->gpsDataAnalyzer->loadRecordsFor($tractor, $currentDate)->analyze();
+            $results = $this->gpsDataAnalyzer->loadRecordsFor($tractor, $currentDate)->analyzeLight();
 
             // Check if there's any data for this day
             if (empty($results['start_time'])) {
@@ -266,7 +266,7 @@ class ActiveTractorService
         // Use GpsDataAnalyzer to calculate metrics with task time window
         // Since we have pre-filtered GPS data by task zone and time, we use loadFromRecords
         // but pass task time window to analyze() to scope calculations
-        $results = $this->gpsDataAnalyzer->loadFromRecords($gpsData)->analyze($taskStartDateTime, $taskEndDateTime);
+        $results = $this->gpsDataAnalyzer->loadFromRecords($gpsData)->analyzeLight($taskStartDateTime, $taskEndDateTime);
 
         // Create and save metrics record
         $metrics = GpsMetricsCalculation::create([
@@ -280,7 +280,6 @@ class ActiveTractorService
             'stoppage_duration_while_on' => $results['stoppage_duration_while_on_seconds'],
             'stoppage_duration_while_off' => $results['stoppage_duration_while_off_seconds'],
             'average_speed' => $results['average_speed'],
-            'max_speed' => $results['max_speed'],
             'efficiency' => $this->calculateTaskEfficiency($tractor, $results['movement_duration_seconds']),
         ]);
 

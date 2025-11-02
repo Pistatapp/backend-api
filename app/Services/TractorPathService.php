@@ -55,6 +55,11 @@ class TractorPathService
             // Build final path in one pass (also computes stoppage durations and starting point)
             $pathPoints = $this->buildPathFromSmoothedStream($smoothedStream);
 
+            // Enforce maximum number of points to control memory and payload size
+            if (count($pathPoints) > self::MAX_POINTS_PER_PATH) {
+                $pathPoints = $this->downsamplePath($pathPoints, self::MAX_POINTS_PER_PATH);
+            }
+
             return PointsResource::collection(collect($pathPoints));
 
         } catch (\Exception $e) {
@@ -313,6 +318,56 @@ class TractorPathService
         }
 
         return $pathPoints;
+    }
+
+    /**
+     * Downsample the path to a maximum number of points while preserving important markers.
+     * Keeps first/last and all stoppage markers, then uniformly samples the rest.
+     *
+     * @param array $pathPoints
+     * @param int $max
+     * @return array
+     */
+    private function downsamplePath(array $pathPoints, int $max): array
+    {
+        $total = count($pathPoints);
+        if ($total <= $max) {
+            return $pathPoints;
+        }
+
+        $indicesToKeep = [0, $total - 1];
+
+        // Always keep stoppage markers and explicit start/end flags
+        foreach ($pathPoints as $idx => $p) {
+            if (!empty($p->is_stopped) || !empty($p->is_starting_point) || !empty($p->is_ending_point)) {
+                $indicesToKeep[] = $idx;
+            }
+        }
+
+        $indicesToKeep = array_values(array_unique($indicesToKeep));
+        sort($indicesToKeep);
+
+        $remaining = $max - count($indicesToKeep);
+        if ($remaining <= 0) {
+            // Trim to first $max preserved indices
+            $indicesToKeep = array_slice($indicesToKeep, 0, $max);
+        } else {
+            // Uniformly sample additional indices
+            $step = max(1, (int) floor($total / ($remaining + 1))); // avoid division by zero
+            for ($i = $step; $i < $total - 1 && $remaining > 0; $i += $step) {
+                if (!in_array($i, $indicesToKeep, true)) {
+                    $indicesToKeep[] = $i;
+                    $remaining--;
+                }
+            }
+            sort($indicesToKeep);
+        }
+
+        $result = [];
+        foreach ($indicesToKeep as $i) {
+            $result[] = $pathPoints[$i];
+        }
+        return $result;
     }
 
 
