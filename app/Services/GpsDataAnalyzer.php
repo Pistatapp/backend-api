@@ -134,6 +134,7 @@ class GpsDataAnalyzer
         // Convert working bounds to scalar timestamps for faster math
         $ws = $workingStartTime ? $workingStartTime->timestamp : null;
         $we = $workingEndTime ? $workingEndTime->timestamp : null;
+        $nowTs = Carbon::now()->timestamp;
 
         // Initialize counters
         $movementDistance = 0;
@@ -184,6 +185,7 @@ class GpsDataAnalyzer
         $lastStatus = null;
         $stoppageSegOn = 0;   // seconds within current stoppage segment while device is ON
         $stoppageSegOff = 0;  // seconds within current stoppage segment while device is OFF
+        $hasPointWithinWorkingWindow = false;
 
         foreach ($iterator as $currentPoint) {
             // Track activation times inline (optimization: single pass)
@@ -215,6 +217,13 @@ class GpsDataAnalyzer
                 $firstPoint = $currentPoint;
             }
             $lastStatus = $currentPoint['status'];
+
+            // Track if any point falls within working window
+            if ($ws !== null) {
+                if (($currentPoint['ts'] >= $ws) && ($we === null || $currentPoint['ts'] <= $we)) {
+                    $hasPointWithinWorkingWindow = true;
+                }
+            }
 
             if ($previousPoint === null) {
                 // First point
@@ -421,7 +430,8 @@ class GpsDataAnalyzer
         } elseif ($isCurrentlyStopped && $stoppageStart !== null) {
             // End final stoppage
             $stoppageStartTimestamp = $stoppageStart['ts'];
-            $stoppageEndTimestamp = $previousPoint['ts'];
+            // Extend final stoppage to current time (now)
+            $stoppageEndTimestamp = $nowTs;
 
             // Calculate total duration within working time boundaries
             $tempDuration = $this->calculateDurationWithinRange(
@@ -434,6 +444,20 @@ class GpsDataAnalyzer
             // On/off durations accumulated during the stoppage segment
             $tempDurationOn = $stoppageSegOn;
             $tempDurationOff = $stoppageSegOff;
+            // Add tail delta from last point to now based on latest status
+            $tailDelta = $this->calculateDurationWithinRange(
+                $previousPoint['ts'],
+                $nowTs,
+                $ws,
+                $we
+            );
+            if ($tailDelta > 0) {
+                if ($lastStatus == 1) {
+                    $tempDurationOn += $tailDelta;
+                } else {
+                    $tempDurationOff += $tailDelta;
+                }
+            }
 
             // Calculate stoppage_time for all points in the final stoppage segment
             // Skipped to preserve memory
@@ -475,6 +499,19 @@ class GpsDataAnalyzer
                 $ignoredStoppageCount++;
                 $ignoredStoppageDuration += $tempDuration;
                 $movementDuration += $tempDuration; // Add short stoppage time to movement duration
+            }
+        }
+
+        // If no point exists within the working window, assume full stoppage from working start to now
+        if ($ws !== null && !$hasPointWithinWorkingWindow) {
+            $syntheticStoppage = $this->calculateDurationWithinRange($ws, $nowTs, $ws, $we);
+            if ($syntheticStoppage > 0) {
+                $stoppageDuration += $syntheticStoppage;
+                $stoppageDurationWhileOff += $syntheticStoppage; // assume device off with no points
+                // Respect existing behavior: only count stoppage if >= 60 seconds
+                if ($syntheticStoppage >= 60) {
+                    $stoppageCount++;
+                }
             }
         }
 
