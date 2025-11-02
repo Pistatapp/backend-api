@@ -97,7 +97,7 @@ class GpsDataAnalyzer
 
         // Convert GpsData models to internal format
         foreach ($data as $record) {
-            // Handle both GpsData model instances and arrays
+            // Handle both GpsData model instances and arrays/stdClass
             if (is_object($record)) {
                 // Convert date_time to Carbon if it's a string (from toBase() queries)
                 $timestamp = $record->date_time;
@@ -105,21 +105,55 @@ class GpsDataAnalyzer
                     $timestamp = Carbon::parse($timestamp);
                 }
 
-                // GpsData model instance
+                // Normalize coordinate to [lat, lon] floats
+                $coord = $record->coordinate;
+                if (is_string($coord)) {
+                    $parts = array_map('floatval', explode(',', $coord));
+                    $lat = $parts[0] ?? 0.0;
+                    $lon = $parts[1] ?? 0.0;
+                } else {
+                    $lat = isset($coord[0]) ? (float)$coord[0] : 0.0;
+                    $lon = isset($coord[1]) ? (float)$coord[1] : 0.0;
+                }
+
                 $this->data[] = [
-                    'latitude' => $record->coordinate[0],
-                    'longitude' => $record->coordinate[1],
+                    'latitude' => $lat,
+                    'longitude' => $lon,
                     'timestamp' => $timestamp,
-                    'speed' => $record->speed,
-                    'status' => $record->status,
-                    'imei' => $record->imei,
+                    'speed' => (float)$record->speed,
+                    'status' => (int)$record->status,
+                    'imei' => $record->imei ?? null,
                 ];
             } else {
-                // Already in array format - ensure timestamp is Carbon
-                if (isset($record['timestamp']) && is_string($record['timestamp'])) {
-                    $record['timestamp'] = Carbon::parse($record['timestamp']);
+                // Array input - normalize fields to the same internal structure
+                $lat = 0.0;
+                $lon = 0.0;
+                if (isset($record['coordinate'])) {
+                    $coord = $record['coordinate'];
+                    if (is_string($coord)) {
+                        $parts = array_map('floatval', explode(',', $coord));
+                        $lat = $parts[0] ?? 0.0;
+                        $lon = $parts[1] ?? 0.0;
+                    } else {
+                        $lat = isset($coord[0]) ? (float)$coord[0] : 0.0;
+                        $lon = isset($coord[1]) ? (float)$coord[1] : 0.0;
+                    }
+                } else {
+                    $lat = isset($record['latitude']) ? (float)$record['latitude'] : 0.0;
+                    $lon = isset($record['longitude']) ? (float)$record['longitude'] : 0.0;
                 }
-                $this->data[] = $record;
+
+                $ts = $record['timestamp'] ?? ($record['date_time'] ?? null);
+                $timestamp = $ts instanceof Carbon ? $ts : ($ts ? Carbon::parse($ts) : Carbon::now());
+
+                $this->data[] = [
+                    'latitude' => $lat,
+                    'longitude' => $lon,
+                    'timestamp' => $timestamp,
+                    'speed' => isset($record['speed']) ? (float)$record['speed'] : 0.0,
+                    'status' => isset($record['status']) ? (int)$record['status'] : 0,
+                    'imei' => $record['imei'] ?? null,
+                ];
             }
         }
 
