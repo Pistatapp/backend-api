@@ -155,6 +155,7 @@ class TractorTaskService
         return TractorTask::where('tractor_id', $tractor->id)
             ->whereDate('date', $date)
             ->with(['taskable', 'operation'])
+            ->orderBy('start_time', 'asc')
             ->get();
     }
 }

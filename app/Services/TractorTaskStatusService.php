@@ -27,9 +27,13 @@ class TractorTaskStatusService
      */
     public function updateTaskStatus(TractorTask $task, ?bool $isCurrentlyInZone = null): void
     {
+        $oldStatus = $task->status;
         $newStatus = $this->determineTaskStatus($task, $isCurrentlyInZone);
-        $task->update(['status' => $newStatus]);
-        event(new TractorTaskStatusChanged($task, $newStatus, $isCurrentlyInZone));
+
+        if ($oldStatus !== $newStatus) {
+            $task->update(['status' => $newStatus]);
+            event(new TractorTaskStatusChanged($task, $newStatus, $isCurrentlyInZone));
+        }
     }
 
     /**
