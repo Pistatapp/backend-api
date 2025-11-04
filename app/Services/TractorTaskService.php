@@ -105,8 +105,10 @@ class TractorTaskService
             return null;
         }
 
+        $task->loadMissing('taskable');
+
         // Get coordinates from taskable (Field, Plot, etc.)
-        return $task->taskable->coordinates ?? null;
+        return $task->taskable->coordinates;
     }
 
     /**
