@@ -70,6 +70,12 @@ class TractorTaskStatusService
             return $task->status;
         }
 
+        Log::info('Task status', [
+            'task_id' => $task->id,
+            'task_status' => $task->status,
+            'is_currently_in_zone' => $isCurrentlyInZone,
+        ]);
+
         // Default: return current status
         return $task->status;
     }
