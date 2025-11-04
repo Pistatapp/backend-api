@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Events\TractorTaskStatusChanged;
 use App\Models\TractorTask;
-use App\Models\GpsMetricsCalculation;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 
@@ -13,11 +12,6 @@ use Illuminate\Support\Facades\Log;
  */
 class TractorTaskStatusService
 {
-    /**
-     * Minimum percentage of time tractor must be in zone to mark task as done.
-     */
-    private const MINIMUM_PRESENCE_PERCENTAGE = 30;
-
     /**
      * Update the status of a tractor task based on current conditions.
      *
@@ -65,16 +59,12 @@ class TractorTaskStatusService
                 return 'in_progress';
             }
 
-            // If task started but tractor hasn't entered yet, preserve current status
-            // Keep as not_started until the task ends, or as stopped if it was already stopped
-            return $task->status;
-        }
+            if($task->status === 'not_started') {
+                return 'not_started';
+            }
 
-        Log::info('Task status', [
-            'task_id' => $task->id,
-            'task_status' => $task->status,
-            'is_currently_in_zone' => $isCurrentlyInZone,
-        ]);
+            return 'stopped';
+        }
 
         // Default: return current status
         return $task->status;
