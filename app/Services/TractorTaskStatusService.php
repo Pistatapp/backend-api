@@ -27,6 +27,12 @@ class TractorTaskStatusService
      */
     public function updateTaskStatus(TractorTask $task, ?bool $isCurrentlyInZone = null): void
     {
+        Log::info('Updating task status', [
+            'task_id' => $task->id,
+            'task_status' => $task->status,
+            'is_currently_in_zone' => $isCurrentlyInZone,
+        ]);
+
         $oldStatus = $task->status;
         $newStatus = $this->determineTaskStatus($task, $isCurrentlyInZone);
 

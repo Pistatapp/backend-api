@@ -6,7 +6,6 @@ use App\Events\ReportReceived;
 use App\Services\TractorTaskService;
 use App\Services\TractorTaskStatusService;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Log;
 
 class ReportReceivedListener
 {
@@ -25,7 +24,6 @@ class ReportReceivedListener
      */
     public function handle(ReportReceived $event): void
     {
-        Log::info('ReportReceivedListener', ['event' => $event, 'message' => 'Report received']);
         // Get tractor from event GPS device property
         $tractor = $event->device->tractor;
 
