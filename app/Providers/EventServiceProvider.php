@@ -22,6 +22,9 @@ class EventServiceProvider extends ServiceProvider
         ReportReceived::class => [
             ReportReceivedListener::class,
         ],
+        ReportReceived::class => [
+            ReportReceivedListener::class,
+        ],
     ];
 
     /**
