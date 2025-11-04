@@ -27,13 +27,9 @@ class TractorTaskStatusService
      */
     public function updateTaskStatus(TractorTask $task, ?bool $isCurrentlyInZone = null): void
     {
-        $oldStatus = $task->status;
         $newStatus = $this->determineTaskStatus($task, $isCurrentlyInZone);
-
-        if ($oldStatus !== $newStatus) {
-            $task->update(['status' => $newStatus]);
-            event(new TractorTaskStatusChanged($task, $newStatus, $isCurrentlyInZone));
-        }
+        $task->update(['status' => $newStatus]);
+        event(new TractorTaskStatusChanged($task, $newStatus, $isCurrentlyInZone));
     }
 
     /**
@@ -57,19 +53,10 @@ class TractorTaskStatusService
         $taskStartDateTime = $taskDateTime->copy()->setTimeFromTimeString($task->start_time);
         $taskEndDateTime = $taskDateTime->copy()->setTimeFromTimeString($task->end_time);
 
-        // Handle case where end time is before start time (crosses midnight)
-        if ($taskEndDateTime->lt($taskStartDateTime)) {
-            $taskEndDateTime->addDay();
-        }
-
         // Scenario 1: Task time has not started
         if ($now->lt($taskStartDateTime)) {
             return 'not_started';
         }
-
-        // Get GPS metrics for this task
-        $gpsMetrics = $this->getTaskGpsMetrics($task);
-        $hasEnteredZone = $gpsMetrics && $gpsMetrics->work_duration > 0;
 
         // Scenario 2: Task time has started but not ended
         if ($now->gte($taskStartDateTime) && $now->lt($taskEndDateTime)) {
@@ -78,60 +65,13 @@ class TractorTaskStatusService
                 return 'in_progress';
             }
 
-            // If tractor has entered the zone before (based on GPS metrics)
-            if ($hasEnteredZone) {
-                // Check if tractor is currently outside the zone (stopped status)
-                if ($isCurrentlyInZone === false) {
-                    return 'stopped';
-                }
-                return 'in_progress';
-            }
             // If task started but tractor hasn't entered yet, preserve current status
             // Keep as not_started until the task ends, or as stopped if it was already stopped
-            return in_array($task->status, ['not_started', 'stopped']) ? $task->status : 'not_started';
-        }
-
-        // Scenario 3 & 4: Task time has ended
-        if ($now->gte($taskEndDateTime)) {
-            // If tractor never entered the zone
-            if (!$hasEnteredZone) {
-                return 'not_done';
-            }
-
-            // Calculate percentage of time spent in zone
-            $totalTaskDuration = $taskStartDateTime->diffInSeconds($taskEndDateTime);
-            $timeInZone = $gpsMetrics->work_duration; // in seconds
-
-            $presencePercentage = ($timeInZone / $totalTaskDuration) * 100;
-
-            // If tractor was in zone for at least 30% of the time, task is done
-            if ($presencePercentage >= self::MINIMUM_PRESENCE_PERCENTAGE) {
-                return 'done';
-            } else {
-                return 'not_done';
-            }
+            return $task->status;
         }
 
         // Default: return current status
         return $task->status;
-    }
-
-    /**
-     * Get GPS metrics calculation for a specific task.
-     *
-     * @param TractorTask $task
-     * @return GpsMetricsCalculation|null
-     */
-    private function getTaskGpsMetrics(TractorTask $task): ?GpsMetricsCalculation
-    {
-        $date = $task->date instanceof \Carbon\Carbon
-            ? $task->date->toDateString()
-            : $task->date;
-
-        return GpsMetricsCalculation::where('tractor_id', $task->tractor_id)
-            ->where('tractor_task_id', $task->id)
-            ->where('date', $date)
-            ->first();
     }
 
     /**
