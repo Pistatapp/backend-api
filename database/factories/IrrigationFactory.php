@@ -20,11 +20,13 @@ class IrrigationFactory extends Factory
      */
     public function definition(): array
     {
+        $date = $this->faker->date();
         return [
             'farm_id' => Farm::factory(),
             'labour_id' => Labour::factory(),
             'pump_id' => Pump::factory(),
-            'date' => $this->faker->date(),
+            'start_date' => $date,
+            'end_date' => $date,
             'start_time' => $startTime = $this->faker->time(),
             'end_time' => $this->faker->time($format = 'H:i:s', $max = '23:59:59', $min = $startTime),
             'note' => $this->faker->text,
