@@ -78,10 +78,6 @@ class ParseDataService
         $coordinate = $this->convertNmeaToDecimalDegrees($dataFields[1], $dataFields[2]);
         $dateTime = $this->parseDateTime($dataFields[4], $dataFields[5]);
 
-        if (!$dateTime->isSameDay($today)) {
-            return null;
-        }
-
         $speed = (int)$dataFields[6];
         $status = (int)$dataFields[8];
         $ewDirection = (int)$dataFields[9];
@@ -167,16 +163,11 @@ class ParseDataService
      */
     private function decodeJsonData(string $jsonData): array
     {
-        // Remove newlines and carriage returns, then trim trailing dots
-        $cleanedData = str_replace(["\n", "\r"], '', $jsonData);
-        $trimmedData = rtrim($cleanedData, ".");
+        $trimmedData = rtrim($jsonData, '.');
+        $trimmedData = str_replace('}{', '},{', $trimmedData);
+        $trimmedData = str_replace(',{}', '', $trimmedData);
+        $decodedData = json_decode($trimmedData, true);
 
-        $decoded = json_decode($trimmedData, true);
-
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new \JsonException('Invalid JSON data: ' . json_last_error_msg());
-        }
-
-        return $decoded ?? [];
+        return $decodedData;
     }
 }
