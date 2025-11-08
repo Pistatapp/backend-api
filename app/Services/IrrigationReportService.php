@@ -128,6 +128,7 @@ class IrrigationReportService
                 $query->whereIn('plots.id', $plotIds);
             })
             ->filter('finished')
+            ->verifiedByAdmin()
             ->when($filters['labour_id'] ?? null, function ($query) use ($filters) {
                 $query->where('labour_id', $filters['labour_id']);
             })->when($filters['valves'] ?? null, function ($query) use ($filters) {

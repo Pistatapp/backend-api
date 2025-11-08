@@ -52,11 +52,42 @@ class IrrigationResource extends JsonResource
             }),
             'note' => $this->note,
             'status' => $this->status,
-            'duration' => $this->duration,
+            'duration' => gmdate('H:i:s', $this->duration),
+            'plots_count' => $this->whenCounted('plots'),
+            'trees_count' => $this->whenCounted('plots.trees'),
+            'area_covered' => $this->getAreaCovered(),
+            $this->mergeWhen(in_array($this->status, ['in-progress', 'finished']), [
+                'total_volume' => $this->getTotalVolume(),
+            ]),
             'can' => [
                 'delete' => $request->user()->can('delete', $this->resource),
                 'update' => $request->user()->can('update', $this->resource),
             ],
         ];
+    }
+
+    /**
+     * Get the area covered by the irrigation.
+     *
+     * @return float
+     */
+    private function getAreaCovered(): float
+    {
+        return $this->valves->sum(function ($valve) {
+            return $valve->irrigation_area;
+        });
+    }
+
+    /**
+     * Get the total volume of the irrigation.
+     *
+     * @return float
+     */
+    private function getTotalVolume(): float
+    {
+        return $this->valves->sum(function ($valve) {
+            $area = $valve->dripper_count * $valve->dripper_flow_rate * ($this->duration / 3600);
+            return round($area, 2);
+        });
     }
 }

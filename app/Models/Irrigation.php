@@ -25,6 +25,7 @@ class Irrigation extends Model
         'created_by',
         'note',
         'status',
+        'is_verified_by_admin',
     ];
 
     /**
@@ -67,7 +68,7 @@ class Irrigation extends Model
      */
     public function getDurationAttribute()
     {
-        return $this->start_time->diff($this->end_time)->format('%H:%I');
+        return $this->start_time->diffInSeconds($this->end_time);
     }
 
     /**
@@ -142,5 +143,16 @@ class Irrigation extends Model
     public function scopeFilter($query, string $status): void
     {
         $query->where('status', $status);
+    }
+
+    /**
+     * Scope a query to only include irrigations verified by admin
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @return void
+     */
+    public function scopeVerifiedByAdmin($query): void
+    {
+        $query->where('is_verified_by_admin', true);
     }
 }

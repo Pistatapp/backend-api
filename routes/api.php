@@ -147,9 +147,10 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::apiResource('farms.operations', OprationController::class)->shallow();
 
     // Irrigation Routes
-    Route::post('/farms/{farm}/irrigations/reports', [IrrigationController::class, 'filterReports']);
-    Route::get('/plots/{plot}/irrigations/report', [IrrigationController::class, 'getIrrigationReportForPlot']);
-    Route::get('/plots/{plot}/irrigations', [IrrigationController::class, 'getIrrigationsForPlot']);
+    Route::post('/pumps/{pump}/irrigation-reports', [PumpController::class, 'generateIrrigationReport']);
+    Route::get('/plots/{plot}/irrigation-statistics', [PlotController::class, 'getIrrigationStatistics']);
+    Route::post('/farms/{farm}/irrigations/filter-reports', [IrrigationController::class, 'filterReports']);
+    Route::get('/farms/{farm}/irrigation-messages', [IrrigationController::class, 'getIrrigationMessages']);
     Route::apiResource('farms.irrigations', IrrigationController::class)->shallow();
 
     Route::apiResource('farms.treatments', TreatmentController::class)->shallow();
