@@ -135,14 +135,10 @@ class IrrigationReportService
                     $query->whereIn('valves.id', $filters['valves']);
                 });
             })
-            ->where(function ($query) use ($filters) {
-                $query->whereDate('start_date', '<=', $filters['to_date']->format('Y-m-d'))
-                    ->where(function ($q) use ($filters) {
-                        $q->whereDate('end_date', '>=', $filters['from_date']->format('Y-m-d'))
-                            ->orWhereNull('end_date')
-                            ->whereDate('start_date', '>=', $filters['from_date']->format('Y-m-d'));
-                    });
-            })
+            ->whereBetween('date', [
+                $filters['from_date']->format('Y-m-d'),
+                $filters['to_date']->format('Y-m-d'),
+            ])
             ->with([
                 'valves' => function ($query) use ($filters) {
                     if (isset($filters['valves'])) {
@@ -170,8 +166,9 @@ class IrrigationReportService
 
         while ($currentDate->lte($toDate)) {
             $dailyIrrigations = $irrigations->filter(function ($irrigation) use ($currentDate) {
-                return $irrigation->start_date->lte($currentDate) &&
-                       ($irrigation->end_date === null || $irrigation->end_date->gte($currentDate));
+                $irrigationDate = $irrigation->date;
+
+                return $irrigationDate instanceof Carbon && $irrigationDate->isSameDay($currentDate);
             });
 
             $dailyReport = $this->calculateDailyTotals($dailyIrrigations, $currentDate);
@@ -202,8 +199,9 @@ class IrrigationReportService
 
         while ($currentDate->lte($toDate)) {
             $dailyIrrigations = $irrigations->filter(function ($irrigation) use ($currentDate) {
-                return $irrigation->start_date->lte($currentDate) &&
-                       ($irrigation->end_date === null || $irrigation->end_date->gte($currentDate));
+                $irrigationDate = $irrigation->date;
+
+                return $irrigationDate instanceof Carbon && $irrigationDate->isSameDay($currentDate);
             });
 
             $irrigationPerValve = [];

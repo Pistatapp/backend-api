@@ -25,8 +25,7 @@ class StoreIrrigationRequest extends FormRequest
         return [
             'labour_id' => 'required|exists:labours,id',
             'pump_id' => 'required|exists:pumps,id',
-            'start_date' => 'required|date',
-            'end_date' => 'nullable|date|after_or_equal:start_date',
+            'date' => 'required|date',
             'start_time' => [
                 'required',
                 new \App\Rules\ValveTimeOverLap(),
@@ -54,8 +53,7 @@ class StoreIrrigationRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $this->merge([
-            'start_date' => jalali_to_carbon($this->start_date)->format('Y/m/d'),
-            'end_date' => $this->end_date ? jalali_to_carbon($this->end_date)->format('Y/m/d') : null,
+            'date' => jalali_to_carbon($this->date)->format('Y/m/d'),
             'start_time' => Carbon::createFromFormat('H:i', $this->start_time),
             'end_time' => Carbon::createFromFormat('H:i', $this->end_time),
         ]);

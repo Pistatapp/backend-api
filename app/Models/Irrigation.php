@@ -18,8 +18,7 @@ class Irrigation extends Model
         'labour_id',
         'farm_id',
         'pump_id',
-        'start_date',
-        'end_date',
+        'date',
         'start_time',
         'end_time',
         'created_by',
@@ -44,8 +43,7 @@ class Irrigation extends Model
     protected function casts()
     {
         return [
-            'start_date' => 'date',
-            'end_date' => 'date',
+            'date' => 'date',
             'start_time' => 'datetime',
             'end_time' => 'datetime',
         ];

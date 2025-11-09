@@ -42,15 +42,7 @@ class ChangeIrrigationStatus extends Command
     private function updateIrrigationStatus($currentStatus, $newStatus)
     {
         Irrigation::where('status', $currentStatus)
-            ->where(function ($query) {
-                $today = today();
-                $query->whereDate('start_date', '<=', $today)
-                    ->where(function ($q) use ($today) {
-                        $q->whereDate('end_date', '>=', $today)
-                            ->orWhereNull('end_date')
-                            ->whereDate('start_date', $today);
-                    });
-            })
+            ->whereDate('date', today())
             ->where($currentStatus === 'pending' ? 'start_time' : 'end_time', '<=', now())
             ->with(['valves', 'creator', 'plots'])
             ->chunk(100, function ($irrigations) use ($newStatus) {
