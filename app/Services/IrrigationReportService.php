@@ -128,6 +128,7 @@ class IrrigationReportService
                 $query->whereIn('plots.id', $plotIds);
             })
             ->filter('finished')
+            ->verifiedByAdmin()
             ->when($filters['labour_id'] ?? null, function ($query) use ($filters) {
                 $query->where('labour_id', $filters['labour_id']);
             })->when($filters['valves'] ?? null, function ($query) use ($filters) {
@@ -135,7 +136,7 @@ class IrrigationReportService
                     $query->whereIn('valves.id', $filters['valves']);
                 });
             })
-            ->whereBetween('date', [
+            ->whereBetween('start_date', [
                 $filters['from_date']->format('Y-m-d'),
                 $filters['to_date']->format('Y-m-d'),
             ])
@@ -166,7 +167,7 @@ class IrrigationReportService
 
         while ($currentDate->lte($toDate)) {
             $dailyIrrigations = $irrigations->filter(function ($irrigation) use ($currentDate) {
-                $irrigationDate = $irrigation->date;
+                $irrigationDate = $irrigation->start_date;
 
                 return $irrigationDate instanceof Carbon && $irrigationDate->isSameDay($currentDate);
             });
@@ -199,7 +200,7 @@ class IrrigationReportService
 
         while ($currentDate->lte($toDate)) {
             $dailyIrrigations = $irrigations->filter(function ($irrigation) use ($currentDate) {
-                $irrigationDate = $irrigation->date;
+                $irrigationDate = $irrigation->start_date;
 
                 return $irrigationDate instanceof Carbon && $irrigationDate->isSameDay($currentDate);
             });

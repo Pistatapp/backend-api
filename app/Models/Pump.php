@@ -99,4 +99,14 @@ class Pump extends Model implements HasMedia
     {
         return $this->morphMany(MaintenanceReport::class, 'maintainable');
     }
+
+    /**
+     * Get the irrigations for the pump.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function irrigations()
+    {
+        return $this->hasMany(Irrigation::class);
+    }
 }

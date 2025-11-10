@@ -39,15 +39,21 @@ class ValveTimeOverLap implements ValidationRule, DataAwareRule
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
         try {
-            $valves = $this->data['valves'];
-            $start_time = $this->data['start_time'];
-            $end_time = $this->data['end_time'];
-            $date = Carbon::parse($this->data['date']);
+            $valves = $this->data['valves'] ?? [];
+            $start_time = $this->data['start_time'] ?? null;
+            $end_time = $this->data['end_time'] ?? null;
+            $dateInput = $this->data['start_date'] ?? $this->data['date'] ?? request('start_date') ?? request('date');
+
+            if (empty($valves) || !$start_time || !$end_time || !$dateInput) {
+                return;
+            }
+
+            $date = $dateInput instanceof Carbon ? $dateInput : Carbon::parse($dateInput);
             $irrigation = request()->route('irrigation');
             $farm_id = request()->route('farm')->id ?? $irrigation->farm_id;
 
             $irrigationExistsQuery = Irrigation::where('farm_id', $farm_id)
-                ->whereDate('date', $date->format('Y-m-d'))
+                ->whereDate('start_date', $date->format('Y-m-d'))
                 // Check for time overlap
                 ->where('start_time', '<', $end_time)
                 ->where('end_time', '>', $start_time)

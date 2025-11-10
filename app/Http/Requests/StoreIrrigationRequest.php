@@ -26,6 +26,7 @@ class StoreIrrigationRequest extends FormRequest
             'labour_id' => 'required|exists:labours,id',
             'pump_id' => 'required|exists:pumps,id',
             'date' => 'required|date',
+            'end_date' => 'nullable|date|after_or_equal:date',
             'start_time' => [
                 'required',
                 new \App\Rules\ValveTimeOverLap(),
@@ -52,10 +53,33 @@ class StoreIrrigationRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
-        $this->merge([
-            'date' => jalali_to_carbon($this->date)->format('Y/m/d'),
-            'start_time' => Carbon::createFromFormat('H:i', $this->start_time),
-            'end_time' => Carbon::createFromFormat('H:i', $this->end_time),
-        ]);
+        $startDateInput = $this->input('start_date', $this->input('date'));
+        $startDate = $startDateInput ? jalali_to_carbon($startDateInput) : null;
+        $endDate = $this->filled('end_date') ? jalali_to_carbon($this->end_date) : null;
+        $startTime = $this->filled('start_time') ? Carbon::createFromFormat('H:i', $this->start_time) : null;
+        $endTime = $this->filled('end_time') ? Carbon::createFromFormat('H:i', $this->end_time) : null;
+
+        $prepared = [];
+
+        if ($startDate) {
+            $prepared['date'] = $startDate;
+            $prepared['start_date'] = $startDate;
+        }
+
+        if ($endDate) {
+            $prepared['end_date'] = $endDate;
+        }
+
+        if ($startTime) {
+            $prepared['start_time'] = $startTime;
+        }
+
+        if ($endTime) {
+            $prepared['end_time'] = $endTime;
+        }
+
+        if (!empty($prepared)) {
+            $this->merge($prepared);
+        }
     }
 }

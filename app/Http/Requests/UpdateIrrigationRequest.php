@@ -54,6 +54,7 @@ class UpdateIrrigationRequest extends FormRequest
     {
         $this->merge([
             'date' => jalali_to_carbon($this->date)->format('Y/m/d'),
+            'start_date' => jalali_to_carbon($this->date),
             'start_time' => Carbon::createFromFormat('H:i', $this->start_time),
             'end_time' => Carbon::createFromFormat('H:i', $this->end_time),
         ]);

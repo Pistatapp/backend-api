@@ -5,9 +5,12 @@ namespace App\Http\Controllers\Api\V1\Farm;
 use App\Models\Pump;
 use App\Http\Requests\StorePumpRequest;
 use App\Http\Requests\UpdatePumpRequest;
+use App\Http\Requests\PumpIrrigationReportRequest;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PumpResource;
 use App\Models\Farm;
+use App\Models\Irrigation;
+use Carbon\Carbon;
 
 class PumpController extends Controller
 {
@@ -63,5 +66,89 @@ class PumpController extends Controller
         $pump->delete();
 
         return response()->noContent();
+    }
+
+    /**
+     * Generate irrigation report for a pump.
+     */
+    public function generateIrrigationReport(PumpIrrigationReportRequest $request, Pump $pump)
+    {
+        $startDate = $request->start_date;
+        $endDate = $request->end_date;
+
+        // Get irrigations for this pump within the date range
+        $irrigations = Irrigation::where('pump_id', $pump->id)
+            ->filter('finished')
+            ->verifiedByAdmin()
+            ->where(function ($query) use ($startDate, $endDate) {
+                $query->whereDate('start_date', '<=', $endDate->format('Y-m-d'))
+                    ->where(function ($q) use ($startDate) {
+                        $q->whereDate('end_date', '>=', $startDate->format('Y-m-d'))
+                            ->orWhereNull('end_date')
+                            ->whereDate('start_date', '>=', $startDate->format('Y-m-d'));
+                    });
+            })
+            ->with('valves')
+            ->get();
+
+        // Generate daily reports
+        $dailyReports = [];
+        $currentDate = $startDate->copy();
+
+        while ($currentDate->lte($endDate)) {
+            // Filter irrigations active on this date
+            $dailyIrrigations = $irrigations->filter(function ($irrigation) use ($currentDate) {
+                return $irrigation->start_date->lte($currentDate) &&
+                       ($irrigation->end_date === null || $irrigation->end_date->gte($currentDate));
+            });
+
+            // Only include dates with at least one irrigation
+            if ($dailyIrrigations->count() > 0) {
+                $totalDurationSeconds = 0;
+                $totalVolume = 0; // in liters
+
+                foreach ($dailyIrrigations as $irrigation) {
+                    $durationInSeconds = $irrigation->start_time->diffInSeconds($irrigation->end_time);
+                    $totalDurationSeconds += $durationInSeconds;
+
+                    foreach ($irrigation->valves as $valve) {
+                        $volume = ($valve->dripper_count * $valve->dripper_flow_rate) * ($durationInSeconds / 3600);
+                        $totalVolume += $volume;
+                    }
+                }
+
+                // Convert volume from liters to cubic meters
+                $totalVolumeM3 = $totalVolume / 1000;
+                // Calculate hours from seconds
+                $totalHours = $totalDurationSeconds / 3600;
+
+                $dailyReports[] = [
+                    'date' => jdate($currentDate)->format('Y/m/d'),
+                    'hours' => round($totalHours, 2),
+                    'volume' => round($totalVolumeM3, 2),
+                ];
+            }
+
+            $currentDate->addDay();
+        }
+
+        // Calculate accumulated values
+        $accumulatedHours = 0;
+        $accumulatedVolume = 0;
+
+        foreach ($dailyReports as $report) {
+            $accumulatedHours += $report['hours'];
+            $accumulatedVolume += $report['volume'];
+        }
+
+        return response()->json([
+            'data' => [
+                'irrigations' => $dailyReports,
+                'accumulated' => [
+                    'hours' => round($accumulatedHours, 2),
+                    'volume' => round($accumulatedVolume, 2),
+                ],
+            ],
+        ]);
     }
 }

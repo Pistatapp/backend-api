@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -18,12 +19,14 @@ class Irrigation extends Model
         'labour_id',
         'farm_id',
         'pump_id',
-        'date',
+        'start_date',
+        'end_date',
         'start_time',
         'end_time',
         'created_by',
         'note',
         'status',
+        'is_verified_by_admin',
     ];
 
     /**
@@ -43,7 +46,8 @@ class Irrigation extends Model
     protected function casts()
     {
         return [
-            'date' => 'date',
+            'start_date' => 'date',
+            'end_date' => 'date',
             'start_time' => 'datetime',
             'end_time' => 'datetime',
         ];
@@ -65,7 +69,7 @@ class Irrigation extends Model
      */
     public function getDurationAttribute()
     {
-        return $this->start_time->diff($this->end_time)->format('%H:%I');
+        return $this->start_time->diffInSeconds($this->end_time);
     }
 
     /**
@@ -140,5 +144,40 @@ class Irrigation extends Model
     public function scopeFilter($query, string $status): void
     {
         $query->where('status', $status);
+    }
+
+    /**
+     * Scope a query to only include irrigations verified by admin
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @return void
+     */
+    public function scopeVerifiedByAdmin($query): void
+    {
+        $query->where('is_verified_by_admin', true);
+    }
+
+    /**
+     * Accessor alias to maintain backward compatibility with legacy 'date' attribute usage.
+     *
+     * @param mixed $value
+     * @return \Illuminate\Support\Carbon|null
+     */
+    public function getDateAttribute()
+    {
+        return $this->start_date;
+    }
+
+    /**
+     * Mutator alias to map legacy 'date' attribute assignments to 'start_date'.
+     *
+     * @param mixed $value
+     * @return void
+     */
+    public function setDateAttribute($value): void
+    {
+        $this->attributes['start_date'] = $value instanceof Carbon
+            ? $value
+            : ($value ? Carbon::parse($value) : null);
     }
 }

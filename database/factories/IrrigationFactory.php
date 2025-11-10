@@ -25,7 +25,7 @@ class IrrigationFactory extends Factory
             'farm_id' => Farm::factory(),
             'labour_id' => Labour::factory(),
             'pump_id' => Pump::factory(),
-            'date' => $date,
+            'start_date' => $date,
             'start_time' => $startTime = $this->faker->time(),
             'end_time' => $this->faker->time($format = 'H:i:s', $max = '23:59:59', $min = $startTime),
             'note' => $this->faker->text,

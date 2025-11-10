@@ -35,7 +35,10 @@ class PlotIrrigationTimeOverLap implements ValidationRule, DataAwareRule
 
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
-        $dateInput = $this->data['date'] ?? request('date');
+        $dateInput = $this->data['start_date']
+            ?? $this->data['date']
+            ?? request('start_date')
+            ?? request('date');
         $startTimeInput = $this->data['start_time'] ?? request('start_time');
         $endTimeInput = $this->data['end_time'] ?? request('end_time');
         $plotIds = $this->data['plots'] ?? [];
@@ -72,7 +75,7 @@ class PlotIrrigationTimeOverLap implements ValidationRule, DataAwareRule
                 $query->whereIn('plots.id', $plotIds);
             })
             ->when($farm, fn ($query) => $query->where('farm_id', $farm->id))
-            ->whereDate('date', $date->format('Y-m-d'))
+            ->whereDate('start_date', $date->format('Y-m-d'))
             // Check for time overlap
             ->where(function ($query) use ($startTime, $endTime) {
                 $query->whereBetween('start_time', [$startTime, $endTime])

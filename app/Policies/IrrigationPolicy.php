@@ -38,7 +38,16 @@ class IrrigationPolicy
      */
     public function update(User $user, Irrigation $irrigation): bool
     {
-        // Allow update if irrigation status is pending AND (user is creator OR farm admin)
+        // Cannot update if already verified by admin
+        if ($irrigation->is_verified_by_admin) {
+            return false;
+        }
+
+        // If irrigation is finished, only farm admin can update; if pending, either creator or farm admin can update
+        if ($irrigation->status === 'finished') {
+            return $irrigation->farm->admins->contains($user);
+        }
+
         return $irrigation->status === 'pending' && (
             $irrigation->creator->is($user) ||
             $irrigation->farm->admins->contains($user)
@@ -55,5 +64,15 @@ class IrrigationPolicy
             $irrigation->creator->is($user) ||
             $irrigation->farm->admins->contains($user)
         );
+    }
+
+    /**
+     * Determine whether the user can verify the irrigation.
+     */
+    public function verify(User $user, Irrigation $irrigation): Response
+    {
+        return $irrigation->farm->admins->contains($user)
+            ? Response::allow()
+            : Response::deny('Only farm administrators can verify irrigations.');
     }
 }
