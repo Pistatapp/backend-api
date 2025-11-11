@@ -54,9 +54,6 @@ class IrrigationResource extends JsonResource
             'is_verified_by_admin' => (bool) $this->is_verified_by_admin,
             'duration' => gmdate('H:i:s', $this->duration),
             'plots_count' => $this->whenCounted('plots'),
-            'trees_count' => $this->whenLoaded('plots', function () {
-                return $this->plots->sum('trees_count');
-            }),
             'area_covered' => $this->getAreaCovered(),
             $this->mergeWhen(in_array($this->status, ['in-progress', 'finished']), [
                 'total_volume' => $this->getTotalVolume(),

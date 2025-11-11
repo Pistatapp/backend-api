@@ -34,12 +34,7 @@ class IrrigationController extends Controller
             ->when($status !== 'all', function ($query) use ($status) {
                 $query->filter($status);
             })
-            ->with([
-                'plots' => function ($query) {
-                    $query->withCount('trees');
-                },
-                'valves',
-            ])
+            ->with(['plots', 'valves'])
             ->withCount('plots')
             ->latest()
             ->get();
