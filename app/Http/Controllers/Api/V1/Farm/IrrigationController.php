@@ -33,9 +33,16 @@ class IrrigationController extends Controller
             ->whereDate('start_date', $date)
             ->when($status !== 'all', function ($query) use ($status) {
                 $query->filter($status);
-            })->with('plots', 'valves')
-            ->withCount('plots', 'plots.trees')
-            ->latest()->get();
+            })
+            ->with([
+                'plots' => function ($query) {
+                    $query->withCount('trees');
+                },
+                'valves',
+            ])
+            ->withCount('plots')
+            ->latest()
+            ->get();
 
         return IrrigationResource::collection($irrigations);
     }
