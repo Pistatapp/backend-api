@@ -111,9 +111,6 @@ class CalculateSingleTractorEfficiencyJob implements ShouldQueue
             ->find($this->tractorId);
 
         if (!$tractor) {
-            Log::warning('Tractor not found for efficiency calculation', [
-                'tractor_id' => $this->tractorId,
-            ]);
             return;
         }
 
@@ -134,13 +131,6 @@ class CalculateSingleTractorEfficiencyJob implements ShouldQueue
                     'task_based_efficiency' => $taskBasedEfficiency,
                 ]
             );
-
-            Log::info('Calculated efficiency for tractor', [
-                'tractor_id' => $tractor->id,
-                'date' => $date->toDateString(),
-                'total_efficiency' => $totalEfficiency,
-                'task_based_efficiency' => $taskBasedEfficiency,
-            ]);
         } catch (\Exception $e) {
             Log::error('Error calculating efficiency for tractor', [
                 'tractor_id' => $tractor->id,
