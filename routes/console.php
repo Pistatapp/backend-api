@@ -45,7 +45,7 @@ Schedule::call(function () {
         foreach ($tractors as $tractor) {
             // Calculate metrics for the entire day
             // The job will check if metrics already exist
-            CalculateGpsMetricsJob::dispatch($tractor, $today)->delay(now()->addSeconds(10));
+            CalculateGpsMetricsJob::dispatch($tractor, $today)->delay(now()->addSeconds(5));
         }
     });
 })->dailyAt('23:00:00');

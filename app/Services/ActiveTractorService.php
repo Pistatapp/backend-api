@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Tractor;
 use App\Models\TractorEfficiencyChart;
+use App\Models\GpsMetricsCalculation;
 use Carbon\Carbon;
 use App\Http\Resources\DriverResource;
 use App\Services\GpsDataAnalyzer;
@@ -18,6 +19,8 @@ class ActiveTractorService
 
     /**
      * Returns tractor performance.
+     * For past dates (date < current day), fetches data from GpsMetricsCalculation table.
+     * For current day or future dates, calculates data from GPS records.
      *
      * @param Tractor $tractor
      * @param Carbon $date
@@ -27,6 +30,81 @@ class ActiveTractorService
     {
         $tractor->load(['driver']);
 
+        // Check if the date is in the past (before current day at start of day)
+        // Use cached data for past dates, real-time analysis for today and future dates
+        $isPastDate = $date->copy()->startOfDay()->isBefore(Carbon::today()->startOfDay());
+
+        if ($isPastDate) {
+            // Fetch data from GpsMetricsCalculation for past dates
+            return $this->getTractorPerformanceFromCache($tractor, $date);
+        }
+
+        // For current day or future dates, use real-time GPS data analysis
+        return $this->getTractorPerformanceFromGpsData($tractor, $date);
+    }
+
+    /**
+     * Get tractor performance from cached GpsMetricsCalculation data.
+     *
+     * @param Tractor $tractor
+     * @param Carbon $date
+     * @return array
+     */
+    private function getTractorPerformanceFromCache(Tractor $tractor, Carbon $date): array
+    {
+        $dateString = $date->toDateString();
+
+        // Query GpsMetricsCalculation for daily aggregate (tractor_task_id is null)
+        $metrics = GpsMetricsCalculation::where('tractor_id', $tractor->id)
+            ->where('date', $dateString)
+            ->whereNull('tractor_task_id')
+            ->first();
+
+        // If no cached data exists, return default/empty values
+        if (!$metrics) {
+            return $this->getEmptyPerformanceData($tractor);
+        }
+
+        // Format durations using helper function
+        $workDurationFormatted = to_time_format($metrics->work_duration);
+        $stoppageDurationFormatted = to_time_format($metrics->stoppage_duration);
+        $stoppageDurationWhileOnFormatted = to_time_format($metrics->stoppage_duration_while_on);
+        $stoppageDurationWhileOffFormatted = to_time_format($metrics->stoppage_duration_while_off);
+
+        // Calculate efficiency (always recalculate based on current expected_daily_work_time)
+        // This ensures efficiency reflects any changes to expected_daily_work_time
+        $totalEfficiency = $this->calculateEfficiency($tractor, $metrics->work_duration);
+
+        return [
+            'id' => $tractor->id,
+            'name' => $tractor->name,
+            'on_time' => null, // Not stored in GpsMetricsCalculation
+            'start_working_time' => null, // Not stored in GpsMetricsCalculation
+            'speed' => $metrics->average_speed,
+            'status' => 0, // Not stored in GpsMetricsCalculation, default to 0 (off)
+            'traveled_distance' => $metrics->traveled_distance,
+            'work_duration' => $workDurationFormatted,
+            'stoppage_count' => $metrics->stoppage_count,
+            'stoppage_duration' => $stoppageDurationFormatted,
+            'stoppage_duration_while_on' => $stoppageDurationWhileOnFormatted,
+            'stoppage_duration_while_off' => $stoppageDurationWhileOffFormatted,
+            'efficiencies' => [
+                'total' => number_format($totalEfficiency, 2),
+                'task-based' => 0,
+            ],
+            'driver' => new DriverResource($tractor->driver)
+        ];
+    }
+
+    /**
+     * Get tractor performance from real-time GPS data analysis.
+     *
+     * @param Tractor $tractor
+     * @param Carbon $date
+     * @return array
+     */
+    private function getTractorPerformanceFromGpsData(Tractor $tractor, Carbon $date): array
+    {
         $results = $this->gpsDataAnalyzer->loadRecordsFor($tractor, $date)->analyzeLight();
 
         $averageSpeed = $results['average_speed'];
@@ -35,9 +113,7 @@ class ActiveTractorService
 
         // Calculate total efficiency
         $workDurationSeconds = $results['movement_duration_seconds'];
-        $expectedDailyWorkHours = $tractor->expected_daily_work_time ?? 8; // Default to 8 hours if not set
-        $expectedDailyWorkSeconds = $expectedDailyWorkHours * 3600;
-        $totalEfficiency = $expectedDailyWorkSeconds > 0 ? ($workDurationSeconds / $expectedDailyWorkSeconds) * 100 : 0;
+        $totalEfficiency = $this->calculateEfficiency($tractor, $workDurationSeconds);
 
         return [
             'id' => $tractor->id,
@@ -54,6 +130,54 @@ class ActiveTractorService
             'stoppage_duration_while_off' => $results['stoppage_duration_while_off_formatted'],
             'efficiencies' => [
                 'total' => number_format($totalEfficiency, 2),
+                'task-based' => 0,
+            ],
+            'driver' => new DriverResource($tractor->driver)
+        ];
+    }
+
+    /**
+     * Calculate efficiency based on work duration and expected daily work time.
+     *
+     * @param Tractor $tractor
+     * @param int $workDurationSeconds Work duration in seconds
+     * @return float Efficiency percentage (0-100)
+     */
+    private function calculateEfficiency(Tractor $tractor, int $workDurationSeconds): float
+    {
+        $expectedDailyWorkHours = $tractor->expected_daily_work_time ?? 8;
+        $expectedDailyWorkSeconds = $expectedDailyWorkHours * 3600;
+
+        if ($expectedDailyWorkSeconds <= 0) {
+            return 0;
+        }
+
+        return ($workDurationSeconds / $expectedDailyWorkSeconds) * 100;
+    }
+
+    /**
+     * Get empty performance data structure for when no cached data exists.
+     *
+     * @param Tractor $tractor
+     * @return array
+     */
+    private function getEmptyPerformanceData(Tractor $tractor): array
+    {
+        return [
+            'id' => $tractor->id,
+            'name' => $tractor->name,
+            'on_time' => null,
+            'start_working_time' => null,
+            'speed' => 0,
+            'status' => 0,
+            'traveled_distance' => 0,
+            'work_duration' => '00:00:00',
+            'stoppage_count' => 0,
+            'stoppage_duration' => '00:00:00',
+            'stoppage_duration_while_on' => '00:00:00',
+            'stoppage_duration_while_off' => '00:00:00',
+            'efficiencies' => [
+                'total' => '0.00',
                 'task-based' => 0,
             ],
             'driver' => new DriverResource($tractor->driver)

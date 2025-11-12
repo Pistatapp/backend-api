@@ -30,6 +30,7 @@ class GpsMetricsCalculation extends Model
      */
     protected function casts() {
         return [
+            'date' => 'date',
             'last_activity' => 'datetime'
         ];
     }
