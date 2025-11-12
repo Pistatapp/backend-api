@@ -117,6 +117,12 @@ class CalculateTaskGpsMetricsJob implements ShouldQueue
         // Calculate efficiency
         $efficiency = $this->calculateEfficiency($tractor, $results['movement_duration_seconds']);
 
+        // Build timings array from analyzer results
+        $timings = [
+            'device_on_time' => $results['device_on_time'] ?? null,
+            'first_movement_time' => $results['first_movement_time'] ?? null,
+        ];
+
         // Calculate percentage of time spent in zone
         $totalTaskDuration = $taskStartDateTime->diffInSeconds($taskEndDateTime);
         $timeInZone = $results['movement_duration_seconds']; // work duration in seconds
@@ -141,6 +147,7 @@ class CalculateTaskGpsMetricsJob implements ShouldQueue
                 'stoppage_duration_while_off' => $results['stoppage_duration_while_off_seconds'],
                 'average_speed' => $results['average_speed'],
                 'efficiency' => $efficiency,
+                'timings' => $timings,
             ]
         );
 

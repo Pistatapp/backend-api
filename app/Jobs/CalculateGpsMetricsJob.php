@@ -52,6 +52,12 @@ class CalculateGpsMetricsJob implements ShouldQueue
         // Calculate efficiency
         $efficiency = $this->calculateEfficiency($results['movement_duration_seconds']);
 
+        // Build timings array from analyzer results
+        $timings = [
+            'device_on_time' => $results['device_on_time'],
+            'first_movement_time' => $results['first_movement_time'],
+        ];
+
         // Update or create metrics record for the entire day
         GpsMetricsCalculation::updateOrCreate(
             [
@@ -68,6 +74,7 @@ class CalculateGpsMetricsJob implements ShouldQueue
                 'stoppage_duration_while_off' => $results['stoppage_duration_while_off_seconds'],
                 'average_speed' => $results['average_speed'],
                 'efficiency' => $efficiency,
+                'timings' => $timings,
             ]
         );
     }

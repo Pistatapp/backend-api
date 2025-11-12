@@ -129,8 +129,12 @@ function calculate_polygon_center(array $points): array
  * @param int $seconds
  * @return string
  */
-function to_time_format(int $seconds): string
+function to_time_format(?int $seconds): string
 {
+    if (is_null($seconds)) {
+        return '00:00:00';
+    }
+
     $hours = floor($seconds / 3600);
     $remainingSeconds = $seconds % 3600;
     $minutes = floor($remainingSeconds / 60);
