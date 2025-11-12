@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Jobs\CalculateTaskGpsMetricsJob;
 use App\Events\TractorTaskStatusChanged;
 use App\Models\TractorTask;
 use Carbon\Carbon;
@@ -24,6 +25,8 @@ class TractorTaskStatusService
         $newStatus = $this->determineTaskStatus($task, $isCurrentlyInZone);
         $task->update(['status' => $newStatus]);
         event(new TractorTaskStatusChanged($task, $newStatus, $isCurrentlyInZone));
+
+        CalculateTaskGpsMetricsJob::dispatchIf($newStatus == 'done', $task);
     }
 
     /**
@@ -59,7 +62,7 @@ class TractorTaskStatusService
                 return 'in_progress';
             }
 
-            if($task->status === 'not_started') {
+            if ($task->status === 'not_started') {
                 return 'not_started';
             }
 
@@ -124,9 +127,11 @@ class TractorTaskStatusService
         }
 
         // Update if task is currently not_started or stopped and we're within task time
-        if (in_array($task->status, ['not_started', 'stopped']) &&
+        if (
+            in_array($task->status, ['not_started', 'stopped']) &&
             $now->gte($taskStartDateTime) &&
-            $now->lt($taskEndDateTime)) {
+            $now->lt($taskEndDateTime)
+        ) {
 
             $task->update(['status' => 'in_progress']);
             event(new TractorTaskStatusChanged($task, 'in_progress', true));
@@ -191,9 +196,11 @@ class TractorTaskStatusService
         }
 
         // Only update if task is currently in_progress and we're within task time
-        if ($task->status === 'in_progress' &&
+        if (
+            $task->status === 'in_progress' &&
             $now->gte($taskStartDateTime) &&
-            $now->lt($taskEndDateTime)) {
+            $now->lt($taskEndDateTime)
+        ) {
 
             $task->update(['status' => 'stopped']);
             event(new TractorTaskStatusChanged($task, 'stopped', false));
@@ -205,4 +212,3 @@ class TractorTaskStatusService
         }
     }
 }
-
