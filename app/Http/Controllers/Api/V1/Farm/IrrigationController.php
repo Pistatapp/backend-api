@@ -83,6 +83,7 @@ class IrrigationController extends Controller
             'labour_id' => $request->labour_id,
             'pump_id' => $request->pump_id,
             'start_date' => $request->start_date,
+            'end_date' => $request->end_date,
             'start_time' => $request->start_time,
             'end_time' => $request->end_time,
             'note' => $request->note,
