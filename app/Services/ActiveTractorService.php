@@ -75,6 +75,9 @@ class ActiveTractorService
         // This ensures efficiency reflects any changes to expected_daily_work_time
         $totalEfficiency = $this->calculateEfficiency($tractor, $metrics->work_duration);
 
+        // Calculate task-based efficiency from task records
+        $taskBasedEfficiency = $this->getTaskBasedEfficiency($tractor, $date);
+
         return [
             'id' => $tractor->id,
             'name' => $tractor->name,
@@ -90,7 +93,7 @@ class ActiveTractorService
             'stoppage_duration_while_off' => $stoppageDurationWhileOffFormatted,
             'efficiencies' => [
                 'total' => number_format($totalEfficiency, 2),
-                'task-based' => 0,
+                'task-based' => number_format($taskBasedEfficiency, 2),
             ],
             'driver' => new DriverResource($tractor->driver)
         ];
@@ -115,6 +118,9 @@ class ActiveTractorService
         $workDurationSeconds = $results['movement_duration_seconds'];
         $totalEfficiency = $this->calculateEfficiency($tractor, $workDurationSeconds);
 
+        // Calculate task-based efficiency from task records
+        $taskBasedEfficiency = $this->getTaskBasedEfficiency($tractor, $date);
+
         return [
             'id' => $tractor->id,
             'name' => $tractor->name,
@@ -130,7 +136,7 @@ class ActiveTractorService
             'stoppage_duration_while_off' => $results['stoppage_duration_while_off_formatted'],
             'efficiencies' => [
                 'total' => number_format($totalEfficiency, 2),
-                'task-based' => 0,
+                'task-based' => number_format($taskBasedEfficiency, 2),
             ],
             'driver' => new DriverResource($tractor->driver)
         ];
@@ -156,6 +162,27 @@ class ActiveTractorService
     }
 
     /**
+     * Get task-based efficiency as average of all task records for the given date.
+     *
+     * @param Tractor $tractor
+     * @param Carbon $date
+     * @return float Average efficiency percentage (0-100)
+     */
+    private function getTaskBasedEfficiency(Tractor $tractor, Carbon $date): float
+    {
+        $dateString = $date->toDateString();
+
+        // Get average efficiency from all task-based records (where tractor_task_id is not null)
+        $averageEfficiency = GpsMetricsCalculation::where('tractor_id', $tractor->id)
+            ->where('date', $dateString)
+            ->whereNotNull('tractor_task_id')
+            ->avg('efficiency');
+
+        // If no task records exist, return 0
+        return $averageEfficiency ? (float) $averageEfficiency : 0.0;
+    }
+
+    /**
      * Get empty performance data structure for when no cached data exists.
      *
      * @param Tractor $tractor
@@ -178,7 +205,7 @@ class ActiveTractorService
             'stoppage_duration_while_off' => '00:00:00',
             'efficiencies' => [
                 'total' => '0.00',
-                'task-based' => 0,
+                'task-based' => '0.00',
             ],
             'driver' => new DriverResource($tractor->driver)
         ];
