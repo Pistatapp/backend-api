@@ -224,7 +224,7 @@ class TractorPathStreamService
             'is_stopped' => $point->is_stopped ?? false,
             'directions' => $point->directions ?? null,
             'stoppage_time' => $stoppageTimeFormatted,
-            'timestamp' => $dateTime->timestamp,
+            'timestamp' => $dateTime->format('H:i:s'),
         ];
     }
 
