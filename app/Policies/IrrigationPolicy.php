@@ -69,10 +69,12 @@ class IrrigationPolicy
     /**
      * Determine whether the user can verify the irrigation.
      */
-    public function verify(User $user, Irrigation $irrigation): Response
+    public function verify(User $user, Irrigation $irrigation): bool
     {
-        return $irrigation->farm->admins->contains($user)
-            ? Response::allow()
-            : Response::deny('Only farm administrators can verify irrigations.');
+        if ($irrigation->is_verified_by_admin) {
+            return false;
+        }
+
+        return $irrigation->farm->admins->contains($user);
     }
 }
