@@ -242,7 +242,7 @@ class IrrigationController extends Controller
             ->latest()
             ->get();
 
-        $messages = $irrigations->map(function ($irrigation) {
+        $messages = $irrigations->map(function ($irrigation) use ($request) {
             $durationInSeconds = $irrigation->start_time->diffInSeconds($irrigation->end_time);
             $totalVolume = 0;
             $totalVolumePerHectare = 0;
@@ -263,6 +263,10 @@ class IrrigationController extends Controller
                 'duration' => to_time_format($durationInSeconds),
                 'irrigation_per_hectare' => round($totalVolumePerHectare, 2),
                 'total_volume' => round($totalVolume, 2),
+                'can' => [
+                    'update' => $request->user()->can('update', $irrigation),
+                    'verify' => $request->user()->can('verify', $irrigation),
+                ]
             ];
         });
 
