@@ -56,20 +56,11 @@ class TractorPathStreamService
             // Single-pass smoothing via 3-point sliding window (generator-based for memory efficiency)
             $smoothedStream = $this->smoothGpsErrorsStream($cursor);
 
-            // Stream path points as they're processed (memory-efficient)
-            // Process all points first (necessary for stoppage time calculation),
-            // then stream them as JSON to avoid ResourceCollection overhead
-            $pathPoints = [];
-            foreach ($this->buildPathFromSmoothedStream($smoothedStream) as $point) {
-                $pathPoints[] = $this->formatPointForResponse($point);
-            }
-
-            // Use streamJson to stream the response
-            // Note: streamJson returns array directly, not wrapped in "data" key
-            // This is acceptable since we're using a "stream" parameter to indicate different format
-            return response()->streamJson(function () use ($pathPoints) {
-                foreach ($pathPoints as $point) {
-                    yield $point;
+            // Stream path points directly as they're processed (true streaming for memory efficiency)
+            // Format and yield points immediately without collecting in memory
+            return response()->streamJson(function () use ($smoothedStream) {
+                foreach ($this->buildPathFromSmoothedStream($smoothedStream) as $point) {
+                    yield $this->formatPointForResponse($point);
                 }
             });
 
@@ -103,15 +94,20 @@ class TractorPathStreamService
 
             [$prev, $curr, $next] = $buffer;
 
+            // Optimize: cache type casts
             $prevSpeed = (float)$prev->speed;
             $nextSpeed = (float)$next->speed;
             $currSpeed = (float)$curr->speed;
+            $prevStatus = (int)$prev->status;
+            $nextStatus = (int)$next->status;
+            $currStatus = (int)$curr->status;
 
-            $prevIsMovement = ((int)$prev->status === 1 && $prevSpeed > 0);
-            $nextIsMovement = ((int)$next->status === 1 && $nextSpeed > 0);
+            // Optimize: cache boolean checks
+            $prevIsMovement = ($prevStatus === 1 && $prevSpeed > 0);
+            $nextIsMovement = ($nextStatus === 1 && $nextSpeed > 0);
             $prevIsStoppage = ($prevSpeed == 0);
             $nextIsStoppage = ($nextSpeed == 0);
-            $currIsMovement = ((int)$curr->status === 1 && $currSpeed > 0);
+            $currIsMovement = ($currStatus === 1 && $currSpeed > 0);
             $currIsStoppage = ($currSpeed == 0);
 
             if ($currIsMovement && $prevIsStoppage && $nextIsStoppage) {
@@ -177,29 +173,31 @@ class TractorPathStreamService
 
     /**
      * Format a point object to match PointsResource format for JSON response
+     * Optimized to avoid redundant parsing when date_time is already a Carbon instance
      *
      * @param object $point
      * @return array
      */
     private function formatPointForResponse($point): array
     {
-        // Ensure coordinate is an array
-        $coordinate = is_string($point->coordinate) ? json_decode($point->coordinate, true) : $point->coordinate;
+        // Optimize: Parse coordinate once, cache result if needed
+        $coordinate = $point->coordinate;
+        if (is_string($coordinate)) {
+            $coordinate = json_decode($coordinate, true) ?: [0, 0];
+        }
         if (!is_array($coordinate)) {
             $coordinate = [0, 0];
         }
 
-        // Format date_time
+        // Optimize: Use pre-parsed Carbon instance if available, otherwise parse once
         $dateTime = $point->date_time;
-        if (is_string($dateTime)) {
-            $dateTime = Carbon::parse($dateTime);
-        } elseif (!$dateTime instanceof Carbon) {
-            $dateTime = Carbon::now();
+        if (!$dateTime instanceof Carbon) {
+            $dateTime = is_string($dateTime) ? Carbon::parse($dateTime) : Carbon::now();
         }
 
         // Format stoppage_time (convert seconds to H:i:s format)
         $stoppageTime = isset($point->stoppage_time) ? (int)$point->stoppage_time : 0;
-        $stoppageTimeFormatted = gmdate('H:i:s', $stoppageTime);
+        $stoppageTimeFormatted = $stoppageTime > 0 ? gmdate('H:i:s', $stoppageTime) : '00:00:00';
 
         return [
             'id' => $point->id,
@@ -220,6 +218,7 @@ class TractorPathStreamService
      * Streamed path extraction with minimal memory.
      * Applies the same inclusion rules and stoppage-time calculation as the optimized batch version.
      * This method yields points as they're processed instead of collecting them into an array.
+     * Uses deferred yielding for stoppage points to calculate duration accurately.
      *
      * @param \Traversable $points Smoothed GPS points in chronological order
      * @return \Generator Yields stdClass items ready for formatting
@@ -230,26 +229,32 @@ class TractorPathStreamService
         $lastPointType = null;
         $inStoppageSegment = false;
         $stoppageDuration = 0;
-        $stoppageAddedPoint = null;
+        $deferredStoppagePoint = null; // Only buffer one stoppage point at a time
         $stoppageStartedAtFirstPoint = false;
         $consecutiveMovementCount = 0;
-        $firstMovementCandidateObj = null;
+        $movementBuffer = []; // Small buffer (max 2 points) for starting point detection
         $minStoppageSeconds = 60;
 
         $firstPointProcessed = false;
         $prevTimestamp = null;
-        $pathPoints = [];
 
         foreach ($points as $point) {
+            // Optimize: cache type casts
             $status = (int)$point->status;
             $speed = (float)$point->speed;
             $isMovement = ($status === 1 && $speed > 0);
             $isStoppage = ($speed == 0);
             $isFirstPoint = !$firstPointProcessed;
 
-            // Timestamp normalization
+            // Optimize: Parse timestamp once and reuse
             $ts = $point->date_time;
-            $timestamp = is_string($ts) ? \Carbon\Carbon::parse($ts)->timestamp : $ts->timestamp;
+            if ($ts instanceof Carbon) {
+                $timestamp = $ts->timestamp;
+            } else {
+                $timestamp = is_string($ts) ? Carbon::parse($ts)->timestamp : Carbon::now()->timestamp;
+                // Store parsed Carbon instance for later use
+                $point->date_time = Carbon::createFromTimestamp($timestamp);
+            }
 
             // Accumulate stoppage duration while inside a stoppage segment
             if ($inStoppageSegment && $prevTimestamp !== null && $isStoppage) {
@@ -260,25 +265,21 @@ class TractorPathStreamService
                 $hasSeenMovement = true;
 
                 // If we are closing a stoppage segment, decide to keep or drop the recorded stoppage point
-                if ($inStoppageSegment && $stoppageAddedPoint !== null) {
+                if ($inStoppageSegment && $deferredStoppagePoint !== null) {
                     if ($stoppageDuration < $minStoppageSeconds && !$stoppageStartedAtFirstPoint) {
-                        // Remove previously added stoppage marker (treat short stoppage as movement)
-                        // Since we're streaming, we need to track if we've already yielded it
-                        // For now, we'll mark it to be skipped when we encounter it
-                        // Actually, we can't remove already yielded points, so we'll update the stoppage_time to 0
-                        // and mark it as not stopped if duration is too short
-                        $stoppageAddedPoint->stoppage_time = 0;
-                        $stoppageAddedPoint->is_stopped = false;
+                        // Skip short stoppage - don't yield it
+                        $deferredStoppagePoint = null;
                     } else {
-                        // Keep and set stoppage_time
-                        $stoppageAddedPoint->stoppage_time = $stoppageDuration;
+                        // Keep and set stoppage_time, then yield it
+                        $deferredStoppagePoint->stoppage_time = $stoppageDuration;
+                        yield $deferredStoppagePoint;
+                        $deferredStoppagePoint = null;
                     }
                 }
 
                 // Reset stoppage trackers
                 $inStoppageSegment = false;
                 $stoppageDuration = 0;
-                $stoppageAddedPoint = null;
                 $stoppageStartedAtFirstPoint = false;
 
                 // Build movement path object
@@ -295,24 +296,28 @@ class TractorPathStreamService
                     'date_time' => $point->date_time,
                 ];
 
-                $pathPoints[] = $obj;
-
-                // Track first 3 consecutive movement points
-                if ($consecutiveMovementCount === 0) {
-                    $firstMovementCandidateObj = $obj;
+                // Use small buffer for starting point detection (max 2 points)
+                // When we have 3 consecutive movement points, mark the first as starting point
+                $movementBuffer[] = $obj;
+                if (count($movementBuffer) === 3) {
+                    $movementBuffer[0]->is_starting_point = true;
+                    // Yield the first buffered point now that we know it's a starting point
+                    yield array_shift($movementBuffer);
+                } elseif (count($movementBuffer) > 3) {
+                    // Should not happen, but yield if buffer grows
+                    yield array_shift($movementBuffer);
                 }
+
                 $consecutiveMovementCount++;
-                if ($consecutiveMovementCount >= 3 && $firstMovementCandidateObj && $firstMovementCandidateObj->is_starting_point === false) {
-                    $firstMovementCandidateObj->is_starting_point = true;
-                    // Do not reset candidate; future sequences are irrelevant
-                }
-
                 $lastPointType = 'movement';
 
             } elseif ($isStoppage) {
-                // Any stoppage breaks movement streak
+                // Any stoppage breaks movement streak - flush movement buffer
+                foreach ($movementBuffer as $bufferedPoint) {
+                    yield $bufferedPoint;
+                }
+                $movementBuffer = [];
                 $consecutiveMovementCount = 0;
-                $firstMovementCandidateObj = null;
 
                 if ($isFirstPoint) {
                     $obj = (object) [
@@ -327,8 +332,7 @@ class TractorPathStreamService
                         'stoppage_time' => 0,
                         'date_time' => $point->date_time,
                     ];
-                    $pathPoints[] = $obj;
-                    $stoppageAddedPoint = $obj;
+                    $deferredStoppagePoint = $obj;
                     $inStoppageSegment = true;
                     $stoppageDuration = 0;
                     $stoppageStartedAtFirstPoint = true;
@@ -346,8 +350,7 @@ class TractorPathStreamService
                         'stoppage_time' => 0,
                         'date_time' => $point->date_time,
                     ];
-                    $pathPoints[] = $obj;
-                    $stoppageAddedPoint = $obj;
+                    $deferredStoppagePoint = $obj;
                     $inStoppageSegment = true;
                     $stoppageDuration = 0;
                     $stoppageStartedAtFirstPoint = false;
@@ -362,23 +365,19 @@ class TractorPathStreamService
             $prevTimestamp = $timestamp;
         }
 
-        // Finalize a trailing stoppage segment (end of day)
-        if ($inStoppageSegment && $stoppageAddedPoint !== null) {
-            if ($stoppageDuration < $minStoppageSeconds && !$stoppageStartedAtFirstPoint) {
-                // Remove from array if it's a short stoppage
-                $key = array_search($stoppageAddedPoint, $pathPoints, true);
-                if ($key !== false) {
-                    unset($pathPoints[$key]);
-                    $pathPoints = array_values($pathPoints); // Re-index
-                }
-            } else {
-                $stoppageAddedPoint->stoppage_time = $stoppageDuration;
-            }
+        // Flush any remaining movement points in buffer
+        foreach ($movementBuffer as $bufferedPoint) {
+            yield $bufferedPoint;
         }
 
-        // Yield all collected points
-        foreach ($pathPoints as $point) {
-            yield $point;
+        // Finalize a trailing stoppage segment (end of day)
+        if ($inStoppageSegment && $deferredStoppagePoint !== null) {
+            if ($stoppageDuration < $minStoppageSeconds && !$stoppageStartedAtFirstPoint) {
+                // Skip short trailing stoppage
+            } else {
+                $deferredStoppagePoint->stoppage_time = $stoppageDuration;
+                yield $deferredStoppagePoint;
+            }
         }
     }
 }
