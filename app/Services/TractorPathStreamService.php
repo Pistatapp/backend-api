@@ -22,9 +22,7 @@ class TractorPathStreamService
         try {
             // Check if tractor has GPS device
             if (!$tractor->gpsDevice) {
-                return response()->streamJson(function () {
-                    // Yield empty collection
-                });
+                return response()->streamJson(new \EmptyIterator());
             }
 
             // Efficient existence check without loading all rows
@@ -37,13 +35,9 @@ class TractorPathStreamService
                 $lastPointFromPreviousDate = $this->getLastPointFromPreviousDate($tractor, $date);
                 if ($lastPointFromPreviousDate) {
                     $formattedPoint = $this->convertSinglePointToResource($lastPointFromPreviousDate);
-                    return response()->streamJson(function () use ($formattedPoint) {
-                        yield $this->formatPointForResponse($formattedPoint);
-                    });
+                    return response()->streamJson($this->generateFormattedPoints([$formattedPoint]));
                 }
-                return response()->streamJson(function () {
-                    // Yield empty collection
-                });
+                return response()->streamJson(new \EmptyIterator());
             }
 
             // Stream GPS data with minimal memory using database cursor
@@ -58,11 +52,7 @@ class TractorPathStreamService
 
             // Stream path points directly as they're processed (true streaming for memory efficiency)
             // Format and yield points immediately without collecting in memory
-            return response()->streamJson(function () use ($smoothedStream) {
-                foreach ($this->buildPathFromSmoothedStream($smoothedStream) as $point) {
-                    yield $this->formatPointForResponse($point);
-                }
-            });
+            return response()->streamJson($this->generateFormattedPointsFromStream($smoothedStream));
 
         } catch (\Exception $e) {
             Log::error('Failed to get tractor path (streamed)', [
@@ -71,9 +61,33 @@ class TractorPathStreamService
                 'error' => $e->getMessage()
             ]);
 
-            return response()->streamJson(function () {
-                // Yield empty collection on error
-            });
+            return response()->streamJson(new \EmptyIterator());
+        }
+    }
+
+    /**
+     * Generate formatted points from a stream of path points
+     *
+     * @param \Traversable $smoothedStream
+     * @return \Generator
+     */
+    private function generateFormattedPointsFromStream($smoothedStream): \Generator
+    {
+        foreach ($this->buildPathFromSmoothedStream($smoothedStream) as $point) {
+            yield $this->formatPointForResponse($point);
+        }
+    }
+
+    /**
+     * Generate formatted points from an array of points
+     *
+     * @param array $points
+     * @return \Generator
+     */
+    private function generateFormattedPoints(array $points): \Generator
+    {
+        foreach ($points as $point) {
+            yield $this->formatPointForResponse($point);
         }
     }
 
