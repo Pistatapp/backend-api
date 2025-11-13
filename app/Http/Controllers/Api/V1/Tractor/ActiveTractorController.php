@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use App\Models\Farm;
 use App\Services\ActiveTractorService;
 use App\Services\TractorPathService;
+use App\Services\TractorPathStreamService;
 use App\Services\TractorStartMovementTimeDetectionService;
 
 class ActiveTractorController extends Controller
@@ -16,6 +17,7 @@ class ActiveTractorController extends Controller
     public function __construct(
         private ActiveTractorService $activeTractorService,
         private TractorPathService $tractorPathService,
+        private TractorPathStreamService $tractorPathStreamService,
         private TractorStartMovementTimeDetectionService $tractorStartMovementTimeDetectionService
     ) {}
 
@@ -52,10 +54,16 @@ class ActiveTractorController extends Controller
     public function getPath(Request $request, Tractor $tractor)
     {
         $request->validate([
-            'date' => 'required|shamsi_date'
+            'date' => 'required|shamsi_date',
+            'stream' => 'sometimes|boolean'
         ]);
 
         $date = jalali_to_carbon($request->date);
+
+        // Use streamed service if stream parameter is present and true
+        if ($request->has('stream') && $request->boolean('stream')) {
+            return $this->tractorPathStreamService->getTractorPath($tractor, $date);
+        }
 
         return $this->tractorPathService->getTractorPath($tractor, $date);
     }
