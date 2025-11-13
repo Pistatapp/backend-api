@@ -222,9 +222,14 @@ class IrrigationController extends Controller
     {
         $today = today();
 
+        // Determine verified filter value: if verified parameter is present, use it (0=false, 1=true), otherwise default to false
+        $isVerified = $request->has('verified')
+            ? (bool) $request->query('verified')
+            : false;
+
         $irrigations = Irrigation::whereBelongsTo($farm)
             ->filter('finished')
-            ->where('is_verified_by_admin', false)
+            ->where('is_verified_by_admin', $isVerified)
             ->where(function ($query) use ($today) {
                 $query->whereDate('start_date', '<=', $today)
                     ->where(function ($q) use ($today) {
