@@ -171,6 +171,9 @@ class TractorPathStreamService
         // Strict rule: Stoppage = speed == 0
         $isStopped = ((float)$point->speed == 0);
 
+        // Ensure date_time is available (use date_time from point, or fallback to timestamp if it exists)
+        $dateTime = $point->date_time ?? ($point->timestamp ?? Carbon::now());
+
         return (object) [
             'id' => $point->id,
             'coordinate' => $point->coordinate,
@@ -181,7 +184,7 @@ class TractorPathStreamService
             'is_stopped' => $isStopped,
             'directions' => $point->directions,
             'stoppage_time' => 0,
-            'timestamp' => $point->timestamp,
+            'date_time' => $dateTime instanceof Carbon ? $dateTime : Carbon::parse($dateTime),
         ];
     }
 
@@ -204,8 +207,11 @@ class TractorPathStreamService
         }
 
         // Optimize: Use pre-parsed Carbon instance if available, otherwise parse once
-        $dateTime = $point->date_time;
-        if (!$dateTime instanceof Carbon) {
+        // Handle cases where date_time might not exist (fallback to timestamp or now)
+        $dateTime = $point->date_time ?? ($point->timestamp ?? null);
+        if ($dateTime === null) {
+            $dateTime = Carbon::now();
+        } elseif (!$dateTime instanceof Carbon) {
             $dateTime = is_string($dateTime) ? Carbon::parse($dateTime) : Carbon::now();
         }
 
