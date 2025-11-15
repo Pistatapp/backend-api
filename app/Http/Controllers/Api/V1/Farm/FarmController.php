@@ -26,7 +26,7 @@ class FarmController extends Controller
     public function index(Request $request)
     {
         $farms = $request->user()->farms()
-            ->withCount(['trees', 'fields', 'labours', 'tractors', 'plans'])
+            ->withCount(['trees', 'fields', 'employees', 'tractors', 'plans'])
             ->get();
 
         return FarmResource::collection($farms);
@@ -71,7 +71,7 @@ class FarmController extends Controller
             ->loadCount([
                 'trees',
                 'fields',
-                'labours',
+                'employees',
                 'plans',
                 'tractors' => function ($query) {
                     $query->active();

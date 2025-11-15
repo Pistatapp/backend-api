@@ -26,7 +26,7 @@ class FilterIrrigationReportsRequest extends FormRequest
             'plot_ids.*' => 'integer|exists:plots,id',
             'valves' => 'nullable|array|min:1',
             'valves.*' => 'nullable|integer|exists:valves,id',
-            'labour_id' => 'nullable|integer|exists:labours,id',
+            'labour_id' => 'nullable|integer|exists:employees,id',
             'from_date' => 'required|date',
             'to_date' => 'required|date|after_or_equal:from_date'
         ];

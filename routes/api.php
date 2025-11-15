@@ -15,7 +15,7 @@ use App\Http\Controllers\Api\V1\Management\TeamController;
 use App\Http\Controllers\Api\V1\Farm\DriverController;
 use App\Http\Controllers\Api\V1\Tractor\GpsReportController;
 use App\Http\Controllers\Api\V1\Tractor\TractorController;
-use App\Http\Controllers\Api\V1\Management\LabourController;
+use App\Http\Controllers\Api\V1\Management\EmployeeController;
 use App\Http\Controllers\Api\V1\Farm\AttachmentController;
 use App\Http\Controllers\Api\V1\Management\OprationController;
 use App\Http\Controllers\Api\V1\Tractor\TractorTaskController;
@@ -138,9 +138,36 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::post('maintenance_reports/filter', [MaintenanceReportController::class, 'filter']);
     Route::apiResource('maintenance_reports', MaintenanceReportController::class);
 
-    // Teams and Labours Routes
+    // Teams and Employees Routes
     Route::apiResource('farms.teams', TeamController::class)->shallow();
-    Route::apiResource('farms.labours', LabourController::class)->shallow();
+    Route::apiResource('farms.employees', EmployeeController::class)->shallow();
+
+    // Worker GPS and Attendance Routes
+    Route::post('/workers/gps-report', [\App\Http\Controllers\Api\Worker\WorkerGpsReportController::class, '__invoke']);
+    Route::get('/farms/{farm}/workers/active', [\App\Http\Controllers\Api\ActiveWorkerController::class, 'index']);
+    Route::get('/workers/{employee}/path', [\App\Http\Controllers\Api\ActiveWorkerController::class, 'getPath']);
+    Route::get('/workers/{employee}/current-status', [\App\Http\Controllers\Api\ActiveWorkerController::class, 'getCurrentStatus']);
+
+    // Work Shifts Routes
+    Route::apiResource('farms.work-shifts', \App\Http\Controllers\Api\WorkShiftController::class)->shallow();
+
+    // Worker Shift Schedules Routes
+    Route::get('/farms/{farm}/shift-schedules', [\App\Http\Controllers\Api\WorkerShiftScheduleController::class, 'index']);
+    Route::apiResource('shift-schedules', \App\Http\Controllers\Api\WorkerShiftScheduleController::class)->except(['index']);
+
+    // Worker Daily Reports Routes
+    Route::get('/worker-daily-reports', [\App\Http\Controllers\Api\Worker\WorkerDailyReportController::class, 'index']);
+    Route::get('/worker-daily-reports/{workerDailyReport}', [\App\Http\Controllers\Api\Worker\WorkerDailyReportController::class, 'show']);
+    Route::patch('/worker-daily-reports/{workerDailyReport}', [\App\Http\Controllers\Api\Worker\WorkerDailyReportController::class, 'update']);
+    Route::post('/worker-daily-reports/{workerDailyReport}/approve', [\App\Http\Controllers\Api\Worker\WorkerDailyReportController::class, 'approve']);
+
+    // Worker Payroll Routes
+    Route::post('/worker-payrolls/generate', [\App\Http\Controllers\Api\Worker\WorkerPayrollController::class, 'generate']);
+    Route::get('/worker-payrolls', [\App\Http\Controllers\Api\Worker\WorkerPayrollController::class, 'index']);
+    Route::get('/worker-payrolls/{workerMonthlyPayroll}', [\App\Http\Controllers\Api\Worker\WorkerPayrollController::class, 'show']);
+
+    // Human Resources Map Routes
+    Route::get('/farms/{farm}/hr/active-workers', [\App\Http\Controllers\Api\HumanResourcesMapController::class, 'getActiveWorkers']);
 
     // Attachments Routes
     Route::apiResource('attachments', AttachmentController::class)->except('show', 'index');
@@ -178,6 +205,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
         Route::post('/load_estimation', [LoadEstimationController::class, 'estimate']);
         Route::post('/weather_forecast', WeatherForecastController::class)->name('farms.weather_forecast');
         Route::get('/dashboard/widgets', [DashboardController::class, 'dashboardWidgets']);
+    Route::get('/farms/{farm}/dashboard/active-workers', [DashboardController::class, 'getActiveWorkers']);
     });
 
     Route::controller(NotificationController::class)->prefix('notifications')->group(function () {

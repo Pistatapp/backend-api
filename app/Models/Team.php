@@ -27,22 +27,32 @@ class Team extends Model
     }
 
     /**
-     * Get all of the labours for the Team
+     * Get all of the employees for the Team
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
      */
     public function labours()
     {
-        return $this->belongsToMany(Labour::class);
+        return $this->belongsToMany(Employee::class, 'employee_team');
+    }
+
+    /**
+     * Get all of the employees for the Team (alias for labours)
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
+     */
+    public function employees()
+    {
+        return $this->belongsToMany(Employee::class, 'employee_team');
     }
 
     /**
      * Get the supervisor associated with the Team
      *
-     * @return \Illuminate\Database\Eloquent\Relations\HasOne
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
     public function supervisor()
     {
-        return $this->belongsTo(Labour::class, 'supervisor_id', 'id');
+        return $this->belongsTo(Employee::class, 'supervisor_id', 'id');
     }
 }

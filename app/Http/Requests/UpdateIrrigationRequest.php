@@ -23,7 +23,7 @@ class UpdateIrrigationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'labour_id' => 'required|exists:labours,id',
+            'labour_id' => 'required|exists:employees,id',
             'pump_id' => 'required|exists:pumps,id',
             'start_date' => 'required|date',
             'end_date' => 'required|date|after_or_equal:start_date',

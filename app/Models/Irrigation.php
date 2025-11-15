@@ -73,13 +73,13 @@ class Irrigation extends Model
     }
 
     /**
-     * Get the labour that owns the Irrigation
+     * Get the employee that owns the Irrigation
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
     public function labour()
     {
-        return $this->belongsTo(Labour::class);
+        return $this->belongsTo(Employee::class);
     }
 
     /**

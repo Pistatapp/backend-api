@@ -77,17 +77,12 @@ class TractorEfficiencyBatchJobTest extends TestCase
         $job = new CalculateSingleTractorEfficiencyJob($tractor->id, $date);
         $job->handle();
 
-        // Verify efficiency chart was created
-        $this->assertDatabaseHas('tractor_efficiency_charts', [
-            'tractor_id' => $tractor->id,
-            'date' => $date->toDateString(),
-        ]);
-
+        // Verify efficiency chart was created using whereDate for proper date comparison
         $chart = TractorEfficiencyChart::where('tractor_id', $tractor->id)
-            ->where('date', $date->toDateString())
+            ->whereDate('date', $date->toDateString())
             ->first();
 
-        $this->assertNotNull($chart);
+        $this->assertNotNull($chart, 'Efficiency chart should be created');
         $this->assertIsNumeric($chart->total_efficiency);
         $this->assertIsNumeric($chart->task_based_efficiency);
     }
@@ -208,10 +203,10 @@ class TractorEfficiencyBatchJobTest extends TestCase
 
         // Execute job and check it completes without memory issues
         $job = new CalculateSingleTractorEfficiencyJob($tractor->id, $date);
-        
+
         // This should not throw any exceptions
         $this->expectNotToPerformAssertions();
-        
+
         try {
             $job->handle();
         } catch (\Exception $e) {

@@ -23,7 +23,7 @@ class StoreIrrigationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'labour_id' => 'required|exists:labours,id',
+            'labour_id' => 'required|exists:employees,id',
             'pump_id' => 'required|exists:pumps,id',
             'date' => 'required|date',
             'end_date' => 'nullable|date|after_or_equal:date',

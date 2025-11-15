@@ -25,8 +25,8 @@ class TeamResource extends JsonResource
                     'lname' => $this->supervisor->lname,
                 ];
             }),
-            'labours_count' => $this->whenCounted('labours'),
-            'labours' => LabourResource::collection($this->whenLoaded('labours')),
+            'employees_count' => $this->whenCounted('employees'),
+            'employees' => EmployeeResource::collection($this->whenLoaded('employees')),
             'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s')
         ];
     }

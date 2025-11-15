@@ -25,7 +25,7 @@ class StoreFarmReportRequest extends FormRequest
         return [
             'date' => 'required|date',
             'operation_id' => 'required|exists:operations,id',
-            'labour_id' => 'required|exists:labours,id',
+            'labour_id' => 'required|exists:employees,id',
             'description' => 'required|string',
             'value' => 'required|numeric',
             'reportables' => 'required|array|min:1',

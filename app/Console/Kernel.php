@@ -6,8 +6,11 @@ use App\Jobs\CheckFrostConditionsJob;
 use App\Jobs\CheckOilSprayConditionsJob;
 use App\Jobs\CheckRadiativeFrostConditionsJob;
 use App\Jobs\CalculateTractorEfficiencyChartJob;
+use App\Jobs\GenerateDailyAttendanceSummaryJob;
+use App\Jobs\CloseAttendanceSessionsJob;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
+use Carbon\Carbon;
 
 class Kernel extends ConsoleKernel
 {
@@ -50,6 +53,12 @@ class Kernel extends ConsoleKernel
 
         // Check for crop type degree day conditions daily at 05:30 AM
         $schedule->job(CheckFrostConditionsJob::class)->dailyAt('05:30');
+
+        // Generate daily attendance summary at midnight
+        $schedule->job(new GenerateDailyAttendanceSummaryJob(Carbon::yesterday()))->dailyAt('00:00');
+
+        // Close stale attendance sessions every hour
+        $schedule->job(new CloseAttendanceSessionsJob)->hourly();
     }
 
     /**
