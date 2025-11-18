@@ -48,7 +48,7 @@ class IrrigationController extends Controller
             $irrigations->whereDate('start_date', today());
         }
 
-        $irrigations->when($status !== 'all', function ($query) use ($status) {
+        $irrigations = $irrigations->when($status !== 'all', function ($query) use ($status) {
                 $query->filter($status);
             })
             ->with(['plots', 'valves'])
