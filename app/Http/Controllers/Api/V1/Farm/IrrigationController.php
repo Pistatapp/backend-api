@@ -26,12 +26,29 @@ class IrrigationController extends Controller
      */
     public function index(Request $request, Farm $farm)
     {
-        $date = $request->has('date') ? jalali_to_carbon($request->query('date')) : today();
         $status = $request->query('status', 'all');
 
-        $irrigations = Irrigation::whereBelongsTo($farm)
-            ->whereDate('start_date', $date)
-            ->when($status !== 'all', function ($query) use ($status) {
+        $irrigations = Irrigation::whereBelongsTo($farm);
+
+        // Handle date filtering
+        if ($request->has('date_range')) {
+            // Parse date range (format: "start_date,end_date")
+            $dateRange = explode(',', $request->query('date_range'));
+            if (count($dateRange) === 2) {
+                $startDate = jalali_to_carbon(trim($dateRange[0]));
+                $endDate = jalali_to_carbon(trim($dateRange[1]));
+                $irrigations->whereBetween('start_date', [$startDate, $endDate]);
+            }
+        } elseif ($request->has('date')) {
+            // Single date filter
+            $date = jalali_to_carbon($request->query('date'));
+            $irrigations->whereDate('start_date', $date);
+        } else {
+            // Default to today
+            $irrigations->whereDate('start_date', today());
+        }
+
+        $irrigations->when($status !== 'all', function ($query) use ($status) {
                 $query->filter($status);
             })
             ->with(['plots', 'valves'])
