@@ -3,6 +3,7 @@
 use App\Models\GpsDevice;
 use App\Models\Irrigation;
 use App\Models\Tractor;
+use App\Models\Ticket;
 use App\Models\User;
 use App\Models\TractorTask;
 use Illuminate\Support\Facades\Broadcast;
@@ -36,4 +37,14 @@ Broadcast::channel('tractor.{tractor}', function(User $user, Tractor $tractor) {
 
 Broadcast::channel('tractor.tasks.{tractorTask}', function (User $user, TractorTask $tractorTask) {
     return true;
+});
+
+Broadcast::channel('support.tickets.{ticketId}', function (User $user, $ticketId) {
+    $ticket = Ticket::find($ticketId);
+    if (!$ticket) {
+        return false;
+    }
+    
+    // User can listen if they own the ticket or are support staff
+    return $user->id === $ticket->user_id || $user->hasRole(['admin', 'support']);
 });

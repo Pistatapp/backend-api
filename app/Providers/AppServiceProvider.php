@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Models\TicketMessage;
+use App\Observers\TicketMessageObserver;
 use App\Services\WeatherApi;
 use App\Services\KalmanFilter;
 use App\Services\ActiveTractorService;
@@ -31,5 +33,8 @@ class AppServiceProvider extends ServiceProvider
         Gate::before(function ($user, $ability) {
             return $user->hasRole('root') ? true : null;
         });
+
+        // Register observers
+        TicketMessage::observe(TicketMessageObserver::class);
     }
 }

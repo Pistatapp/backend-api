@@ -45,6 +45,8 @@ use App\Http\Controllers\Api\V1\UserPreferenceController;
 use App\Http\Controllers\Api\V1\Tractor\TractorReportController;
 use App\Http\Controllers\Api\V1\WarningController;
 use App\Http\Controllers\Api\V1\PaymentController;
+use App\Http\Controllers\Api\V1\TicketController;
+use App\Http\Controllers\Api\V1\Admin\AdminTicketController;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 
@@ -195,6 +197,25 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     });
 
     Broadcast::routes();
+
+    // Support Ticket Routes
+    Route::prefix('support')->middleware('throttle:60,1')->group(function () {
+        Route::get('tickets', [TicketController::class, 'index']);
+        Route::post('tickets', [TicketController::class, 'store'])->middleware('throttle:5,60'); // 5 tickets per hour
+        Route::get('tickets/{ticket}', [TicketController::class, 'show']);
+        Route::post('tickets/{ticket}/messages', [TicketController::class, 'sendMessage'])->middleware('throttle:20,1'); // 20 messages per minute
+        Route::post('tickets/{ticket}/close', [TicketController::class, 'closeTicket']);
+        Route::post('error-report', [TicketController::class, 'reportError'])->middleware('throttle:10,60'); // 10 error reports per hour
+        Route::get('attachments/{attachment}/download', [TicketController::class, 'downloadAttachment'])->name('support.attachments.download');
+    });
+
+    // Admin Support Routes
+    Route::prefix('admin/support')->middleware(['role:admin|support', 'throttle:120,1'])->group(function () {
+        Route::get('tickets', [AdminTicketController::class, 'index']);
+        Route::get('tickets/{ticket}', [AdminTicketController::class, 'show']);
+        Route::post('tickets/{ticket}/reply', [AdminTicketController::class, 'reply'])->middleware('throttle:30,1'); // 30 replies per minute
+        Route::patch('tickets/{ticket}/status', [AdminTicketController::class, 'updateStatus']);
+    });
 });
 
 Route::post('/gps/reports', GpsReportController::class)->name('gps.reports');

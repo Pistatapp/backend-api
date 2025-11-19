@@ -6,6 +6,7 @@ use App\Jobs\CheckFrostConditionsJob;
 use App\Jobs\CheckOilSprayConditionsJob;
 use App\Jobs\CheckRadiativeFrostConditionsJob;
 use App\Jobs\CalculateTractorEfficiencyChartJob;
+use App\Jobs\CloseInactiveTicketsJob;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 
@@ -50,6 +51,9 @@ class Kernel extends ConsoleKernel
 
         // Check for crop type degree day conditions daily at 05:30 AM
         $schedule->job(CheckFrostConditionsJob::class)->dailyAt('05:30');
+
+        // Close inactive tickets hourly
+        $schedule->job(new CloseInactiveTicketsJob)->hourly();
     }
 
     /**
