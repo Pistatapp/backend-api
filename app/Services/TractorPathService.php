@@ -177,6 +177,7 @@ class TractorPathService
         $stoppageStartedAtFirstPoint = false;
         $consecutiveMovementCount = 0;
         $firstMovementCandidateObj = null;
+        $startingPointAssigned = false;
         $minStoppageSeconds = 60;
 
         $firstPointProcessed = false;
@@ -241,9 +242,15 @@ class TractorPathService
                     $firstMovementCandidateObj = $obj;
                 }
                 $consecutiveMovementCount++;
-                if ($consecutiveMovementCount >= 3 && $firstMovementCandidateObj && $firstMovementCandidateObj->is_starting_point === false) {
+                if (
+                    !$startingPointAssigned &&
+                    $consecutiveMovementCount >= 3 &&
+                    $firstMovementCandidateObj &&
+                    $firstMovementCandidateObj->is_starting_point === false
+                ) {
                     $firstMovementCandidateObj->is_starting_point = true;
-                    // Do not reset candidate; future sequences are irrelevant
+                    $startingPointAssigned = true;
+                    // Do not reset candidate; future sequences are irrelevant once assigned
                 }
 
                 $lastPointType = 'movement';

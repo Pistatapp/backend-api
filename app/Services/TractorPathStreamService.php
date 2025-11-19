@@ -253,6 +253,7 @@ class TractorPathStreamService
         $stoppageStartedAtFirstPoint = false;
         $consecutiveMovementCount = 0;
         $movementBuffer = []; // Small buffer (max 2 points) for starting point detection
+        $startingPointAssigned = false;
         $minStoppageSeconds = 60;
 
         $firstPointProcessed = false;
@@ -320,7 +321,10 @@ class TractorPathStreamService
                 // When we have 3 consecutive movement points, mark the first as starting point
                 $movementBuffer[] = $obj;
                 if (count($movementBuffer) === 3) {
-                    $movementBuffer[0]->is_starting_point = true;
+                    if (!$startingPointAssigned) {
+                        $movementBuffer[0]->is_starting_point = true;
+                        $startingPointAssigned = true;
+                    }
                     // Yield the first buffered point now that we know it's a starting point
                     yield array_shift($movementBuffer);
                 } elseif (count($movementBuffer) > 3) {
