@@ -287,4 +287,14 @@ class Farm extends Model
     {
         return $this->hasMany(Driver::class);
     }
+
+    /**
+     * Get the chat rooms of the farm.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function chatRooms()
+    {
+        return $this->hasMany(ChatRoom::class);
+    }
 }

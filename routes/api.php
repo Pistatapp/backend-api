@@ -45,6 +45,9 @@ use App\Http\Controllers\Api\V1\UserPreferenceController;
 use App\Http\Controllers\Api\V1\Tractor\TractorReportController;
 use App\Http\Controllers\Api\V1\WarningController;
 use App\Http\Controllers\Api\V1\PaymentController;
+use App\Http\Controllers\Api\V1\Chat\ChatRoomController;
+use App\Http\Controllers\Api\V1\Chat\MessageController;
+use App\Http\Controllers\Api\V1\Chat\ChatFileController;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 
@@ -193,6 +196,40 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
         Route::put('/', [UserPreferenceController::class, 'update']);
         Route::delete('/', [UserPreferenceController::class, 'reset']);
     });
+
+    // Chat Routes
+    Route::prefix('farms/{farm}')->group(function () {
+        // Chat Room Routes
+        Route::get('/chat-rooms', [ChatRoomController::class, 'index']);
+        Route::post('/chat-rooms', [ChatRoomController::class, 'createPrivate'])->middleware('throttle:10,1');
+        Route::post('/chat-rooms/group', [ChatRoomController::class, 'createGroup'])->middleware('throttle:10,1');
+    });
+
+    Route::prefix('chat-rooms/{chatRoom}')->group(function () {
+        Route::get('/', [ChatRoomController::class, 'show']);
+        Route::put('/', [ChatRoomController::class, 'update'])->middleware('throttle:20,1');
+        Route::delete('/', [ChatRoomController::class, 'destroy']);
+        Route::post('/mark-read', [ChatRoomController::class, 'markRead']);
+        Route::post('/typing', [ChatRoomController::class, 'typing'])->middleware('throttle:30,1');
+        Route::post('/users', [ChatRoomController::class, 'addUsers'])->middleware('throttle:10,1');
+        Route::delete('/users/{user}', [ChatRoomController::class, 'removeUser'])->middleware('throttle:10,1');
+
+        // Message Routes
+        Route::get('/messages', [MessageController::class, 'index']);
+        Route::post('/messages', [MessageController::class, 'store'])->middleware('throttle:60,1');
+        Route::post('/messages/file', [MessageController::class, 'uploadFile'])->middleware('throttle:10,1');
+        Route::get('/messages/search', [MessageController::class, 'search']);
+    });
+
+    Route::prefix('messages/{message}')->group(function () {
+        Route::put('/', [MessageController::class, 'update'])->middleware('throttle:20,1');
+        Route::delete('/', [MessageController::class, 'destroy'])->middleware('throttle:20,1');
+        Route::post('/read', [MessageController::class, 'markRead']);
+        Route::get('/read-status', [MessageController::class, 'readStatus']);
+    });
+
+    // Chat File Download Route
+    Route::get('/chat-files/{chatRoom}/{filename}', [ChatFileController::class, 'download']);
 
     Broadcast::routes();
 });

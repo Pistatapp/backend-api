@@ -37,3 +37,22 @@ Broadcast::channel('tractor.{tractor}', function(User $user, Tractor $tractor) {
 Broadcast::channel('tractor.tasks.{tractorTask}', function (User $user, TractorTask $tractorTask) {
     return true;
 });
+
+Broadcast::channel('chat-room.{chatRoomId}', function (User $user, $chatRoomId) {
+    $chatRoom = \App\Models\ChatRoom::find($chatRoomId);
+    
+    if (!$chatRoom) {
+        return false;
+    }
+
+    // Verify user is a member of the farm
+    if (!$chatRoom->farm->users->contains($user)) {
+        return false;
+    }
+
+    // Verify user is an active member of the chat room
+    return $chatRoom->users()
+        ->wherePivotNull('left_at')
+        ->where('users.id', $user->id)
+        ->exists();
+});

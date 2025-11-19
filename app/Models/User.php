@@ -52,10 +52,12 @@ class User extends Authenticatable implements HasMedia
         return [
             'mobile_verified_at' => 'datetime',
             'last_activity_at' => 'datetime',
+            'last_seen_at' => 'datetime',
             'created_by' => 'integer',
             'password' => 'hashed',
             'password_expires_at' => 'datetime',
             'preferences' => 'array',
+            'is_online' => 'boolean',
         ];
     }
 
@@ -200,5 +202,40 @@ class User extends Authenticatable implements HasMedia
     public function payments()
     {
         return $this->hasMany(Payment::class);
+    }
+
+    /**
+     * Get the user's chat rooms.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
+     */
+    public function chatRooms()
+    {
+        return $this->belongsToMany(ChatRoom::class, 'chat_room_user')
+            ->withPivot('joined_at', 'left_at', 'last_read_at', 'is_muted')
+            ->withTimestamps();
+    }
+
+    /**
+     * Get the user's active chat rooms (not left).
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
+     */
+    public function activeChatRooms()
+    {
+        return $this->belongsToMany(ChatRoom::class, 'chat_room_user')
+            ->wherePivotNull('left_at')
+            ->withPivot('joined_at', 'left_at', 'last_read_at', 'is_muted')
+            ->withTimestamps();
+    }
+
+    /**
+     * Get the messages sent by the user.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function messages()
+    {
+        return $this->hasMany(Message::class);
     }
 }

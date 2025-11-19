@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
 use App\Http\Resources\UserResource;
+use App\Jobs\ArchiveUserChatsJob;
 use App\Models\User;
 use Illuminate\Http\Request;
 
@@ -89,6 +90,9 @@ class UserController extends Controller
      */
     public function destroy(User $user)
     {
+        // Archive user's chats before deletion (run synchronously to ensure it completes)
+        ArchiveUserChatsJob::dispatchSync($user);
+
         $user->delete();
 
         return response()->noContent();

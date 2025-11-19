@@ -50,6 +50,11 @@ class Kernel extends ConsoleKernel
 
         // Check for crop type degree day conditions daily at 05:30 AM
         $schedule->job(CheckFrostConditionsJob::class)->dailyAt('05:30');
+
+        // Cleanup old chat messages daily at 2 AM (90-day retention policy)
+        $schedule->command('chat:cleanup-old-messages')
+            ->dailyAt('02:00')
+            ->appendOutputTo(storage_path('logs/chat-cleanup.log'));
     }
 
     /**

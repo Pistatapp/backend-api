@@ -7,6 +7,7 @@ use App\Http\Requests\StoreFarmRequest;
 use App\Http\Requests\UpdateFarmRequest;
 use App\Http\Requests\AttachUserToFarmRequest;
 use App\Http\Resources\FarmResource;
+use App\Jobs\CreateFarmChatRoomsJob;
 use App\Models\Farm;
 use Illuminate\Http\Request;
 use App\Models\User;
@@ -53,6 +54,9 @@ class FarmController extends Controller
             'is_owner' => true,
             'role' => $request->user()->getRoleNames()->first(),
         ]);
+
+        // Create chat rooms for the new farm
+        CreateFarmChatRoomsJob::dispatch($farm);
 
         return new FarmResource($farm);
     }
