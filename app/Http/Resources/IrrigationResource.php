@@ -22,7 +22,8 @@ class IrrigationResource extends JsonResource
                     'name' => $this->labour->full_name,
                 ];
             }),
-            'date' => jdate($this->date)->format('Y/m/d'),
+            'start_date' => jdate($this->start_date)->format('Y/m/d'),
+            'end_date' => jdate($this->end_date)->format('Y/m/d'),
             'start_time' => $this->start_time->format('H:i'),
             'end_time' => $this->end_time->format('H:i'),
             'pump' => $this->whenLoaded('pump', function () {
