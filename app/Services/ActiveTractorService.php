@@ -81,8 +81,8 @@ class ActiveTractorService
         return [
             'id' => $tractor->id,
             'name' => $tractor->name,
-            'on_time' => to_time_format($metrics->timings['device_on_time']), // Not stored in GpsMetricsCalculation
-            'start_working_time' => to_time_format($metrics->timings['first_movement_time']), // Not stored in GpsMetricsCalculation
+            'on_time' => $metrics->timings['device_on_time'], // Not stored in GpsMetricsCalculation
+            'start_working_time' => $metrics->timings['first_movement_time'], // Not stored in GpsMetricsCalculation
             'speed' => $metrics->average_speed,
             'status' => 0, // Not stored in GpsMetricsCalculation, default to 0 (off)
             'traveled_distance' => $metrics->traveled_distance,
