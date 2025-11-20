@@ -87,8 +87,9 @@ function calculate_polygon_area(array $points): float
     }
 
     $area = 0.0;
-    for ($i = 0, $j = $numPoints - 1; $i < $numPoints; $j = $i++) {
-        $area += ($points[$j][0] * $points[$i][1]) - ($points[$i][0] * $points[$j][1]);
+    for ($i = 0; $i < $numPoints; $i++) {
+        $j = ($i + 1) % $numPoints;
+        $area += ($points[$i][0] * $points[$j][1]) - ($points[$j][0] * $points[$i][1]);
     }
 
     return abs($area) / 2.0;
