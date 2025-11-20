@@ -28,11 +28,6 @@ class CalculateTaskGpsMetricsJob implements ShouldQueue
     public $tries = 3;
 
     /**
-     * Minimum percentage of time tractor must be in zone to mark task as done.
-     */
-    private const MINIMUM_PRESENCE_PERCENTAGE = 30;
-
-    /**
      * Create a new job instance.
      */
     public function __construct(
@@ -123,13 +118,7 @@ class CalculateTaskGpsMetricsJob implements ShouldQueue
             'first_movement_time' => $results['first_movement_time'] ?? null,
         ];
 
-        // Calculate percentage of time spent in zone
-        $totalTaskDuration = $taskStartDateTime->diffInSeconds($taskEndDateTime);
-        $timeInZone = $results['movement_duration_seconds']; // work duration in seconds
-        $presencePercentage = $totalTaskDuration > 0 ? ($timeInZone / $totalTaskDuration) * 100 : 0;
-
-        // Determine task status based on 30% threshold
-        $taskStatus = $presencePercentage >= self::MINIMUM_PRESENCE_PERCENTAGE ? 'done' : 'not_done';
+        $taskStatus = 'done';
 
         // Update or create metrics record
         $metrics = GpsMetricsCalculation::updateOrCreate(
