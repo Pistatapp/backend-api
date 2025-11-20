@@ -21,7 +21,7 @@ class RowResource extends JsonResource
             'coordinates' => $this->coordinates,
             'length' => $this->length,
             'reports' => FarmReportResource::collection($this->whenLoaded('reports')),
-            'created_at' => jdate($this->created_at)->format('Y-m-d H:i:s'),
+            'created_at' => jdate($this->created_at)->format('Y/m/d'),
         ];
     }
 }

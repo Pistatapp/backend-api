@@ -28,7 +28,7 @@ class FarmResource extends JsonResource
             'tractors_count' => $this->whenCounted('tractors'),
             'plans_count' => $this->whenCounted('plans'),
             'is_working_environment' => $this->isWorkingEnvironment(),
-            'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),
+            'created_at' => jdate($this->created_at)->format('Y/m/d'),
             'users' => $this->whenLoaded('users', function () {
                 return $this->users->map(function ($user) {
                     $role = $user->pivot->role;
