@@ -20,7 +20,7 @@ class FarmResource extends JsonResource
             'coordinates' => $this->coordinates,
             'center' => $this->center,
             'zoom' => $this->zoom,
-            'area' => number_format($this->area, 2),
+            'area' => calculate_polygon_area($this->coordinates),
             'crop' => new CropResource($this->whenLoaded('crop')),
             'fields_count' => $this->whenCounted('fields'),
             'trees_count' => $this->whenCounted('trees'),
