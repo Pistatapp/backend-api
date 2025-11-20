@@ -97,13 +97,26 @@ function calculate_polygon_area(array $points): float
         }
     }
 
+    // Calculate area using the Shoelace formula for geographic coordinates
+    // Convert lat/lng to meters using Haversine-based approach
     $area = 0.0;
+    $earthRadius = 6371000; // Earth's radius in meters
+
     for ($i = 0; $i < $numPoints; $i++) {
         $j = ($i + 1) % $numPoints;
-        $area += ($parsedPoints[$i][0] * $parsedPoints[$j][1]) - ($parsedPoints[$j][0] * $parsedPoints[$i][1]);
+
+        $lat1 = deg2rad($parsedPoints[$i][0]);
+        $lng1 = deg2rad($parsedPoints[$i][1]);
+        $lat2 = deg2rad($parsedPoints[$j][0]);
+        $lng2 = deg2rad($parsedPoints[$j][1]);
+
+        // Calculate area contribution using spherical excess formula
+        $area += ($lng2 - $lng1) * (2 + sin($lat1) + sin($lat2));
     }
 
-    return abs($area) / 2.0;
+    $area = abs($area) * $earthRadius * $earthRadius / 2.0;
+
+    return round($area, 2);
 }
 
 /**
