@@ -173,12 +173,15 @@ class IrrigationController extends Controller
             }
         }
 
+        $totalVolume /= 1000;
+        $totalVolumePerHectare /= 1000;
+
         return response()->json([
             'data' => [
                 'date' => jdate($date)->format('Y/m/d'),
                 'total_duration' => to_time_format($totalDuration),
-                'total_volume' => $totalVolume,
-                'total_volume_per_hectare' => $totalVolumePerHectare,
+                'total_volume' => round($totalVolume, 2),
+                'total_volume_per_hectare' => round($totalVolumePerHectare, 2),
                 'total_count' => $irrigations->count(),
             ]
         ]);
