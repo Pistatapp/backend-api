@@ -86,10 +86,21 @@ function calculate_polygon_area(array $points): float
         throw new \InvalidArgumentException('A polygon must have at least 3 points');
     }
 
+    // Parse coordinates if they are in string format "lat,lng"
+    $parsedPoints = [];
+    foreach ($points as $point) {
+        if (is_string($point)) {
+            $coords = explode(',', $point);
+            $parsedPoints[] = [(float)$coords[0], (float)$coords[1]];
+        } else {
+            $parsedPoints[] = $point;
+        }
+    }
+
     $area = 0.0;
     for ($i = 0; $i < $numPoints; $i++) {
         $j = ($i + 1) % $numPoints;
-        $area += ($points[$i][0] * $points[$j][1]) - ($points[$j][0] * $points[$i][1]);
+        $area += ($parsedPoints[$i][0] * $parsedPoints[$j][1]) - ($parsedPoints[$j][0] * $parsedPoints[$i][1]);
     }
 
     return abs($area) / 2.0;
