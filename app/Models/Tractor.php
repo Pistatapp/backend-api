@@ -110,16 +110,6 @@ class Tractor extends Model
     }
 
     /**
-     * Get the efficiency charts for the tractor.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
-     */
-    public function efficiencyCharts()
-    {
-        return $this->hasMany(TractorEfficiencyChart::class);
-    }
-
-    /**
      * Get the tasks for the tractor.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany

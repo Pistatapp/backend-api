@@ -5,7 +5,6 @@ namespace App\Console;
 use App\Jobs\CheckFrostConditionsJob;
 use App\Jobs\CheckOilSprayConditionsJob;
 use App\Jobs\CheckRadiativeFrostConditionsJob;
-use App\Jobs\CalculateTractorEfficiencyChartJob;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 
@@ -41,9 +40,6 @@ class Kernel extends ConsoleKernel
 
         // Check for oil spray conditions daily at midnight
         $schedule->job(new CheckOilSprayConditionsJob)->dailyAt('00:00');
-
-        // Calculate tractor efficiency chart data daily at midnight
-        $schedule->job(new CalculateTractorEfficiencyChartJob)->dailyAt('01:00');
 
         // Check for pest degree day conditions daily at 05:00 AM
         $schedule->job(CheckFrostConditionsJob::class)->dailyAt('05:00');

@@ -13,7 +13,6 @@ class ActiveTractorService
 {
     public function __construct(
         private GpsDataAnalyzer $gpsDataAnalyzer,
-        private TractorTaskService $tractorTaskService
     ) {}
 
     /**
