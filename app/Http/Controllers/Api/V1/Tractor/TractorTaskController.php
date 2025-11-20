@@ -14,6 +14,7 @@ use App\Services\TractorReportFilterService;
 use App\Services\TractorTaskService;
 use Illuminate\Support\Facades\Notification;
 use App\Notifications\TractorTaskCreated;
+use App\Jobs\CalculateTaskGpsMetricsJob;
 
 class TractorTaskController extends Controller
 {
@@ -64,6 +65,12 @@ class TractorTaskController extends Controller
 
         // Send notification to driver
         Notification::send($driver, new TractorTaskCreated($task));
+
+        // Dispatch GPS metrics calculation if task end time has passed
+        $taskEndDateTime = $task->date->copy()->setTimeFromTimeString($task->end_time);
+        $isTaskPassed = $task->end_time && now()->greaterThan($taskEndDateTime);
+
+        CalculateTaskGpsMetricsJob::dispatchIf($isTaskPassed, $task);
 
         return new TractorTaskResource($task);
     }

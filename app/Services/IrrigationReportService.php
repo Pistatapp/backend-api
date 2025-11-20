@@ -20,17 +20,10 @@ class IrrigationReportService
     {
         $irrigations = $this->getFilteredIrrigations($plotIds, $filters);
 
-        // Generate daily reports in liters first
-        $dailyReportsLiters = $this->generateDailyReports($irrigations, $filters['from_date'], $filters['to_date']);
+        // Generate daily reports (already in cubic meters)
+        $dailyReports = $this->generateDailyReports($irrigations, $filters['from_date'], $filters['to_date']);
 
-        // Convert to cubic meters
-        $dailyReports = array_map(function (array $report) {
-            $report['total_volume'] = $report['total_volume'] / 1000;
-            $report['total_volume_per_hectare'] = $report['total_volume_per_hectare'] / 1000;
-            return $report;
-        }, $dailyReportsLiters);
-
-        // Calculate accumulated values from converted (m3) daily reports
+        // Calculate accumulated values from daily reports
         $accumulated = $this->calculateAccumulatedValues($dailyReports);
 
         return [
@@ -240,13 +233,17 @@ class IrrigationReportService
         $totalVolumePerHectare = 0;
 
         foreach ($dailyIrrigations as $irrigation) {
-            $durationInSeconds = $irrigation->start_time->diffInSeconds($irrigation->end_time);
+            /** @var \App\Models\Irrigation $irrigation */
+            $durationInSeconds = $this->calculateIrrigationDuration($irrigation);
             $totalDuration += $durationInSeconds;
 
             foreach ($irrigation->valves as $valve) {
-                $volume = ($valve->dripper_count * $valve->dripper_flow_rate) * ($durationInSeconds / 3600);
-                $totalVolume += $volume;
-                $totalVolumePerHectare += ($volume / $valve->irrigation_area);
+                /** @var \App\Models\Valve $valve */
+                // Calculate volume in liters, then convert to cubic meters
+                $volumeInLiters = ($valve->dripper_count * $valve->dripper_flow_rate) * ($durationInSeconds / 3600);
+                $volumeInCubicMeters = $volumeInLiters / 1000;
+                $totalVolume += $volumeInCubicMeters;
+                $totalVolumePerHectare += ($volumeInCubicMeters / $valve->irrigation_area);
             }
         }
 
@@ -273,14 +270,18 @@ class IrrigationReportService
         $totalVolumePerHectare = 0;
 
         foreach ($valveIrrigations as $irrigation) {
-            $durationInSeconds = $irrigation->start_time->diffInSeconds($irrigation->end_time);
+            /** @var \App\Models\Irrigation $irrigation */
+            $durationInSeconds = $this->calculateIrrigationDuration($irrigation);
             $totalDuration += $durationInSeconds;
 
+            /** @var \App\Models\Valve|null $valve */
             $valve = $irrigation->valves->firstWhere('id', $valveId);
             if ($valve) {
-                $volume = ($valve->dripper_count * $valve->dripper_flow_rate) * ($durationInSeconds / 3600);
-                $totalVolume += $volume;
-                $totalVolumePerHectare += $volume / $valve->irrigation_area;
+                // Calculate volume in liters, then convert to cubic meters
+                $volumeInLiters = ($valve->dripper_count * $valve->dripper_flow_rate) * ($durationInSeconds / 3600);
+                $volumeInCubicMeters = $volumeInLiters / 1000;
+                $totalVolume += $volumeInCubicMeters;
+                $totalVolumePerHectare += $volumeInCubicMeters / $valve->irrigation_area;
             }
         }
 
@@ -349,6 +350,33 @@ class IrrigationReportService
             'total_volume_per_hectare' => $totalVolumePerHectare,
             'total_count' => $totalCount
         ];
+    }
+
+    /**
+     * Calculate irrigation duration from start_time in start_date to end_time in end_date
+     *
+     * @param \App\Models\Irrigation $irrigation
+     * @return int Duration in seconds
+     */
+    private function calculateIrrigationDuration(\App\Models\Irrigation $irrigation): int
+    {
+        // Combine start_date with time portion from start_time
+        $startDateTime = $irrigation->start_date->copy()
+            ->setTime(
+                $irrigation->start_time->hour,
+                $irrigation->start_time->minute,
+                $irrigation->start_time->second
+            );
+
+        // Combine end_date with time portion from end_time
+        $endDateTime = $irrigation->end_date->copy()
+            ->setTime(
+                $irrigation->end_time->hour,
+                $irrigation->end_time->minute,
+                $irrigation->end_time->second
+            );
+
+        return $startDateTime->diffInSeconds($endDateTime);
     }
 
     /**
