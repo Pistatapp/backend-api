@@ -202,8 +202,7 @@ class FarmReportService
 
         // Apply filters dynamically
         foreach ($filters as $key => $value) {
-            Log::info('Filter key', $key);
-            Log::info('Filter value', $value);
+            Log::info('Filter key: ' . $key . ' Filter value: ' . json_encode($value));
             match ($key) {
                 'reportable_type' => $query->where('reportable_type', 'App\\Models\\' . ucfirst($value)),
                 'reportable_id' => $query->whereIn('reportable_id', $value),
