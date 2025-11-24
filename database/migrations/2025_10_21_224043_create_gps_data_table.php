@@ -30,7 +30,10 @@ return new class extends Migration
 
         // For partitioning to work, the partitioning column (date_time) must be part of the primary key
         // We need to alter the table to set a composite primary key
-        DB::statement('ALTER TABLE gps_data DROP PRIMARY KEY, ADD PRIMARY KEY (id, date_time)');
+        // Skip this for SQLite as it doesn't support this syntax
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement('ALTER TABLE gps_data DROP PRIMARY KEY, ADD PRIMARY KEY (id, date_time)');
+        }
 
         // Implement daily table partitioning
         // MySQL requires the partitioning column to be part of a unique key
@@ -47,55 +50,58 @@ return new class extends Migration
 
         $partitionsStr = implode(",\n                ", $partitions);
 
-        DB::statement("
-            ALTER TABLE gps_data
-            PARTITION BY RANGE (YEAR(date_time) * 10000 + MONTH(date_time) * 100 + DAY(date_time)) (
-                {$partitionsStr},
-                PARTITION p_future VALUES LESS THAN MAXVALUE
-            )
-        ");
+        // Skip partitioning for SQLite as it doesn't support table partitioning
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement("
+                ALTER TABLE gps_data
+                PARTITION BY RANGE (YEAR(date_time) * 10000 + MONTH(date_time) * 100 + DAY(date_time)) (
+                    {$partitionsStr},
+                    PARTITION p_future VALUES LESS THAN MAXVALUE
+                )
+            ");
 
-        // Enable MySQL event scheduler if not already enabled
-        // DB::statement("SET GLOBAL event_scheduler = ON");
+            // Enable MySQL event scheduler if not already enabled
+            // DB::statement("SET GLOBAL event_scheduler = ON");
 
-        // Create MySQL event to automatically create new partitions daily at midnight
-        DB::statement("
-            CREATE EVENT IF NOT EXISTS create_daily_gps_data_partitions
-            ON SCHEDULE EVERY 1 DAY
-            STARTS (TIMESTAMP(CURRENT_DATE) + INTERVAL 1 DAY)
-            DO
-            BEGIN
-                DECLARE partition_name VARCHAR(20);
-                DECLARE partition_date DATE;
-                DECLARE partition_value INT;
-                DECLARE next_partition_value INT;
+            // Create MySQL event to automatically create new partitions daily at midnight
+            DB::statement("
+                CREATE EVENT IF NOT EXISTS create_daily_gps_data_partitions
+                ON SCHEDULE EVERY 1 DAY
+                STARTS (TIMESTAMP(CURRENT_DATE) + INTERVAL 1 DAY)
+                DO
+                BEGIN
+                    DECLARE partition_name VARCHAR(20);
+                    DECLARE partition_date DATE;
+                    DECLARE partition_value INT;
+                    DECLARE next_partition_value INT;
 
-                -- Calculate partition for the next day
-                SET partition_date = DATE_ADD(CURRENT_DATE, INTERVAL 1 DAY);
-                SET partition_name = CONCAT('p', DATE_FORMAT(partition_date, '%Y%m%d'));
-                SET partition_value = YEAR(partition_date) * 10000 + MONTH(partition_date) * 100 + DAY(partition_date);
-                SET next_partition_value = YEAR(DATE_ADD(partition_date, INTERVAL 1 DAY)) * 10000 +
-                                         MONTH(DATE_ADD(partition_date, INTERVAL 1 DAY)) * 100 +
-                                         DAY(DATE_ADD(partition_date, INTERVAL 1 DAY));
+                    -- Calculate partition for the next day
+                    SET partition_date = DATE_ADD(CURRENT_DATE, INTERVAL 1 DAY);
+                    SET partition_name = CONCAT('p', DATE_FORMAT(partition_date, '%Y%m%d'));
+                    SET partition_value = YEAR(partition_date) * 10000 + MONTH(partition_date) * 100 + DAY(partition_date);
+                    SET next_partition_value = YEAR(DATE_ADD(partition_date, INTERVAL 1 DAY)) * 10000 +
+                                             MONTH(DATE_ADD(partition_date, INTERVAL 1 DAY)) * 100 +
+                                             DAY(DATE_ADD(partition_date, INTERVAL 1 DAY));
 
-                -- Check if partition already exists
-                IF NOT EXISTS (
-                    SELECT 1
-                    FROM INFORMATION_SCHEMA.PARTITIONS
-                    WHERE TABLE_SCHEMA = DATABASE()
-                    AND TABLE_NAME = 'gps_data'
-                    AND PARTITION_NAME = partition_name
-                ) THEN
-                    -- Reorganize the p_future partition to add the new partition
-                    SET @sql = CONCAT('ALTER TABLE gps_data REORGANIZE PARTITION p_future INTO (',
-                                     'PARTITION ', partition_name, ' VALUES LESS THAN (', next_partition_value, '),',
-                                     'PARTITION p_future VALUES LESS THAN MAXVALUE)');
-                    PREPARE stmt FROM @sql;
-                    EXECUTE stmt;
-                    DEALLOCATE PREPARE stmt;
-                END IF;
-            END
-        ");
+                    -- Check if partition already exists
+                    IF NOT EXISTS (
+                        SELECT 1
+                        FROM INFORMATION_SCHEMA.PARTITIONS
+                        WHERE TABLE_SCHEMA = DATABASE()
+                        AND TABLE_NAME = 'gps_data'
+                        AND PARTITION_NAME = partition_name
+                    ) THEN
+                        -- Reorganize the p_future partition to add the new partition
+                        SET @sql = CONCAT('ALTER TABLE gps_data REORGANIZE PARTITION p_future INTO (',
+                                         'PARTITION ', partition_name, ' VALUES LESS THAN (', next_partition_value, '),',
+                                         'PARTITION p_future VALUES LESS THAN MAXVALUE)');
+                        PREPARE stmt FROM @sql;
+                        EXECUTE stmt;
+                        DEALLOCATE PREPARE stmt;
+                    END IF;
+                END
+            ");
+        }
     }
 
     /**
@@ -103,8 +109,10 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Drop the MySQL event first
-        DB::statement("DROP EVENT IF EXISTS create_daily_gps_data_partitions");
+        // Drop the MySQL event first (skip for SQLite)
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement("DROP EVENT IF EXISTS create_daily_gps_data_partitions");
+        }
 
         // Then drop the table
         Schema::dropIfExists('gps_data');
