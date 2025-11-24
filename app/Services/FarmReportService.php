@@ -200,6 +200,7 @@ class FarmReportService
     {
         $query = $farm->reports()->with(['operation', 'labour', 'reportable']);
 
+        return $query->orderBy('date', 'desc')->get();
         // Apply filters dynamically
         foreach ($filters as $key => $value) {
             Log::info('Filter key: ' . $key . ' Filter value: ' . json_encode($value));
@@ -213,7 +214,6 @@ class FarmReportService
             };
         }
 
-        return $query->orderBy('date', 'desc')->get();
     }
 
     /**
