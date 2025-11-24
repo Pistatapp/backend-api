@@ -53,8 +53,8 @@ class TractorPathService
                 ->orderBy('gps_data.date_time')
                 ->cursor();
 
-            // Single-pass smoothing via 3-point sliding window (generator-based for memory efficiency)
-            $smoothedStream = $this->pathCorrectionService->smoothSpeedStatusStream($cursor);
+            // Selective corner smoothing (stream-based, memory efficient)
+            $smoothedStream = $this->pathCorrectionService->smoothCornersStream($cursor);
 
             // Build final path in one pass (also computes stoppage durations and starting point)
             // Memory-efficient: only stores filtered points (movement + stoppage markers), not all GPS points

@@ -2,222 +2,169 @@
 
 namespace App\Services;
 
-use Carbon\Carbon;
-
 /**
- * Encapsulates common GPS path-correction algorithms:
- *  - Speed/status spike smoothing via a 3-point window
- *  - Streaming constant-velocity Kalman-style (alpha–beta) trajectory smoothing
- *  - Simple distance/speed-based outlier gating on coordinates
+ * GPS path-correction algorithms focused on geometric smoothing.
  *
- * All methods are streaming-friendly and operate on \Traversable inputs.
+ * This service exposes a streaming algorithm that selectively smooths only sharp
+ * corners and turn-arounds without disturbing straight segments. It keeps memory
+ * usage O(1) by buffering just three points at a time.
  */
 class GpsPathCorrectionService
 {
     /**
-     * Alpha–beta filter gains for coordinate smoothing.
-     *
-     * Tuned for tractor-scale speeds:
-     *  - alpha: position correction factor
-     *  - beta:  velocity correction factor
+     * Minimum angle (in degrees) between consecutive segments required to apply smoothing.
+     * Angles are computed such that 0° = straight line, 180° = full turn-around.
      */
-    private float $alpha = 0.35;
-    private float $beta = 0.12;
+    private float $cornerAngleThresholdDeg = 35.0;
 
     /**
-     * Maximum plausible speed (km/h) before treating a position jump as an outlier.
-     * Used to gate impossible coordinate jumps in the Kalman smoother.
+     * Strength of the correction applied to qualifying corner points (0-1).
      */
-    private float $maxGateSpeedKmh = 70.0;
+    private float $cornerSmoothFactor = 0.55;
 
     /**
-     * Stream-based speed/status smoothing: correct single-point anomalies using a 3-point window without loading all rows.
-     *
-     * Rules:
-     *  - If a single movement point is surrounded by stoppages, treat it as stoppage (speed = 0).
-     *  - If a single stoppage point is surrounded by movements, interpolate its speed from neighbors.
+     * Ignore extremely short segments (meters) to avoid amplifying GPS noise.
+     */
+    private float $minSegmentDistanceMeters = 0.5;
+
+    /**
+     * Stream-based corner smoothing. Only middle points that represent sharp turns
+     * or turn-arounds are adjusted; other points are passed through untouched.
      *
      * @param \Traversable $points
      * @return \Generator
      */
-    public function smoothSpeedStatusStream($points): \Generator
+    public function smoothCornersStream($points): \Generator
     {
         $buffer = [];
-        foreach ($points as $p) {
-            $buffer[] = $p;
+
+        foreach ($points as $point) {
+            $this->normalizePointCoordinate($point);
+            $buffer[] = $point;
+
             if (count($buffer) < 3) {
                 continue;
             }
 
             [$prev, $curr, $next] = $buffer;
-
-            $prevSpeed = (float) $prev->speed;
-            $nextSpeed = (float) $next->speed;
-            $currSpeed = (float) $curr->speed;
-
-            $prevStatus = (int) $prev->status;
-            $nextStatus = (int) $next->status;
-            $currStatus = (int) $curr->status;
-
-            $prevIsMovement = ($prevStatus === 1 && $prevSpeed > 0);
-            $nextIsMovement = ($nextStatus === 1 && $nextSpeed > 0);
-            $prevIsStoppage = ($prevSpeed == 0);
-            $nextIsStoppage = ($nextSpeed == 0);
-            $currIsMovement = ($currStatus === 1 && $currSpeed > 0);
-            $currIsStoppage = ($currSpeed == 0);
-
-            if ($currIsMovement && $prevIsStoppage && $nextIsStoppage) {
-                // Isolated movement spike between stoppages → treat as stoppage
-                $curr->speed = 0;
-            } elseif ($currIsStoppage && $prevIsMovement && $nextIsMovement) {
-                // Isolated stoppage between movements → interpolate speed
-                $avgSpeed = ($prevSpeed + $nextSpeed) / 2;
-                $curr->speed = $avgSpeed > 0 ? $avgSpeed : 1;
-            }
-
-            yield $curr;
+            $smoothed = $this->applyCornerSmoothing($prev, $curr, $next);
+            yield $smoothed;
 
             array_shift($buffer);
         }
 
-        // Flush remaining points in buffer as-is
-        if (count($buffer) === 2) {
-            yield $buffer[0];
-            yield $buffer[1];
-        } elseif (count($buffer) === 1) {
-            yield $buffer[0];
+        foreach ($buffer as $remaining) {
+            yield $remaining;
         }
     }
 
     /**
-     * Streaming Kalman-style (alpha–beta) filter on coordinates with simple outlier gating.
-     *
-     * State (per axis):
-     *  - position (deg)
-     *  - velocity (deg/sec)
-     *
-     * Measurement:
-     *  - raw GPS position (deg)
-     *
-     * Outlier gating:
-     *  - If the implied speed between the predicted position and measurement exceeds maxGateSpeedKmh,
-     *    the measurement is treated as an outlier and ignored for this update.
-     *
-     * @param \Traversable $points Stream of GPS points in chronological order
-     * @return \Generator
+     * Apply selective smoothing to the middle point of three consecutive samples.
      */
-    public function kalmanSmoothCoordinatesStream($points): \Generator
+    private function applyCornerSmoothing(object $prev, object $curr, object $next): object
     {
-        $state = null;        // ['lat', 'lon', 'v_lat', 'v_lon']
-        $prevTimestamp = null;
+        $prevCoord = $this->normalizePointCoordinate($prev);
+        $currCoord = $this->normalizePointCoordinate($curr);
+        $nextCoord = $this->normalizePointCoordinate($next);
 
-        foreach ($points as $point) {
-            // Normalize timestamp to Carbon
-            $ts = $point->date_time ?? null;
-            if ($ts instanceof Carbon) {
-                $currentTime = $ts;
-            } elseif (is_string($ts)) {
-                $currentTime = Carbon::parse($ts);
-                $point->date_time = $currentTime;
-            } else {
-                $currentTime = Carbon::now();
-                $point->date_time = $currentTime;
-            }
+        $prevDist = $this->distanceMeters($prevCoord, $currCoord);
+        $nextDist = $this->distanceMeters($currCoord, $nextCoord);
 
-            // Parse coordinate to numeric [lat, lon]
-            $lat = 0.0;
-            $lon = 0.0;
-            $coord = $point->coordinate ?? null;
-
-            if (is_string($coord)) {
-                // Try JSON first (e.g. "[lat,lon]"), fallback to "lat,lon"
-                $decoded = json_decode($coord, true);
-                if (is_array($decoded)) {
-                    $lat = isset($decoded[0]) ? (float) $decoded[0] : 0.0;
-                    $lon = isset($decoded[1]) ? (float) $decoded[1] : 0.0;
-                } else {
-                    $parts = array_map('floatval', explode(',', $coord));
-                    $lat = $parts[0] ?? 0.0;
-                    $lon = $parts[1] ?? 0.0;
-                }
-            } elseif (is_array($coord)) {
-                $lat = isset($coord[0]) ? (float) $coord[0] : 0.0;
-                $lon = isset($coord[1]) ? (float) $coord[1] : 0.0;
-            }
-
-            // Initialize filter state on first valid point
-            if ($state === null) {
-                $state = [
-                    'lat'   => $lat,
-                    'lon'   => $lon,
-                    'v_lat' => 0.0,
-                    'v_lon' => 0.0,
-                ];
-                $prevTimestamp = $currentTime->timestamp;
-
-                // Store filtered coordinate as array; downstream formatters already support arrays
-                $point->coordinate = [$state['lat'], $state['lon']];
-                yield $point;
-                continue;
-            }
-
-            $currentTs = $currentTime->timestamp;
-            $dt = max(0.1, $currentTs - $prevTimestamp); // seconds, avoid zero
-
-            // --- Prediction step (constant-velocity model) ---
-            $predLat = $state['lat'] + $state['v_lat'] * $dt;
-            $predLon = $state['lon'] + $state['v_lon'] * $dt;
-
-            // --- Outlier gating on measurement ---
-            $measurementLat = $lat;
-            $measurementLon = $lon;
-
-            // If measurement is obviously invalid (0,0), fall back to prediction
-            if ($measurementLat == 0.0 && $measurementLon == 0.0) {
-                $measurementLat = $predLat;
-                $measurementLon = $predLon;
-            }
-
-            // Use approximate geodesic distance in km if helper is available
-            if (function_exists('calculate_distance')) {
-                $distanceKm = calculate_distance(
-                    [$predLat, $predLon],
-                    [$measurementLat, $measurementLon]
-                );
-                $speedKmh = $dt > 0 ? ($distanceKm * 3600 / $dt) : 0.0;
-
-                if ($speedKmh > $this->maxGateSpeedKmh) {
-                    // Measurement implies impossible speed → treat as outlier and ignore for this update
-                    $measurementLat = $predLat;
-                    $measurementLon = $predLon;
-                }
-            }
-
-            // --- Update step (alpha–beta) ---
-            // Innovation (residual) between measurement and prediction
-            $resLat = $measurementLat - $predLat;
-            $resLon = $measurementLon - $predLon;
-
-            // Position correction
-            $newLat = $predLat + $this->alpha * $resLat;
-            $newLon = $predLon + $this->beta * $resLon;
-
-            // Velocity correction
-            $newVLat = $state['v_lat'] + ($this->beta / $dt) * $resLat;
-            $newVLon = $state['v_lon'] + ($this->beta / $dt) * $resLon;
-
-            // Update state
-            $state['lat'] = $newLat;
-            $state['lon'] = $newLon;
-            $state['v_lat'] = $newVLat;
-            $state['v_lon'] = $newVLon;
-            $prevTimestamp = $currentTs;
-
-            // Persist smoothed coordinate back onto the point
-            $point->coordinate = [$newLat, $newLon];
-
-            yield $point;
+        if ($prevDist < $this->minSegmentDistanceMeters || $nextDist < $this->minSegmentDistanceMeters) {
+            return $curr;
         }
+
+        $angle = $this->calculateAngleDegrees($prevCoord, $currCoord, $nextCoord);
+
+        if ($angle === null || $angle < $this->cornerAngleThresholdDeg) {
+            return $curr;
+        }
+
+        $severity = min(1.0, ($angle - $this->cornerAngleThresholdDeg) / (180.0 - $this->cornerAngleThresholdDeg));
+        $factor = $this->cornerSmoothFactor * $severity;
+
+        $midLat = ($prevCoord[0] + $nextCoord[0]) / 2;
+        $midLon = ($prevCoord[1] + $nextCoord[1]) / 2;
+
+        $curr->coordinate = [
+            $currCoord[0] + $factor * ($midLat - $currCoord[0]),
+            $currCoord[1] + $factor * ($midLon - $currCoord[1]),
+        ];
+
+        return $curr;
+    }
+
+    /**
+     * Normalize the coordinate representation on a point to a float array [lat, lon].
+     */
+    private function normalizePointCoordinate(object $point): array
+    {
+        $coord = $point->coordinate ?? null;
+        $lat = 0.0;
+        $lon = 0.0;
+
+        if (is_string($coord)) {
+            $decoded = json_decode($coord, true);
+            if (is_array($decoded)) {
+                $lat = isset($decoded[0]) ? (float) $decoded[0] : 0.0;
+                $lon = isset($decoded[1]) ? (float) $decoded[1] : 0.0;
+            } else {
+                $parts = array_map('floatval', explode(',', $coord));
+                $lat = $parts[0] ?? 0.0;
+                $lon = $parts[1] ?? 0.0;
+            }
+        } elseif (is_array($coord)) {
+            $lat = isset($coord[0]) ? (float) $coord[0] : 0.0;
+            $lon = isset($coord[1]) ? (float) $coord[1] : 0.0;
+        } elseif (isset($point->latitude) && isset($point->longitude)) {
+            $lat = (float) $point->latitude;
+            $lon = (float) $point->longitude;
+        }
+
+        $normalized = [$lat, $lon];
+        $point->coordinate = $normalized;
+
+        return $normalized;
+    }
+
+    /**
+     * Compute the angle between two consecutive vectors (prev->curr and curr->next) in degrees.
+     */
+    private function calculateAngleDegrees(array $prev, array $curr, array $next): ?float
+    {
+        $v1 = [$curr[0] - $prev[0], $curr[1] - $prev[1]];
+        $v2 = [$next[0] - $curr[0], $next[1] - $curr[1]];
+
+        $mag1 = hypot($v1[0], $v1[1]);
+        $mag2 = hypot($v2[0], $v2[1]);
+
+        if ($mag1 == 0.0 || $mag2 == 0.0) {
+            return null;
+        }
+
+        $dot = ($v1[0] * $v2[0]) + ($v1[1] * $v2[1]);
+        $cosTheta = $dot / ($mag1 * $mag2);
+        $cosTheta = max(-1.0, min(1.0, $cosTheta));
+
+        return rad2deg(acos($cosTheta));
+    }
+
+    /**
+     * Compute geodesic distance between two coordinates in meters using the haversine formula.
+     */
+    private function distanceMeters(array $a, array $b): float
+    {
+        $earthRadius = 6371000; // meters
+
+        $lat1 = deg2rad($a[0]);
+        $lat2 = deg2rad($b[0]);
+        $deltaLat = $lat2 - $lat1;
+        $deltaLon = deg2rad($b[1] - $a[1]);
+
+        $hav = sin($deltaLat / 2) ** 2 + cos($lat1) * cos($lat2) * sin($deltaLon / 2) ** 2;
+        $c = 2 * asin(min(1, sqrt($hav)));
+
+        return $earthRadius * $c;
     }
 }
 
