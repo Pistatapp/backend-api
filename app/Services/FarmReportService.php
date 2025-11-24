@@ -7,6 +7,7 @@ use App\Models\FarmReport;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Collection as SupportCollection;
+use Illuminate\Support\Facades\Log;
 
 class FarmReportService
 {
@@ -201,6 +202,8 @@ class FarmReportService
 
         // Apply filters dynamically
         foreach ($filters as $key => $value) {
+            Log::info('Filter key', $key);
+            Log::info('Filter value', $value);
             match ($key) {
                 'reportable_type' => $query->where('reportable_type', 'App\\Models\\' . ucfirst($value)),
                 'reportable_id' => $query->whereIn('reportable_id', $value),
