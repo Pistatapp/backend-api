@@ -9,6 +9,11 @@ use Illuminate\Support\Facades\Log;
 
 class TractorPathService
 {
+    public function __construct(
+        private GpsPathCorrectionService $pathCorrectionService,
+    ) {
+    }
+
     /**
      * Retrieves the tractor movement path for a specific date using GPS data analysis.
      * Optimized for performance without caching for real-time updates.
@@ -49,7 +54,7 @@ class TractorPathService
                 ->cursor();
 
             // Single-pass smoothing via 3-point sliding window (generator-based for memory efficiency)
-            $smoothedStream = $this->smoothGpsErrorsStream($cursor);
+            $smoothedStream = $this->pathCorrectionService->smoothSpeedStatusStream($cursor);
 
             // Build final path in one pass (also computes stoppage durations and starting point)
             // Memory-efficient: only stores filtered points (movement + stoppage markers), not all GPS points
@@ -68,55 +73,6 @@ class TractorPathService
         }
     }
 
-
-    /**
-     * Stream-based smoothing: correct single-point anomalies using a 3-point window without loading all rows.
-     *
-     * @param \Traversable $points
-     * @return \Generator
-     */
-    private function smoothGpsErrorsStream($points): \Generator
-    {
-        $buffer = [];
-        foreach ($points as $p) {
-            $buffer[] = $p;
-            if (count($buffer) < 3) {
-                continue;
-            }
-
-            [$prev, $curr, $next] = $buffer;
-
-            $prevSpeed = (float)$prev->speed;
-            $nextSpeed = (float)$next->speed;
-            $currSpeed = (float)$curr->speed;
-
-            $prevIsMovement = ((int)$prev->status === 1 && $prevSpeed > 0);
-            $nextIsMovement = ((int)$next->status === 1 && $nextSpeed > 0);
-            $prevIsStoppage = ($prevSpeed == 0);
-            $nextIsStoppage = ($nextSpeed == 0);
-            $currIsMovement = ((int)$curr->status === 1 && $currSpeed > 0);
-            $currIsStoppage = ($currSpeed == 0);
-
-            if ($currIsMovement && $prevIsStoppage && $nextIsStoppage) {
-                $curr->speed = 0;
-            } elseif ($currIsStoppage && $prevIsMovement && $nextIsMovement) {
-                $avgSpeed = ($prevSpeed + $nextSpeed) / 2;
-                $curr->speed = $avgSpeed > 0 ? $avgSpeed : 1;
-            }
-
-            yield $curr;
-
-            array_shift($buffer);
-        }
-
-        // Flush remaining points in buffer as-is
-        if (count($buffer) === 2) {
-            yield $buffer[0];
-            yield $buffer[1];
-        } elseif (count($buffer) === 1) {
-            yield $buffer[0];
-        }
-    }
 
     /**
      * Get the last point from the previous date

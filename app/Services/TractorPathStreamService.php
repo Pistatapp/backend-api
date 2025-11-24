@@ -17,6 +17,20 @@ class TractorPathStreamService
      * @param Carbon $date
      * @return \Illuminate\Http\StreamedResponse
      */
+    public function __construct(
+        private GpsPathCorrectionService $pathCorrectionService,
+    ) {
+    }
+
+    /**
+     * Retrieves the tractor movement path for a specific date using GPS data analysis.
+     * Streams JSON response for memory-efficient handling of large datasets.
+     * Handles thousands of records efficiently using streaming database cursors and JSON streaming.
+     *
+     * @param Tractor $tractor
+     * @param Carbon $date
+     * @return \Illuminate\Http\StreamedResponse
+     */
     public function getTractorPath(Tractor $tractor, Carbon $date)
     {
         try {
@@ -47,12 +61,16 @@ class TractorPathStreamService
                 ->orderBy('gps_data.date_time')
                 ->cursor();
 
-            // Single-pass smoothing via 3-point sliding window (generator-based for memory efficiency)
-            $smoothedStream = $this->smoothGpsErrorsStream($cursor);
+            // Step 1: Correct obvious speed/status spikes with a light 3‑point window (same idea as TractorPathService)
+            $speedSmoothedStream = $this->pathCorrectionService->smoothSpeedStatusStream($cursor);
+
+            // Step 2: Apply a streaming constant‑velocity Kalman‑style (alpha‑beta) filter on coordinates.
+            // This reduces jitter and small jumps while remaining cheap enough for real‑time streaming.
+            $trajectorySmoothedStream = $this->pathCorrectionService->kalmanSmoothCoordinatesStream($speedSmoothedStream);
 
             // Stream path points directly as they're processed (true streaming for memory efficiency)
             // Format and yield points immediately without collecting in memory
-            return response()->streamJson($this->generateFormattedPointsFromStream($smoothedStream));
+            return response()->streamJson($this->generateFormattedPointsFromStream($trajectorySmoothedStream));
 
         } catch (\Exception $e) {
             Log::error('Failed to get tractor path (streamed)', [
@@ -88,60 +106,6 @@ class TractorPathStreamService
     {
         foreach ($points as $point) {
             yield $this->formatPointForResponse($point);
-        }
-    }
-
-    /**
-     * Stream-based smoothing: correct single-point anomalies using a 3-point window without loading all rows.
-     *
-     * @param \Traversable $points
-     * @return \Generator
-     */
-    private function smoothGpsErrorsStream($points): \Generator
-    {
-        $buffer = [];
-        foreach ($points as $p) {
-            $buffer[] = $p;
-            if (count($buffer) < 3) {
-                continue;
-            }
-
-            [$prev, $curr, $next] = $buffer;
-
-            // Optimize: cache type casts
-            $prevSpeed = (float)$prev->speed;
-            $nextSpeed = (float)$next->speed;
-            $currSpeed = (float)$curr->speed;
-            $prevStatus = (int)$prev->status;
-            $nextStatus = (int)$next->status;
-            $currStatus = (int)$curr->status;
-
-            // Optimize: cache boolean checks
-            $prevIsMovement = ($prevStatus === 1 && $prevSpeed > 0);
-            $nextIsMovement = ($nextStatus === 1 && $nextSpeed > 0);
-            $prevIsStoppage = ($prevSpeed == 0);
-            $nextIsStoppage = ($nextSpeed == 0);
-            $currIsMovement = ($currStatus === 1 && $currSpeed > 0);
-            $currIsStoppage = ($currSpeed == 0);
-
-            if ($currIsMovement && $prevIsStoppage && $nextIsStoppage) {
-                $curr->speed = 0;
-            } elseif ($currIsStoppage && $prevIsMovement && $nextIsMovement) {
-                $avgSpeed = ($prevSpeed + $nextSpeed) / 2;
-                $curr->speed = $avgSpeed > 0 ? $avgSpeed : 1;
-            }
-
-            yield $curr;
-
-            array_shift($buffer);
-        }
-
-        // Flush remaining points in buffer as-is
-        if (count($buffer) === 2) {
-            yield $buffer[0];
-            yield $buffer[1];
-        } elseif (count($buffer) === 1) {
-            yield $buffer[0];
         }
     }
 
