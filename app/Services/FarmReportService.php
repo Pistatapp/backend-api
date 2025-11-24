@@ -200,20 +200,19 @@ class FarmReportService
     {
         $query = $farm->reports()->with(['operation', 'labour', 'reportable']);
 
-        return $query->orderBy('date', 'desc')->get();
         // Apply filters dynamically
         foreach ($filters as $key => $value) {
-            Log::info('Filter key: ' . $key . ' Filter value: ' . json_encode($value));
             match ($key) {
                 'reportable_type' => $query->where('reportable_type', 'App\\Models\\' . ucfirst($value)),
                 'reportable_id' => $query->whereIn('reportable_id', $value),
                 'operation_ids' => $query->whereIn('operation_id', $value),
                 'labour_ids' => $query->whereIn('labour_id', $value),
-                'date_range' => $query->whereDate('date', '>=', $value['from'])->whereDate('date', '<=', $value['to']),
+                'date_range' => $query->whereBetween('date', [$value['from'], $value['to']]),
                 default => null,
             };
         }
 
+        return $query->orderBy('date', 'desc')->get();
     }
 
     /**
