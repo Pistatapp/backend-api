@@ -11,6 +11,7 @@ use App\Models\Farm;
 use App\Models\FarmReport;
 use App\Services\FarmReportService;
 use Illuminate\Http\Resources\Json\ResourceCollection;
+use Illuminate\Support\Facades\Log;
 
 class FarmReportsController extends Controller
 {
@@ -95,6 +96,7 @@ class FarmReportsController extends Controller
      */
     public function filter(FarmReportFilterRequest $request, Farm $farm): ResourceCollection
     {
+        Log::info('Filter request received', $request->all());
         $filters = $request->validated()['filters'];
         $reports = $this->farmReportService->getFilteredReports($farm, $filters);
 
