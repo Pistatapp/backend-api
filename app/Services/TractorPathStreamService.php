@@ -62,7 +62,8 @@ class TractorPathStreamService
                 ->cursor();
 
             // Apply selective corner/turn smoothing without altering straight runs.
-            $cornerSmoothedStream = $this->pathCorrectionService->smoothCornersStream($cursor);
+            // $cornerSmoothedStream = $this->pathCorrectionService->smoothCornersStream($cursor);
+            $cornerSmoothedStream = $cursor;
 
             // Stream path points directly as they're processed (true streaming for memory efficiency)
             // Format and yield points immediately without collecting in memory
