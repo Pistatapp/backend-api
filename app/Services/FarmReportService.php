@@ -203,11 +203,11 @@ class FarmReportService
         // Apply filters dynamically
         foreach ($filters as $key => $value) {
             match ($key) {
-                'reportable_type' => $query->where('reportable_type', 'App\\Models\\' . ucfirst($value)),
-                'reportable_id' => $query->whereIn('reportable_id', $value),
+                // 'reportable_type' => $query->where('reportable_type', 'App\\Models\\' . ucfirst($value)),
+                // 'reportable_id' => $query->whereIn('reportable_id', $value),
                 'operation_ids' => $query->whereIn('operation_id', $value),
                 'labour_ids' => $query->whereIn('labour_id', $value),
-                // 'date_range' => $query->whereBetween('date', [$value['from'], $value['to']]),
+                'date_range' => $query->whereBetween('date', [$value['from'], $value['to']]),
                 default => null,
             };
         }
