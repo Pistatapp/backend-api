@@ -7,20 +7,23 @@ namespace App\Services;
  *
  * This service exposes a streaming algorithm that selectively smooths only sharp
  * corners and turn-arounds without disturbing straight segments. It keeps memory
- * usage O(1) by buffering just three points at a time.
+ * usage O(1) by buffering a small, local window of points at a time.
  */
 class GpsPathCorrectionService
 {
     /**
-     * Minimum angle (in degrees) between consecutive segments required to apply smoothing.
-     * Angles are computed such that 0° = straight line, 180° = full turn-around.
+     * Corner detection threshold in degrees.
+     *
+     * Angle is computed at point B for triplet (A, B, C) using vectors AB and CB:
+     *   angle = acos( dot(AB, CB) / (|AB| * |CB|) )
+     *
+     * With this convention:
+     *   - Straight segments yield angles near 180°
+     *   - Tight corners / turnarounds yield smaller angles (e.g. 0–140°)
+     *
+     * We treat points with angle < threshold as candidates for smoothing.
      */
-    private float $cornerAngleThresholdDeg = 35.0;
-
-    /**
-     * Strength of the correction applied to qualifying corner points (0-1).
-     */
-    private float $cornerSmoothFactor = 0.55;
+    private float $cornerAngleThresholdDeg = 150.0;
 
     /**
      * Ignore extremely short segments (meters) to avoid amplifying GPS noise.
@@ -28,41 +31,69 @@ class GpsPathCorrectionService
     private float $minSegmentDistanceMeters = 0.5;
 
     /**
-     * Stream-based corner smoothing. Only middle points that represent sharp turns
-     * or turn-arounds are adjusted; other points are passed through untouched.
+     * Stream-based corner smoothing.
+     *
+     * This implements the "corner-only smoothing" algorithm:
+     *  - Maintain a sliding window of up to 5 points.
+     *  - For each center point B with neighbors A and C, compute the angle at B.
+     *  - If angle(B) < threshold and adjacent segments are not too short, replace B's
+     *    coordinate with the average of the local window (i-2 … i+2).
+     *  - All other points are yielded unchanged.
+     *
+     * Edges (first/last few points) are not smoothed.
      *
      * @param \Traversable $points
      * @return \Generator
      */
     public function smoothCornersStream($points): \Generator
     {
-        $buffer = [];
+        $window = [];
 
         foreach ($points as $point) {
             $this->normalizePointCoordinate($point);
-            $buffer[] = $point;
+            $window[] = $point;
 
-            if (count($buffer) < 3) {
+            // Build up the initial window; we start smoothing once we have 5 points.
+            if (count($window) < 5) {
                 continue;
             }
 
-            [$prev, $curr, $next] = $buffer;
-            $smoothed = $this->applyCornerSmoothing($prev, $curr, $next);
-            yield $smoothed;
+            // Center index for 5-point window [i-2, i-1, i, i+1, i+2]
+            $centerIndex = 2;
+            $smoothedCenter = $this->smoothCenterOfWindow($window, $centerIndex);
 
-            array_shift($buffer);
+            // Yield the (possibly) smoothed center point.
+            yield $smoothedCenter;
+
+            // Slide window forward by one point.
+            array_shift($window);
         }
 
-        foreach ($buffer as $remaining) {
+        // Flush remaining points at the tail without further smoothing.
+        foreach ($window as $remaining) {
             yield $remaining;
         }
     }
 
     /**
-     * Apply selective smoothing to the middle point of three consecutive samples.
+     * Apply selective smoothing to the center of a 5-point window if it represents a corner/turnaround.
      */
-    private function applyCornerSmoothing(object $prev, object $curr, object $next): object
+    private function smoothCenterOfWindow(array $window, int $centerIndex): object
     {
+        // Defensive: require at least 3 points and a valid center index.
+        if (count($window) < 3 || !isset($window[$centerIndex])) {
+            return $window[$centerIndex] ?? reset($window);
+        }
+
+        // Use immediate neighbors for angle computation: A = i-1, B = i, C = i+1
+        $prev = $window[$centerIndex - 1] ?? null;
+        $curr = $window[$centerIndex];
+        $next = $window[$centerIndex + 1] ?? null;
+
+        if (!$prev || !$next) {
+            return $curr;
+        }
+
         $prevCoord = $this->normalizePointCoordinate($prev);
         $currCoord = $this->normalizePointCoordinate($curr);
         $nextCoord = $this->normalizePointCoordinate($next);
@@ -76,20 +107,29 @@ class GpsPathCorrectionService
 
         $angle = $this->calculateAngleDegrees($prevCoord, $currCoord, $nextCoord);
 
-        if ($angle === null || $angle < $this->cornerAngleThresholdDeg) {
+        // If angle is invalid or not a "corner", return original center.
+        if ($angle === null || $angle >= $this->cornerAngleThresholdDeg) {
             return $curr;
         }
 
-        $severity = min(1.0, ($angle - $this->cornerAngleThresholdDeg) / (180.0 - $this->cornerAngleThresholdDeg));
-        $factor = $this->cornerSmoothFactor * $severity;
+        // Angle below threshold → we treat this as a corner and smooth locally.
+        // Use a 5-point moving average over the available window (i-2 … i+2).
+        $sumLat = 0.0;
+        $sumLon = 0.0;
+        $count = 0;
 
-        $midLat = ($prevCoord[0] + $nextCoord[0]) / 2;
-        $midLon = ($prevCoord[1] + $nextCoord[1]) / 2;
+        foreach ($window as $pt) {
+            $coord = $this->normalizePointCoordinate($pt);
+            $sumLat += $coord[0];
+            $sumLon += $coord[1];
+            $count++;
+        }
 
-        $curr->coordinate = [
-            $currCoord[0] + $factor * ($midLat - $currCoord[0]),
-            $currCoord[1] + $factor * ($midLon - $currCoord[1]),
-        ];
+        if ($count > 0) {
+            $avgLat = $sumLat / $count;
+            $avgLon = $sumLon / $count;
+            $curr->coordinate = [$avgLat, $avgLon];
+        }
 
         return $curr;
     }
@@ -132,8 +172,9 @@ class GpsPathCorrectionService
      */
     private function calculateAngleDegrees(array $prev, array $curr, array $next): ?float
     {
-        $v1 = [$curr[0] - $prev[0], $curr[1] - $prev[1]];
-        $v2 = [$next[0] - $curr[0], $next[1] - $curr[1]];
+        // Vectors AB (prev->curr) and CB (next->curr) to match the described algorithm.
+        $v1 = [$curr[0] - $prev[0], $curr[1] - $prev[1]]; // AB
+        $v2 = [$curr[0] - $next[0], $curr[1] - $next[1]]; // CB
 
         $mag1 = hypot($v1[0], $v1[1]);
         $mag2 = hypot($v2[0], $v2[1]);
