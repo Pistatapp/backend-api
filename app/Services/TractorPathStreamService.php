@@ -66,11 +66,11 @@ class TractorPathStreamService
 
             // Step 2: Apply a streaming constant‑velocity Kalman‑style (alpha‑beta) filter on coordinates.
             // This reduces jitter and small jumps while remaining cheap enough for real‑time streaming.
-            $trajectorySmoothedStream = $this->pathCorrectionService->kalmanSmoothCoordinatesStream($cursor);
+            // $trajectorySmoothedStream = $this->pathCorrectionService->kalmanSmoothCoordinatesStream($cursor);
 
             // Stream path points directly as they're processed (true streaming for memory efficiency)
             // Format and yield points immediately without collecting in memory
-            return response()->streamJson($this->generateFormattedPointsFromStream($trajectorySmoothedStream));
+            return response()->streamJson($this->generateFormattedPointsFromStream($cursor));
 
         } catch (\Exception $e) {
             Log::error('Failed to get tractor path (streamed)', [
