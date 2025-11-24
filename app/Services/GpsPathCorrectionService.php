@@ -31,6 +31,11 @@ class GpsPathCorrectionService
     private float $minSegmentDistanceMeters = 0.5;
 
     /**
+     * Number of interpolated points to add before and after a smoothed corner.
+     */
+    private int $numInterpolationPoints = 2;
+
+    /**
      * Stream-based corner smoothing.
      *
      * This implements the "corner-only smoothing" algorithm:
@@ -60,10 +65,12 @@ class GpsPathCorrectionService
 
             // Center index for 5-point window [i-2, i-1, i, i+1, i+2]
             $centerIndex = 2;
-            $smoothedCenter = $this->smoothCenterOfWindow($window, $centerIndex);
+            $processedPoints = $this->processCorner($window, $centerIndex);
 
-            // Yield the (possibly) smoothed center point.
-            yield $smoothedCenter;
+            // Yield the (possibly) smoothed center point(s).
+            foreach ($processedPoints as $p) {
+                yield $p;
+            }
 
             // Slide window forward by one point.
             array_shift($window);
@@ -77,12 +84,13 @@ class GpsPathCorrectionService
 
     /**
      * Apply selective smoothing to the center of a 5-point window if it represents a corner/turnaround.
+     * Returns an array of points (including interpolated ones if smoothed).
      */
-    private function smoothCenterOfWindow(array $window, int $centerIndex): object
+    private function processCorner(array $window, int $centerIndex): array
     {
         // Defensive: require at least 3 points and a valid center index.
         if (count($window) < 3 || !isset($window[$centerIndex])) {
-            return $window[$centerIndex] ?? reset($window);
+            return [$window[$centerIndex] ?? reset($window)];
         }
 
         // Use immediate neighbors for angle computation: A = i-1, B = i, C = i+1
@@ -91,7 +99,7 @@ class GpsPathCorrectionService
         $next = $window[$centerIndex + 1] ?? null;
 
         if (!$prev || !$next) {
-            return $curr;
+            return [$curr];
         }
 
         $prevCoord = $this->normalizePointCoordinate($prev);
@@ -102,14 +110,14 @@ class GpsPathCorrectionService
         $nextDist = $this->distanceMeters($currCoord, $nextCoord);
 
         if ($prevDist < $this->minSegmentDistanceMeters || $nextDist < $this->minSegmentDistanceMeters) {
-            return $curr;
+            return [$curr];
         }
 
         $angle = $this->calculateAngleDegrees($prevCoord, $currCoord, $nextCoord);
 
         // If angle is invalid or not a "corner", return original center.
         if ($angle === null || $angle >= $this->cornerAngleThresholdDeg) {
-            return $curr;
+            return [$curr];
         }
 
         // Angle below threshold → we treat this as a corner and smooth locally.
@@ -129,9 +137,57 @@ class GpsPathCorrectionService
             $avgLat = $sumLat / $count;
             $avgLon = $sumLon / $count;
             $curr->coordinate = [$avgLat, $avgLon];
+
+            // Also update lat/lon properties if they exist
+            if (isset($curr->latitude)) {
+                $curr->latitude = $avgLat;
+            }
+            if (isset($curr->longitude)) {
+                $curr->longitude = $avgLon;
+            }
         }
 
-        return $curr;
+        // Generate interpolated points using the NEW smoothed coordinate of curr.
+        // We interpolate between prev -> curr and curr -> next.
+        $before = $this->interpolatePoints($prev, $curr, $this->numInterpolationPoints);
+        $after  = $this->interpolatePoints($curr, $next, $this->numInterpolationPoints);
+
+        return array_merge($before, [$curr], $after);
+    }
+
+    /**
+     * Interpolate points linearly between two points.
+     */
+    private function interpolatePoints(object $start, object $end, int $count): array
+    {
+        $startCoord = $this->normalizePointCoordinate($start);
+        $endCoord = $this->normalizePointCoordinate($end);
+
+        $newPoints = [];
+
+        for ($i = 1; $i <= $count; $i++) {
+            $fraction = $i / ($count + 1);
+            $lat = $startCoord[0] + ($endCoord[0] - $startCoord[0]) * $fraction;
+            $lon = $startCoord[1] + ($endCoord[1] - $startCoord[1]) * $fraction;
+
+            $newPoint = clone $start;
+            // Clear ID if it exists to avoid conflicts
+            if (isset($newPoint->id)) {
+                unset($newPoint->id);
+            }
+
+            $newPoint->coordinate = [$lat, $lon];
+            if (isset($newPoint->latitude)) {
+                $newPoint->latitude = $lat;
+            }
+            if (isset($newPoint->longitude)) {
+                $newPoint->longitude = $lon;
+            }
+
+            $newPoints[] = $newPoint;
+        }
+
+        return $newPoints;
     }
 
     /**
