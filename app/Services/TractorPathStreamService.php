@@ -62,11 +62,11 @@ class TractorPathStreamService
                 ->cursor();
 
             // Step 1: Correct obvious speed/status spikes with a light 3‑point window (same idea as TractorPathService)
-            $speedSmoothedStream = $this->pathCorrectionService->smoothSpeedStatusStream($cursor);
+            // $speedSmoothedStream = $this->pathCorrectionService->smoothSpeedStatusStream($cursor);
 
             // Step 2: Apply a streaming constant‑velocity Kalman‑style (alpha‑beta) filter on coordinates.
             // This reduces jitter and small jumps while remaining cheap enough for real‑time streaming.
-            $trajectorySmoothedStream = $this->pathCorrectionService->kalmanSmoothCoordinatesStream($speedSmoothedStream);
+            $trajectorySmoothedStream = $this->pathCorrectionService->kalmanSmoothCoordinatesStream($cursor);
 
             // Stream path points directly as they're processed (true streaming for memory efficiency)
             // Format and yield points immediately without collecting in memory
