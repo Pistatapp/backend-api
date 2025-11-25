@@ -15,8 +15,7 @@ class ValvePolicy
      */
     public function viewAny(User $user): bool
     {
-        // Users can view valves if they have access to the farm
-        return true;
+        return $user->hasFarm();
     }
 
     /**
@@ -24,8 +23,8 @@ class ValvePolicy
      */
     public function view(User $user, Valve $valve): bool
     {
-        // User can view valve if they have access to the farm
-        return $user->farms->contains($valve->pump->farm_id);
+        // Valves belong to plots, which belong to fields, which belong to farms
+        return $valve->plot->field->farm->users->contains($user);
     }
 
     /**
@@ -33,8 +32,7 @@ class ValvePolicy
      */
     public function create(User $user): bool
     {
-        // Users with farm access can create valves
-        return true;
+        return $user->hasFarm() && $user->can('draw-pump-and-valve');
     }
 
     /**
@@ -42,8 +40,7 @@ class ValvePolicy
      */
     public function update(User $user, Valve $valve): bool
     {
-        // User can update valve if they have access to the farm
-        return $user->farms->contains($valve->pump->farm_id);
+        return $valve->plot->field->farm->users->contains($user) && $user->can('draw-pump-and-valve');
     }
 
     /**
@@ -51,8 +48,7 @@ class ValvePolicy
      */
     public function delete(User $user, Valve $valve): bool
     {
-        // User can delete valve if they have access to the farm
-        return $user->farms->contains($valve->pump->farm_id);
+        return $valve->plot->field->farm->users->contains($user) && $user->can('draw-pump-and-valve');
     }
 
     /**
@@ -60,7 +56,7 @@ class ValvePolicy
      */
     public function restore(User $user, Valve $valve): bool
     {
-        return $user->farms->contains($valve->pump->farm_id);
+        return $valve->plot->field->farm->users->contains($user) && $user->can('draw-pump-and-valve');
     }
 
     /**
@@ -68,6 +64,6 @@ class ValvePolicy
      */
     public function forceDelete(User $user, Valve $valve): bool
     {
-        return $user->farms->contains($valve->pump->farm_id);
+        return $valve->plot->field->farm->users->contains($user) && $user->can('draw-pump-and-valve');
     }
 }

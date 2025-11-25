@@ -13,7 +13,7 @@ class DriverPolicy
      */
     public function viewAny(User $user): bool
     {
-        return true;
+        return $user->hasFarm();
     }
 
     /**
@@ -21,7 +21,7 @@ class DriverPolicy
      */
     public function view(User $user, Driver $driver): bool
     {
-        return $driver->farm->admins->contains($user);
+        return $driver->farm->users->contains($user);
     }
 
     /**
@@ -29,7 +29,7 @@ class DriverPolicy
      */
     public function create(User $user): bool
     {
-        return true;
+        return $user->hasFarm() && $user->can('define-driver');
     }
 
     /**
@@ -37,7 +37,9 @@ class DriverPolicy
      */
     public function update(User $user, Driver $driver): bool
     {
-        return $driver->farm->admins->contains($user) && $driver->tractor()->doesntExist();
+        return $driver->farm->users->contains($user)
+            && $user->can('define-driver')
+            && $driver->tractor()->doesntExist();
     }
 
     /**
@@ -45,7 +47,9 @@ class DriverPolicy
      */
     public function delete(User $user, Driver $driver): bool
     {
-        return $driver->farm->admins->contains($user) && $driver->tractor()->doesntExist();
+        return $driver->farm->users->contains($user)
+            && $user->can('define-driver')
+            && $driver->tractor()->doesntExist();
     }
 
     /**

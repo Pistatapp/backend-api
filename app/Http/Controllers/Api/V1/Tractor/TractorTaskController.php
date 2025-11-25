@@ -159,6 +159,12 @@ class TractorTaskController extends Controller
     {
         $validated = $request->validated();
 
+        // Verify user has access to the tractor's farm
+        $tractor = Tractor::findOrFail($validated['tractor_id']);
+        if (!$tractor->farm->users->contains($request->user())) {
+            abort(403, 'Unauthorized access to this tractor.');
+        }
+
         $query = TractorTask::query()
             ->with(['operation', 'taskable', 'creator', 'tractor.driver', 'operation'])
             ->where('tractor_id', $validated['tractor_id'])
@@ -201,6 +207,12 @@ class TractorTaskController extends Controller
             'year' => 'required_if:period,persian_year|regex:/^\d{4}$/',
             'operation' => 'nullable|exists:operations,id'
         ]);
+
+        // Verify user has access to the tractor's farm
+        $tractor = Tractor::findOrFail($validated['tractor_id']);
+        if (!$tractor->farm->users->contains($request->user())) {
+            abort(403, 'Unauthorized access to this tractor.');
+        }
 
         $data = $this->reportFilterService->filter($validated);
 

@@ -8,6 +8,11 @@ use App\Http\Resources\PhonologyGuideFileResource;
 
 class PhonologyGuideFileController extends Controller
 {
+    /**
+     * Allowed model types for phonology guide files.
+     */
+    private const ALLOWED_MODEL_TYPES = ['crop_type', 'pest'];
+
     public function __construct()
     {
         $this->middleware('role:root', ['only' => ['store', 'destroy']]);
@@ -19,11 +24,18 @@ class PhonologyGuideFileController extends Controller
     public function index(Request $request)
     {
         $request->validate([
-            'model_type' => 'required|string',
-            'model_id' => 'required'
+            'model_type' => 'required|string|in:' . implode(',', self::ALLOWED_MODEL_TYPES),
+            'model_id' => 'required|integer'
         ]);
 
         $model = getModel($request->model_type, $request->model_id);
+
+        // For pests, verify access if it's a user-created pest
+        if ($request->model_type === 'pest' && $model->created_by !== null) {
+            if (!$request->user()->hasRole('root') && $model->created_by !== $request->user()->id) {
+                abort(403, 'Unauthorized access to this pest.');
+            }
+        }
 
         return PhonologyGuideFileResource::collection($model->phonologyGuideFiles);
     }
@@ -36,8 +48,8 @@ class PhonologyGuideFileController extends Controller
         $request->validate([
             'name' => 'required|string|max:255|unique:phonology_guide_files,name',
             'file' => 'required|file|mimes:pdf|max:10240',
-            'model_type' => 'required|string',
-            'model_id' => 'required'
+            'model_type' => 'required|string|in:' . implode(',', self::ALLOWED_MODEL_TYPES),
+            'model_id' => 'required|integer'
         ]);
 
         $model = getModel($request->model_type, $request->model_id);
@@ -57,8 +69,8 @@ class PhonologyGuideFileController extends Controller
     public function destroy(Request $request, string $id)
     {
         $request->validate([
-            'model_type' => 'required|string',
-            'model_id' => 'required'
+            'model_type' => 'required|string|in:' . implode(',', self::ALLOWED_MODEL_TYPES),
+            'model_id' => 'required|integer'
         ]);
 
         $model = getModel($request->model_type, $request->model_id);

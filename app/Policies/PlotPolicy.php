@@ -2,11 +2,10 @@
 
 namespace App\Policies;
 
-use App\Models\Row;
+use App\Models\Plot;
 use App\Models\User;
-use Illuminate\Auth\Access\Response;
 
-class RowPolicy
+class PlotPolicy
 {
     /**
      * Determine whether the user can view any models.
@@ -19,9 +18,9 @@ class RowPolicy
     /**
      * Determine whether the user can view the model.
      */
-    public function view(User $user, Row $row): bool
+    public function view(User $user, Plot $plot): bool
     {
-        return $row->field->farm->users->contains($user);
+        return $plot->field->farm->users->contains($user);
     }
 
     /**
@@ -33,10 +32,19 @@ class RowPolicy
     }
 
     /**
+     * Determine whether the user can update the model.
+     */
+    public function update(User $user, Plot $plot): bool
+    {
+        return $plot->field->farm->users->contains($user) && $user->can('draw-field-block-row-tree');
+    }
+
+    /**
      * Determine whether the user can delete the model.
      */
-    public function delete(User $user, Row $row): bool
+    public function delete(User $user, Plot $plot): bool
     {
-        return $row->field->farm->users->contains($user) && $user->can('draw-field-block-row-tree');
+        return $plot->field->farm->users->contains($user) && $user->can('draw-field-block-row-tree');
     }
 }
+

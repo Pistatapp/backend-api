@@ -10,6 +10,11 @@ use Illuminate\Http\Request;
 
 class PlotController extends Controller
 {
+    public function __construct()
+    {
+        $this->authorizeResource(Plot::class, 'plot');
+    }
+
     /**
      * Display a listing of the resource.
      */

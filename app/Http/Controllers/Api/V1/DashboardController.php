@@ -11,11 +11,17 @@ class DashboardController extends Controller
     /**
      * Get the dashboard widgets data.
      *
+     * @param Request $request
      * @param Farm $farm
      * @return \Illuminate\Http\JsonResponse
      */
-    public function dashboardWidgets(Farm $farm)
+    public function dashboardWidgets(Request $request, Farm $farm)
     {
+        // Verify user has access to the farm
+        if (!$farm->users->contains($request->user())) {
+            abort(403, 'Unauthorized access to this farm.');
+        }
+
         $dashboardData = [
             'weather_forecast' => $this->getWeatherData($farm->center),
             'working_tractors' => $farm->tractors()->working()->count(),

@@ -10,6 +10,11 @@ use Illuminate\Http\Request;
 
 class MaintenanceController extends Controller
 {
+    public function __construct()
+    {
+        $this->authorizeResource(Maintenance::class, 'maintenance');
+    }
+
     /**
      * Display a listing of the resource.
      */

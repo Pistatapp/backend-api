@@ -13,7 +13,7 @@ class IrrigationPolicy
      */
     public function viewAny(User $user): bool
     {
-        return true;
+        return $user->hasFarm();
     }
 
     /**
@@ -21,8 +21,7 @@ class IrrigationPolicy
      */
     public function view(User $user, Irrigation $irrigation): bool
     {
-        return $irrigation->creator->is($user)
-            || $irrigation->farm->users->contains($user);
+        return $irrigation->farm->users->contains($user);
     }
 
     /**
@@ -30,7 +29,7 @@ class IrrigationPolicy
      */
     public function create(User $user): bool
     {
-        return true;
+        return $user->hasFarm() && $user->can('define-irrigation-program');
     }
 
     /**
@@ -40,6 +39,11 @@ class IrrigationPolicy
     {
         // Cannot update if already verified by admin
         if ($irrigation->is_verified_by_admin) {
+            return false;
+        }
+
+        // Must have permission to edit irrigation
+        if (!$user->can('edit-irrigation-program')) {
             return false;
         }
 

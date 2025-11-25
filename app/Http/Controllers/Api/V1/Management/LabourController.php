@@ -12,6 +12,11 @@ use Illuminate\Http\Request;
 
 class LabourController extends Controller
 {
+    public function __construct()
+    {
+        $this->authorizeResource(Labour::class, 'labour');
+    }
+
     /**
      * Display a listing of the resource.
      */

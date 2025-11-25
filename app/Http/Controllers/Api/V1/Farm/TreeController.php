@@ -12,6 +12,11 @@ use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class TreeController extends Controller
 {
+    public function __construct()
+    {
+        $this->authorizeResource(Tree::class, 'tree');
+    }
+
     /**
      * Display a listing of the resource.
      *
@@ -112,6 +117,13 @@ class TreeController extends Controller
      */
     public function batchStore(Request $request, Row $row)
     {
+        $this->authorize('create', Tree::class);
+
+        // Verify user has access to the row's farm
+        if (!$row->field->farm->users->contains($request->user())) {
+            abort(403, 'Unauthorized access to this row.');
+        }
+
         $request->validate([
             'trees' => 'required|array|min:1',
             'trees.*.name' => 'required|string',

@@ -24,7 +24,7 @@ class AttachmentController extends Controller
             'name' => 'required|string|max:255',
             'description' => 'required|string|max:5000',
             'file' => 'required|file|mimes:pdf,doc,docx,xls,xlsx,jpg,jpeg,png,gif,mp4|max:10240',
-            'attachable_type' => 'required|string',
+            'attachable_type' => 'required|string|in:field,row,tree,plot,pump,tractor',
             'attachable_id' => 'required|integer',
         ]);
 
@@ -34,6 +34,12 @@ class AttachmentController extends Controller
             throw ValidationException::withMessages([
                 'attachable_type' => 'Attachable model not found.',
             ]);
+        }
+
+        // Verify user has access to the attachable resource's farm
+        $farm = $this->getAttachableFarm($attachableModel, $request->attachable_type);
+        if (!$farm || !$farm->users->contains($request->user())) {
+            abort(403, 'Unauthorized access to this resource.');
         }
 
         $attachment = $attachableModel->attachments()->create([
@@ -46,6 +52,22 @@ class AttachmentController extends Controller
         $attachment->addMedia($request->file)->toMediaCollection('attachments');
 
         return new AttachmentResource($attachment);
+    }
+
+    /**
+     * Get the farm associated with an attachable model.
+     */
+    private function getAttachableFarm($model, string $type)
+    {
+        return match ($type) {
+            'field' => $model->farm,
+            'row' => $model->field->farm,
+            'tree' => $model->row->field->farm,
+            'plot' => $model->field->farm,
+            'pump' => $model->farm,
+            'tractor' => $model->farm,
+            default => null,
+        };
     }
 
     /**

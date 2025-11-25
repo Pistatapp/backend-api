@@ -13,7 +13,7 @@ class FarmReportPolicy
      */
     public function viewAny(User $user): bool
     {
-        return true;
+        return $user->hasFarm() && $user->can('view-feature-reports');
     }
 
     /**
@@ -21,7 +21,7 @@ class FarmReportPolicy
      */
     public function view(User $user, FarmReport $farmReport): bool
     {
-        return $user->farms->contains('id', $farmReport->farm_id);
+        return $farmReport->farm->users->contains($user) && $user->can('view-feature-reports');
     }
 
     /**
@@ -29,7 +29,7 @@ class FarmReportPolicy
      */
     public function create(User $user): bool
     {
-        return true;
+        return $user->hasFarm() && $user->can('submit-feature-report');
     }
 
     /**
@@ -37,7 +37,8 @@ class FarmReportPolicy
      */
     public function update(User $user, FarmReport $farmReport): bool
     {
-        return $farmReport->creator->is($user) || $farmReport->farm->admins->contains($user);
+        return ($farmReport->creator->is($user) || $farmReport->farm->admins->contains($user))
+            && $user->can('submit-feature-report');
     }
 
     /**
@@ -45,7 +46,7 @@ class FarmReportPolicy
      */
     public function delete(User $user, FarmReport $farmReport): bool
     {
-        return $farmReport->creator->is($user);
+        return $farmReport->creator->is($user) && $user->can('submit-feature-report');
     }
 
     /**
@@ -53,6 +54,7 @@ class FarmReportPolicy
      */
     public function verify(User $user, FarmReport $farmReport): bool
     {
-        return $user->hasRole('admin') && $farmReport->farm->users->contains($user);
+        return $farmReport->farm->users->contains($user)
+            && $user->can('approve-reject-user-reports');
     }
 }

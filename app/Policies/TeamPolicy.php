@@ -2,11 +2,10 @@
 
 namespace App\Policies;
 
-use App\Models\Field;
+use App\Models\Team;
 use App\Models\User;
-use Illuminate\Auth\Access\Response;
 
-class FieldPolicy
+class TeamPolicy
 {
     /**
      * Determine whether the user can view any models.
@@ -19,9 +18,9 @@ class FieldPolicy
     /**
      * Determine whether the user can view the model.
      */
-    public function view(User $user, Field $field): bool
+    public function view(User $user, Team $team): bool
     {
-        return $field->farm->users->contains($user);
+        return $team->farm->users->contains($user);
     }
 
     /**
@@ -29,22 +28,23 @@ class FieldPolicy
      */
     public function create(User $user): bool
     {
-        return $user->hasFarm() && $user->can('draw-field-block-row-tree');
+        return $user->hasFarm() && $user->can('define-team');
     }
 
     /**
      * Determine whether the user can update the model.
      */
-    public function update(User $user, Field $field): bool
+    public function update(User $user, Team $team): bool
     {
-        return $field->farm->users->contains($user) && $user->can('draw-field-block-row-tree');
+        return $team->farm->users->contains($user) && $user->can('edit-team');
     }
 
     /**
      * Determine whether the user can delete the model.
      */
-    public function delete(User $user, Field $field): bool
+    public function delete(User $user, Team $team): bool
     {
-        return $field->farm->users->contains($user) && $user->can('draw-field-block-row-tree');
+        return $team->farm->users->contains($user) && $user->can('edit-team');
     }
 }
+
