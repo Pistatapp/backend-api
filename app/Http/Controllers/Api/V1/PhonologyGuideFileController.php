@@ -35,7 +35,7 @@ class PhonologyGuideFileController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255|unique:phonology_guide_files,name',
-            'file' => 'required|file|max:10240',
+            'file' => 'required|file|mimes:pdf|max:10240',
             'model_type' => 'required|string',
             'model_id' => 'required'
         ]);
