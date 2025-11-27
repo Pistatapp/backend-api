@@ -69,7 +69,9 @@ class Irrigation extends Model
      */
     public function getDurationAttribute()
     {
-        return $this->start_time->diffInSeconds($this->end_time);
+        $startTime = Carbon::parse($this->start_date . ' ' . $this->start_time);
+        $endTime = Carbon::parse($this->end_date . ' ' . $this->end_time);
+        return $startTime->diffInSeconds($endTime);
     }
 
     /**
