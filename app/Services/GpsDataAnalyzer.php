@@ -21,15 +21,13 @@ class GpsDataAnalyzer
     // For incremental processing
     private ?Tractor $tractor = null;
     private ?Carbon $date = null;
-    private ?GpsAnalysisCacheService $cacheService = null;
 
     // Precomputed constants for Haversine formula
     private const EARTH_RADIUS_KM = 6371;
 
-    public function __construct(?GpsAnalysisCacheService $cacheService = null)
-    {
-        $this->cacheService = $cacheService ?? app(GpsAnalysisCacheService::class);
-    }
+    public function __construct(
+        private readonly GpsAnalysisCacheService $cacheService
+    ) {}
 
     /**
      * Load GPS records for a tractor on a specific date and set working time window
