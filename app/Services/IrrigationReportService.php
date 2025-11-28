@@ -129,9 +129,9 @@ class IrrigationReportService
                     $query->whereIn('valves.id', $filters['valves']);
                 });
             })
-            ->whereBetween('start_date', [
-                $filters['from_date']->format('Y-m-d'),
-                $filters['to_date']->format('Y-m-d'),
+            ->whereBetween('start_time', [
+                $filters['from_date']->startOfDay(),
+                $filters['to_date']->endOfDay(),
             ])
             ->with([
                 'valves' => function ($query) use ($filters) {
@@ -160,7 +160,7 @@ class IrrigationReportService
 
         while ($currentDate->lte($toDate)) {
             $dailyIrrigations = $irrigations->filter(function ($irrigation) use ($currentDate) {
-                $irrigationDate = $irrigation->start_date;
+                $irrigationDate = $irrigation->start_time;
 
                 return $irrigationDate instanceof Carbon && $irrigationDate->isSameDay($currentDate);
             });
@@ -193,7 +193,7 @@ class IrrigationReportService
 
         while ($currentDate->lte($toDate)) {
             $dailyIrrigations = $irrigations->filter(function ($irrigation) use ($currentDate) {
-                $irrigationDate = $irrigation->start_date;
+                $irrigationDate = $irrigation->start_time;
 
                 return $irrigationDate instanceof Carbon && $irrigationDate->isSameDay($currentDate);
             });
@@ -353,30 +353,14 @@ class IrrigationReportService
     }
 
     /**
-     * Calculate irrigation duration from start_time in start_date to end_time in end_date
+     * Calculate irrigation duration from start_time to end_time
      *
      * @param \App\Models\Irrigation $irrigation
      * @return int Duration in seconds
      */
     private function calculateIrrigationDuration(\App\Models\Irrigation $irrigation): int
     {
-        // Combine start_date with time portion from start_time
-        $startDateTime = $irrigation->start_date->copy()
-            ->setTime(
-                $irrigation->start_time->hour,
-                $irrigation->start_time->minute,
-                $irrigation->start_time->second
-            );
-
-        // Combine end_date with time portion from end_time
-        $endDateTime = $irrigation->end_date->copy()
-            ->setTime(
-                $irrigation->end_time->hour,
-                $irrigation->end_time->minute,
-                $irrigation->end_time->second
-            );
-
-        return $startDateTime->diffInSeconds($endDateTime);
+        return $irrigation->start_time->diffInSeconds($irrigation->end_time);
     }
 
     /**

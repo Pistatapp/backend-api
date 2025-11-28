@@ -55,27 +55,32 @@ class StoreIrrigationRequest extends FormRequest
     {
         $startDateInput = $this->input('start_date', $this->input('date'));
         $startDate = $startDateInput ? jalali_to_carbon($startDateInput) : null;
-        $endDate = $this->filled('end_date') ? jalali_to_carbon($this->end_date) : null;
+        $endDate = $this->filled('end_date') ? jalali_to_carbon($this->end_date) : $startDate;
         $startTime = $this->filled('start_time') ? Carbon::createFromFormat('H:i', $this->start_time) : null;
         $endTime = $this->filled('end_time') ? Carbon::createFromFormat('H:i', $this->end_time) : null;
 
         $prepared = [];
 
-        if ($startDate) {
-            $prepared['date'] = $startDate;
-            $prepared['start_date'] = $startDate;
+        // Combine start_date and start_time into start_time datetime
+        if ($startDate && $startTime) {
+            $prepared['start_time'] = $startDate->setTime(
+                $startTime->hour,
+                $startTime->minute,
+                $startTime->second
+            );
+        } elseif ($startDate) {
+            $prepared['start_time'] = $startDate->startOfDay();
         }
 
-        if ($endDate) {
-            $prepared['end_date'] = $endDate;
-        }
-
-        if ($startTime) {
-            $prepared['start_time'] = $startTime;
-        }
-
-        if ($endTime) {
-            $prepared['end_time'] = $endTime;
+        // Combine end_date and end_time into end_time datetime
+        if ($endDate && $endTime) {
+            $prepared['end_time'] = $endDate->setTime(
+                $endTime->hour,
+                $endTime->minute,
+                $endTime->second
+            );
+        } elseif ($endDate) {
+            $prepared['end_time'] = $endDate->startOfDay();
         }
 
         if (!empty($prepared)) {

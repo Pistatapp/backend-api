@@ -19,8 +19,6 @@ class Irrigation extends Model
         'labour_id',
         'farm_id',
         'pump_id',
-        'start_date',
-        'end_date',
         'start_time',
         'end_time',
         'created_by',
@@ -46,8 +44,6 @@ class Irrigation extends Model
     protected function casts()
     {
         return [
-            'start_date' => 'date',
-            'end_date' => 'date',
             'start_time' => 'datetime',
             'end_time' => 'datetime',
         ];
@@ -69,9 +65,7 @@ class Irrigation extends Model
      */
     public function getDurationAttribute()
     {
-        $startTime = Carbon::parse($this->start_date . ' ' . $this->start_time);
-        $endTime = Carbon::parse($this->end_date . ' ' . $this->end_time);
-        return $startTime->diffInSeconds($endTime);
+        return $this->start_time->diffInSeconds($this->end_time);
     }
 
     /**
@@ -162,24 +156,81 @@ class Irrigation extends Model
     /**
      * Accessor alias to maintain backward compatibility with legacy 'date' attribute usage.
      *
-     * @param mixed $value
      * @return \Illuminate\Support\Carbon|null
      */
     public function getDateAttribute()
     {
-        return $this->start_date;
+        return $this->start_time?->toDate();
     }
 
     /**
-     * Mutator alias to map legacy 'date' attribute assignments to 'start_date'.
+     * Accessor for start_date to maintain backward compatibility.
+     *
+     * @return \Illuminate\Support\Carbon|null
+     */
+    public function getStartDateAttribute()
+    {
+        return $this->start_time?->toDate();
+    }
+
+    /**
+     * Accessor for end_date to maintain backward compatibility.
+     *
+     * @return \Illuminate\Support\Carbon|null
+     */
+    public function getEndDateAttribute()
+    {
+        return $this->end_time?->toDate();
+    }
+
+    /**
+     * Mutator alias to map legacy 'date' attribute assignments to 'start_time'.
      *
      * @param mixed $value
      * @return void
      */
     public function setDateAttribute($value): void
     {
-        $this->attributes['start_date'] = $value instanceof Carbon
-            ? $value
-            : ($value ? Carbon::parse($value) : null);
+        $date = $value instanceof Carbon ? $value : ($value ? Carbon::parse($value) : null);
+        if ($date && $this->start_time) {
+            $this->start_time = $date->setTime(
+                $this->start_time->hour,
+                $this->start_time->minute,
+                $this->start_time->second
+            );
+        } elseif ($date) {
+            $this->start_time = $date->startOfDay();
+        }
+    }
+
+    /**
+     * Mutator for start_date to maintain backward compatibility.
+     *
+     * @param mixed $value
+     * @return void
+     */
+    public function setStartDateAttribute($value): void
+    {
+        $this->setDateAttribute($value);
+    }
+
+    /**
+     * Mutator for end_date to maintain backward compatibility.
+     *
+     * @param mixed $value
+     * @return void
+     */
+    public function setEndDateAttribute($value): void
+    {
+        $date = $value instanceof Carbon ? $value : ($value ? Carbon::parse($value) : null);
+        if ($date && $this->end_time) {
+            $this->end_time = $date->setTime(
+                $this->end_time->hour,
+                $this->end_time->minute,
+                $this->end_time->second
+            );
+        } elseif ($date) {
+            $this->end_time = $date->startOfDay();
+        }
     }
 }

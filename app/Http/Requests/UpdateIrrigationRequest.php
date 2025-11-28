@@ -53,11 +53,28 @@ class UpdateIrrigationRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
+        $startDate = jalali_to_carbon($this->start_date);
+        $endDate = jalali_to_carbon($this->end_date);
+        $startTime = Carbon::createFromFormat('H:i', $this->start_time);
+        $endTime = Carbon::createFromFormat('H:i', $this->end_time);
+
+        // Combine start_date and start_time into start_time datetime
+        $combinedStartTime = $startDate->setTime(
+            $startTime->hour,
+            $startTime->minute,
+            $startTime->second
+        );
+
+        // Combine end_date and end_time into end_time datetime
+        $combinedEndTime = $endDate->setTime(
+            $endTime->hour,
+            $endTime->minute,
+            $endTime->second
+        );
+
         $this->merge([
-            'start_date' => jalali_to_carbon($this->start_date),
-            'end_date' => jalali_to_carbon($this->end_date),
-            'start_time' => Carbon::createFromFormat('H:i', $this->start_time),
-            'end_time' => Carbon::createFromFormat('H:i', $this->end_time),
+            'start_time' => $combinedStartTime,
+            'end_time' => $combinedEndTime,
         ]);
     }
 }
