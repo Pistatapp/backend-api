@@ -12,13 +12,13 @@ class GpsAnalysisState
         // Last processed point info
         public int $lastProcessedTimestamp = 0,
         public int $lastProcessedIndex = 0,
-        
+
         // Detected times (once found, never recompute)
         public ?string $deviceOnTime = null,
         public ?string $firstMovementTime = null,
         public bool $deviceOnTimeDetected = false,
         public bool $firstMovementTimeDetected = false,
-        
+
         // Accumulated metrics
         public float $movementDistance = 0.0,
         public int $movementDuration = 0,
@@ -27,18 +27,18 @@ class GpsAnalysisState
         public int $stoppageDurationWhileOff = 0,
         public int $stoppageCount = 0,
         public int $maxSpeed = 0,
-        
+
         // State machine
         public bool $isCurrentlyMoving = false,
         public bool $isCurrentlyStopped = false,
         public ?int $segmentStartIndex = null,
         public ?int $segmentStartTimestamp = null,
         public float $segmentDistance = 0.0,
-        
+
         // For first_movement_time detection (3 consecutive movements)
         public int $consecutiveMovementCount = 0,
         public ?int $firstConsecutiveMovementTimestamp = null,
-        
+
         // Last point data for continuity
         public ?float $lastLat = null,
         public ?float $lastLon = null,
@@ -46,15 +46,15 @@ class GpsAnalysisState
         public ?float $lastLonRad = null,
         public ?int $lastSpeed = null,
         public ?int $lastStatus = null,
-        
+
         // First point info (for start_time in results)
         public ?string $startTime = null,
-        
+
         // Segment start point for details (stored separately for detail generation)
         public ?float $segmentStartLat = null,
         public ?float $segmentStartLon = null,
         public ?int $segmentStartStatus = null,
-        
+
         // Detail indices
         public int $movementDetailIndex = 0,
         public int $stoppageDetailIndex = 0,

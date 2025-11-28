@@ -51,7 +51,7 @@ class GpsAnalysisCacheService
     public function saveState(int $tractorId, Carbon $date, GpsAnalysisState $state): void
     {
         $key = $this->getCacheKey($tractorId, $date);
-        
+
         // Calculate TTL: until end of day + buffer
         $ttl = $this->calculateTtl($date);
 

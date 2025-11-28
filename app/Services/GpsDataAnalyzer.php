@@ -21,13 +21,26 @@ class GpsDataAnalyzer
     // For incremental processing
     private ?Tractor $tractor = null;
     private ?Carbon $date = null;
+    private ?GpsAnalysisCacheService $cacheService = null;
 
     // Precomputed constants for Haversine formula
     private const EARTH_RADIUS_KM = 6371;
 
-    public function __construct(
-        private readonly GpsAnalysisCacheService $cacheService
-    ) {}
+    public function __construct(?GpsAnalysisCacheService $cacheService = null)
+    {
+        $this->cacheService = $cacheService;
+    }
+
+    /**
+     * Get cache service (lazy load if not injected)
+     */
+    private function getCacheService(): GpsAnalysisCacheService
+    {
+        if ($this->cacheService === null) {
+            $this->cacheService = app(GpsAnalysisCacheService::class);
+        }
+        return $this->cacheService;
+    }
 
     /**
      * Load GPS records for a tractor on a specific date and set working time window
@@ -844,8 +857,153 @@ class GpsDataAnalyzer
     }
 
     /**
+     * MAIN OPTIMIZED ENTRY POINT: Load and analyze with caching
+     * This method checks cache FIRST, then only loads new data from DB
+     *
+     * Flow:
+     * 1. Check cache for existing state
+     * 2. If no cache → full load from DB, full analysis, save to cache
+     * 3. If cache exists → load ONLY new points since last_processed_timestamp
+     * 4. If no new points → return cached results immediately (fastest path)
+     * 5. If new points → incremental analysis, merge with cached state
+     *
+     * @param Tractor $tractor
+     * @param Carbon $date
+     * @param bool $includeDetails
+     * @return array
+     */
+    public function loadAndAnalyzeWithCache(Tractor $tractor, Carbon $date, bool $includeDetails = false): array
+    {
+        $this->tractor = $tractor;
+        $this->date = $date->copy();
+        $tractorId = $tractor->id;
+
+        // Step 1: Determine working window
+        $startDateTime = null;
+        $endDateTime = null;
+        if ($tractor->start_work_time && $tractor->end_work_time) {
+            $startDateTime = $date->copy()->setTimeFromTimeString($tractor->start_work_time);
+            $endDateTime = $date->copy()->setTimeFromTimeString($tractor->end_work_time);
+            if ($endDateTime->lt($startDateTime)) {
+                $endDateTime->addDay();
+            }
+        }
+
+        // Store working window
+        if ($startDateTime && $endDateTime) {
+            $this->workingStartTime = $startDateTime;
+            $this->workingEndTime = $endDateTime;
+            $this->workingStartTimestamp = $startDateTime->timestamp;
+            $this->workingEndTimestamp = $endDateTime->timestamp;
+        } else {
+            $this->workingStartTime = null;
+            $this->workingEndTime = null;
+            $this->workingStartTimestamp = null;
+            $this->workingEndTimestamp = null;
+        }
+
+        // Step 2: Check cache FIRST (before any DB query)
+        $cachedState = $this->getCacheService()->getState($tractorId, $date);
+
+        if ($cachedState === null) {
+            // No cache - do full load and analysis
+            return $this->doFullLoadAndAnalysis($tractor, $date, $startDateTime, $endDateTime, $includeDetails);
+        }
+
+        // Step 3: Cache exists - check for new data with minimal query
+        $lastProcessedTime = Carbon::createFromTimestamp($cachedState->lastProcessedTimestamp);
+
+        // Query ONLY for count of new records (very fast)
+        $newRecordsQuery = $tractor->gpsData()->toBase();
+        if ($startDateTime && $endDateTime) {
+            $newRecordsQuery->where('gps_data.date_time', '>', $lastProcessedTime)
+                           ->where('gps_data.date_time', '<=', $endDateTime);
+        } else {
+            $newRecordsQuery->where('gps_data.date_time', '>', $lastProcessedTime)
+                           ->whereDate('gps_data.date_time', $date);
+        }
+
+        $newRecordsCount = $newRecordsQuery->count();
+
+        if ($newRecordsCount === 0) {
+            // FASTEST PATH: No new data - return cached results immediately
+            $this->results = $this->buildResultsFromState($cachedState);
+            return $this->results;
+        }
+
+        // Step 4: Load ONLY new records
+        $newRecords = $tractor->gpsData()
+            ->select(['gps_data.coordinate', 'gps_data.speed', 'gps_data.status', 'gps_data.date_time', 'gps_data.imei'])
+            ->toBase()
+            ->where('gps_data.date_time', '>', $lastProcessedTime);
+
+        if ($endDateTime) {
+            $newRecords->where('gps_data.date_time', '<=', $endDateTime);
+        } else {
+            $newRecords->whereDate('gps_data.date_time', $date);
+        }
+
+        $newRecords = $newRecords->orderBy('gps_data.date_time')->get();
+
+        // Parse only the new records
+        $this->data = [];
+        $this->parseRecords($newRecords);
+
+        // Step 5: Incremental analysis
+        return $this->analyzeIncremental($cachedState, $includeDetails);
+    }
+
+    /**
+     * Full load and analysis (used when no cache exists)
+     */
+    private function doFullLoadAndAnalysis(
+        Tractor $tractor,
+        Carbon $date,
+        ?Carbon $startDateTime,
+        ?Carbon $endDateTime,
+        bool $includeDetails
+    ): array {
+        // Full data load
+        if ($startDateTime && $endDateTime) {
+            $prevPoint = $tractor->gpsData()
+                ->select(['gps_data.coordinate', 'gps_data.speed', 'gps_data.status', 'gps_data.date_time', 'gps_data.imei'])
+                ->toBase()
+                ->where('gps_data.date_time', '<', $startDateTime)
+                ->orderBy('gps_data.date_time', 'desc')
+                ->first();
+
+            $windowPoints = $tractor->gpsData()
+                ->select(['gps_data.coordinate', 'gps_data.speed', 'gps_data.status', 'gps_data.date_time', 'gps_data.imei'])
+                ->toBase()
+                ->whereBetween('gps_data.date_time', [$startDateTime, $endDateTime])
+                ->orderBy('gps_data.date_time')
+                ->get();
+
+            $gpsData = $prevPoint ? collect([$prevPoint])->merge($windowPoints) : $windowPoints;
+        } else {
+            $gpsData = $tractor->gpsData()
+                ->select(['gps_data.coordinate', 'gps_data.speed', 'gps_data.status', 'gps_data.date_time', 'gps_data.imei'])
+                ->toBase()
+                ->whereDate('gps_data.date_time', $date)
+                ->orderBy('gps_data.date_time')
+                ->get();
+        }
+
+        $this->loadFromRecordsPreSorted($gpsData);
+
+        // Full analysis
+        $results = $this->analyze(null, null, $includeDetails);
+
+        // Save to cache
+        $this->saveStateToCache($tractor->id, $date);
+
+        return $results;
+    }
+
+    /**
      * Analyze GPS data incrementally using cached state
-     * This is the main entry point for optimized real-time analysis
+     * NOTE: This method assumes data is already loaded. For the optimized flow,
+     * use loadAndAnalyzeWithCache() instead.
      *
      * @param bool $includeDetails Whether to include movement/stoppage details
      * @return array Analysis results
@@ -861,7 +1019,7 @@ class GpsDataAnalyzer
         $date = $this->date;
 
         // Get cached state
-        $cachedState = $this->cacheService->getState($tractorId, $date);
+        $cachedState = $this->getCacheService()->getState($tractorId, $date);
 
         if ($cachedState === null) {
             // No cache - do full analysis and cache results
@@ -1183,7 +1341,7 @@ class GpsDataAnalyzer
 
         // Save to cache
         if ($this->tractor !== null && $this->date !== null) {
-            $this->cacheService->saveState($this->tractor->id, $this->date, $newState);
+            $this->getCacheService()->saveState($this->tractor->id, $this->date, $newState);
         }
 
         // Build and return results
@@ -1291,7 +1449,7 @@ class GpsDataAnalyzer
             stoppageDetailIndex: count($this->stoppages),
         );
 
-        $this->cacheService->saveState($tractorId, $date, $state);
+        $this->getCacheService()->saveState($tractorId, $date, $state);
     }
 
     /**
