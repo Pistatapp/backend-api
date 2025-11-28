@@ -21,26 +21,13 @@ class GpsDataAnalyzer
     // For incremental processing
     private ?Tractor $tractor = null;
     private ?Carbon $date = null;
-    private ?GpsAnalysisCacheService $cacheService = null;
 
     // Precomputed constants for Haversine formula
     private const EARTH_RADIUS_KM = 6371;
 
-    public function __construct(?GpsAnalysisCacheService $cacheService = null)
-    {
-        $this->cacheService = $cacheService;
-    }
-
-    /**
-     * Get cache service (lazy load if not injected)
-     */
-    private function getCacheService(): GpsAnalysisCacheService
-    {
-        if ($this->cacheService === null) {
-            $this->cacheService = app(GpsAnalysisCacheService::class);
-        }
-        return $this->cacheService;
-    }
+    public function __construct(
+        private readonly GpsAnalysisCacheService $cacheService)
+    {}
 
     /**
      * Load GPS records for a tractor on a specific date and set working time window
@@ -903,7 +890,7 @@ class GpsDataAnalyzer
         }
 
         // Step 2: Check cache FIRST (before any DB query)
-        $cachedState = $this->getCacheService()->getState($tractorId, $date);
+        $cachedState = $this->cacheService->getState($tractorId, $date);
 
         if ($cachedState === null) {
             // No cache - do full load and analysis
@@ -1019,7 +1006,7 @@ class GpsDataAnalyzer
         $date = $this->date;
 
         // Get cached state
-        $cachedState = $this->getCacheService()->getState($tractorId, $date);
+        $cachedState = $this->cacheService->getState($tractorId, $date);
 
         if ($cachedState === null) {
             // No cache - do full analysis and cache results
@@ -1341,7 +1328,7 @@ class GpsDataAnalyzer
 
         // Save to cache
         if ($this->tractor !== null && $this->date !== null) {
-            $this->getCacheService()->saveState($this->tractor->id, $this->date, $newState);
+            $this->cacheService->saveState($this->tractor->id, $this->date, $newState);
         }
 
         // Build and return results
@@ -1449,7 +1436,7 @@ class GpsDataAnalyzer
             stoppageDetailIndex: count($this->stoppages),
         );
 
-        $this->getCacheService()->saveState($tractorId, $date, $state);
+        $this->cacheService->saveState($tractorId, $date, $state);
     }
 
     /**

@@ -7,7 +7,6 @@ use App\Models\GpsMetricsCalculation;
 use Carbon\Carbon;
 use App\Http\Resources\DriverResource;
 use App\Services\GpsDataAnalyzer;
-use App\Services\TractorTaskService;
 
 class ActiveTractorService
 {
