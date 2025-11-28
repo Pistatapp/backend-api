@@ -4,6 +4,8 @@ namespace App\Services;
 
 use Carbon\Carbon;
 use App\Models\Tractor;
+use App\Services\Gps\GpsAnalysisState;
+use App\Services\Gps\GpsAnalysisCacheService;
 
 class GpsDataAnalyzer
 {
@@ -16,8 +18,18 @@ class GpsDataAnalyzer
     private ?Carbon $workingStartTime = null;
     private ?Carbon $workingEndTime = null;
 
+    // For incremental processing
+    private ?Tractor $tractor = null;
+    private ?Carbon $date = null;
+    private ?GpsAnalysisCacheService $cacheService = null;
+
     // Precomputed constants for Haversine formula
     private const EARTH_RADIUS_KM = 6371;
+
+    public function __construct(?GpsAnalysisCacheService $cacheService = null)
+    {
+        $this->cacheService = $cacheService ?? app(GpsAnalysisCacheService::class);
+    }
 
     /**
      * Load GPS records for a tractor on a specific date and set working time window
@@ -29,6 +41,10 @@ class GpsDataAnalyzer
      */
     public function loadRecordsFor(Tractor $tractor, Carbon $date): self
     {
+        // Store for incremental processing
+        $this->tractor = $tractor;
+        $this->date = $date->copy();
+
         // Determine working window first (if any)
         $startDateTime = null;
         $endDateTime = null;
@@ -86,6 +102,77 @@ class GpsDataAnalyzer
             $this->workingStartTimestamp = null;
             $this->workingEndTimestamp = null;
         }
+
+        return $this;
+    }
+
+    /**
+     * Load only NEW GPS records since the last cached state (incremental loading)
+     * This is the key optimization for real-time dashboards
+     *
+     * @param Tractor $tractor
+     * @param Carbon $date
+     * @param GpsAnalysisState|null $cachedState Previous state to continue from
+     * @return self
+     */
+    public function loadRecordsIncremental(Tractor $tractor, Carbon $date, ?GpsAnalysisState $cachedState = null): self
+    {
+        $this->tractor = $tractor;
+        $this->date = $date->copy();
+
+        // Determine working window
+        $startDateTime = null;
+        $endDateTime = null;
+        if ($tractor->start_work_time && $tractor->end_work_time) {
+            $startDateTime = $date->copy()->setTimeFromTimeString($tractor->start_work_time);
+            $endDateTime = $date->copy()->setTimeFromTimeString($tractor->end_work_time);
+            if ($endDateTime->lt($startDateTime)) {
+                $endDateTime->addDay();
+            }
+        }
+
+        // Store working window
+        if ($startDateTime && $endDateTime) {
+            $this->workingStartTime = $startDateTime;
+            $this->workingEndTime = $endDateTime;
+            $this->workingStartTimestamp = $startDateTime->timestamp;
+            $this->workingEndTimestamp = $endDateTime->timestamp;
+        } else {
+            $this->workingStartTime = null;
+            $this->workingEndTime = null;
+            $this->workingStartTimestamp = null;
+            $this->workingEndTimestamp = null;
+        }
+
+        // Determine query start time
+        $queryStartTime = $startDateTime;
+        if ($cachedState !== null && $cachedState->hasData()) {
+            // Start from last processed timestamp (convert to Carbon for query)
+            $lastProcessedTime = Carbon::createFromTimestamp($cachedState->lastProcessedTimestamp);
+            // Query from last processed time (we'll skip already processed points in analyze)
+            $queryStartTime = $lastProcessedTime;
+        }
+
+        // Build query for new data only
+        $query = $tractor->gpsData()
+            ->select(['gps_data.coordinate', 'gps_data.speed', 'gps_data.status', 'gps_data.date_time', 'gps_data.imei'])
+            ->toBase()
+            ->orderBy('gps_data.date_time');
+
+        if ($queryStartTime && $endDateTime) {
+            $query->where('gps_data.date_time', '>=', $queryStartTime)
+                  ->where('gps_data.date_time', '<=', $endDateTime);
+        } elseif ($queryStartTime) {
+            $query->where('gps_data.date_time', '>=', $queryStartTime)
+                  ->whereDate('gps_data.date_time', $date);
+        } else {
+            $query->whereDate('gps_data.date_time', $date);
+        }
+
+        $gpsData = $query->get();
+
+        // Load records (already sorted by DB)
+        $this->loadFromRecordsPreSorted($gpsData);
 
         return $this;
     }
@@ -759,59 +846,462 @@ class GpsDataAnalyzer
     }
 
     /**
-     * Calculate duration between two timestamps within working time boundaries
-     * Legacy method for backward compatibility - uses Carbon objects
+     * Analyze GPS data incrementally using cached state
+     * This is the main entry point for optimized real-time analysis
      *
-     * @param Carbon $startTime
-     * @param Carbon $endTime
-     * @param Carbon|null $workingStartTime
-     * @param Carbon|null $workingEndTime
-     * @return int Duration in seconds
+     * @param bool $includeDetails Whether to include movement/stoppage details
+     * @return array Analysis results
      */
-    private function calculateDurationWithinWorkingTime(
-        Carbon $startTime,
-        Carbon $endTime,
-        ?Carbon $workingStartTime,
-        ?Carbon $workingEndTime
-    ): int {
-        return $this->calcDurationFast(
-            $startTime->timestamp,
-            $endTime->timestamp,
-            $workingStartTime?->timestamp,
-            $workingEndTime?->timestamp
+    public function analyzeWithCache(bool $includeDetails = false): array
+    {
+        if ($this->tractor === null || $this->date === null) {
+            // Fallback to regular analysis if no tractor/date context
+            return $this->analyze(null, null, $includeDetails);
+        }
+
+        $tractorId = $this->tractor->id;
+        $date = $this->date;
+
+        // Get cached state
+        $cachedState = $this->cacheService->getState($tractorId, $date);
+
+        if ($cachedState === null) {
+            // No cache - do full analysis and cache results
+            $results = $this->analyze(null, null, $includeDetails);
+            $this->saveStateToCache($tractorId, $date);
+            return $results;
+        }
+
+        // Check if we have new data to process
+        if (empty($this->data)) {
+            // No data loaded - return cached results
+            return $this->buildResultsFromState($cachedState);
+        }
+
+        $lastDataTs = $this->data[count($this->data) - 1]['ts'];
+
+        if ($lastDataTs <= $cachedState->lastProcessedTimestamp) {
+            // No new data - return cached results
+            return $this->buildResultsFromState($cachedState);
+        }
+
+        // Process incrementally from cached state
+        $results = $this->analyzeIncremental($cachedState, $includeDetails);
+
+        return $results;
+    }
+
+    /**
+     * Analyze incrementally from a cached state
+     * Only processes new points since the last cached state
+     *
+     * @param GpsAnalysisState $state Previous cached state
+     * @param bool $includeDetails Whether to include movement/stoppage details
+     * @return array Analysis results
+     */
+    public function analyzeIncremental(GpsAnalysisState $state, bool $includeDetails = false): array
+    {
+        if (empty($this->data)) {
+            return $this->buildResultsFromState($state);
+        }
+
+        // Working time boundaries
+        $wsTs = $this->workingStartTimestamp;
+        $weTs = $this->workingEndTimestamp;
+        $wsCarbon = $this->workingStartTime;
+        $weCarbon = $this->workingEndTime;
+
+        // Restore state from cache
+        $movementDistance = $state->movementDistance;
+        $movementDuration = $state->movementDuration;
+        $stoppageDuration = $state->stoppageDuration;
+        $stoppageDurationWhileOn = $state->stoppageDurationWhileOn;
+        $stoppageDurationWhileOff = $state->stoppageDurationWhileOff;
+        $stoppageCount = $state->stoppageCount;
+        $maxSpeed = $state->maxSpeed;
+
+        $isCurrentlyMoving = $state->isCurrentlyMoving;
+        $isCurrentlyStopped = $state->isCurrentlyStopped;
+        $segmentStartTimestamp = $state->segmentStartTimestamp;
+        $movementSegmentDistance = $state->segmentDistance;
+
+        // Segment start point info for details
+        $segmentStartLat = $state->segmentStartLat;
+        $segmentStartLon = $state->segmentStartLon;
+        $segmentStartStatus = $state->segmentStartStatus;
+
+        // Detection state
+        $deviceOnTime = $state->deviceOnTime;
+        $firstMovementTime = $state->firstMovementTime;
+        $deviceOnTimeDetected = $state->deviceOnTimeDetected;
+        $firstMovementTimeDetected = $state->firstMovementTimeDetected;
+        $consecutiveMovementCount = $state->consecutiveMovementCount;
+        $firstConsecutiveMovementTimestamp = $state->firstConsecutiveMovementTimestamp;
+
+        // Previous point from cache
+        $prevLatRad = $state->lastLatRad;
+        $prevLonRad = $state->lastLonRad;
+        $prevTs = $state->lastProcessedTimestamp;
+
+        // Start time from cache or first point
+        $startTime = $state->startTime ?? $this->data[0]['timestamp']->toTimeString();
+
+        // Detail indices
+        $movementDetailIndex = $state->movementDetailIndex;
+        $stoppageDetailIndex = $state->stoppageDetailIndex;
+
+        if ($includeDetails) {
+            $this->movements = [];
+            $this->stoppages = [];
+        }
+
+        $dataCount = count($this->data);
+        $data = &$this->data;
+
+        // Find starting index (skip already processed points)
+        $startIndex = 0;
+        for ($i = 0; $i < $dataCount; $i++) {
+            if ($data[$i]['ts'] > $state->lastProcessedTimestamp) {
+                $startIndex = $i;
+                break;
+            }
+            $startIndex = $i + 1;
+        }
+
+        // If no new points, return cached results
+        if ($startIndex >= $dataCount) {
+            return $this->buildResultsFromState($state);
+        }
+
+        // Process new points
+        for ($index = $startIndex; $index < $dataCount; $index++) {
+            $point = &$data[$index];
+            $speed = $point['speed'];
+            $status = $point['status'];
+            $ts = $point['ts'];
+
+            // Track max speed
+            if ($speed > $maxSpeed) {
+                $maxSpeed = $speed;
+            }
+
+            // Track device_on_time (only if not already detected)
+            if (!$deviceOnTimeDetected && $status === 1) {
+                $deviceOnTime = $point['timestamp']->toTimeString();
+                $deviceOnTimeDetected = true;
+            }
+
+            // Inline movement/stoppage checks
+            $isMoving = ($status === 1 && $speed > 0);
+            $isStopped = ($speed === 0);
+
+            // Track consecutive movements for firstMovementTime (only if not already detected)
+            if (!$firstMovementTimeDetected) {
+                if ($isMoving) {
+                    if ($consecutiveMovementCount === 0) {
+                        $firstConsecutiveMovementTimestamp = $ts;
+                    }
+                    $consecutiveMovementCount++;
+                    if ($consecutiveMovementCount === 3) {
+                        // Find the timestamp for the first consecutive movement
+                        $firstMovementTime = Carbon::createFromTimestamp($firstConsecutiveMovementTimestamp)->toTimeString();
+                        $firstMovementTimeDetected = true;
+                    }
+                } else {
+                    $consecutiveMovementCount = 0;
+                    $firstConsecutiveMovementTimestamp = null;
+                }
+            }
+
+            // First point in incremental batch
+            if ($prevTs === null || $prevTs === 0) {
+                if ($isStopped) {
+                    $isCurrentlyStopped = true;
+                    $segmentStartTimestamp = $ts;
+                    $segmentStartLat = $point['lat'];
+                    $segmentStartLon = $point['lon'];
+                    $segmentStartStatus = $status;
+                } elseif ($isMoving) {
+                    $isCurrentlyMoving = true;
+                    $segmentStartTimestamp = $ts;
+                    $segmentStartLat = $point['lat'];
+                    $segmentStartLon = $point['lon'];
+                    $movementSegmentDistance = 0.0;
+                }
+                $prevLatRad = $point['lat_rad'];
+                $prevLonRad = $point['lon_rad'];
+                $prevTs = $ts;
+                continue;
+            }
+
+            // Calculate time difference
+            $timeDiff = $this->calcDurationFast($prevTs, $ts, $wsTs, $weTs);
+
+            // Transition: Moving -> Stopped
+            if ($isStopped && $isCurrentlyMoving) {
+                $distance = $this->haversineDistanceRad($prevLatRad, $prevLonRad, $point['lat_rad'], $point['lon_rad']);
+                $movementSegmentDistance += $distance;
+                $movementDistance += $distance;
+                $movementDuration += $timeDiff;
+
+                if ($includeDetails && $segmentStartTimestamp !== null) {
+                    $movementDetailIndex++;
+                    $duration = $this->calcDurationFast($segmentStartTimestamp, $ts, $wsTs, $weTs);
+                    $this->movements[] = [
+                        'index' => $movementDetailIndex,
+                        'start_time' => Carbon::createFromTimestamp($segmentStartTimestamp)->toTimeString(),
+                        'end_time' => $point['timestamp']->toTimeString(),
+                        'duration_seconds' => $duration,
+                        'duration_formatted' => to_time_format($duration),
+                        'distance_km' => round($movementSegmentDistance, 3),
+                        'distance_meters' => round($movementSegmentDistance * 1000, 2),
+                        'start_location' => [
+                            'latitude' => $segmentStartLat,
+                            'longitude' => $segmentStartLon,
+                        ],
+                        'end_location' => [
+                            'latitude' => $point['lat'],
+                            'longitude' => $point['lon'],
+                        ],
+                        'avg_speed' => $duration > 0 ? round(($movementSegmentDistance / $duration) * 3600, 2) : 0,
+                    ];
+                }
+
+                $isCurrentlyMoving = false;
+                $isCurrentlyStopped = true;
+                $segmentStartTimestamp = $ts;
+                $segmentStartLat = $point['lat'];
+                $segmentStartLon = $point['lon'];
+                $segmentStartStatus = $status;
+                $movementSegmentDistance = 0.0;
+            }
+            // Transition: Stopped -> Moving
+            elseif ($isMoving && $isCurrentlyStopped) {
+                $tempDuration = $this->calcDurationFast($segmentStartTimestamp ?? $ts, $ts, $wsTs, $weTs);
+
+                // Simplified on/off calculation for incremental
+                $tempDurationOn = 0;
+                $tempDurationOff = 0;
+                if ($segmentStartStatus === 1) {
+                    $tempDurationOn = $tempDuration;
+                } else {
+                    $tempDurationOff = $tempDuration;
+                }
+
+                $isIgnored = $tempDuration < 60;
+
+                if ($includeDetails && !$isIgnored && $segmentStartTimestamp !== null) {
+                    $stoppageDetailIndex++;
+                    $this->stoppages[] = [
+                        'index' => $stoppageDetailIndex,
+                        'start_time' => Carbon::createFromTimestamp($segmentStartTimestamp)->toTimeString(),
+                        'end_time' => $point['timestamp']->toTimeString(),
+                        'duration_seconds' => $tempDuration,
+                        'duration_formatted' => to_time_format($tempDuration),
+                        'location' => [
+                            'latitude' => $segmentStartLat,
+                            'longitude' => $segmentStartLon,
+                        ],
+                        'status' => $segmentStartStatus === 1 ? 'on' : 'off',
+                        'ignored' => false,
+                    ];
+                }
+
+                if ($tempDuration >= 60) {
+                    $stoppageCount++;
+                    $stoppageDuration += $tempDuration;
+                    $stoppageDurationWhileOn += $tempDurationOn;
+                    $stoppageDurationWhileOff += $tempDurationOff;
+                } else {
+                    $movementDuration += $tempDuration;
+                }
+
+                $isCurrentlyStopped = false;
+                $isCurrentlyMoving = true;
+                $segmentStartTimestamp = $ts;
+                $segmentStartLat = $point['lat'];
+                $segmentStartLon = $point['lon'];
+                $movementSegmentDistance = 0.0;
+            }
+            // Continue moving
+            elseif ($isMoving && $isCurrentlyMoving) {
+                $distance = $this->haversineDistanceRad($prevLatRad, $prevLonRad, $point['lat_rad'], $point['lon_rad']);
+                $movementSegmentDistance += $distance;
+                $movementDistance += $distance;
+                $movementDuration += $timeDiff;
+            }
+            // First stoppage
+            elseif ($isStopped && !$isCurrentlyStopped && !$isCurrentlyMoving) {
+                $isCurrentlyStopped = true;
+                $segmentStartTimestamp = $ts;
+                $segmentStartLat = $point['lat'];
+                $segmentStartLon = $point['lon'];
+                $segmentStartStatus = $status;
+            }
+
+            $prevLatRad = $point['lat_rad'];
+            $prevLonRad = $point['lon_rad'];
+            $prevTs = $ts;
+        }
+
+        // Get last point for state
+        $lastPoint = $data[$dataCount - 1];
+
+        // Update state and cache
+        $newState = new GpsAnalysisState(
+            lastProcessedTimestamp: $lastPoint['ts'],
+            lastProcessedIndex: $dataCount - 1,
+            deviceOnTime: $deviceOnTime,
+            firstMovementTime: $firstMovementTime,
+            deviceOnTimeDetected: $deviceOnTimeDetected,
+            firstMovementTimeDetected: $firstMovementTimeDetected,
+            movementDistance: $movementDistance,
+            movementDuration: $movementDuration,
+            stoppageDuration: $stoppageDuration,
+            stoppageDurationWhileOn: $stoppageDurationWhileOn,
+            stoppageDurationWhileOff: $stoppageDurationWhileOff,
+            stoppageCount: $stoppageCount,
+            maxSpeed: $maxSpeed,
+            isCurrentlyMoving: $isCurrentlyMoving,
+            isCurrentlyStopped: $isCurrentlyStopped,
+            segmentStartIndex: null,
+            segmentStartTimestamp: $segmentStartTimestamp,
+            segmentDistance: $movementSegmentDistance,
+            consecutiveMovementCount: $consecutiveMovementCount,
+            firstConsecutiveMovementTimestamp: $firstConsecutiveMovementTimestamp,
+            lastLat: $lastPoint['lat'],
+            lastLon: $lastPoint['lon'],
+            lastLatRad: $lastPoint['lat_rad'],
+            lastLonRad: $lastPoint['lon_rad'],
+            lastSpeed: $lastPoint['speed'],
+            lastStatus: $lastPoint['status'],
+            startTime: $startTime,
+            segmentStartLat: $segmentStartLat,
+            segmentStartLon: $segmentStartLon,
+            segmentStartStatus: $segmentStartStatus,
+            movementDetailIndex: $movementDetailIndex,
+            stoppageDetailIndex: $stoppageDetailIndex,
         );
+
+        // Save to cache
+        if ($this->tractor !== null && $this->date !== null) {
+            $this->cacheService->saveState($this->tractor->id, $this->date, $newState);
+        }
+
+        // Build and return results
+        $averageSpeed = $movementDuration > 0 ? (int)($movementDistance * 3600 / $movementDuration) : 0;
+
+        $this->results = [
+            'movement_distance_km' => round($movementDistance, 1),
+            'movement_distance_meters' => round($movementDistance * 1000, 2),
+            'movement_duration_seconds' => $movementDuration,
+            'movement_duration_formatted' => to_time_format($movementDuration),
+            'stoppage_duration_seconds' => $stoppageDuration,
+            'stoppage_duration_formatted' => to_time_format($stoppageDuration),
+            'stoppage_duration_while_on_seconds' => $stoppageDurationWhileOn,
+            'stoppage_duration_while_on_formatted' => to_time_format($stoppageDurationWhileOn),
+            'stoppage_duration_while_off_seconds' => $stoppageDurationWhileOff,
+            'stoppage_duration_while_off_formatted' => to_time_format($stoppageDurationWhileOff),
+            'stoppage_count' => $stoppageCount,
+            'device_on_time' => $deviceOnTime,
+            'first_movement_time' => $firstMovementTime,
+            'start_time' => $startTime,
+            'latest_status' => $lastPoint['status'],
+            'average_speed' => $averageSpeed,
+        ];
+
+        return $this->results;
     }
 
     /**
-     * Get the effective start time for a stoppage or movement segment
-     * If the actual start is before workingStartTime, use workingStartTime
-     *
-     * @param Carbon $actualStartTime
-     * @param Carbon|null $workingStartTime
-     * @return Carbon
+     * Build results array from cached state (no processing needed)
      */
-    private function getEffectiveStartTime(Carbon $actualStartTime, ?Carbon $workingStartTime): Carbon
+    private function buildResultsFromState(GpsAnalysisState $state): array
     {
-        if ($workingStartTime && $actualStartTime->lt($workingStartTime)) {
-            return $workingStartTime->copy();
-        }
-        return $actualStartTime;
+        $averageSpeed = $state->movementDuration > 0
+            ? (int)($state->movementDistance * 3600 / $state->movementDuration)
+            : 0;
+
+        return [
+            'movement_distance_km' => round($state->movementDistance, 1),
+            'movement_distance_meters' => round($state->movementDistance * 1000, 2),
+            'movement_duration_seconds' => $state->movementDuration,
+            'movement_duration_formatted' => to_time_format($state->movementDuration),
+            'stoppage_duration_seconds' => $state->stoppageDuration,
+            'stoppage_duration_formatted' => to_time_format($state->stoppageDuration),
+            'stoppage_duration_while_on_seconds' => $state->stoppageDurationWhileOn,
+            'stoppage_duration_while_on_formatted' => to_time_format($state->stoppageDurationWhileOn),
+            'stoppage_duration_while_off_seconds' => $state->stoppageDurationWhileOff,
+            'stoppage_duration_while_off_formatted' => to_time_format($state->stoppageDurationWhileOff),
+            'stoppage_count' => $state->stoppageCount,
+            'device_on_time' => $state->deviceOnTime,
+            'first_movement_time' => $state->firstMovementTime,
+            'start_time' => $state->startTime,
+            'latest_status' => $state->lastStatus,
+            'average_speed' => $averageSpeed,
+        ];
     }
 
     /**
-     * Get the effective end time for a stoppage or movement segment
-     * If the actual end is after workingEndTime, use workingEndTime
-     *
-     * @param Carbon $actualEndTime
-     * @param Carbon|null $workingEndTime
-     * @return Carbon
+     * Save current analysis state to cache after full analysis
      */
-    private function getEffectiveEndTime(Carbon $actualEndTime, ?Carbon $workingEndTime): Carbon
+    private function saveStateToCache(int $tractorId, Carbon $date): void
     {
-        if ($workingEndTime && $actualEndTime->gt($workingEndTime)) {
-            return $workingEndTime->copy();
+        if (empty($this->data)) {
+            return;
         }
-        return $actualEndTime;
+
+        $dataCount = count($this->data);
+        $lastPoint = $this->data[$dataCount - 1];
+        $firstPoint = $this->data[0];
+
+        // Extract values from results
+        $results = $this->results;
+
+        $state = new GpsAnalysisState(
+            lastProcessedTimestamp: $lastPoint['ts'],
+            lastProcessedIndex: $dataCount - 1,
+            deviceOnTime: $results['device_on_time'] ?? null,
+            firstMovementTime: $results['first_movement_time'] ?? null,
+            deviceOnTimeDetected: $results['device_on_time'] !== null,
+            firstMovementTimeDetected: $results['first_movement_time'] !== null,
+            movementDistance: (float)str_replace(',', '', $results['movement_distance_km']),
+            movementDuration: $results['movement_duration_seconds'],
+            stoppageDuration: $results['stoppage_duration_seconds'],
+            stoppageDurationWhileOn: $results['stoppage_duration_while_on_seconds'],
+            stoppageDurationWhileOff: $results['stoppage_duration_while_off_seconds'],
+            stoppageCount: $results['stoppage_count'],
+            maxSpeed: 0,
+            isCurrentlyMoving: $lastPoint['status'] === 1 && $lastPoint['speed'] > 0,
+            isCurrentlyStopped: $lastPoint['speed'] === 0,
+            segmentStartIndex: null,
+            segmentStartTimestamp: $lastPoint['ts'],
+            segmentDistance: 0.0,
+            consecutiveMovementCount: 0,
+            firstConsecutiveMovementTimestamp: null,
+            lastLat: $lastPoint['lat'],
+            lastLon: $lastPoint['lon'],
+            lastLatRad: $lastPoint['lat_rad'],
+            lastLonRad: $lastPoint['lon_rad'],
+            lastSpeed: $lastPoint['speed'],
+            lastStatus: $lastPoint['status'],
+            startTime: $results['start_time'] ?? $firstPoint['timestamp']->toTimeString(),
+            segmentStartLat: $lastPoint['lat'],
+            segmentStartLon: $lastPoint['lon'],
+            segmentStartStatus: $lastPoint['status'],
+            movementDetailIndex: count($this->movements),
+            stoppageDetailIndex: count($this->stoppages),
+        );
+
+        $this->cacheService->saveState($tractorId, $date, $state);
+    }
+
+    /**
+     * Analyze with caching - lightweight version (no details)
+     */
+    public function analyzeLightWithCache(): array
+    {
+        return $this->analyzeWithCache(false);
     }
 
     /**

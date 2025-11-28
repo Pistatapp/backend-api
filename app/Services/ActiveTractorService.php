@@ -99,6 +99,7 @@ class ActiveTractorService
 
     /**
      * Get tractor performance from real-time GPS data analysis.
+     * Uses incremental caching for fast response times on subsequent requests.
      *
      * @param Tractor $tractor
      * @param Carbon $date
@@ -106,7 +107,10 @@ class ActiveTractorService
      */
     private function getTractorPerformanceFromGpsData(Tractor $tractor, Carbon $date): array
     {
-        $results = $this->gpsDataAnalyzer->loadRecordsFor($tractor, $date)->analyzeLight();
+        // Use cached incremental analysis for fast response
+        $results = $this->gpsDataAnalyzer
+            ->loadRecordsFor($tractor, $date)
+            ->analyzeLightWithCache();
 
         $averageSpeed = $results['average_speed'];
         $latestStatus = $results['latest_status'];

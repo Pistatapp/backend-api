@@ -42,7 +42,8 @@ class CalculateGpsMetricsJob implements ShouldQueue
 
         // Load GPS records for the entire day using tractor's work time window
         // This automatically uses start_work_time and end_work_time if set
-        $results = $gpsDataAnalyzer->loadRecordsFor($this->tractor, $this->date)->analyzeLight();
+        // Uses incremental caching for better performance
+        $results = $gpsDataAnalyzer->loadRecordsFor($this->tractor, $this->date)->analyzeLightWithCache();
 
         // Check if there's any GPS data for this day
         if (empty($results['start_time'])) {
