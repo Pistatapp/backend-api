@@ -25,15 +25,15 @@ class UpdateIrrigationRequest extends FormRequest
         return [
             'labour_id' => 'required|exists:labours,id',
             'pump_id' => 'required|exists:pumps,id',
-            'start_date' => 'required|date',
-            'end_date' => 'required|date|after_or_equal:start_date',
             'start_time' => [
                 'required',
+                'date',
                 new \App\Rules\ValveTimeOverLap(),
                 new \App\Rules\PlotIrrigationTimeOverLap(),
             ],
             'end_time' => [
                 'required',
+                'date',
                 'after:start_time',
                 new \App\Rules\ValveTimeOverLap(),
                 new \App\Rules\PlotIrrigationTimeOverLap(),
@@ -59,14 +59,14 @@ class UpdateIrrigationRequest extends FormRequest
         $endTime = Carbon::createFromFormat('H:i', $this->end_time);
 
         // Combine start_date and start_time into start_time datetime
-        $combinedStartTime = $startDate->setTime(
+        $combinedStartTime = $startDate->copy()->setTime(
             $startTime->hour,
             $startTime->minute,
             $startTime->second
         );
 
         // Combine end_date and end_time into end_time datetime
-        $combinedEndTime = $endDate->setTime(
+        $combinedEndTime = $endDate->copy()->setTime(
             $endTime->hour,
             $endTime->minute,
             $endTime->second

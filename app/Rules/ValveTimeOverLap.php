@@ -44,18 +44,14 @@ class ValveTimeOverLap implements ValidationRule, DataAwareRule
         $valves = $this->data['valves'] ?? [];
         $startTime = $this->data['start_time'] ?? null;
         $endTime = $this->data['end_time'] ?? null;
-        $dateInput = $this->data['start_date'] ?? $this->data['date'] ?? request('start_date') ?? request('date');
 
-        if (empty($valves) || !$startTime || !$endTime || !$dateInput) {
+        if (empty($valves) || !$startTime || !$endTime) {
             return [null, null, []];
         }
 
-        $date = $dateInput instanceof Carbon ? $dateInput : Carbon::parse($dateInput);
-        $startTimeParsed = Carbon::parse($startTime);
-        $endTimeParsed = Carbon::parse($endTime);
-
-        $startDateTime = $date->setTime($startTimeParsed->hour, $startTimeParsed->minute, $startTimeParsed->second);
-        $endDateTime = $date->setTime($endTimeParsed->hour, $endTimeParsed->minute, $endTimeParsed->second);
+        // start_time and end_time are already combined datetime values from prepareForValidation
+        $startDateTime = $startTime instanceof Carbon ? $startTime : Carbon::parse($startTime);
+        $endDateTime = $endTime instanceof Carbon ? $endTime : Carbon::parse($endTime);
 
         return [$startDateTime, $endDateTime, $valves];
     }

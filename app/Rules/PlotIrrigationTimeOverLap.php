@@ -48,21 +48,17 @@ class PlotIrrigationTimeOverLap implements ValidationRule, DataAwareRule
 
     private function extractValidationData(): array
     {
-        $dateInput = $this->data['start_date'] ?? $this->data['date'] ?? request('start_date') ?? request('date');
         $startTimeInput = $this->data['start_time'] ?? request('start_time');
         $endTimeInput = $this->data['end_time'] ?? request('end_time');
         $plotIds = $this->data['plots'] ?? [];
 
-        if (!$dateInput || !$startTimeInput || !$endTimeInput) {
+        if (!$startTimeInput || !$endTimeInput) {
             return [null, null, []];
         }
 
-        $date = $dateInput instanceof Carbon ? $dateInput : Carbon::parse($dateInput);
-        $startTime = $startTimeInput instanceof Carbon ? $startTimeInput : Carbon::parse($startTimeInput);
-        $endTime = $endTimeInput instanceof Carbon ? $endTimeInput : Carbon::parse($endTimeInput);
-
-        $startDateTime = $date->setTime($startTime->hour, $startTime->minute, $startTime->second);
-        $endDateTime = $date->setTime($endTime->hour, $endTime->minute, $endTime->second);
+        // start_time and end_time are already combined datetime values from prepareForValidation
+        $startDateTime = $startTimeInput instanceof Carbon ? $startTimeInput : Carbon::parse($startTimeInput);
+        $endDateTime = $endTimeInput instanceof Carbon ? $endTimeInput : Carbon::parse($endTimeInput);
 
         $plotIds = array_filter(array_map('intval', array_filter($plotIds, 'is_numeric')));
 
