@@ -17,7 +17,8 @@ class TractorStartMovementTimeDetectionService
 
     /**
      * Detect start movement time for a tractor using GPS data analysis.
-     * Finds the first point in the first 3 consecutive movement points (status=1 AND speed>0).
+     * Finds the first 3 consecutive movement points (status=1 AND speed>0) AFTER the tractor's
+     * user-specified start_work_time, then returns the time of the first point in that sequence.
      *
      * @param Tractor $tractor
      * @param Carbon|null $date Optional date to analyze (defaults to today)
@@ -37,7 +38,8 @@ class TractorStartMovementTimeDetectionService
         }
 
         try {
-            $startTime = $this->findStartMovementTime($tractor->gpsDevice->id, $targetDate);
+            $workStartTime = $this->getWorkStartDateTime($tractor, $targetDate);
+            $startTime = $this->findStartMovementTime($tractor->gpsDevice->id, $targetDate, $workStartTime);
             Cache::put($cacheKey, $startTime ?? 'null', self::CACHE_TTL);
             return $startTime;
         } catch (\Exception $e) {
@@ -66,30 +68,47 @@ class TractorStartMovementTimeDetectionService
             fn($t) => [$t->id => $this->getCacheKey($t->id, $targetDate)]
         )->toArray();
 
-        $cachedResults = Cache::many($cacheKeys);
-        $tractorsNeedingCalculation = $tractorsWithGps->filter(fn($t) => !isset($cachedResults[$t->id]));
+        $cachedResults = Cache::many(array_values($cacheKeys));
+
+        // Map cache results back to tractor IDs
+        $tractorResults = [];
+        foreach ($cacheKeys as $tractorId => $cacheKey) {
+            if (isset($cachedResults[$cacheKey])) {
+                $tractorResults[$tractorId] = $cachedResults[$cacheKey];
+            }
+        }
+
+        $tractorsNeedingCalculation = $tractorsWithGps->filter(fn($t) => !isset($tractorResults[$t->id]));
 
         if ($tractorsNeedingCalculation->isNotEmpty()) {
             $this->bulkDetectStartMovementTime($tractorsNeedingCalculation, $targetDate);
-            $cachedResults = Cache::many($cacheKeys);
+            $cachedResults = Cache::many(array_values($cacheKeys));
+            foreach ($cacheKeys as $tractorId => $cacheKey) {
+                if (isset($cachedResults[$cacheKey])) {
+                    $tractorResults[$tractorId] = $cachedResults[$cacheKey];
+                }
+            }
         }
 
-        return $tractors->map(function ($tractor) use ($cachedResults) {
-            $tractor->calculated_start_work_time = $this->normalizeCacheValue($cachedResults[$tractor->id] ?? null);
+        return $tractors->map(function ($tractor) use ($tractorResults) {
+            $tractor->calculated_start_work_time = $this->normalizeCacheValue($tractorResults[$tractor->id] ?? null);
             return $tractor;
         });
     }
 
     /**
      * Find start movement time using optimized chunked SQL query.
+     * Only considers GPS data AFTER the work start time.
      *
      * @param int $gpsDeviceId
      * @param Carbon $date
+     * @param Carbon $workStartTime The tractor's user-specified work start time
      * @return string|null
      */
-    private function findStartMovementTime(int $gpsDeviceId, Carbon $date): ?string
+    private function findStartMovementTime(int $gpsDeviceId, Carbon $date, Carbon $workStartTime): ?string
     {
-        $dateStr = $date->format('Y-m-d');
+        $startDateTime = $workStartTime->format('Y-m-d H:i:s');
+        $endDateTime = $date->copy()->addDay()->format('Y-m-d');
         $consecutiveCount = 0;
         $firstMovementTime = null;
 
@@ -97,10 +116,10 @@ class TractorStartMovementTimeDetectionService
             $chunk = DB::select("
                 SELECT status, speed, date_time
                 FROM gps_data
-                WHERE gps_device_id = ? AND date_time >= ? AND date_time < DATE_ADD(?, INTERVAL 1 DAY)
+                WHERE gps_device_id = ? AND date_time >= ? AND date_time < ?
                 ORDER BY date_time ASC
                 LIMIT ? OFFSET ?
-            ", [$gpsDeviceId, $dateStr, $dateStr, self::GPS_DATA_CHUNK_SIZE, $offset]);
+            ", [$gpsDeviceId, $startDateTime, $endDateTime, self::GPS_DATA_CHUNK_SIZE, $offset]);
 
             if (empty($chunk)) {
                 break;
@@ -128,6 +147,7 @@ class TractorStartMovementTimeDetectionService
 
     /**
      * Bulk detect start movement time for multiple tractors.
+     * Each tractor's GPS data is filtered by its own work start time.
      *
      * @param Collection $tractors
      * @param Carbon $date
@@ -141,16 +161,26 @@ class TractorStartMovementTimeDetectionService
             return;
         }
 
-        $deviceToTractor = $tractors->mapWithKeys(fn($t) => [$t->gpsDevice->id => $t->id])->toArray();
+        // Build maps: device -> tractor, device -> work start time
+        $deviceToTractor = [];
+        $deviceToWorkStart = [];
+        foreach ($tractors as $tractor) {
+            $deviceId = $tractor->gpsDevice->id;
+            $deviceToTractor[$deviceId] = $tractor->id;
+            $deviceToWorkStart[$deviceId] = $this->getWorkStartDateTime($tractor, $date);
+        }
+
         $dateStr = $date->format('Y-m-d');
+        $endDateTime = $date->copy()->addDay()->format('Y-m-d');
         $placeholders = implode(',', array_fill(0, count($gpsDeviceIds), '?'));
 
+        // Fetch all GPS data for the day (we'll filter by work start time per device)
         $allGpsData = DB::select("
             SELECT gps_device_id, status, speed, date_time
             FROM gps_data
-            WHERE gps_device_id IN ({$placeholders}) AND date_time >= ? AND date_time < DATE_ADD(?, INTERVAL 1 DAY)
+            WHERE gps_device_id IN ({$placeholders}) AND date_time >= ? AND date_time < ?
             ORDER BY gps_device_id, date_time ASC
-        ", array_merge($gpsDeviceIds, [$dateStr, $dateStr]));
+        ", array_merge($gpsDeviceIds, [$dateStr, $endDateTime]));
 
         $groupedData = collect($allGpsData)->groupBy('gps_device_id');
         $results = [];
@@ -160,7 +190,13 @@ class TractorStartMovementTimeDetectionService
                 continue;
             }
 
-            $startTime = $this->findFirstMovementTimeFromPoints($groupedData->get($deviceId, collect())->toArray());
+            $workStartTime = $deviceToWorkStart[$deviceId];
+            $points = $groupedData->get($deviceId, collect())
+                ->filter(fn($p) => Carbon::parse($p->date_time)->gte($workStartTime))
+                ->values()
+                ->toArray();
+
+            $startTime = $this->findFirstMovementTimeFromPoints($points);
             $results[$this->getCacheKey($deviceToTractor[$deviceId], $date)] = $startTime ?? 'null';
         }
 
@@ -215,6 +251,23 @@ class TractorStartMovementTimeDetectionService
     private function normalizeCacheValue(?string $value): ?string
     {
         return $value === 'null' || $value === null ? null : $value;
+    }
+
+    /**
+     * Get the work start datetime for a tractor.
+     * Uses tractor's start_work_time if set, otherwise defaults to start of day.
+     *
+     * @param Tractor $tractor
+     * @param Carbon $date
+     * @return Carbon
+     */
+    private function getWorkStartDateTime(Tractor $tractor, Carbon $date): Carbon
+    {
+        if ($tractor->start_work_time) {
+            return $date->copy()->setTimeFromTimeString($tractor->start_work_time);
+        }
+
+        return $date->copy()->startOfDay();
     }
 
     /**
