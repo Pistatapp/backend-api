@@ -73,20 +73,19 @@ class PumpController extends Controller
      */
     public function generateIrrigationReport(PumpIrrigationReportRequest $request, Pump $pump)
     {
-        $startDate = $request->start_date;
-        $endDate = $request->end_date;
+        $startDate = $request->start_date->startOfDay();
+        $endDate = $request->end_date->endOfDay();
 
         // Get irrigations for this pump within the date range
+        // Filter based on start_time and end_time of irrigation
         $irrigations = Irrigation::where('pump_id', $pump->id)
             ->filter('finished')
             ->verifiedByAdmin()
             ->where(function ($query) use ($startDate, $endDate) {
-                $query->whereDate('start_date', '<=', $endDate->format('Y-m-d'))
-                    ->where(function ($q) use ($startDate) {
-                        $q->whereDate('end_date', '>=', $startDate->format('Y-m-d'))
-                            ->orWhereNull('end_date')
-                            ->whereDate('start_date', '>=', $startDate->format('Y-m-d'));
-                    });
+                // Include irrigation if it overlaps with the date range
+                // Overlap occurs when: irrigation.start_time <= endDate AND irrigation.end_time >= startDate
+                $query->where('start_time', '<=', $endDate)
+                    ->where('end_time', '>=', $startDate);
             })
             ->with('valves')
             ->get();
