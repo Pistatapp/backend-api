@@ -4,16 +4,20 @@ namespace App\Services;
 
 use App\Models\Tractor;
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class TractorStartMovementTimeDetectionService
 {
-    public function __construct() {}
+    private const CACHE_TTL = 3600; // 1 hour
+    private const REQUIRED_CONSECUTIVE_POINTS = 3;
+    private const GPS_DATA_CHUNK_SIZE = 500;
 
     /**
      * Detect start movement time for a tractor using GPS data analysis.
-     * Uses the same algorithm as TractorPathService: finds the first point in the first 3 consecutive movement points.
-     * Movement = status == 1 AND speed > 0
+     * Finds the first point in the first 3 consecutive movement points (status=1 AND speed>0).
      *
      * @param Tractor $tractor
      * @param Carbon|null $date Optional date to analyze (defaults to today)
@@ -21,143 +25,208 @@ class TractorStartMovementTimeDetectionService
      */
     public function detectStartMovementTime(Tractor $tractor, ?Carbon $date = null): ?string
     {
-        // Early exit: Check if tractor has GPS device
         if (!$tractor->gpsDevice) {
             return null;
         }
 
-        // Use provided date or default to today
         $targetDate = $date ?? Carbon::today();
+        $cacheKey = $this->getCacheKey($tractor->id, $targetDate);
+
+        if (($cached = Cache::get($cacheKey)) !== null) {
+            return $cached === 'null' ? null : $cached;
+        }
 
         try {
-            // Get GPS data with optimized query
-            $gpsData = $this->getOptimizedGpsData($tractor, $targetDate);
-
-            if ($gpsData->isEmpty()) {
-                return null;
-            }
-
-            // Find first movement point using the same algorithm as TractorPathService
-            $firstMovementPoint = $this->findFirstMovementPoint($gpsData);
-
-            if (!$firstMovementPoint) {
-                return null;
-            }
-
-            $pointTime = is_string($firstMovementPoint->date_time)
-                ? Carbon::parse($firstMovementPoint->date_time)
-                : $firstMovementPoint->date_time;
-
-            return $pointTime->format('H:i:s');
+            $startTime = $this->findStartMovementTime($tractor->gpsDevice->id, $targetDate);
+            Cache::put($cacheKey, $startTime ?? 'null', self::CACHE_TTL);
+            return $startTime;
         } catch (\Exception $e) {
-            // Log error and return null if analysis fails
-            Log::error('Failed to detect start movement time for tractor ' . $tractor->id . ': ' . $e->getMessage());
+            Log::error("Failed to detect start movement time for tractor {$tractor->id}: {$e->getMessage()}");
             return null;
         }
     }
 
     /**
-     * Detect start movement time for multiple tractors (optimized batch processing)
+     * Detect start movement time for multiple tractors (optimized batch processing).
      *
-     * @param \Illuminate\Support\Collection $tractors
+     * @param Collection $tractors
      * @param Carbon|null $date Optional date to analyze (defaults to today)
-     * @return \Illuminate\Support\Collection
+     * @return Collection
      */
-    public function detectStartMovementTimeForTractors($tractors, ?Carbon $date = null)
+    public function detectStartMovementTimeForTractors(Collection $tractors, ?Carbon $date = null): Collection
     {
-        // Process tractors in batches for better performance
-        return $tractors->map(function ($tractor) use ($date) {
-            // Calculate for this tractor
-            $startMovementTime = $this->detectStartMovementTime($tractor, $date);
-            $tractor->calculated_start_work_time = $startMovementTime;
+        $targetDate = $date ?? Carbon::today();
+        $tractorsWithGps = $tractors->filter(fn($t) => $t->gpsDevice !== null);
+
+        if ($tractorsWithGps->isEmpty()) {
+            return $tractors->each(fn($t) => $t->calculated_start_work_time = null);
+        }
+
+        $cacheKeys = $tractorsWithGps->mapWithKeys(
+            fn($t) => [$t->id => $this->getCacheKey($t->id, $targetDate)]
+        )->toArray();
+
+        $cachedResults = Cache::many($cacheKeys);
+        $tractorsNeedingCalculation = $tractorsWithGps->filter(fn($t) => !isset($cachedResults[$t->id]));
+
+        if ($tractorsNeedingCalculation->isNotEmpty()) {
+            $this->bulkDetectStartMovementTime($tractorsNeedingCalculation, $targetDate);
+            $cachedResults = Cache::many($cacheKeys);
+        }
+
+        return $tractors->map(function ($tractor) use ($cachedResults) {
+            $tractor->calculated_start_work_time = $this->normalizeCacheValue($cachedResults[$tractor->id] ?? null);
             return $tractor;
         });
     }
 
     /**
-     * Get optimized GPS data query with proper indexing hints
+     * Find start movement time using optimized chunked SQL query.
      *
-     * @param Tractor $tractor
+     * @param int $gpsDeviceId
      * @param Carbon $date
-     * @return \Illuminate\Support\Collection
+     * @return string|null
      */
-    private function getOptimizedGpsData(Tractor $tractor, Carbon $date): \Illuminate\Support\Collection
+    private function findStartMovementTime(int $gpsDeviceId, Carbon $date): ?string
     {
-        return $tractor->gpsData()
-            ->select(['gps_data.id', 'gps_data.coordinate', 'gps_data.speed', 'gps_data.status', 'gps_data.directions', 'gps_data.date_time'])
-            ->whereDate('gps_data.date_time', $date)
-            ->orderBy('gps_data.date_time')
-            ->get();
-    }
+        $dateStr = $date->format('Y-m-d');
+        $consecutiveCount = 0;
+        $firstMovementTime = null;
 
-    /**
-     * Find the first point in the first 3 consecutive movement points.
-     * Uses the same algorithm as TractorPathService::findFirstMovementPointIdFromOriginalData()
-     *
-     * Rules:
-     * - Movement = status == 1 AND speed > 0
-     * - Need 3 consecutive movement points
-     * - Return the first point of that sequence
-     *
-     * @param \Illuminate\Support\Collection $gpsData Original GPS data (all points)
-     * @return object|null The first movement point, or null if not found
-     */
-    private function findFirstMovementPoint($gpsData): ?object
-    {
-        $consecutiveMovementCount = 0;
-        $firstMovementPoint = null;
+        for ($offset = 0; ; $offset += self::GPS_DATA_CHUNK_SIZE) {
+            $chunk = DB::select("
+                SELECT status, speed, date_time
+                FROM gps_data
+                WHERE gps_device_id = ? AND date_time >= ? AND date_time < DATE_ADD(?, INTERVAL 1 DAY)
+                ORDER BY date_time ASC
+                LIMIT ? OFFSET ?
+            ", [$gpsDeviceId, $dateStr, $dateStr, self::GPS_DATA_CHUNK_SIZE, $offset]);
 
-        foreach ($gpsData as $point) {
-            // Strict rule: Movement = status == 1 AND speed > 0 (same as TractorPathService)
-            $isMovement = ((int)$point->status == 1 && (float)$point->speed > 0);
+            if (empty($chunk)) {
+                break;
+            }
 
-            if ($isMovement) {
-                if ($consecutiveMovementCount === 0) {
-                    // Start tracking a potential sequence - save the first point
-                    $firstMovementPoint = $point;
-                    $consecutiveMovementCount = 1;
+            foreach ($chunk as $point) {
+                if ($this->isMovement($point)) {
+                    $firstMovementTime ??= $point->date_time;
+                    if (++$consecutiveCount >= self::REQUIRED_CONSECUTIVE_POINTS) {
+                        return Carbon::parse($firstMovementTime)->format('H:i:s');
+                    }
                 } else {
-                    // Continue the sequence
-                    $consecutiveMovementCount++;
+                    $consecutiveCount = 0;
+                    $firstMovementTime = null;
                 }
+            }
 
-                // Found 3 consecutive movement points - return the first point
-                if ($consecutiveMovementCount >= 3) {
-                    return $firstMovementPoint;
-                }
-            } else {
-                // Non-moving point breaks the sequence - reset
-                $consecutiveMovementCount = 0;
-                $firstMovementPoint = null;
+            if (count($chunk) < self::GPS_DATA_CHUNK_SIZE) {
+                break;
             }
         }
 
-        // Less than 3 consecutive movement points found
         return null;
     }
 
     /**
-     * Legacy method for backward compatibility - calculates only start work time
+     * Bulk detect start movement time for multiple tractors.
      *
-     * @param Tractor $tractor
-     * @param Carbon|null $date
-     * @return string|null
+     * @param Collection $tractors
+     * @param Carbon $date
+     * @return void
      */
-    public function calculateStartWorkTime(Tractor $tractor, ?Carbon $date = null): ?string
+    private function bulkDetectStartMovementTime(Collection $tractors, Carbon $date): void
     {
-        return $this->detectStartMovementTime($tractor, $date);
+        $gpsDeviceIds = $tractors->pluck('gpsDevice.id')->filter()->unique()->values()->toArray();
+
+        if (empty($gpsDeviceIds)) {
+            return;
+        }
+
+        $deviceToTractor = $tractors->mapWithKeys(fn($t) => [$t->gpsDevice->id => $t->id])->toArray();
+        $dateStr = $date->format('Y-m-d');
+        $placeholders = implode(',', array_fill(0, count($gpsDeviceIds), '?'));
+
+        $allGpsData = DB::select("
+            SELECT gps_device_id, status, speed, date_time
+            FROM gps_data
+            WHERE gps_device_id IN ({$placeholders}) AND date_time >= ? AND date_time < DATE_ADD(?, INTERVAL 1 DAY)
+            ORDER BY gps_device_id, date_time ASC
+        ", array_merge($gpsDeviceIds, [$dateStr, $dateStr]));
+
+        $groupedData = collect($allGpsData)->groupBy('gps_device_id');
+        $results = [];
+
+        foreach ($gpsDeviceIds as $deviceId) {
+            if (!isset($deviceToTractor[$deviceId])) {
+                continue;
+            }
+
+            $startTime = $this->findFirstMovementTimeFromPoints($groupedData->get($deviceId, collect())->toArray());
+            $results[$this->getCacheKey($deviceToTractor[$deviceId], $date)] = $startTime ?? 'null';
+        }
+
+        if (!empty($results)) {
+            Cache::putMany($results, self::CACHE_TTL);
+        }
     }
 
     /**
-     * Legacy method for backward compatibility - calculates start work time for multiple tractors
+     * Find first movement time from array of GPS points.
      *
-     * @param \Illuminate\Support\Collection $tractors
-     * @param Carbon|null $date
-     * @return \Illuminate\Support\Collection
+     * @param array $points
+     * @return string|null
      */
-    public function calculateStartWorkTimeForTractors($tractors, ?Carbon $date = null)
+    private function findFirstMovementTimeFromPoints(array $points): ?string
     {
-        return $this->detectStartMovementTimeForTractors($tractors, $date);
+        $consecutiveCount = 0;
+        $firstMovementTime = null;
+
+        foreach ($points as $point) {
+            if ($this->isMovement($point)) {
+                $firstMovementTime ??= $point->date_time;
+                if (++$consecutiveCount >= self::REQUIRED_CONSECUTIVE_POINTS) {
+                    return Carbon::parse($firstMovementTime)->format('H:i:s');
+                }
+            } else {
+                $consecutiveCount = 0;
+                $firstMovementTime = null;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Check if a GPS point represents movement (status=1 AND speed>0).
+     *
+     * @param object $point
+     * @return bool
+     */
+    private function isMovement(object $point): bool
+    {
+        return (int)$point->status === 1 && (int)$point->speed > 0;
+    }
+
+    /**
+     * Normalize cache value (convert 'null' string to actual null).
+     *
+     * @param string|null $value
+     * @return string|null
+     */
+    private function normalizeCacheValue(?string $value): ?string
+    {
+        return $value === 'null' || $value === null ? null : $value;
+    }
+
+    /**
+     * Generate cache key for tractor and date.
+     *
+     * @param int $tractorId
+     * @param Carbon $date
+     * @return string
+     */
+    private function getCacheKey(int $tractorId, Carbon $date): string
+    {
+        return "tractor_start_time:{$tractorId}:{$date->format('Y-m-d')}";
     }
 }
 

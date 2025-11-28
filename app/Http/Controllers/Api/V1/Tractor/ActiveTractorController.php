@@ -30,10 +30,7 @@ class ActiveTractorController extends Controller
      */
     public function index(Request $request, Farm $farm)
     {
-        // Verify user has access to the farm
-        if (!$farm->users->contains($request->user())) {
-            abort(403, 'Unauthorized access to this farm.');
-        }
+        $this->authorize('view', $farm);
 
         $request->validate([
             'date' => 'sometimes|shamsi_date'
@@ -58,10 +55,7 @@ class ActiveTractorController extends Controller
      */
     public function getPath(Request $request, Tractor $tractor)
     {
-        // Verify user has access to the tractor's farm
-        if (!$tractor->farm->users->contains($request->user())) {
-            abort(403, 'Unauthorized access to this tractor.');
-        }
+        $this->authorize('view', $tractor);
 
         $request->validate([
             'date' => 'required|shamsi_date',
@@ -87,10 +81,7 @@ class ActiveTractorController extends Controller
      */
     public function getPerformance(Request $request, Tractor $tractor)
     {
-        // Verify user has access to the tractor's farm
-        if (!$tractor->farm->users->contains($request->user())) {
-            abort(403, 'Unauthorized access to this tractor.');
-        }
+        $this->authorize('view', $tractor);
 
         $request->validate([
             'date' => 'required|shamsi_date'
@@ -111,10 +102,7 @@ class ActiveTractorController extends Controller
      */
     public function getWeeklyEfficiencyChart(Request $request, Tractor $tractor)
     {
-        // Verify user has access to the tractor's farm
-        if (!$tractor->farm->users->contains($request->user())) {
-            abort(403, 'Unauthorized access to this tractor.');
-        }
+        $this->authorize('view', $tractor);
 
         $chartData = $this->activeTractorService->getWeeklyEfficiencyChart($tractor);
 
@@ -130,10 +118,7 @@ class ActiveTractorController extends Controller
      */
     public function getWorkingTractors(Request $request, Farm $farm)
     {
-        // Verify user has access to the farm
-        if (!$farm->users->contains($request->user())) {
-            abort(403, 'Unauthorized access to this farm.');
-        }
+        $this->authorize('view', $farm);
 
         $tractors = $farm->tractors()->working()->with(['gpsDevice', 'driver'])->get();
 
