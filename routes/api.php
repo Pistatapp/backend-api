@@ -106,7 +106,6 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::apiResource('fields.plots', PlotController::class)->shallow();
     Route::apiResource('plots.valves', ValveController::class)->shallow();
     Route::apiResource('farms.pumps', PumpController::class)->shallow();
-    Route::get('/fields/{field}/valves', [FieldController::class, 'getValvesForField']);
 
     // Tractors gps device and driver assignment routes
     Route::get('/farms/{farm}/gps-devices/available', [TractorController::class, 'getAvailableDevices']);
