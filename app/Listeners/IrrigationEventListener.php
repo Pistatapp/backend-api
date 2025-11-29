@@ -44,8 +44,6 @@ class IrrigationEventListener
 
         $irrigation->creator->notify(new IrrigationNotification($irrigation));
 
-        $irrigation->load('valves');
-
         foreach ($irrigation->valves as $valve) {
             $pivotData = [
                 'status' => $valveStatus,
