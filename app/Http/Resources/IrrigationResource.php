@@ -53,7 +53,7 @@ class IrrigationResource extends JsonResource
             'note' => $this->note,
             'status' => $this->status,
             'is_verified_by_admin' => (bool) $this->is_verified_by_admin,
-            'duration' => gmdate('H:i:s', $this->duration),
+            'duration' => to_time_format($this->duration),
             'plots_count' => $this->whenCounted('plots'),
             'area_covered' => $this->getAreaCovered(),
             $this->mergeWhen(in_array($this->status, ['in-progress', 'finished']), [
