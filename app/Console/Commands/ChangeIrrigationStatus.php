@@ -43,12 +43,11 @@ class ChangeIrrigationStatus extends Command
     {
         Irrigation::where('status', $currentStatus)
             ->when($newStatus === 'in-progress', function ($query) {
-                $query->where('start_time', '>=', now());
+                $query->where('start_time', '<=', now());
             })
             ->when($newStatus === 'finished', function ($query) {
-                $query->where('end_time', '>=', now());
+                $query->where('end_time', '<=', now());
             })
-            ->with(['valves', 'creator', 'plots'])
             ->chunk(100, function ($irrigations) use ($newStatus) {
                 foreach ($irrigations as $irrigation) {
                     // Use the merged IrrigationEvent with the appropriate eventType
