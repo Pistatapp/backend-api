@@ -10,7 +10,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\PumpResource;
 use App\Models\Farm;
 use App\Models\Irrigation;
-use Carbon\Carbon;
 
 class PumpController extends Controller
 {
