@@ -42,9 +42,17 @@ class IrrigationEventListener
         $irrigation->loadMissing('creator', 'pump', 'valves');
 
         $irrigation->update(['status' => $newStatus]);
-        $irrigation->pump->update(['is_active' => $newStatus === 'in-progress' ? true : false]);
+        // Pump can be null for some irrigations, so guard against it
+        if ($irrigation->pump) {
+            $irrigation->pump->update([
+                'is_active' => $newStatus === 'in-progress',
+            ]);
+        }
 
-        $irrigation->creator->notify(new IrrigationNotification($irrigation));
+        // Creator can also be null (e.g. if user was deleted), so guard against it
+        if ($irrigation->creator) {
+            $irrigation->creator->notify(new IrrigationNotification($irrigation));
+        }
 
         foreach ($irrigation->valves as $valve) {
             $pivotData = [
