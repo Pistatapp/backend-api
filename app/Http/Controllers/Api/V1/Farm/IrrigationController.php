@@ -208,23 +208,15 @@ class IrrigationController extends Controller
     /**
      * Verify the specified irrigation.
      */
-    public function verify(Request $request, Irrigation $irrigation)
+    public function verify(Irrigation $irrigation)
     {
         $this->authorize('verify', $irrigation);
-
-        if ($irrigation->is_verified_by_admin) {
-            return response()->json([
-                'message' => 'Irrigation already verified.',
-            ], 422);
-        }
 
         $irrigation->forceFill([
             'is_verified_by_admin' => true,
         ])->save();
 
-        $irrigation->loadMissing(['labour', 'pump', 'valves', 'plots', 'creator']);
-
-        return new IrrigationResource($irrigation);
+        return new IrrigationResource($irrigation->fresh());
     }
 
     /**
