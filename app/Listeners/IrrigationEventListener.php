@@ -6,6 +6,7 @@ use App\Events\IrrigationEvent;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Queue\InteractsWithQueue;
 use App\Notifications\IrrigationNotification;
+use Illuminate\Support\Facades\DB;
 
 class IrrigationEventListener
 {
@@ -41,7 +42,14 @@ class IrrigationEventListener
     {
         $irrigation->loadMissing('creator', 'pump', 'valves');
 
-        $irrigation->updateQuietly(['status' => $newStatus]);
+        // Use direct DB update to ensure only status is updated, preventing any model events
+        // or mutators from modifying start_time or end_time
+        DB::table('irrigations')
+            ->where('id', $irrigation->id)
+            ->update(['status' => $newStatus]);
+
+        // Refresh the model to reflect the updated status
+        $irrigation->refresh();
 
         // Pump can be null for some irrigations, so guard against it
         if ($irrigation->pump) {
