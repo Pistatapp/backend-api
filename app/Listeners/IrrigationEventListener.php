@@ -39,6 +39,8 @@ class IrrigationEventListener
      */
     private function updateIrrigationStatus($irrigation, $newStatus, $valveStatus)
     {
+        $irrigation->loadMissing('creator', 'pump', 'valves');
+
         $irrigation->update(['status' => $newStatus]);
         $irrigation->pump->update(['is_active' => $newStatus === 'in-progress' ? true : false]);
 

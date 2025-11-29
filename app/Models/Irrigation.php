@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -151,86 +150,5 @@ class Irrigation extends Model
     public function scopeVerifiedByAdmin($query): void
     {
         $query->where('is_verified_by_admin', true);
-    }
-
-    /**
-     * Accessor alias to maintain backward compatibility with legacy 'date' attribute usage.
-     *
-     * @return \Illuminate\Support\Carbon|null
-     */
-    public function getDateAttribute()
-    {
-        return $this->start_time?->toDate();
-    }
-
-    /**
-     * Accessor for start_date to maintain backward compatibility.
-     *
-     * @return \Illuminate\Support\Carbon|null
-     */
-    public function getStartDateAttribute()
-    {
-        return $this->start_time?->toDate();
-    }
-
-    /**
-     * Accessor for end_date to maintain backward compatibility.
-     *
-     * @return \Illuminate\Support\Carbon|null
-     */
-    public function getEndDateAttribute()
-    {
-        return $this->end_time?->toDate();
-    }
-
-    /**
-     * Mutator alias to map legacy 'date' attribute assignments to 'start_time'.
-     *
-     * @param mixed $value
-     * @return void
-     */
-    public function setDateAttribute($value): void
-    {
-        $date = $value instanceof Carbon ? $value : ($value ? Carbon::parse($value) : null);
-        if ($date && $this->start_time) {
-            $this->start_time = $date->setTime(
-                $this->start_time->hour,
-                $this->start_time->minute,
-                $this->start_time->second
-            );
-        } elseif ($date) {
-            $this->start_time = $date->startOfDay();
-        }
-    }
-
-    /**
-     * Mutator for start_date to maintain backward compatibility.
-     *
-     * @param mixed $value
-     * @return void
-     */
-    public function setStartDateAttribute($value): void
-    {
-        $this->setDateAttribute($value);
-    }
-
-    /**
-     * Mutator for end_date to maintain backward compatibility.
-     *
-     * @param mixed $value
-     * @return void
-     */
-    public function setEndDateAttribute($value): void
-    {
-        $date = $value instanceof Carbon ? $value : ($value ? Carbon::parse($value) : null);
-        if ($date && $this->end_time) {
-            $this->end_time = $date->setTime(
-                $this->end_time->hour,
-                $this->end_time->minute,
-                $this->end_time->second
-            );
-        } elseif ($date) {
-            $this->end_time = $date->startOfDay();
-        }
     }
 }
