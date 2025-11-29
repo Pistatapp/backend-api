@@ -53,28 +53,37 @@ class UpdateIrrigationRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
-        $startDate = jalali_to_carbon($this->start_date);
-        $endDate = jalali_to_carbon($this->end_date);
-        $startTime = Carbon::createFromFormat('H:i', $this->start_time);
-        $endTime = Carbon::createFromFormat('H:i', $this->end_time);
+        $startDate = $this->filled('start_date') ? jalali_to_carbon($this->start_date) : null;
+        $endDate = $this->filled('end_date') ? jalali_to_carbon($this->end_date) : $startDate;
+        $startTime = $this->filled('start_time') ? Carbon::createFromFormat('H:i', $this->start_time) : null;
+        $endTime = $this->filled('end_time') ? Carbon::createFromFormat('H:i', $this->end_time) : null;
+
+        $prepared = [];
 
         // Combine start_date and start_time into start_time datetime
-        $combinedStartTime = $startDate->copy()->setTime(
-            $startTime->hour,
-            $startTime->minute,
-            $startTime->second
-        );
+        if ($startDate && $startTime) {
+            $prepared['start_time'] = $startDate->copy()->setTime(
+                $startTime->hour,
+                $startTime->minute,
+                $startTime->second
+            );
+        } elseif ($startDate) {
+            $prepared['start_time'] = $startDate->copy()->startOfDay();
+        }
 
         // Combine end_date and end_time into end_time datetime
-        $combinedEndTime = $endDate->copy()->setTime(
-            $endTime->hour,
-            $endTime->minute,
-            $endTime->second
-        );
+        if ($endDate && $endTime) {
+            $prepared['end_time'] = $endDate->copy()->setTime(
+                $endTime->hour,
+                $endTime->minute,
+                $endTime->second
+            );
+        } elseif ($endDate) {
+            $prepared['end_time'] = $endDate->copy()->startOfDay();
+        }
 
-        $this->merge([
-            'start_time' => $combinedStartTime,
-            'end_time' => $combinedEndTime,
-        ]);
+        if (!empty($prepared)) {
+            $this->merge($prepared);
+        }
     }
 }
