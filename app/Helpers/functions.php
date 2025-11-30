@@ -83,7 +83,7 @@ function calculate_polygon_area(array $points): float
     $numPoints = count($points);
 
     if ($numPoints < 3) {
-        throw new \InvalidArgumentException('A polygon must have at least 3 points');
+        return 0;
     }
 
     // Parse coordinates if they are in string format "lat,lng"
@@ -131,7 +131,7 @@ function calculate_polygon_center(array $points): array
     $numPoints = count($points);
 
     if ($numPoints < 3) {
-        throw new \InvalidArgumentException('A polygon must have at least 3 points');
+        return [0, 0];
     }
 
     $sumX = 0;
