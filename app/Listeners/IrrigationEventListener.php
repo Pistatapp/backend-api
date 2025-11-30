@@ -41,7 +41,7 @@ class IrrigationEventListener
     {
         $irrigation->loadMissing('creator', 'pump', 'valves');
 
-        $irrigation->update(['status' => $newStatus]);
+        $irrigation->updateQuietly(['status' => $newStatus]);
 
         // Pump can be null for some irrigations, so guard against it
         if ($irrigation->pump) {
