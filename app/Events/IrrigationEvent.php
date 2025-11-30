@@ -49,6 +49,7 @@ class IrrigationEvent implements ShouldBroadcast
             'data' => [
                 'id' => $this->irrigation->id,
                 'status' => $this->status,
+                'duration' => to_time_format($this->irrigation->duration),
                 'plots' => $this->irrigation->plots->map(fn ($plot) => [
                     'id' => $plot->id,
                     'name' => $plot->name,
