@@ -27,9 +27,10 @@ return new class extends Migration
     private function migrateExistingData(): void
     {
         // Add temporary columns for datetime values
+        // Use dateTime() instead of timestamp() to prevent MySQL auto-update behavior
         Schema::table('irrigations', function (Blueprint $table) {
-            $table->timestamp('start_datetime')->nullable()->after('pump_id');
-            $table->timestamp('end_datetime')->nullable()->after('start_datetime');
+            $table->dateTime('start_datetime')->nullable()->after('pump_id');
+            $table->dateTime('end_datetime')->nullable()->after('start_datetime');
         });
 
         // Update data to populate the new datetime columns
@@ -62,10 +63,11 @@ return new class extends Migration
     private function ensureDateTimeColumns(): void
     {
         // Ensure start_time and end_time are datetime columns
+        // Use dateTime() instead of timestamp() to prevent MySQL auto-update behavior
         Schema::table('irrigations', function (Blueprint $table) {
             // Check if columns need to be modified to datetime
-            $table->timestamp('start_time')->change();
-            $table->timestamp('end_time')->nullable()->change();
+            $table->dateTime('start_time')->change();
+            $table->dateTime('end_time')->nullable()->change();
         });
     }
 
