@@ -96,8 +96,20 @@ class PumpController extends Controller
         while ($currentDate->lte($endDate)) {
             // Filter irrigations active on this date
             $dailyIrrigations = $irrigations->filter(function ($irrigation) use ($currentDate) {
-                return $irrigation->start_date->lte($currentDate) &&
-                       ($irrigation->end_date === null || $irrigation->end_date->gte($currentDate));
+                // Check if irrigation has valid start_time and end_time
+                if (!$irrigation->start_time || !$irrigation->end_time) {
+                    return false;
+                }
+
+                // Get the date part of the irrigation start and end times
+                $irrigationStartDate = $irrigation->start_time->copy()->startOfDay();
+                $irrigationEndDate = $irrigation->end_time->copy()->startOfDay();
+                $currentDateStart = $currentDate->copy()->startOfDay();
+
+                // Check if the current date overlaps with the irrigation period
+                // Irrigation is active on currentDate if: start_date <= currentDate <= end_date
+                return $irrigationStartDate->lte($currentDateStart) &&
+                       $irrigationEndDate->gte($currentDateStart);
             });
 
             // Only include dates with at least one irrigation
