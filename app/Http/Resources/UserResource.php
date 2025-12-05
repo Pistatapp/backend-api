@@ -21,7 +21,7 @@ class UserResource extends JsonResource
             'mobile_verified_at' => jdate($this->mobile_verified_at)->format('Y/m/d H:i:s'),
             'last_activity_at' => jdate($this->last_activity_at)->format('Y/m/d H:i:s'),
             'profile' => new ProfileResource($this->whenLoaded('profile')),
-            'role' => $this->roles->pluck('name'),
+            'role' => $this->roles->pluck('name')->first(),
             'farms' => new FarmResource($this->whenLoaded('farms')),
         ];
     }

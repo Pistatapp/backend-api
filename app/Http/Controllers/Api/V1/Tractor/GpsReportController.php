@@ -46,9 +46,11 @@ class GpsReportController extends Controller
             $lastStatus = end($data)['status'];
             event(new TractorStatus($tractor, $lastStatus));
 
-            // Get device for ReportReceived event (if needed)
+            // Get device for ReportReceived event (only fire if device exists)
             $device = $tractor->gpsDevice;
-            event(new ReportReceived($data, $device));
+            if ($device) {
+                event(new ReportReceived($data, $device));
+            }
         } catch (\Exception $e) {
             //
         }
