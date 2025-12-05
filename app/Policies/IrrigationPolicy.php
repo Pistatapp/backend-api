@@ -75,7 +75,9 @@ class IrrigationPolicy
      */
     public function verify(User $user, Irrigation $irrigation): bool
     {
-        if ($irrigation->is_verified_by_admin) {
+        $passedTimeSinceLastVerification = $irrigation->last_verification_at->diffInHours(now());
+
+        if ($irrigation->is_verified_by_admin && $passedTimeSinceLastVerification > 72) {
             return false;
         }
 

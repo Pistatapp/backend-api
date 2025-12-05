@@ -38,11 +38,11 @@ class CompositionalNutrientDiagnosisController extends Controller
      * @param Farm $farm The farm to get requests for
      * @return \Illuminate\Http\Resources\Json\AnonymousResourceCollection
      */
-    public function index(Farm $farm)
+    public function index(Request $request, Farm $farm)
     {
         $requests = NutrientDiagnosisRequest::with(['samples.field', 'user'])
             ->where('farm_id', $farm->id)
-            ->when(!Auth::user()->hasRole('root'), function ($query) {
+            ->when(!$request->user()->hasRole('root'), function ($query) {
                 $query->where('user_id', Auth::id());
             })
             ->latest()
@@ -60,7 +60,8 @@ class CompositionalNutrientDiagnosisController extends Controller
      */
     public function show(Farm $farm, NutrientDiagnosisRequest $request)
     {
-        return new NutrientDiagnosisRequestResource($request->load(['samples.field', 'user']));
+        $request = $request->load(['samples.field', 'user']);
+        return new NutrientDiagnosisRequestResource($request);
     }
 
     /**

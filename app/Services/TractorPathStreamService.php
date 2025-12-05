@@ -30,11 +30,7 @@ class TractorPathStreamService
     public function getTractorPath(Tractor $tractor, Carbon $date)
     {
         try {
-            // Get GPS device ID directly - avoid loading full relationship
-            $gpsDeviceId = $tractor->gpsDevice?->id;
-            if (!$gpsDeviceId) {
-                return response()->streamJson(new \EmptyIterator());
-            }
+            $tractorId = $tractor->id;
 
             // Use range-based date filter for optimal index utilization
             // This is faster than DATE(date_time) = ? which prevents index usage
@@ -43,14 +39,14 @@ class TractorPathStreamService
 
             // Fast existence check with range-based query (uses composite index)
             $hasData = DB::table('gps_data')
-                ->where('gps_device_id', $gpsDeviceId)
+                ->where('tractor_id', $tractorId)
                 ->where('date_time', '>=', $startOfDay)
                 ->where('date_time', '<=', $endOfDay)
                 ->limit(1)
                 ->exists();
 
             if (!$hasData) {
-                $lastPoint = $this->getLastPointFromPreviousDateRaw($gpsDeviceId, $startOfDay);
+                $lastPoint = $this->getLastPointFromPreviousDateRaw($tractorId, $startOfDay);
                 if ($lastPoint) {
                     return response()->streamJson($this->yieldSinglePoint($lastPoint));
                 }
@@ -60,7 +56,7 @@ class TractorPathStreamService
             // Stream raw rows without Eloquent model hydration
             // This is significantly faster than cursor() with models
             return response()->streamJson(
-                $this->streamPathPointsRaw($gpsDeviceId, $startOfDay, $endOfDay)
+                $this->streamPathPointsRaw($tractorId, $startOfDay, $endOfDay)
             );
 
         } catch (\Exception $e) {
@@ -78,28 +74,28 @@ class TractorPathStreamService
      * Stream path points using raw PDO for maximum performance.
      * Bypasses Eloquent hydration entirely.
      *
-     * @param int $gpsDeviceId
+     * @param int $tractorId
      * @param string $startOfDay
      * @param string $endOfDay
      * @return \Generator
      */
-    private function streamPathPointsRaw(int $gpsDeviceId, string $startOfDay, string $endOfDay): \Generator
+    private function streamPathPointsRaw(int $tractorId, string $startOfDay, string $endOfDay): \Generator
     {
         $pdo = DB::connection()->getPdo();
 
         // Use unbuffered query for true streaming with minimal memory
         $pdo->setAttribute(\PDO::MYSQL_ATTR_USE_BUFFERED_QUERY, false);
 
-        // Range-based query uses composite index (gps_device_id, date_time) efficiently
+        // Range-based query uses composite index (tractor_id, date_time) efficiently
         $stmt = $pdo->prepare('
             SELECT id, coordinate, speed, status, directions, date_time
             FROM gps_data
-            WHERE gps_device_id = ?
+            WHERE tractor_id = ?
               AND date_time >= ?
               AND date_time <= ?
             ORDER BY date_time ASC
         ');
-        $stmt->execute([$gpsDeviceId, $startOfDay, $endOfDay]);
+        $stmt->execute([$tractorId, $startOfDay, $endOfDay]);
 
         yield from $this->buildPathFromRawStream($stmt);
 
@@ -121,16 +117,16 @@ class TractorPathStreamService
     /**
      * Get the last point from previous date using raw query.
      *
-     * @param int $gpsDeviceId
+     * @param int $tractorId
      * @param string $startOfDay Start of the current day (used as upper bound)
      * @return object|null
      */
-    private function getLastPointFromPreviousDateRaw(int $gpsDeviceId, string $startOfDay): ?object
+    private function getLastPointFromPreviousDateRaw(int $tractorId, string $startOfDay): ?object
     {
         // Use range query for index optimization
         return DB::table('gps_data')
             ->select(['id', 'coordinate', 'speed', 'status', 'directions', 'date_time'])
-            ->where('gps_device_id', $gpsDeviceId)
+            ->where('tractor_id', $tractorId)
             ->where('date_time', '<', $startOfDay)
             ->orderByDesc('date_time')
             ->limit(1)

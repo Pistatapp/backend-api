@@ -51,7 +51,7 @@ class FarmController extends Controller
 
         $request->user()->farms()->attach($farm, [
             'is_owner' => true,
-            'role' => $request->user()->getRoleNames()->first(),
+            'role' => 'admin',
         ]);
 
         return new FarmResource($farm);

@@ -132,11 +132,11 @@ class Tractor extends Model
     /**
      * Get the gps data for the tractor.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\HasManyThrough
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function gpsData()
     {
-        return $this->hasManyThrough(GpsData::class, GpsDevice::class);
+        return $this->hasMany(GpsData::class);
     }
 
 
