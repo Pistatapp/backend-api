@@ -46,10 +46,8 @@ return new class extends Migration
             $table->dropColumn('gps_device_id');
         });
 
-        // Add foreign key constraint
-        Schema::table('gps_data', function (Blueprint $table) {
-            $table->foreign('tractor_id')->references('id')->on('tractors')->onDelete('cascade');
-        });
+        // Note: Foreign key constraint is not added because partitioned tables don't support foreign keys in MySQL
+        // Data integrity is maintained at the application level
 
         // Recreate indexes with tractor_id
         if (DB::getDriverName() !== 'sqlite') {
@@ -80,10 +78,7 @@ return new class extends Migration
             });
         }
 
-        // Drop foreign key
-        Schema::table('gps_data', function (Blueprint $table) {
-            $table->dropForeign(['tractor_id']);
-        });
+        // Note: No foreign key to drop since partitioned tables don't support foreign keys
 
         // Add back gps_device_id column
         Schema::table('gps_data', function (Blueprint $table) {
