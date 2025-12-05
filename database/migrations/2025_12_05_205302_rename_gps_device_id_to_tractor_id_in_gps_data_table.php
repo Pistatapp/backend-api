@@ -20,31 +20,31 @@ return new class extends Migration
             DB::statement('DROP INDEX IF EXISTS gps_data_device_id_date_time_index ON gps_data');
         }
 
-        // First, add a temporary tractor_id column
-        Schema::table('gps_data', function (Blueprint $table) {
-            $table->unsignedBigInteger('tractor_id')->nullable()->after('gps_device_id');
-        });
+        // // First, add a temporary tractor_id column
+        // Schema::table('gps_data', function (Blueprint $table) {
+        //     $table->unsignedBigInteger('tractor_id')->nullable()->after('gps_device_id');
+        // });
 
-        // Migrate data: map gps_device_id to tractor_id via gps_devices table
-        DB::statement('
-            UPDATE gps_data
-            INNER JOIN gps_devices ON gps_data.gps_device_id = gps_devices.id
-            SET gps_data.tractor_id = gps_devices.tractor_id
-            WHERE gps_devices.tractor_id IS NOT NULL
-        ');
+        // // Migrate data: map gps_device_id to tractor_id via gps_devices table
+        // DB::statement('
+        //     UPDATE gps_data
+        //     INNER JOIN gps_devices ON gps_data.gps_device_id = gps_devices.id
+        //     SET gps_data.tractor_id = gps_devices.tractor_id
+        //     WHERE gps_devices.tractor_id IS NOT NULL
+        // ');
 
-        // Remove rows where tractor_id is null (orphaned GPS data)
-        DB::statement('DELETE FROM gps_data WHERE tractor_id IS NULL');
+        // // Remove rows where tractor_id is null (orphaned GPS data)
+        // DB::statement('DELETE FROM gps_data WHERE tractor_id IS NULL');
 
-        // Make tractor_id NOT NULL
-        Schema::table('gps_data', function (Blueprint $table) {
-            $table->unsignedBigInteger('tractor_id')->nullable(false)->change();
-        });
+        // // Make tractor_id NOT NULL
+        // Schema::table('gps_data', function (Blueprint $table) {
+        //     $table->unsignedBigInteger('tractor_id')->nullable(false)->change();
+        // });
 
-        // Drop the old gps_device_id column
-        Schema::table('gps_data', function (Blueprint $table) {
-            $table->dropColumn('gps_device_id');
-        });
+        // // Drop the old gps_device_id column
+        // Schema::table('gps_data', function (Blueprint $table) {
+        //     $table->dropColumn('gps_device_id');
+        // });
 
         // Note: Foreign key constraint is not added because partitioned tables don't support foreign keys in MySQL
         // Data integrity is maintained at the application level
