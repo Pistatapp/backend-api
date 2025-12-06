@@ -35,16 +35,13 @@ class FilterFarmPlanRequest extends FormRequest
      */
     protected function prepareForValidation()
     {
-        $data = [];
-
-        if ($this->has('from_date')) {
-            $data['from_date'] = jalali_to_carbon($this->from_date);
-        }
-
-        if ($this->has('to_date')) {
-            $data['to_date'] = jalali_to_carbon($this->to_date);
-        }
-
-        $this->merge($data);
+        $this->merge([
+            'from_date' => $this->from_date
+                ? jalali_to_carbon($this->from_date)->format('Y-m-d')
+                : null,
+            'to_date' => $this->to_date
+                ? jalali_to_carbon($this->to_date)->format('Y-m-d')
+                : null,
+        ]);
     }
 }
