@@ -43,7 +43,10 @@ class FarmPlanController extends Controller
             ->with(['details.treatable']);
 
         // Filter by date range
-        $query->whereBetween('start_date', [$request->from_date, $request->to_date]);
+        $query->where(function($query) use ($request) {
+            $query->where('start_date', '>=', $request->from_date)
+                ->orWhere('end_date', '<=', $request->to_date);
+        });
 
         // Filter by treatables
         if ($request->has('treatable') && is_array($request->treatable)) {
