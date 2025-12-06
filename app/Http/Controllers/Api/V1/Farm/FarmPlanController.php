@@ -44,8 +44,11 @@ class FarmPlanController extends Controller
 
         // Filter by date range
         $query->where(function($query) use ($request) {
-            $query->where('start_date', '>=', $request->from_date)
-                ->orWhere('end_date', '<=', $request->to_date);
+            $query->where(function($subQuery) use ($request) {
+                // Plan overlaps with the requested date range
+                $subQuery->where('start_date', '<=', $request->to_date)
+                    ->where('end_date', '>=', $request->from_date);
+            });
         });
 
         // Filter by treatables
