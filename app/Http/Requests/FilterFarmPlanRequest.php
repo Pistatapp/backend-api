@@ -22,8 +22,8 @@ class FilterFarmPlanRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'from_date' => 'nullable|date',
-            'to_date' => 'nullable|date',
+            'from_date' => 'required|date',
+            'to_date' => 'required|date|after_or_equal:from_date',
             'treatable' => 'nullable|array',
             'treatable.*.treatable_id' => 'required_with:treatable|integer',
             'treatable.*.treatable_type' => 'required_with:treatable|string|in:field,row,tree',
@@ -36,12 +36,8 @@ class FilterFarmPlanRequest extends FormRequest
     protected function prepareForValidation()
     {
         $this->merge([
-            'from_date' => $this->from_date
-                ? jalali_to_carbon($this->from_date)->format('Y-m-d')
-                : null,
-            'to_date' => $this->to_date
-                ? jalali_to_carbon($this->to_date)->format('Y-m-d')
-                : null,
+            'from_date' => jalali_to_carbon($this->from_date)->format('Y-m-d'),
+            'to_date' => jalali_to_carbon($this->to_date)->format('Y-m-d'),
         ]);
     }
 }
