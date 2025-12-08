@@ -168,6 +168,8 @@ class ParseDataService
         $trimmedData = str_replace(',{}', '', $trimmedData);
         $decodedData = json_decode($trimmedData, true);
 
+        $decodedData = is_array($decodedData) ? $decodedData : [];
+
         return $decodedData;
     }
 }
