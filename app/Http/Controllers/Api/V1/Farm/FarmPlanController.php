@@ -65,7 +65,7 @@ class FarmPlanController extends Controller
             });
         }
 
-        $plans = $query->get();
+        $plans = $query->simplePaginate();
 
         return FilteredFarmPlanResource::collection($plans);
     }

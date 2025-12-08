@@ -148,6 +148,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     // Irrigation Routes
     Route::post('/pumps/{pump}/irrigation-reports', [PumpController::class, 'generateIrrigationReport']);
     Route::get('/plots/{plot}/irrigation-statistics', [PlotController::class, 'getIrrigationStatistics']);
+    Route::get('/irrigations/{irrigation}/plots/{plot}', [IrrigationController::class, 'getIrrigationStatisticsForPlot']);
     Route::post('/farms/{farm}/irrigations/filter-reports', [IrrigationController::class, 'filterReports']);
     Route::get('/farms/{farm}/irrigation-messages', [IrrigationController::class, 'getIrrigationMessages']);
     Route::patch('/irrigations/{irrigation}/verify', [IrrigationController::class, 'verify']);

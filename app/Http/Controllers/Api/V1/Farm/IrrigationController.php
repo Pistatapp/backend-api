@@ -11,12 +11,14 @@ use App\Models\Farm;
 use App\Models\Irrigation;
 use App\Models\Plot;
 use App\Services\IrrigationReportService;
+use App\Services\IrrigationService;
 use Illuminate\Http\Request;
 
 class IrrigationController extends Controller
 {
     public function __construct(
-        private IrrigationReportService $irrigationReportService
+        private IrrigationReportService $irrigationReportService,
+        private IrrigationService $irrigationService
     ) {
         $this->authorizeResource(Irrigation::class);
     }
@@ -26,35 +28,12 @@ class IrrigationController extends Controller
      */
     public function index(Request $request, Farm $farm)
     {
-        $status = $request->query('status', 'all');
-
-        $irrigations = Irrigation::whereBelongsTo($farm);
-
-        // Handle date filtering
-        if ($request->has('date_range')) {
-            // Parse date range (format: "start_date,end_date")
-            $dateRange = explode(',', $request->query('date_range'));
-            if (count($dateRange) === 2) {
-                $startDate = jalali_to_carbon(trim($dateRange[0]))->startOfDay();
-                $endDate = jalali_to_carbon(trim($dateRange[1]))->endOfDay();
-                $irrigations->whereBetween('start_time', [$startDate, $endDate]);
-            }
-        } elseif ($request->has('date')) {
-            // Single date filter
-            $date = jalali_to_carbon($request->query('date'));
-            $irrigations->whereDate('start_time', $date);
-        } else {
-            // Default to today
-            $irrigations->whereDate('start_time', today());
-        }
-
-        $irrigations = $irrigations->when($status !== 'all', function ($query) use ($status) {
-                $query->filter($status);
-            })
-            ->with(['plots', 'valves'])
-            ->withCount('plots')
-            ->latest()
-            ->get();
+        $irrigations = $this->irrigationService->getFilteredIrrigations(
+            $farm,
+            $request->query('status', 'all'),
+            $request->query('date_range'),
+            $request->query('date')
+        );
 
         return IrrigationResource::collection($irrigations);
     }
@@ -119,67 +98,25 @@ class IrrigationController extends Controller
     }
 
     /**
-     * Get irrigations for a plot.
+     * Get irrigation statistics for a plot within an irrigation.
      *
-     * @param  \App\Models\Plot  $plot
-     * @return \App\Http\Resources\IrrigationResource
-     */
-    public function getIrrigationsForPlot(Plot $plot)
-    {
-        $irrigations = $plot->irrigations()->with(['labour', 'valves', 'creator'])
-            ->when(request()->has('date'), function ($query) {
-                $date = jalali_to_carbon(request()->query('date'));
-                $query->whereDate('start_time', $date);
-            }, function ($query) {
-                $query->whereDate('start_time', today());
-            })
-            ->when(request()->has('status'), function ($query) {
-                $query->filter(request()->query('status'));
-            })
-            ->latest()->get();
-
-        return IrrigationResource::collection($irrigations);
-    }
-
-    /**
-     * Get brief irrigation report for a plot.
-     *
-     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\Irrigation  $irrigation
      * @param  \App\Models\Plot  $plot
      * @return \Illuminate\Http\JsonResponse
      */
-    public function getIrrigationReportForPlot(Request $request, Plot $plot)
+    public function getIrrigationStatisticsForPlot(Irrigation $irrigation, Plot $plot)
     {
-        $date = $request->has('date') ? jalali_to_carbon($request->query('date')) : today();
-        $irrigations = $plot->irrigations()->filter('finished')->with('valves')
-            ->whereDate('start_time', $date)->get();
-
-        $totalDuration = 0;
-        $totalVolume = 0;
-        $totalVolumePerHectare = 0;
-
-        foreach ($irrigations as $irrigation) {
-            $durationInSeconds = $irrigation->start_time->diffInSeconds($irrigation->end_time);
-            $totalDuration += $durationInSeconds;
-
-            foreach ($irrigation->valves as $valve) {
-                $volume = ($valve->dripper_count * $valve->dripper_flow_rate) * ($durationInSeconds / 3600);
-                $totalVolume += $volume;
-                $totalVolumePerHectare += $volume / $valve->irrigation_area;
-            }
+        // Verify the plot belongs to this irrigation
+        if (!$irrigation->plots->contains($plot)) {
+            return response()->json([
+                'message' => 'Plot does not belong to this irrigation.'
+            ], 404);
         }
 
-        $totalVolume /= 1000;
-        $totalVolumePerHectare /= 1000;
+        $statistics = $this->irrigationService->getStatisticsForPlot($irrigation, $plot);
 
         return response()->json([
-            'data' => [
-                'date' => jdate($date)->format('Y/m/d'),
-                'total_duration' => to_time_format($totalDuration),
-                'total_volume' => round($totalVolume, 2),
-                'total_volume_per_hectare' => round($totalVolumePerHectare, 2),
-                'total_count' => $irrigations->count(),
-            ]
+            'data' => $statistics
         ]);
     }
 
@@ -228,54 +165,12 @@ class IrrigationController extends Controller
      */
     public function getIrrigationMessages(Request $request, Farm $farm)
     {
-        $today = today();
-
         // Determine verified filter value: if verified parameter is present, use it (0=false, 1=true), otherwise default to false
         $isVerified = $request->has('verified')
             ? (bool) $request->query('verified')
             : false;
 
-        $irrigations = Irrigation::whereBelongsTo($farm)
-            ->filter('finished')
-            ->where('is_verified_by_admin', $isVerified)
-            ->where(function ($query) use ($today) {
-                $query->whereDate('start_time', '<=', $today)
-                    ->where(function ($q) use ($today) {
-                        $q->whereDate('end_time', '>=', $today)
-                            ->orWhereDate('start_time', $today);
-                    });
-            })
-            ->with(['plots', 'valves'])
-            ->latest()
-            ->get();
-
-        $messages = $irrigations->map(function ($irrigation) use ($request) {
-            $durationInSeconds = $irrigation->start_time->diffInSeconds($irrigation->end_time);
-            $totalVolume = 0;
-            $totalVolumePerHectare = 0;
-
-            foreach ($irrigation->valves as $valve) {
-                $volume = ($valve->dripper_count * $valve->dripper_flow_rate) * ($durationInSeconds / 3600);
-                $totalVolume += $volume;
-                if ($valve->irrigation_area > 0) {
-                    $totalVolumePerHectare += $volume / $valve->irrigation_area;
-                }
-            }
-
-            return [
-                'irrigation_id' => $irrigation->id,
-                'date' => jdate($irrigation->start_date)->format('Y/m/d'),
-                'plots_names' => $irrigation->plots->pluck('name')->toArray(),
-                'valves_names' => $irrigation->valves->pluck('name')->toArray(),
-                'duration' => to_time_format($durationInSeconds),
-                'irrigation_per_hectare' => round($totalVolumePerHectare, 2),
-                'total_volume' => round($totalVolume, 2),
-                'can' => [
-                    'update' => $request->user()->can('update', $irrigation),
-                    'verify' => $request->user()->can('verify', $irrigation),
-                ]
-            ];
-        });
+        $messages = $this->irrigationService->getIrrigationMessages($farm, $isVerified, $request->user());
 
         return response()->json([
             'data' => $messages
