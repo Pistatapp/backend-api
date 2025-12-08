@@ -14,14 +14,29 @@ class UserResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $role = $this->roles->pluck('name');
+
+        // If working environment ID is provided and user is not root, get role from that farm
+        $workingEnvironmentId = $request->input('_working_environment_id');
+        if ($workingEnvironmentId && !$this->hasRole('root')) {
+            // Check if farms are already loaded
+            if ($this->relationLoaded('farms')) {
+                $farm = $this->farms->firstWhere('id', $workingEnvironmentId);
+            } else {
+                $farm = $this->farms()->where('farms.id', $workingEnvironmentId)->first();
+            }
+
+            if ($farm && $farm->pivot && $farm->pivot->role) {
+                $role = collect([$farm->pivot->role]);
+            }
+        }
+
         return [
             'id' => $this->id,
             'username' => $this->username,
-            'mobile' => $this->mobile,
-            'mobile_verified_at' => jdate($this->mobile_verified_at)->format('Y/m/d H:i:s'),
             'last_activity_at' => jdate($this->last_activity_at)->format('Y/m/d H:i:s'),
             'profile' => new ProfileResource($this->whenLoaded('profile')),
-            'role' => $this->roles->pluck('name')->first(),
+            'role' => $role,
             'farms' => new FarmResource($this->whenLoaded('farms')),
         ];
     }

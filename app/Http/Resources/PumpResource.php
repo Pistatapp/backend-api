@@ -29,6 +29,7 @@ class PumpResource extends JsonResource
             'pipe_size' => $this->pipe_size,
             'debi' => $this->debi,
             'location' => $this->location,
+            'is_active' => $this->is_active,
             'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),
             'attachments' => AttachmentResource::collection($this->whenLoaded('attachments')),
         ];
