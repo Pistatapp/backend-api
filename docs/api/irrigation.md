@@ -301,6 +301,83 @@ Retrieve irrigation statistics for a specific plot including latest successful i
 | total_volume_last_30_days                | number | Total volume in liters for last 30 days       |
 | total_volume_per_hectare_last_30_days    | number | Total volume per hectare in liters            |
 
+### Get Irrigation Statistics for Plot
+Retrieve detailed irrigation statistics for a specific plot within an irrigation context. This endpoint provides comprehensive information about the plot, its valves, irrigation metrics, and the latest successful irrigation.
+
+- **URL**: `/irrigations/{irrigation}/plots/{plot}`
+- **Method**: `GET`
+- **URL Parameters**:
+  - `irrigation`: Irrigation ID (integer)
+  - `plot`: Plot ID (integer)
+
+#### Response
+```json
+{
+  "data": {
+    "id": 1,
+    "name": "Plot 1",
+    "area": 2500.50,
+    "tree_count": 150,
+    "latest_successful_irrigation": {
+      "id": 5,
+      "date": "1402/09/20"
+    },
+    "total_valve_count": 3,
+    "total_dripper_count": 1500,
+    "dripper_flow_rate": 4.5,
+    "irrigation_area": 2.5,
+    "irrigation_duration": "02:30:00",
+    "total_irrigation_area": 1.25,
+    "irrigation_area_per_hectare": 0.50
+  }
+}
+```
+
+#### Response Fields
+
+| Field                        | Type    | Description                                                                    |
+|------------------------------|---------|--------------------------------------------------------------------------------|
+| id                           | integer | Plot ID                                                                         |
+| name                         | string  | Plot name                                                                       |
+| area                         | number  | Plot area in square meters (calculated from coordinates)                       |
+| tree_count                   | integer | Total number of trees in the plot                                               |
+| latest_successful_irrigation | object  | Latest finished irrigation for this plot (null if none exists)                 |
+| latest_successful_irrigation.id | integer | Irrigation ID                                                                 |
+| latest_successful_irrigation.date | string | Start date in Jalali format (YYYY/MM/DD)                                      |
+| total_valve_count            | integer | Total number of valves in the plot                                             |
+| total_dripper_count         | integer | Sum of dripper counts from valves used in this irrigation for this plot        |
+| dripper_flow_rate            | number  | Average dripper flow rate (liters/hour) for valves in this irrigation           |
+| irrigation_area              | number  | Total irrigation area in hectares (sum of irrigation_area from valves)        |
+| irrigation_duration         | string  | Time passed since the start of irrigation (HH:MM:SS format)                    |
+| total_irrigation_area        | number  | Total irrigation volume in cubic meters (m³)                                  |
+| irrigation_area_per_hectare  | number  | Irrigation volume per hectare in cubic meters per hectare (m³/ha)              |
+
+#### Notes
+- The endpoint verifies that the plot belongs to the specified irrigation. If not, it returns a 404 error.
+- **irrigation_duration**: Calculated as the time difference between the irrigation start time and the current time (or end time if the irrigation is finished).
+- **total_irrigation_area**: Represents the total water volume delivered during the irrigation, calculated based on valve specifications and duration. Values are in cubic meters (m³).
+- **irrigation_area_per_hectare**: Calculated by dividing the total irrigation volume by the irrigation area in hectares. This metric helps understand water distribution efficiency.
+- **dripper_flow_rate**: This is the average flow rate across all valves used in this irrigation for the specified plot.
+- **total_dripper_count**: Only includes drippers from valves that are part of this specific irrigation and belong to the specified plot.
+- If the plot has no coordinates, the `area` field will be 0.
+- If there are no valves in the irrigation for this plot, `total_dripper_count`, `dripper_flow_rate`, and `irrigation_area` will be 0.
+
+#### Error Responses
+
+**404 Not Found** - Plot does not belong to this irrigation:
+```json
+{
+  "message": "Plot does not belong to this irrigation."
+}
+```
+
+**404 Not Found** - Irrigation or Plot not found:
+```json
+{
+  "message": "No query results for model [App\\Models\\Irrigation] {id}"
+}
+```
+
 ### Get Irrigation Messages
 Retrieve irrigation messages for finished irrigations of the day that have not been verified by admin.
 
