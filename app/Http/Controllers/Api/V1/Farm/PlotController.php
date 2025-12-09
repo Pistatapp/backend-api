@@ -141,8 +141,8 @@ class PlotController extends Controller
                 'latest_successful_irrigation' => $latestIrrigationData,
                 'successful_irrigations_count_last_30_days' => $successfulIrrigations->count(),
                 'area_covered_duration_last_30_days' => to_time_format($totalDuration),
-                'total_volume_last_30_days' => round($totalVolume, 2),
-                'total_volume_per_hectare_last_30_days' => round($totalVolumePerHectare, 2),
+                'total_volume_last_30_days' => round($totalVolume / 1000, 2),
+                'total_volume_per_hectare_last_30_days' => round($totalVolumePerHectare / 1000, 2),
             ]
         ]);
     }
