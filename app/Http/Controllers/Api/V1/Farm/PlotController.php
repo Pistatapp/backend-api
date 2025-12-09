@@ -90,7 +90,7 @@ class PlotController extends Controller
         // Get successful irrigations (status = 'finished') in the last 30 days
         $successfulIrrigations = $plot->irrigations()
             ->where('status', 'finished')
-            ->where('start_date', '>=', $thirtyDaysAgo)
+            ->whereDate('start_time', '>=', $thirtyDaysAgo)
             ->with('valves')
             ->get();
 
@@ -98,7 +98,7 @@ class PlotController extends Controller
         $latestSuccessfulIrrigation = $plot->irrigations()
             ->where('status', 'finished')
             ->with('valves')
-            ->latest('start_date')
+            ->latest('start_time')
             ->first();
 
         // Calculate statistics for last 30 days
