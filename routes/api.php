@@ -69,7 +69,7 @@ Route::controller(AuthController::class)->prefix('auth')->group(function () {
     Route::get('permissions', 'permissions')->middleware('auth:sanctum');
 });
 
-Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(function () {
+Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
 
     Route::apiResource('gps_devices', GpsDeviceController::class);
     Route::apiResource('crops', CropController::class);
@@ -199,7 +199,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
 
 Route::post('/gps/reports', GpsReportController::class)->name('gps.reports');
 
-Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->prefix('v1')->group(function () {
+Route::middleware(['auth:sanctum', 'ensure.username'])->prefix('v1')->group(function () {
     Route::apiResource('warnings', WarningController::class)->only(['index', 'store']);
 
     // Payment routes

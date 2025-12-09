@@ -96,7 +96,8 @@ class FarmReportsController extends Controller
     public function filter(FarmReportFilterRequest $request, Farm $farm): ResourceCollection
     {
         $filters = $request->validated()['filters'];
-        $reports = $this->farmReportService->getFilteredReports($farm, $filters);
+        $perPage = $request->input('per_page', 50);
+        $reports = $this->farmReportService->getFilteredReports($farm, $filters, $perPage);
 
         return FarmReportResource::collection($reports);
     }

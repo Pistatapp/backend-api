@@ -195,7 +195,7 @@ class FarmReportService
     /**
      * Get farm reports with filters
      */
-    public function getFilteredReports(Farm $farm, array $filters): Collection
+    public function getFilteredReports(Farm $farm, array $filters, int $perPage = 50): \Illuminate\Contracts\Pagination\LengthAwarePaginator
     {
         $query = $farm->reports()->with(['operation', 'labour', 'reportable']);
 
@@ -211,7 +211,7 @@ class FarmReportService
             };
         }
 
-        return $query->orderBy('date', 'desc')->get();
+        return $query->orderBy('date', 'desc')->paginate($perPage);
     }
 
     /**

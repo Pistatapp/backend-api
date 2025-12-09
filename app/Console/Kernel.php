@@ -5,6 +5,8 @@ namespace App\Console;
 use App\Jobs\CheckFrostConditionsJob;
 use App\Jobs\CheckOilSprayConditionsJob;
 use App\Jobs\CheckRadiativeFrostConditionsJob;
+use App\Jobs\CheckPestDegreeDayConditionsJob;
+use App\Jobs\CheckCropTypeDegreeDayConditionsJob;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 
@@ -15,17 +17,28 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        $schedule->command('app:change-farm-plan-status')->everyMinute();
-        $schedule->command('app:change-irrigation-status')->everyMinute();
+        $schedule->command('app:change-farm-plan-status')
+            ->everyMinute()
+            ->withoutOverlapping();
+
+        $schedule->command('app:change-irrigation-status')
+            ->everyMinute()
+            ->withoutOverlapping();
 
         // Check for tractor stoppage warnings every 5 minutes
-        $schedule->command('tractor:check-stoppage-warnings')->everyFiveMinutes();
+        $schedule->command('tractor:check-stoppage-warnings')
+            ->everyFiveMinutes()
+            ->withoutOverlapping();
 
         // Check for tractor activity status every minute
-        $schedule->command('tractor:check-activity-status')->everyMinute();
+        $schedule->command('tractor:check-activity-status')
+            ->everyMinute()
+            ->withoutOverlapping();
 
         // Update ended tractor tasks every minute
-        $schedule->command('tractor:update-ended-tasks')->everyMinute();
+        $schedule->command('tractor:update-ended-tasks')
+            ->everyMinute()
+            ->withoutOverlapping();
 
         // Check for inactive tractors daily at 8 AM
         $schedule->command('tractors:check-inactivity')
@@ -42,10 +55,10 @@ class Kernel extends ConsoleKernel
         $schedule->job(new CheckOilSprayConditionsJob)->dailyAt('00:00');
 
         // Check for pest degree day conditions daily at 05:00 AM
-        $schedule->job(CheckFrostConditionsJob::class)->dailyAt('05:00');
+        $schedule->job(new CheckPestDegreeDayConditionsJob)->dailyAt('05:00');
 
         // Check for crop type degree day conditions daily at 05:30 AM
-        $schedule->job(CheckFrostConditionsJob::class)->dailyAt('05:30');
+        $schedule->job(new CheckCropTypeDegreeDayConditionsJob)->dailyAt('05:30');
     }
 
     /**

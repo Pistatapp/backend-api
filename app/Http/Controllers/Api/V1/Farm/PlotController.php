@@ -128,10 +128,10 @@ class PlotController extends Controller
         if ($latestSuccessfulIrrigation) {
             $latestIrrigationData = [
                 'id' => $latestSuccessfulIrrigation->id,
-                'start_date' => jdate($latestSuccessfulIrrigation->start_date)->format('Y/m/d'),
-                'end_date' => $latestSuccessfulIrrigation->end_date ? jdate($latestSuccessfulIrrigation->end_date)->format('Y/m/d') : null,
+                'start_date' => jdate($latestSuccessfulIrrigation->start_time)->format('Y/m/d'),
+                'end_date' => $latestSuccessfulIrrigation->end_time?->format('Y/m/d'),
                 'start_time' => $latestSuccessfulIrrigation->start_time->format('H:i'),
-                'end_time' => $latestSuccessfulIrrigation->end_time->format('H:i'),
+                'end_time' => $latestSuccessfulIrrigation->end_time?->format('H:i'),
             ];
         }
 

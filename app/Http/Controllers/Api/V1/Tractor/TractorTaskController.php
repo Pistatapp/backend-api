@@ -189,7 +189,7 @@ class TractorTaskController extends Controller
 
         $tasks = $query->orderBy('date', 'asc')
                       ->orderBy('start_time', 'asc')
-                      ->get();
+                      ->paginate($request->input('per_page', 50));
 
         return TractorTaskResource::collection($tasks);
     }
