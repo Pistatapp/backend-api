@@ -30,15 +30,37 @@ class IrrigationService
             if (count($dates) === 2) {
                 $startDate = jalali_to_carbon(trim($dates[0]))->startOfDay();
                 $endDate = jalali_to_carbon(trim($dates[1]))->endOfDay();
-                $query->whereBetween('start_time', [$startDate, $endDate]);
+
+                // Get irrigations that span the date range (overlap with the range)
+                // An irrigation overlaps if: start_time <= endDate AND (end_time >= startDate OR end_time IS NULL)
+                $query->where('start_time', '<=', $endDate)
+                    ->where(function ($q) use ($startDate) {
+                        $q->where('end_time', '>=', $startDate)
+                            ->orWhereNull('end_time');
+                    });
             }
         } elseif ($date) {
-            // Single date filter
+            // Single date filter - get irrigations that span this date
             $dateCarbon = jalali_to_carbon($date);
-            $query->whereDate('start_time', $dateCarbon);
+            $startOfDay = $dateCarbon->copy()->startOfDay();
+            $endOfDay = $dateCarbon->copy()->endOfDay();
+
+            // An irrigation spans the date if: start_time <= endOfDay AND (end_time >= startOfDay OR end_time IS NULL)
+            $query->where('start_time', '<=', $endOfDay)
+                ->where(function ($q) use ($startOfDay) {
+                    $q->where('end_time', '>=', $startOfDay)
+                        ->orWhereNull('end_time');
+                });
         } else {
-            // Default to today
-            $query->whereDate('start_time', today());
+            // Default to today - get irrigations that span today
+            $startOfDay = today()->startOfDay();
+            $endOfDay = today()->endOfDay();
+
+            $query->where('start_time', '<=', $endOfDay)
+                ->where(function ($q) use ($startOfDay) {
+                    $q->where('end_time', '>=', $startOfDay)
+                        ->orWhereNull('end_time');
+                });
         }
 
         return $query->when($status !== 'all', function ($q) use ($status) {
