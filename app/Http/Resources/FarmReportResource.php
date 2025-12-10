@@ -45,6 +45,11 @@ class FarmReportResource extends JsonResource
             }),
             'verified' => $this->verified,
             'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),
+            'can' => [
+                'update' => $request->user()->can('update', $this->resource),
+                'delete' => $request->user()->can('delete', $this->resource),
+                'verify' => $request->user()->can('verify', $this->resource),
+            ]
         ];
     }
 }
