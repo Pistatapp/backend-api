@@ -67,7 +67,7 @@ class FrostbiteCalculationController extends Controller
         $avgTemp = $day['day']['avgtemp_c'];
 
         $temp1 = (0.18 * $avgTemp) + (0.083 * $maxDewPoint) - 2.33;
-        $temp2 = (0.21 * ($avgTemp + 0.4)) + 2.7;
+        $temp2 = (0.21 * ($avgTemp + 0.4)) - 2.7;
 
         return [
             'date' => jdate($day['date'])->format('Y/m/d'),

@@ -166,6 +166,9 @@ class ParseDataService
         $trimmedData = rtrim($jsonData, '.');
         $trimmedData = str_replace('}{', '},{', $trimmedData);
         $trimmedData = str_replace(',{}', '', $trimmedData);
+        // Remove trailing commas between },] pattern
+        $trimmedData = preg_replace('/\},\s*\]/', '}]', $trimmedData);
+        $trimmedData = rtrim($trimmedData, ',');
         $decodedData = json_decode($trimmedData, true);
 
         $decodedData = is_array($decodedData) ? $decodedData : [];
