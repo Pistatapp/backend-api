@@ -21,7 +21,27 @@ class TelescopeServiceProvider extends TelescopeApplicationServiceProvider
         $isLocal = $this->app->environment('local');
 
         Telescope::filter(function (IncomingEntry $entry) use ($isLocal) {
-            // Always record in local environment
+            // Exclude /api/gps/reports from monitoring
+            if ($entry->type === 'request') {
+                $content = $entry->content ?? [];
+
+                // Get the URI from various possible keys
+                $uri = null;
+                if (isset($content['uri'])) {
+                    $uri = $content['uri'];
+                } elseif (isset($content['path'])) {
+                    $uri = $content['path'];
+                } elseif (isset($content['url'])) {
+                    $uri = parse_url($content['url'], PHP_URL_PATH);
+                }
+
+                // Exclude /api/gps/reports route
+                if ($uri && is_string($uri) && $uri === '/api/gps/reports') {
+                    return false;
+                }
+            }
+
+            // Always record in local environment (except excluded routes above)
             if ($isLocal) {
                 return true;
             }
