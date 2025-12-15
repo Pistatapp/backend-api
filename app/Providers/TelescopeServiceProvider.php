@@ -21,12 +21,43 @@ class TelescopeServiceProvider extends TelescopeApplicationServiceProvider
         $isLocal = $this->app->environment('local');
 
         Telescope::filter(function (IncomingEntry $entry) use ($isLocal) {
-            return $isLocal ||
-                   $entry->isReportableException() ||
-                   $entry->isFailedRequest() ||
-                   $entry->isFailedJob() ||
-                   $entry->isScheduledTask() ||
-                   $entry->hasMonitoredTag();
+            // Always record in local environment
+            if ($isLocal) {
+                return true;
+            }
+
+            // Record exceptions, failed requests, failed jobs, scheduled tasks, and tagged entries
+            if ($entry->isReportableException() ||
+                $entry->isFailedRequest() ||
+                $entry->isFailedJob() ||
+                $entry->isScheduledTask() ||
+                $entry->hasMonitoredTag()) {
+                return true;
+            }
+
+            // Record API requests - check if entry is a request type and path starts with /api/
+            if ($entry->type === 'request') {
+                $content = $entry->content ?? [];
+
+                // The URI is typically stored in the content array
+                // Try different possible keys where the URI might be stored
+                $uri = null;
+
+                if (isset($content['uri'])) {
+                    $uri = $content['uri'];
+                } elseif (isset($content['path'])) {
+                    $uri = $content['path'];
+                } elseif (isset($content['url'])) {
+                    $uri = parse_url($content['url'], PHP_URL_PATH);
+                }
+
+                // Check if URI starts with /api/
+                if ($uri && is_string($uri) && str_starts_with($uri, '/api/')) {
+                    return true;
+                }
+            }
+
+            return false;
         });
     }
 
