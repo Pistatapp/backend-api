@@ -59,6 +59,9 @@ class Kernel extends ConsoleKernel
 
         // Check for crop type degree day conditions daily at 05:30 AM
         $schedule->job(new CheckCropTypeDegreeDayConditionsJob)->dailyAt('05:30');
+
+        // Prune Telescope entries older than 24 hours
+        $schedule->command('telescope:prune')->daily();
     }
 
     /**

@@ -45,25 +45,37 @@ class UpdateWarningRequest extends FormRequest
                 return $rules;
             }
 
+            // Get the setting-message-parameters for this specific warning
             $settingParameters = $warningDefinition['setting-message-parameters'] ?? [];
 
-            // Validate that only allowed parameters are provided
-            $rules['parameters'] = array_merge($rules['parameters'], [
-                function ($attribute, $value, $fail) use ($settingParameters) {
-                    $providedParams = array_keys($value);
-                    $allowedParams = $settingParameters;
-                    $extraParams = array_diff($providedParams, $allowedParams);
-
-                    if (!empty($extraParams)) {
-                        $fail('The parameters field contains invalid parameters: ' . implode(', ', $extraParams));
+            // If this warning has no setting parameters, ensure parameters array is empty
+            if (empty($settingParameters)) {
+                $rules['parameters'] = array_merge($rules['parameters'], [
+                    function ($attribute, $value, $fail) {
+                        if (!empty($value)) {
+                            $fail('This warning type does not require any parameters.');
+                        }
                     }
-                }
-            ]);
+                ]);
+            } else {
+                // Validate that only allowed parameters are provided
+                $rules['parameters'] = array_merge($rules['parameters'], [
+                    function ($attribute, $value, $fail) use ($settingParameters) {
+                        $providedParams = array_keys($value);
+                        $allowedParams = $settingParameters;
+                        $extraParams = array_diff($providedParams, $allowedParams);
 
-            // Validate each required parameter with appropriate type
-            foreach ($settingParameters as $param) {
-                $paramRules = $this->getParameterValidationRules($param);
-                $rules["parameters.$param"] = array_merge(['required'], $paramRules);
+                        if (!empty($extraParams)) {
+                            $fail('The parameters field contains invalid parameters: ' . implode(', ', $extraParams));
+                        }
+                    }
+                ]);
+
+                // Validate each required parameter with appropriate type based on the warning definition
+                foreach ($settingParameters as $param) {
+                    $paramRules = $this->getParameterValidationRules($param);
+                    $rules["parameters.$param"] = array_merge(['required'], $paramRules);
+                }
             }
         }
 
