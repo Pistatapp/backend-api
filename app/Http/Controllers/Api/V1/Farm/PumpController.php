@@ -128,14 +128,14 @@ class PumpController extends Controller
                 }
 
                 // Convert volume from liters to cubic meters
-                $totalVolumeM3 = $totalVolume / 1000;
+                $totalVolume = round($totalVolume / 1000, 2);
                 // Calculate hours from seconds
                 $totalHours = $totalDurationSeconds / 3600;
 
                 $dailyReports[] = [
                     'date' => jdate($currentDate)->format('Y/m/d'),
                     'hours' => round($totalHours, 2),
-                    'volume' => round($totalVolumeM3, 2),
+                    'volume' => $totalVolume,
                 ];
             }
 

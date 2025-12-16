@@ -88,7 +88,7 @@ class IrrigationResource extends JsonResource
     {
         return $this->valves->sum(function ($valve) {
             $area = $valve->dripper_count * $valve->dripper_flow_rate * ($this->duration / 3600);
-            return round($area, 2);
+            return round($area / 1000, 2);
         });
     }
 }

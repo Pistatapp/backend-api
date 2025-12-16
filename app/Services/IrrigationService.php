@@ -265,6 +265,9 @@ class IrrigationService
             }
         }
 
+        $totalVolume = round($totalVolume / 1000, 2);
+        $totalVolumePerHectare = round($totalVolumePerHectare / 1000, 2);
+
         return [
             'duration' => $durationInSeconds,
             'total_volume' => $totalVolume,

@@ -33,7 +33,7 @@ class ActiveTractorService
 
         if ($isPastDate) {
             // Fetch data from GpsMetricsCalculation for past dates
-            return $this->getTractorPerformanceFromCache($tractor, $date);
+            return $this->getTractorPerformanceFromMetrics($tractor, $date);
         }
 
         // For current day or future dates, use real-time GPS data analysis
@@ -47,7 +47,7 @@ class ActiveTractorService
      * @param Carbon $date
      * @return array
      */
-    private function getTractorPerformanceFromCache(Tractor $tractor, Carbon $date): array
+    private function getTractorPerformanceFromMetrics(Tractor $tractor, Carbon $date): array
     {
         $dateString = $date->toDateString();
 
