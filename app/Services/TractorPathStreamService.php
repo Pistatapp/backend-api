@@ -16,9 +16,9 @@ class TractorPathStreamService
 
     /**
      * Maximum realistic speed for a tractor in meters per second.
-     * 50 km/h = ~13.9 m/s. We use a generous threshold to account for GPS inaccuracy.
+     * 15 m/s = ~54 km/h. Adjusted to filter high-speed GPS glitches while allowing road travel.
      */
-    private const MAX_REALISTIC_SPEED_MPS = 25.0; // ~90 km/h
+    private const MAX_REALISTIC_SPEED_MPS = 15.0;
 
     /**
      * Minimum time delta (seconds) to consider for speed calculation.
@@ -63,11 +63,6 @@ class TractorPathStreamService
      * Larger windows produce smoother curves but may lose detail.
      */
     private const SMOOTHING_WINDOW_SIZE = 5;
-
-    public function __construct(
-        private GpsPathCorrectionService $pathCorrectionService,
-    ) {
-    }
 
     /**
      * Retrieves the tractor movement path for a specific date using GPS data analysis.
@@ -275,14 +270,20 @@ class TractorPathStreamService
     }
 
     /**
-     * Filter out sudden GPS jumps from the point stream.
+     * Filter out sudden GPS jumps using an intelligent consistency check.
      *
      * Algorithm:
-     * 1. For each point, calculate the implied speed from the previous valid point.
-     * 2. If implied speed exceeds MAX_REALISTIC_SPEED_MPS, mark as a potential jump.
-     * 3. Track consecutive jumps - if we see MAX_CONSECUTIVE_JUMPS in a row,
-     *    accept the new location as valid (tractor was likely transported).
-     * 4. Skip individual jump points to maintain path continuity.
+     * 1. Calculate speed from last valid point.
+     * 2. If valid speed: yield point, update last valid, clear buffer.
+     * 3. If jump (excessive speed):
+     *    - Buffer the point.
+     *    - If buffer reaches threshold (MAX_CONSECUTIVE_JUMPS):
+     *      - Check internal consistency of the buffer (speeds between buffered points).
+     *      - If consistent: accept all as valid (relocation).
+     *      - If inconsistent: discard oldest buffered point (noise) and continue.
+     * 4. If a valid point arrives (speed from last valid point is OK):
+     *    - Discard entire buffer (confirmed as noise excursions).
+     *    - Accept new point.
      *
      * @param \Generator $points Raw GPS points generator
      * @return \Generator Filtered points with jumps removed
@@ -290,8 +291,7 @@ class TractorPathStreamService
     private function filterJumps(\Generator $points): \Generator
     {
         $lastValidPoint = null;
-        $jumpBuffer = [];
-        $consecutiveJumps = 0;
+        $jumpBuffer = []; // Buffer for potential jumps
 
         foreach ($points as $row) {
             $currentCoord = $this->extractCoordinate($row);
@@ -314,43 +314,41 @@ class TractorPathStreamService
                 $currentCoord
             );
 
-            // Calculate implied speed (m/s)
+            // Calculate implied speed (m/s) from last valid point
             $impliedSpeed = ($timeDelta >= self::MIN_TIME_DELTA_SECONDS)
                 ? $distance / $timeDelta
-                : $distance; // If time delta is tiny, use distance as proxy
+                : $distance;
 
             $isJump = $impliedSpeed > self::MAX_REALISTIC_SPEED_MPS;
 
             if ($isJump) {
-                $consecutiveJumps++;
-                $jumpBuffer[] = $row;
+                // Add to buffer
+                $jumpBuffer[] = [
+                    'row' => $row,
+                    'coord' => $currentCoord,
+                    'timestamp' => $currentTimestamp,
+                ];
 
-                // If we've seen enough consecutive "jumps", the tractor likely
-                // teleported legitimately (e.g., loaded on a trailer and moved).
-                // Accept the new location as valid and flush the buffer.
-                if ($consecutiveJumps >= self::MAX_CONSECUTIVE_JUMPS) {
-                    // Yield all buffered points - this is a legitimate relocation
-                    foreach ($jumpBuffer as $bufferedRow) {
-                        yield $bufferedRow;
+                // Check buffer status
+                if (count($jumpBuffer) >= self::MAX_CONSECUTIVE_JUMPS) {
+                    // Check if the buffered points are consistent with each other
+                    if ($this->areBufferedPointsConsistent($jumpBuffer)) {
+                        // Valid relocation: yield all buffered points
+                        foreach ($jumpBuffer as $bufferedItem) {
+                            yield $bufferedItem['row'];
+                            // Update last valid point to this one as we emit it
+                            $lastValidPoint = $bufferedItem;
+                        }
+                        $jumpBuffer = [];
+                    } else {
+                        // Inconsistent noise: discard the oldest point, keep looking
+                        array_shift($jumpBuffer);
                     }
-
-                    // Update last valid point to the most recent
-                    $lastValidPoint = [
-                        'row' => $row,
-                        'coord' => $currentCoord,
-                        'timestamp' => $currentTimestamp,
-                    ];
-
-                    $jumpBuffer = [];
-                    $consecutiveJumps = 0;
                 }
-                // Otherwise, we skip this point (don't yield it)
             } else {
-                // Valid point - reset jump tracking
-                $consecutiveJumps = 0;
-
-                // If we had buffered jumps but now see a valid point,
-                // discard the jump buffer (those were anomalies)
+                // Valid point found.
+                // Any points in buffer were "jumps" relative to lastValidPoint, but we are now back
+                // to a point close to lastValidPoint. This confirms the buffered points were noise.
                 $jumpBuffer = [];
 
                 $lastValidPoint = [
@@ -363,9 +361,38 @@ class TractorPathStreamService
             }
         }
 
-        // At end of stream, if we have buffered jumps that didn't meet the
-        // consecutive threshold, we discard them (they were GPS glitches).
-        // This is intentional - we don't yield $jumpBuffer here.
+        // Note: Any remaining points in jumpBuffer are discarded (trailing noise).
+    }
+
+    /**
+     * Check if the points in the buffer are consistent with each other.
+     *
+     * @param array $buffer
+     * @return bool
+     */
+    private function areBufferedPointsConsistent(array $buffer): bool
+    {
+        if (count($buffer) < 2) {
+            return true;
+        }
+
+        for ($i = 0; $i < count($buffer) - 1; $i++) {
+            $p1 = $buffer[$i];
+            $p2 = $buffer[$i+1];
+
+            $dist = $this->haversineDistance($p1['coord'], $p2['coord']);
+            $timeDelta = abs($p2['timestamp'] - $p1['timestamp']);
+
+            $speed = ($timeDelta >= self::MIN_TIME_DELTA_SECONDS)
+                ? $dist / $timeDelta
+                : $dist;
+
+            if ($speed > self::MAX_REALISTIC_SPEED_MPS) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
