@@ -9,9 +9,8 @@ use Illuminate\Support\Facades\Log;
 
 class TractorPathService
 {
-    public function __construct(
-        private GpsPathCorrectionService $pathCorrectionService,
-    ) {
+    public function __construct()
+    {
     }
 
     /**
@@ -53,12 +52,9 @@ class TractorPathService
                 ->orderBy('gps_data.date_time')
                 ->cursor();
 
-            // Selective corner smoothing (stream-based, memory efficient)
-            $smoothedStream = $this->pathCorrectionService->smoothCornersStream($cursor);
-
             // Build final path in one pass (also computes stoppage durations and starting point)
             // Memory-efficient: only stores filtered points (movement + stoppage markers), not all GPS points
-            $pathPoints = $this->buildPathFromSmoothedStream($smoothedStream);
+            $pathPoints = $this->buildPathFromSmoothedStream($cursor);
 
             return PointsResource::collection(collect($pathPoints));
 
