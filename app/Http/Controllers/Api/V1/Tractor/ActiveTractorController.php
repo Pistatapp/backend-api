@@ -30,8 +30,6 @@ class ActiveTractorController extends Controller
      */
     public function index(Request $request, Farm $farm)
     {
-        $this->authorize('view', $farm);
-
         $request->validate([
             'date' => 'sometimes|shamsi_date'
         ]);
@@ -55,8 +53,6 @@ class ActiveTractorController extends Controller
      */
     public function getPath(Request $request, Tractor $tractor)
     {
-        $this->authorize('view', $tractor);
-
         $request->validate([
             'date' => 'required|shamsi_date',
             'stream' => 'sometimes|boolean'
@@ -81,8 +77,6 @@ class ActiveTractorController extends Controller
      */
     public function getPerformance(Request $request, Tractor $tractor)
     {
-        $this->authorize('view', $tractor);
-
         $request->validate([
             'date' => 'required|shamsi_date'
         ]);
@@ -102,8 +96,6 @@ class ActiveTractorController extends Controller
      */
     public function getWeeklyEfficiencyChart(Request $request, Tractor $tractor)
     {
-        $this->authorize('view', $tractor);
-
         $chartData = $this->activeTractorService->getWeeklyEfficiencyChart($tractor);
 
         return response()->json(['data' => $chartData]);
@@ -118,8 +110,6 @@ class ActiveTractorController extends Controller
      */
     public function getWorkingTractors(Request $request, Farm $farm)
     {
-        $this->authorize('view', $farm);
-
         $tractors = $farm->tractors()->working()->with(['gpsDevice', 'driver'])->get();
 
         return response()->json([

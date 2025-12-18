@@ -662,6 +662,9 @@ class GpsDataAnalyzer
 
         $averageSpeed = $movementDuration > 0 ? (int)($movementDistance * self::SECONDS_PER_HOUR / $movementDuration) : 0;
 
+        // Latest status is taken from the last processed point in the new batch
+        $lastPoint = $data[$dataCount - 1];
+
         $this->results = [
             'movement_distance_km' => round($movementDistance, 1),
             'movement_distance_meters' => round($movementDistance * 1000, 2),
@@ -942,15 +945,8 @@ class GpsDataAnalyzer
     }
 
     /**
-     * MAIN OPTIMIZED ENTRY POINT: Load and analyze with caching
-     * This method checks cache FIRST, then only loads new data from DB
-     *
-     * Flow:
-     * 1. Check cache for existing state
-     * 2. If no cache → full load from DB, full analysis, save to cache
-     * 3. If cache exists → load ONLY new points since last_processed_timestamp
-     * 4. If no new points → return cached results immediately (fastest path)
-     * 5. If new points → incremental analysis, merge with cached state
+     * MAIN ENTRY POINT: Load and analyze without caching
+     * This method now performs a full load and analysis on each call.
      *
      * @param Tractor $tractor
      * @param Carbon $date
@@ -961,61 +957,10 @@ class GpsDataAnalyzer
     {
         $this->tractor = $tractor;
         $this->date = $date->copy();
-        $tractorId = $tractor->id;
-
-        // Step 1: Determine and store working window
         [$startDateTime, $endDateTime] = $this->calculateWorkingWindow($tractor, $date);
         $this->storeWorkingWindow($startDateTime, $endDateTime);
-
-        // Step 2: Check cache FIRST (before any DB query)
-        $cachedState = $this->cacheService->getState($tractorId, $date);
-
-        if ($cachedState === null) {
-            // No cache - do full load and analysis
-            return $this->doFullLoadAndAnalysis($tractor, $date, $startDateTime, $endDateTime, $includeDetails);
-        }
-
-        // Step 3: Cache exists - check for new data with minimal query
-        $lastProcessedTime = Carbon::createFromTimestamp($cachedState->lastProcessedTimestamp);
-
-        // Query ONLY for count of new records (very fast)
-        $newRecordsQuery = $tractor->gpsData()->toBase();
-        if ($startDateTime && $endDateTime) {
-            $newRecordsQuery->where('gps_data.date_time', '>', $lastProcessedTime)
-                           ->where('gps_data.date_time', '<=', $endDateTime);
-        } else {
-            $newRecordsQuery->where('gps_data.date_time', '>', $lastProcessedTime)
-                           ->whereDate('gps_data.date_time', $date);
-        }
-
-        $newRecordsCount = $newRecordsQuery->count();
-
-        if ($newRecordsCount === 0) {
-            // FASTEST PATH: No new data - return cached results immediately
-            $this->results = $this->buildResultsFromState($cachedState);
-            return $this->results;
-        }
-
-        // Step 4: Load ONLY new records
-        $newRecords = $tractor->gpsData()
-            ->select(self::GPS_DATA_FIELDS)
-            ->toBase()
-            ->where('gps_data.date_time', '>', $lastProcessedTime);
-
-        if ($endDateTime) {
-            $newRecords->where('gps_data.date_time', '<=', $endDateTime);
-        } else {
-            $newRecords->whereDate('gps_data.date_time', $date);
-        }
-
-        $newRecords = $newRecords->orderBy('gps_data.date_time')->get();
-
-        // Parse only the new records
-        $this->data = [];
-        $this->parseRecords($newRecords);
-
-        // Step 5: Incremental analysis
-        return $this->analyzeIncremental($cachedState, $includeDetails);
+        // Perform full load and analysis without using any cached state
+        return $this->doFullLoadAndAnalysis($tractor, $date, $startDateTime, $endDateTime, $includeDetails);
     }
 
     /**
@@ -1056,11 +1001,8 @@ class GpsDataAnalyzer
 
         $this->loadFromRecordsPreSorted($gpsData);
 
-        // Full analysis
+        // Full analysis (no caching)
         $results = $this->analyze(null, null, $includeDetails);
-
-        // Save to cache
-        $this->saveStateToCache($tractor->id, $date);
 
         return $results;
     }
@@ -1075,41 +1017,8 @@ class GpsDataAnalyzer
      */
     public function analyzeWithCache(bool $includeDetails = false): array
     {
-        if ($this->tractor === null || $this->date === null) {
-            // Fallback to regular analysis if no tractor/date context
-            return $this->analyze(null, null, $includeDetails);
-        }
-
-        $tractorId = $this->tractor->id;
-        $date = $this->date;
-
-        // Get cached state
-        $cachedState = $this->cacheService->getState($tractorId, $date);
-
-        if ($cachedState === null) {
-            // No cache - do full analysis and cache results
-            $results = $this->analyze(null, null, $includeDetails);
-            $this->saveStateToCache($tractorId, $date);
-            return $results;
-        }
-
-        // Check if we have new data to process
-        if (empty($this->data)) {
-            // No data loaded - return cached results
-            return $this->buildResultsFromState($cachedState);
-        }
-
-        $lastDataTs = $this->data[count($this->data) - 1]['ts'];
-
-        if ($lastDataTs <= $cachedState->lastProcessedTimestamp) {
-            // No new data - return cached results
-            return $this->buildResultsFromState($cachedState);
-        }
-
-        // Process incrementally from cached state
-        $results = $this->analyzeIncremental($cachedState, $includeDetails);
-
-        return $results;
+        // Caching disabled: delegate to regular analyze()
+        return $this->analyze(null, null, $includeDetails);
     }
 
     /**
@@ -1365,52 +1274,15 @@ class GpsDataAnalyzer
             $prevTs = $ts;
         }
 
-        // Get last point for state
-        $lastPoint = $data[$dataCount - 1];
-
-        // Update state and cache
-        $newState = new GpsAnalysisState(
-            lastProcessedTimestamp: $lastPoint['ts'],
-            lastProcessedIndex: $dataCount - 1,
-            deviceOnTime: $deviceOnTime,
-            firstMovementTime: $firstMovementTime,
-            deviceOnTimeDetected: $deviceOnTimeDetected,
-            firstMovementTimeDetected: $firstMovementTimeDetected,
-            movementDistance: $movementDistance,
-            movementDuration: $movementDuration,
-            stoppageDuration: $stoppageDuration,
-            stoppageDurationWhileOn: $stoppageDurationWhileOn,
-            stoppageDurationWhileOff: $stoppageDurationWhileOff,
-            stoppageCount: $stoppageCount,
-            maxSpeed: $maxSpeed,
-            isCurrentlyMoving: $isCurrentlyMoving,
-            isCurrentlyStopped: $isCurrentlyStopped,
-            segmentStartIndex: null,
-            segmentStartTimestamp: $segmentStartTimestamp,
-            segmentDistance: $movementSegmentDistance,
-            consecutiveMovementCount: $consecutiveMovementCount,
-            firstConsecutiveMovementTimestamp: $firstConsecutiveMovementTimestamp,
-            lastLat: $lastPoint['lat'],
-            lastLon: $lastPoint['lon'],
-            lastLatRad: $lastPoint['lat_rad'],
-            lastLonRad: $lastPoint['lon_rad'],
-            lastSpeed: $lastPoint['speed'],
-            lastStatus: $lastPoint['status'],
-            startTime: $startTime,
-            segmentStartLat: $segmentStartLat,
-            segmentStartLon: $segmentStartLon,
-            segmentStartStatus: $segmentStartStatus,
-            movementDetailIndex: $movementDetailIndex,
-            stoppageDetailIndex: $stoppageDetailIndex,
-        );
-
-        // Save to cache
-        if ($this->tractor !== null && $this->date !== null) {
-            $this->cacheService->saveState($this->tractor->id, $this->date, $newState);
-        }
-
-        // Build and return results
+        // Build and return results (no caching)
         $averageSpeed = $movementDuration > 0 ? (int)($movementDistance * self::SECONDS_PER_HOUR / $movementDuration) : 0;
+
+        // Use last processed point as latest status, or fall back to state if no new data
+        $lastStatus = $state->lastStatus;
+        if ($dataCount > 0) {
+            $lastPoint = $data[$dataCount - 1];
+            $lastStatus = $lastPoint['status'];
+        }
 
         $this->results = [
             'movement_distance_km' => round($movementDistance, 1),
@@ -1427,7 +1299,7 @@ class GpsDataAnalyzer
             'device_on_time' => $deviceOnTime,
             'first_movement_time' => $firstMovementTime,
             'start_time' => $startTime,
-            'latest_status' => $lastPoint['status'],
+            'latest_status' => $lastStatus,
             'average_speed' => $averageSpeed,
         ];
 
@@ -1461,60 +1333,6 @@ class GpsDataAnalyzer
             'latest_status' => $state->lastStatus,
             'average_speed' => $averageSpeed,
         ];
-    }
-
-    /**
-     * Save current analysis state to cache after full analysis
-     */
-    private function saveStateToCache(int $tractorId, Carbon $date): void
-    {
-        if (empty($this->data)) {
-            return;
-        }
-
-        $dataCount = count($this->data);
-        $lastPoint = $this->data[$dataCount - 1];
-        $firstPoint = $this->data[0];
-
-        // Extract values from results
-        $results = $this->results;
-
-        $state = new GpsAnalysisState(
-            lastProcessedTimestamp: $lastPoint['ts'],
-            lastProcessedIndex: $dataCount - 1,
-            deviceOnTime: $results['device_on_time'] ?? null,
-            firstMovementTime: $results['first_movement_time'] ?? null,
-            deviceOnTimeDetected: $results['device_on_time'] !== null,
-            firstMovementTimeDetected: $results['first_movement_time'] !== null,
-            movementDistance: (float)str_replace(',', '', $results['movement_distance_km']),
-            movementDuration: $results['movement_duration_seconds'],
-            stoppageDuration: $results['stoppage_duration_seconds'],
-            stoppageDurationWhileOn: $results['stoppage_duration_while_on_seconds'],
-            stoppageDurationWhileOff: $results['stoppage_duration_while_off_seconds'],
-            stoppageCount: $results['stoppage_count'],
-            maxSpeed: 0,
-            isCurrentlyMoving: $lastPoint['status'] === 1 && $lastPoint['speed'] > 0,
-            isCurrentlyStopped: $lastPoint['speed'] === 0,
-            segmentStartIndex: null,
-            segmentStartTimestamp: $lastPoint['ts'],
-            segmentDistance: 0.0,
-            consecutiveMovementCount: 0,
-            firstConsecutiveMovementTimestamp: null,
-            lastLat: $lastPoint['lat'],
-            lastLon: $lastPoint['lon'],
-            lastLatRad: $lastPoint['lat_rad'],
-            lastLonRad: $lastPoint['lon_rad'],
-            lastSpeed: $lastPoint['speed'],
-            lastStatus: $lastPoint['status'],
-            startTime: $results['start_time'] ?? $firstPoint['timestamp']->toTimeString(),
-            segmentStartLat: $lastPoint['lat'],
-            segmentStartLon: $lastPoint['lon'],
-            segmentStartStatus: $lastPoint['status'],
-            movementDetailIndex: count($this->movements),
-            stoppageDetailIndex: count($this->stoppages),
-        );
-
-        $this->cacheService->saveState($tractorId, $date, $state);
     }
 
     /**

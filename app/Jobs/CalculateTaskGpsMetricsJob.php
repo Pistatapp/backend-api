@@ -71,7 +71,6 @@ class CalculateTaskGpsMetricsJob implements ShouldQueue
 
         // Get GPS data for the tractor within task time window
         $gpsData = $tractor->gpsData()
-            ->whereDate('date_time', $date)
             ->whereBetween('date_time', [$taskStartDateTime, $taskEndDateTime])
             ->orderBy('date_time')
             ->get();

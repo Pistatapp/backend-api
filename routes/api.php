@@ -114,11 +114,11 @@ Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
     Route::post('/tractors/{tractor}/assignments', [TractorController::class, 'assignments']);
 
     // Active Tractors Routes
-    Route::get('/farms/{farm}/tractors/active', [ActiveTractorController::class, 'index']);
-    Route::get('/farms/{farm}/tractors/working', [ActiveTractorController::class, 'getWorkingTractors']);
-    Route::get('/tractors/{tractor}/path', [ActiveTractorController::class, 'getPath']);
-    Route::get('/tractors/{tractor}/performance', [ActiveTractorController::class, 'getPerformance']);
-    Route::get('/tractors/{tractor}/weekly-efficiency-chart', [ActiveTractorController::class, 'getWeeklyEfficiencyChart']);
+    Route::get('/farms/{farm}/tractors/active', [ActiveTractorController::class, 'index'])->can('view', 'farm');
+    Route::get('/farms/{farm}/tractors/working', [ActiveTractorController::class, 'getWorkingTractors'])->can('view', 'farm');
+    Route::get('/tractors/{tractor}/path', [ActiveTractorController::class, 'getPath'])->can('view', 'tractor');
+    Route::get('/tractors/{tractor}/performance', [ActiveTractorController::class, 'getPerformance'])->can('view', 'tractor');
+    Route::get('/tractors/{tractor}/weekly-efficiency-chart', [ActiveTractorController::class, 'getWeeklyEfficiencyChart'])->can('view', 'tractor');
 
     Route::apiResource('farms.tractors', TractorController::class)->shallow();
     Route::apiResource('/tractors.tractor_reports', TractorReportController::class)->shallow();
