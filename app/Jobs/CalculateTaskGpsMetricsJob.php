@@ -13,7 +13,6 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 
 class CalculateTaskGpsMetricsJob implements ShouldQueue
@@ -41,9 +40,7 @@ class CalculateTaskGpsMetricsJob implements ShouldQueue
      */
     public function handle(GpsDataAnalyzer $gpsDataAnalyzer, TractorTaskService $tractorTaskService): void
     {
-        $date = $this->task->date instanceof Carbon
-            ? $this->task->date
-            : Carbon::parse($this->task->date);
+        $date = $this->task->date ;
 
         $dateString = $date->toDateString();
 
@@ -52,57 +49,17 @@ class CalculateTaskGpsMetricsJob implements ShouldQueue
         $taskStartDateTime = $taskDateTime->copy()->setTimeFromTimeString($this->task->start_time);
         $taskEndDateTime = $taskDateTime->copy()->setTimeFromTimeString($this->task->end_time);
 
-        if ($taskEndDateTime->lt($taskStartDateTime)) {
-            $taskEndDateTime->addDay();
-        }
-
         // Ensure the tractor relationship is loaded
         $this->task->load('tractor');
         $tractor = $this->task->tractor;
 
-        if (!$tractor) {
-            Log::warning('No tractor found for task', [
-                'task_id' => $this->task->id,
-            ]);
-            // If no tractor, set status to not_done and send notification
-            $this->setTaskStatusAndNotify('not_done', null);
-            return;
-        }
-
-        // Get GPS data for the tractor within task time window
-        $gpsData = $tractor->gpsData()
-            ->whereBetween('date_time', [$taskStartDateTime, $taskEndDateTime])
-            ->orderBy('date_time')
-            ->get();
-
-        // Filter points that are in the task zone
         $taskZone = $tractorTaskService->getTaskZone($this->task);
 
-        if (!$taskZone) {
-            Log::warning('No task zone found for task', [
-                'task_id' => $this->task->id,
-                'tractor_id' => $this->task->tractor_id,
-            ]);
-            // If no task zone, set status to not_done and send notification
-            $this->setTaskStatusAndNotify('not_done', null);
-            return;
-        }
-
-        $filteredGpsData = $gpsData->filter(function ($point) use ($taskZone) {
-            return is_point_in_polygon($point->coordinate, $taskZone);
-        });
-
-        if ($filteredGpsData->isEmpty()) {
-            // If no GPS data in zone, set status to not_done and send notification
-            $this->setTaskStatusAndNotify('not_done', null);
-            return;
-        }
-
         // Analyze GPS data with task time window
-        $results = $gpsDataAnalyzer->loadRecordsFor($tractor, $date)->analyze($taskStartDateTime, $taskEndDateTime, false);
+        $results = $gpsDataAnalyzer->loadRecordsFor($tractor, $date)->analyze($taskStartDateTime, $taskEndDateTime, $taskZone);
 
         // Check if there's any valid GPS data
-        if (empty($results['start_time'])) {
+        if (empty($results['movement_duration_seconds'])) {
             // If no valid GPS data, set status to not_done and send notification
             $this->setTaskStatusAndNotify('not_done', null);
             return;

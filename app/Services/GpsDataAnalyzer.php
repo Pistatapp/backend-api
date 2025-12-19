@@ -12,12 +12,8 @@ class GpsDataAnalyzer
     private ?int $workingStartTimestamp = null;
     private ?int $workingEndTimestamp = null;
 
-    // Precomputed constants for Haversine formula
-    private const EARTH_RADIUS_KM = 6371;
-
     // Business logic constants
     private const MIN_STOPPAGE_DURATION_SECONDS = 60;
-    private const SECONDS_PER_HOUR = 3600;
     private const CONSECUTIVE_MOVEMENTS_FOR_FIRST_MOVEMENT = 3;
 
     /**
@@ -112,10 +108,14 @@ class GpsDataAnalyzer
      *
      * @param Carbon|null $workingStartTime Optional working start time to scope calculations
      * @param Carbon|null $workingEndTime Optional working end time to scope calculations
+     * @param array $polygon Optional polygon to filter data
      * @return array
      */
-    public function analyze(?Carbon $workingStartTime = null, ?Carbon $workingEndTime = null): array
-    {
+    public function analyze(
+        ?Carbon $workingStartTime = null,
+        ?Carbon $workingEndTime = null,
+        array $polygon = []
+    ): array {
         if (empty($this->data)) {
             return $this->getEmptyResults();
         }
@@ -168,6 +168,10 @@ class GpsDataAnalyzer
         $prevStatus = null;
 
         for ($index = 0; $index < $dataCount; $index++) {
+            if(!empty($polygon) && !is_point_in_polygon($data[$index]['coordinate'], $polygon)) {
+                continue;
+            }
+
             $point = &$data[$index];
             $speed = $point['speed'];
             $status = $point['status'];
@@ -324,7 +328,7 @@ class GpsDataAnalyzer
             }
         }
 
-        $averageSpeed = $movementDuration > 0 ? (int)($movementDistance * self::SECONDS_PER_HOUR / $movementDuration) : 0;
+        $averageSpeed = $movementDuration > 0 ? (int)($movementDistance * 3600 / $movementDuration) : 0;
 
         // Latest status is taken from the last processed point in the new batch
         $lastPoint = $data[$dataCount - 1];
@@ -384,7 +388,7 @@ class GpsDataAnalyzer
         $a = sin($dLat / 2) ** 2 + cos($lat1Rad) * cos($lat2Rad) * sin($dLon / 2) ** 2;
         $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
 
-        return self::EARTH_RADIUS_KM * $c;
+        return 6371 * $c; // Earth's radius in kilometers
     }
 
     /**
