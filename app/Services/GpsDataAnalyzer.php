@@ -545,7 +545,7 @@ class GpsDataAnalyzer
             'stoppage_count' => $stoppageCount,
             'device_on_time' => $deviceOnTime,
             'first_movement_time' => $firstMovementTime,
-            'latest_status' => $lastPoint->status,
+            'latest_status' => $lastPoint['status'],
             'average_speed' => $averageSpeed,
         ];
 
