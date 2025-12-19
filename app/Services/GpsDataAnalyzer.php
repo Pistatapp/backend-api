@@ -168,9 +168,9 @@ class GpsDataAnalyzer
         $prevStatus = null;
 
         for ($index = 0; $index < $dataCount; $index++) {
-            if(!empty($polygon) && !is_point_in_polygon($data[$index]['coordinate'], $polygon)) {
-                continue;
-            }
+            // if(!empty($polygon) && !is_point_in_polygon($data[$index]['coordinate'], $polygon)) {
+            //     continue;
+            // }
 
             $point = &$data[$index];
             $speed = $point['speed'];
