@@ -24,15 +24,6 @@ class GpsDataAnalyzer
     private const SECONDS_PER_HOUR = 3600;
     private const CONSECUTIVE_MOVEMENTS_FOR_FIRST_MOVEMENT = 3;
 
-    // GPS data fields to select (minimal projection for performance)
-    private const GPS_DATA_FIELDS = [
-        'gps_data.coordinate',
-        'gps_data.speed',
-        'gps_data.status',
-        'gps_data.date_time',
-        'gps_data.imei',
-    ];
-
     /**
      * Load GPS records for a tractor on a specific date and set working time window
      * This method fetches GPS data and automatically configures working time from tractor settings
