@@ -73,8 +73,8 @@ class TractorTaskResource extends JsonResource
         $taskDateTime = Carbon::parse($this->date);
 
         // Get time string from start_time and end_time (they are cast as datetime objects)
-        $startTimeString = $this->start_time->format('H:i');
-        $endTimeString = $this->end_time->format('H:i');
+        $startTimeString = $this->start_time;
+        $endTimeString = $this->end_time;
 
         $taskStartDateTime = $taskDateTime->copy()->setTimeFromTimeString($startTimeString);
         $taskEndDateTime = $taskDateTime->copy()->setTimeFromTimeString($endTimeString);
