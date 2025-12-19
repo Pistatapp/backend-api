@@ -78,100 +78,9 @@ class GpsDataAnalyzer
         }
 
         // Load records (data is already sorted by DB, skip re-sorting)
-        $this->loadFromRecordsPreSorted($gpsData);
-
-        // Store working window for downstream analyze() if applicable
-        $this->storeWorkingWindow($startDateTime, $endDateTime);
+        $this->parseRecords($gpsData);
 
         return $this;
-    }
-
-    /**
-     * Load only NEW GPS records since the last cached state (incremental loading)
-     * This is the key optimization for real-time dashboards
-     *
-     * @param Tractor $tractor
-     * @param Carbon $date
-     * @return self
-     */
-    public function loadRecordsIncremental(Tractor $tractor, Carbon $date): self
-    {
-        // Determine and store working window
-        [$startDateTime, $endDateTime] = $this->calculateWorkingWindow($tractor, $date);
-        $this->storeWorkingWindow($startDateTime, $endDateTime);
-
-        // Determine query start time
-        $queryStartTime = $startDateTime;
-
-        // Build query for new data only
-        $query = $tractor->gpsData()
-            ->select(self::GPS_DATA_FIELDS)
-            ->toBase()
-            ->orderBy('gps_data.date_time');
-
-        if ($queryStartTime && $endDateTime) {
-            $query->where('gps_data.date_time', '>=', $queryStartTime)
-                  ->where('gps_data.date_time', '<=', $endDateTime);
-        } elseif ($queryStartTime) {
-            $query->where('gps_data.date_time', '>=', $queryStartTime)
-                  ->whereDate('gps_data.date_time', $date);
-        } else {
-            $query->whereDate('gps_data.date_time', $date);
-        }
-
-        $gpsData = $query->get();
-
-        // Load records (already sorted by DB)
-        $this->loadFromRecordsPreSorted($gpsData);
-
-        return $this;
-    }
-
-    /**
-     * Load GPS data from GpsData model records or array
-     * Accepts either a Collection of GpsData models or an array of data
-     *
-     * @param \Illuminate\Support\Collection|array $data
-     * @return self
-     */
-    public function loadFromRecords($data): self
-    {
-        $this->resetState();
-        $this->parseRecords($data);
-
-        // Sort by timestamp
-        usort($this->data, fn($a, $b) => $a['ts'] <=> $b['ts']);
-
-        return $this;
-    }
-
-    /**
-     * Load GPS data from pre-sorted records (skips sorting for performance)
-     * Use this when data is already sorted by timestamp (e.g., from database ORDER BY)
-     *
-     * @param \Illuminate\Support\Collection|array $data
-     * @return self
-     */
-    public function loadFromRecordsPreSorted($data): self
-    {
-        $this->resetState();
-        $this->parseRecords($data);
-        return $this;
-    }
-
-    /**
-     * Reset internal state
-     */
-    private function resetState(): void
-    {
-        $this->data = [];
-        $this->movements = [];
-        $this->stoppages = [];
-        $this->results = [];
-        $this->workingStartTime = null;
-        $this->workingEndTime = null;
-        $this->workingStartTimestamp = null;
-        $this->workingEndTimestamp = null;
     }
 
     /**
@@ -195,27 +104,6 @@ class GpsDataAnalyzer
         }
 
         return [$startDateTime, $endDateTime];
-    }
-
-    /**
-     * Store working window timestamps
-     *
-     * @param Carbon|null $startDateTime
-     * @param Carbon|null $endDateTime
-     */
-    private function storeWorkingWindow(?Carbon $startDateTime, ?Carbon $endDateTime): void
-    {
-        if ($startDateTime && $endDateTime) {
-            $this->workingStartTime = $startDateTime;
-            $this->workingEndTime = $endDateTime;
-            $this->workingStartTimestamp = $startDateTime->timestamp;
-            $this->workingEndTimestamp = $endDateTime->timestamp;
-        } else {
-            $this->workingStartTime = null;
-            $this->workingEndTime = null;
-            $this->workingStartTimestamp = null;
-            $this->workingEndTimestamp = null;
-        }
     }
 
     /**
@@ -326,10 +214,10 @@ class GpsDataAnalyzer
      * @param Carbon|null $workingEndTime Optional working end time to scope calculations
      * @return array
      */
-    public function analyze(?Carbon $workingStartTime = null, ?Carbon $workingEndTime = null, bool $includeDetails = true): array
+    public function analyze(?Carbon $workingStartTime = null, ?Carbon $workingEndTime = null, bool $includeDetails = true): self
     {
         if (empty($this->data)) {
-            return $this->getEmptyResults();
+            $this->getEmptyResults();
         }
 
         // Use stored working time if parameters are not provided
@@ -462,8 +350,10 @@ class GpsDataAnalyzer
             if ($isStopped && $isCurrentlyMoving) {
                 // Calculate distance using precomputed radians
                 $distance = $this->haversineDistanceRad(
-                    $prevLatRad, $prevLonRad,
-                    $point['lat_rad'], $point['lon_rad']
+                    $prevLatRad,
+                    $prevLonRad,
+                    $point['lat_rad'],
+                    $point['lon_rad']
                 );
                 $movementSegmentDistance += $distance;
                 $movementDistance += $distance;
@@ -549,14 +439,15 @@ class GpsDataAnalyzer
                 }
 
                 $distance = $this->haversineDistanceRad(
-                    $prevLatRad, $prevLonRad,
-                    $point['lat_rad'], $point['lon_rad']
+                    $prevLatRad,
+                    $prevLonRad,
+                    $point['lat_rad'],
+                    $point['lon_rad']
                 );
                 $movementSegmentDistance += $distance;
                 $movementDistance += $distance;
                 $movementDuration += $timeDiff;
-            }
-            elseif ($isStopped && !$isCurrentlyStopped && !$isCurrentlyMoving) {
+            } elseif ($isStopped && !$isCurrentlyStopped && !$isCurrentlyMoving) {
                 $isCurrentlyStopped = true;
                 $stoppageStartIndex = $index;
             }
@@ -654,12 +545,11 @@ class GpsDataAnalyzer
             'stoppage_count' => $stoppageCount,
             'device_on_time' => $deviceOnTime,
             'first_movement_time' => $firstMovementTime,
-            'start_time' => $data[0]['timestamp']->toTimeString(),
-            'latest_status' => $data[$dataCount - 1]['status'],
+            'latest_status' => $lastPoint->status,
             'average_speed' => $averageSpeed,
         ];
 
-        return $this->results;
+        return $this;
     }
 
     /**
@@ -914,17 +804,19 @@ class GpsDataAnalyzer
     /**
      * Lightweight analyze method that avoids building large detail arrays for memory efficiency.
      */
-    public function analyzeLight(?Carbon $workingStartTime = null, ?Carbon $workingEndTime = null): array
+    public function analyzeLight(?Carbon $workingStartTime = null, ?Carbon $workingEndTime = null): self
     {
-        return $this->analyze($workingStartTime, $workingEndTime, false);
+        $this->analyze($workingStartTime, $workingEndTime, false);
+
+        return $this;
     }
 
     /**
      * Get empty results structure
      */
-    private function getEmptyResults(): array
+    private function getEmptyResults(): self
     {
-        return [
+        $this->results = [
             'movement_distance_km' => 0,
             'movement_distance_meters' => 0,
             'movement_duration_seconds' => 0,
@@ -936,12 +828,13 @@ class GpsDataAnalyzer
             'stoppage_duration_while_off_seconds' => 0,
             'stoppage_duration_while_off_formatted' => '00:00:00',
             'stoppage_count' => 0,
-            'device_on_time' => null,
-            'first_movement_time' => null,
-            'start_time' => null,
-            'latest_status' => null,
+            'device_on_time' => '00:00:00',
+            'first_movement_time' => '00:00:00',
+            'latest_status' => 0,
             'average_speed' => 0,
         ];
+
+        return $this;
     }
 
     /**
@@ -959,6 +852,8 @@ class GpsDataAnalyzer
 
     /**
      * Get results
+     *
+     * @return array<string, mixed>
      */
     public function getResults(): array
     {

@@ -106,9 +106,8 @@ class ActiveTractorService
      */
     private function getTractorPerformanceFromGpsData(Tractor $tractor, Carbon $date): array
     {
-        // OPTIMIZED: Check cache first, only load new data from DB
-        // This avoids loading all 10,000+ points on every request
-        $results = $this->gpsDataAnalyzer->loadRecordsIncremental($tractor, $date)->analyze();
+        $this->gpsDataAnalyzer->loadRecordsFor($tractor, $date)->analyze();
+        $results = $this->gpsDataAnalyzer->getResults();
 
         $averageSpeed = $results['average_speed'];
         $latestStatus = $results['latest_status'];
