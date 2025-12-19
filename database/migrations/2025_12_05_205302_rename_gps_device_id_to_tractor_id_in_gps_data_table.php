@@ -22,14 +22,14 @@ return new class extends Migration
 
         // First, add a temporary tractor_id column
         Schema::table('gps_reports', function (Blueprint $table) {
-            $table->unsignedBigInteger('tractor_id')->nullable()->after('gps_report_id');
+            $table->unsignedBigInteger('tractor_id')->nullable()->after('gps_device_id');
         });
 
         // Migrate data: map gps_device_id to tractor_id via gps_devices table
         DB::statement('
             UPDATE gps_reports
-            INNER JOIN gps_devices ON gps_reports.gps_report_id = gps_devices.id
-            SET gps_data.tractor_id = gps_devices.tractor_id
+            INNER JOIN gps_devices ON gps_reports.gps_device_id = gps_devices.id
+            SET gps_reports.tractor_id = gps_devices.tractor_id
             WHERE gps_devices.tractor_id IS NOT NULL
         ');
 
