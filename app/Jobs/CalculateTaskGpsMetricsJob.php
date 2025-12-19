@@ -146,10 +146,10 @@ class CalculateTaskGpsMetricsJob implements ShouldQueue
         $this->task->load('tractor.farm');
 
         // Send notification to farm admins
-        // if ($this->task->tractor->farm && $this->task->tractor->farm->admins) {
-        //     $farmAdmins = $this->task->tractor->farm->admins;
-        //     Notification::send($farmAdmins, new TractorTaskStatusNotification($this->task, $metrics));
-        // }
+        if ($this->task->tractor->farm && $this->task->tractor->farm->admins) {
+            $farmAdmins = $this->task->tractor->farm->admins;
+            Notification::send($farmAdmins, new TractorTaskStatusNotification($this->task, $metrics));
+        }
     }
 }
 
