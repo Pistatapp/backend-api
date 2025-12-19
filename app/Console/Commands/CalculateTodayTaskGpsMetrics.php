@@ -43,7 +43,7 @@ class CalculateTodayTaskGpsMetrics extends Command
 
         $dispatched = 0;
         foreach ($tasks as $task) {
-            CalculateTaskGpsMetricsJob::dispatch($task);
+            CalculateTaskGpsMetricsJob::dispatch($task)->delay(Carbon::now()->addSeconds($dispatched * 10));
             $dispatched++;
         }
 
