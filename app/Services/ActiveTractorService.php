@@ -108,7 +108,7 @@ class ActiveTractorService
     {
         // OPTIMIZED: Check cache first, only load new data from DB
         // This avoids loading all 10,000+ points on every request
-        $results = $this->gpsDataAnalyzer->loadAndAnalyzeWithCache($tractor, $date, false);
+        $results = $this->gpsDataAnalyzer->loadRecordsIncremental($tractor, $date)->analyze();
 
         $averageSpeed = $results['average_speed'];
         $latestStatus = $results['latest_status'];
