@@ -59,7 +59,7 @@ class CalculateTaskGpsMetricsJob implements ShouldQueue
         $results = $gpsDataAnalyzer->loadRecordsFor($tractor, $date)->analyze($taskStartDateTime, $taskEndDateTime, $taskZone);
 
         // Check if there's any valid GPS data
-        if (empty($results['movement_duration_seconds'])) {
+        if ($results['movement_duration_seconds'] <= 0) {
             // If no valid GPS data, set status to not_done and send notification
             $this->setTaskStatusAndNotify('not_done', null);
             return;
