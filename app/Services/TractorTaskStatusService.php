@@ -69,8 +69,7 @@ class TractorTaskStatusService
             return 'stopped';
         }
 
-        // Default: return current status
-        return $task->status;
+        return 'done';
     }
 
     /**
