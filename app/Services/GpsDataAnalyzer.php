@@ -9,12 +9,8 @@ class GpsDataAnalyzer
 {
     private array $data = [];
     private array $results = [];
-    private array $movements = [];
-    private array $stoppages = [];
     private ?int $workingStartTimestamp = null;
     private ?int $workingEndTimestamp = null;
-    private ?Carbon $workingStartTime = null;
-    private ?Carbon $workingEndTime = null;
 
     // Precomputed constants for Haversine formula
     private const EARTH_RADIUS_KM = 6371;
@@ -118,7 +114,7 @@ class GpsDataAnalyzer
      * @param Carbon|null $workingEndTime Optional working end time to scope calculations
      * @return array
      */
-    public function analyze(?Carbon $workingStartTime = null, ?Carbon $workingEndTime = null, bool $includeDetails = true): array
+    public function analyze(?Carbon $workingStartTime = null, ?Carbon $workingEndTime = null): array
     {
         if (empty($this->data)) {
             return $this->getEmptyResults();
@@ -134,9 +130,6 @@ class GpsDataAnalyzer
         if ($workingEndTime !== null) {
             $weTs = $workingEndTime->timestamp;
         }
-        // Keep Carbon objects for detail formatting only
-        $wsCarbon = $workingStartTime ?? $this->workingStartTime;
-        $weCarbon = $workingEndTime ?? $this->workingEndTime;
 
         // Initialize counters
         $movementDistance = 0.0;
@@ -154,16 +147,6 @@ class GpsDataAnalyzer
         $movementStartIndex = null;
         $movementSegmentDistance = 0.0;
 
-        // Detail indices (for building arrays in single pass)
-        $stoppageDetailIndex = 0;
-        $movementDetailIndex = 0;
-
-        // Reset detail arrays
-        if ($includeDetails) {
-            $this->movements = [];
-            $this->stoppages = [];
-        }
-
         // Activation tracking
         $deviceOnTime = null;
         $firstMovementTime = null;
@@ -174,13 +157,6 @@ class GpsDataAnalyzer
 
         $dataCount = count($this->data);
         $data = &$this->data; // Reference for faster access
-
-        // Initialize stoppage_time for all points (only when details are requested)
-        if ($includeDetails) {
-            for ($idx = 0; $idx < $dataCount; $idx++) {
-                $data[$idx]['stoppage_time'] = 0;
-            }
-        }
 
         // Previous point tracking
         $prevLat = null;
@@ -263,22 +239,6 @@ class GpsDataAnalyzer
                 $movementDistance += $distance;
                 $movementDuration += $timeDiff;
 
-                if ($includeDetails) {
-                    $movementDetailIndex++;
-                    $this->movements[] = $this->buildMovementDetail(
-                        $data,
-                        $movementStartIndex,
-                        $index,
-                        $movementSegmentDistance,
-                        $movementDetailIndex,
-                        $wsTs,
-                        $weTs,
-                        $wsCarbon,
-                        $weCarbon
-                    );
-                    $data[$index - 1]['stoppage_time'] = 0;
-                }
-
                 $isCurrentlyMoving = false;
                 $isCurrentlyStopped = true;
                 $stoppageStartIndex = $index;
@@ -298,30 +258,6 @@ class GpsDataAnalyzer
                     $weTs
                 );
 
-                if ($includeDetails) {
-                    for ($i = $stoppageStartIndex; $i < $index; $i++) {
-                        $data[$i]['stoppage_time'] = $tempDuration;
-                    }
-                    $data[$index]['stoppage_time'] = 0;
-                }
-
-                $isIgnored = $tempDuration < self::MIN_STOPPAGE_DURATION_SECONDS;
-
-                if ($includeDetails && !$isIgnored) {
-                    $stoppageDetailIndex++;
-                    $this->stoppages[] = $this->buildStoppageDetail(
-                        $data,
-                        $stoppageStartIndex,
-                        $index,
-                        $tempDuration,
-                        $stoppageDetailIndex,
-                        $wsTs,
-                        $weTs,
-                        $wsCarbon,
-                        $weCarbon
-                    );
-                }
-
                 if ($tempDuration >= self::MIN_STOPPAGE_DURATION_SECONDS) {
                     $stoppageCount++;
                     $stoppageDuration += $tempDuration;
@@ -338,10 +274,6 @@ class GpsDataAnalyzer
             }
             // Continue moving
             elseif ($isMoving && $isCurrentlyMoving) {
-                if ($includeDetails) {
-                    $data[$index]['stoppage_time'] = 0;
-                }
-
                 $distance = $this->haversineDistanceRad(
                     $prevLatRad,
                     $prevLonRad,
@@ -368,21 +300,6 @@ class GpsDataAnalyzer
         // Handle final state
         if ($isCurrentlyMoving && $movementStartIndex !== null) {
             $data[$dataCount - 1]['stoppage_time'] = 0;
-
-            if ($includeDetails) {
-                $movementDetailIndex++;
-                $this->movements[] = $this->buildMovementDetail(
-                    $data,
-                    $movementStartIndex,
-                    $dataCount - 1,
-                    $movementSegmentDistance,
-                    $movementDetailIndex,
-                    $wsTs,
-                    $weTs,
-                    $wsCarbon,
-                    $weCarbon
-                );
-            }
         } elseif ($isCurrentlyStopped && $stoppageStartIndex !== null) {
             $stoppageStartTs = $data[$stoppageStartIndex]['ts'];
             $lastTs = $data[$dataCount - 1]['ts'];
@@ -396,29 +313,6 @@ class GpsDataAnalyzer
                 $wsTs,
                 $weTs
             );
-
-            if ($includeDetails) {
-                for ($i = $stoppageStartIndex; $i < $dataCount; $i++) {
-                    $data[$i]['stoppage_time'] = $tempDuration;
-                }
-            }
-
-            $isIgnored = $tempDuration < self::MIN_STOPPAGE_DURATION_SECONDS;
-
-            if ($includeDetails && !$isIgnored) {
-                $stoppageDetailIndex++;
-                $this->stoppages[] = $this->buildStoppageDetail(
-                    $data,
-                    $stoppageStartIndex,
-                    $dataCount - 1,
-                    $tempDuration,
-                    $stoppageDetailIndex,
-                    $wsTs,
-                    $weTs,
-                    $wsCarbon,
-                    $weCarbon
-                );
-            }
 
             if ($tempDuration >= self::MIN_STOPPAGE_DURATION_SECONDS) {
                 $stoppageCount++;
@@ -494,28 +388,6 @@ class GpsDataAnalyzer
     }
 
     /**
-     * Get effective start time using timestamps for comparison, Carbon for output
-     */
-    private function getEffectiveStartTimeFast(int $actualTs, ?int $wsTs, Carbon $actualCarbon, ?Carbon $wsCarbon): Carbon
-    {
-        if ($wsTs !== null && $actualTs < $wsTs && $wsCarbon !== null) {
-            return $wsCarbon;
-        }
-        return $actualCarbon;
-    }
-
-    /**
-     * Get effective end time using timestamps for comparison, Carbon for output
-     */
-    private function getEffectiveEndTimeFast(int $actualTs, ?int $weTs, Carbon $actualCarbon, ?Carbon $weCarbon): Carbon
-    {
-        if ($weTs !== null && $actualTs > $weTs && $weCarbon !== null) {
-            return $weCarbon;
-        }
-        return $actualCarbon;
-    }
-
-    /**
      * Calculate stoppage duration split by on/off status
      *
      * @param array $data GPS data array
@@ -585,124 +457,6 @@ class GpsDataAnalyzer
         }
 
         return [$durationOn, $durationOff];
-    }
-
-    /**
-     * Build movement detail entry
-     *
-     * @param array $data GPS data array
-     * @param int $startIndex Movement start index
-     * @param int $endIndex Movement end index
-     * @param float $segmentDistance Distance in km
-     * @param int $index Movement index number
-     * @param ?int $wsTs Working start timestamp
-     * @param ?int $weTs Working end timestamp
-     * @param ?Carbon $wsCarbon Working start Carbon
-     * @param ?Carbon $weCarbon Working end Carbon
-     * @return array
-     */
-    private function buildMovementDetail(
-        array $data,
-        int $startIndex,
-        int $endIndex,
-        float $segmentDistance,
-        int $index,
-        ?int $wsTs,
-        ?int $weTs,
-        ?Carbon $wsCarbon,
-        ?Carbon $weCarbon
-    ): array {
-        $startPoint = &$data[$startIndex];
-        $endPoint = &$data[$endIndex];
-        $duration = $this->calcDurationFast($startPoint['ts'], $endPoint['ts'], $wsTs, $weTs);
-        $effectiveStart = $this->getEffectiveStartTimeFast(
-            $startPoint['ts'],
-            $wsTs,
-            $startPoint['timestamp'],
-            $wsCarbon
-        );
-        $effectiveEnd = $this->getEffectiveEndTimeFast(
-            $endPoint['ts'],
-            $weTs,
-            $endPoint['timestamp'],
-            $weCarbon
-        );
-
-        return [
-            'index' => $index,
-            'start_time' => $effectiveStart->toTimeString(),
-            'end_time' => $effectiveEnd->toTimeString(),
-            'duration_seconds' => $duration,
-            'duration_formatted' => to_time_format($duration),
-            'distance_km' => round($segmentDistance, 3),
-            'distance_meters' => round($segmentDistance * 1000, 2),
-            'start_location' => [
-                'latitude' => $startPoint['lat'],
-                'longitude' => $startPoint['lon'],
-            ],
-            'end_location' => [
-                'latitude' => $endPoint['lat'],
-                'longitude' => $endPoint['lon'],
-            ],
-            'avg_speed' => $duration > 0
-                ? round(($segmentDistance / $duration) * self::SECONDS_PER_HOUR, 2)
-                : 0,
-        ];
-    }
-
-    /**
-     * Build stoppage detail entry
-     *
-     * @param array $data GPS data array
-     * @param int $startIndex Stoppage start index
-     * @param int $endIndex Stoppage end index
-     * @param int $duration Stoppage duration in seconds
-     * @param int $index Stoppage index number
-     * @param ?int $wsTs Working start timestamp
-     * @param ?int $weTs Working end timestamp
-     * @param ?Carbon $wsCarbon Working start Carbon
-     * @param ?Carbon $weCarbon Working end Carbon
-     * @return array
-     */
-    private function buildStoppageDetail(
-        array $data,
-        int $startIndex,
-        int $endIndex,
-        int $duration,
-        int $index,
-        ?int $wsTs,
-        ?int $weTs,
-        ?Carbon $wsCarbon,
-        ?Carbon $weCarbon
-    ): array {
-        $startPoint = &$data[$startIndex];
-        $endPoint = &$data[$endIndex];
-        $effectiveStart = $this->getEffectiveStartTimeFast(
-            $startPoint['ts'],
-            $wsTs,
-            $startPoint['timestamp'],
-            $wsCarbon
-        );
-        $effectiveEnd = $this->getEffectiveEndTimeFast(
-            $endPoint['ts'],
-            $weTs,
-            $endPoint['timestamp'],
-            $weCarbon
-        );
-
-        return [
-            'index' => $index,
-            'start_time' => $effectiveStart->toTimeString(),
-            'end_time' => $effectiveEnd->toTimeString(),
-            'duration_seconds' => $duration,
-            'duration_formatted' => to_time_format($duration),
-            'location' => [
-                'latitude' => $startPoint['lat'],
-                'longitude' => $startPoint['lon'],
-            ],
-            'status' => $startPoint['status'] === 1 ? 'on' : 'off',
-            'ignored' => false,
-        ];
     }
 
     /**
