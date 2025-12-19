@@ -44,13 +44,12 @@ class GpsDataAnalyzer
     public function loadRecordsFor(Tractor $tractor, Carbon $date): self
     {
         [$startDateTime, $endDateTime] = $tractor->getWorkingWindow($date);
-        $this->data = $tractor->gpsData()
+        $gpsData = $tractor->gpsData()
             ->whereBetween('gps_data.date_time', [$startDateTime, $endDateTime])
             ->orderBy('gps_data.date_time')
-            ->get()
-            ->toArray();
+            ->get();
 
-        // $this->parseRecords($points);
+        $this->parseRecords($gpsData);
 
         return $this;
     }
