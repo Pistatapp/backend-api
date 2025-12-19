@@ -106,8 +106,7 @@ class ActiveTractorService
      */
     private function getTractorPerformanceFromGpsData(Tractor $tractor, Carbon $date): array
     {
-        $this->gpsDataAnalyzer->loadRecordsFor($tractor, $date)->analyze();
-        $results = $this->gpsDataAnalyzer->getResults();
+        $results = $this->gpsDataAnalyzer->loadRecordsFor($tractor, $date)->analyze();
 
         $averageSpeed = $results['average_speed'];
         $latestStatus = $results['latest_status'];

@@ -98,9 +98,6 @@ class GpsDataAnalyzer
         if ($tractor->start_work_time && $tractor->end_work_time) {
             $startDateTime = $date->copy()->setTimeFromTimeString($tractor->start_work_time);
             $endDateTime = $date->copy()->setTimeFromTimeString($tractor->end_work_time);
-            if ($endDateTime->lt($startDateTime)) {
-                $endDateTime->addDay();
-            }
         }
 
         return [$startDateTime, $endDateTime];
@@ -214,10 +211,10 @@ class GpsDataAnalyzer
      * @param Carbon|null $workingEndTime Optional working end time to scope calculations
      * @return array
      */
-    public function analyze(?Carbon $workingStartTime = null, ?Carbon $workingEndTime = null, bool $includeDetails = true): self
+    public function analyze(?Carbon $workingStartTime = null, ?Carbon $workingEndTime = null, bool $includeDetails = true): array
     {
         if (empty($this->data)) {
-            $this->getEmptyResults();
+            return $this->getEmptyResults();
         }
 
         // Use stored working time if parameters are not provided
@@ -549,7 +546,7 @@ class GpsDataAnalyzer
             'average_speed' => $averageSpeed,
         ];
 
-        return $this;
+        return $this->results;
     }
 
     /**
@@ -802,21 +799,11 @@ class GpsDataAnalyzer
     }
 
     /**
-     * Lightweight analyze method that avoids building large detail arrays for memory efficiency.
-     */
-    public function analyzeLight(?Carbon $workingStartTime = null, ?Carbon $workingEndTime = null): self
-    {
-        $this->analyze($workingStartTime, $workingEndTime, false);
-
-        return $this;
-    }
-
-    /**
      * Get empty results structure
      */
-    private function getEmptyResults(): self
+    private function getEmptyResults(): array
     {
-        $this->results = [
+        return [
             'movement_distance_km' => 0,
             'movement_distance_meters' => 0,
             'movement_duration_seconds' => 0,
@@ -833,30 +820,5 @@ class GpsDataAnalyzer
             'latest_status' => 0,
             'average_speed' => 0,
         ];
-
-        return $this;
-    }
-
-    /**
-     * Get detailed stoppage information (optimized - returns cached data)
-     * Only includes stoppages >= 60 seconds (short stoppages are excluded, matching TractorPathService behavior)
-     * Note: Stoppage = status == 0 && speed == 0 || status == 1 && speed == 0
-     * Note: First movement point in batch = last stoppage point
-     */
-    public function getStoppageDetails(): array
-    {
-        $this->analyze();
-
-        return $this->stoppages;
-    }
-
-    /**
-     * Get results
-     *
-     * @return array<string, mixed>
-     */
-    public function getResults(): array
-    {
-        return $this->results;
     }
 }

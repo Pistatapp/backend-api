@@ -99,8 +99,7 @@ class CalculateTaskGpsMetricsJob implements ShouldQueue
         }
 
         // Analyze GPS data with task time window
-        $gpsDataAnalyzer->loadRecordsFor($tractor, $date)->analyzeLight($taskStartDateTime, $taskEndDateTime);
-        $results = $gpsDataAnalyzer->getResults();
+        $results = $gpsDataAnalyzer->loadRecordsFor($tractor, $date)->analyze($taskStartDateTime, $taskEndDateTime, false);
 
         // Check if there's any valid GPS data
         if (empty($results['start_time'])) {
