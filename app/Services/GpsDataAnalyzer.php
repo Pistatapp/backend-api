@@ -43,94 +43,18 @@ class GpsDataAnalyzer
      */
     public function loadRecordsFor(Tractor $tractor, Carbon $date): self
     {
-        // Determine working window first (if any)
-        [$startDateTime, $endDateTime] = $this->calculateWorkingWindow($tractor, $date);
+        [$startDateTime, $endDateTime] = $tractor->getWorkingWindow($date);
+        $points = $tractor->gpsData()
+            ->select(self::GPS_DATA_FIELDS)
+            ->toBase()
+            ->whereBetween('gps_data.date_time', [$startDateTime, $endDateTime])
+            ->orderBy('gps_data.date_time')
+            ->get();
 
-        // Build minimal, ordered query (stdClass objects via toBase to reduce memory overhead)
-        if ($startDateTime && $endDateTime) {
-            // Fetch one point just before the window to preserve segment continuity
-            $prevPoint = $tractor->gpsData()
-                ->select(self::GPS_DATA_FIELDS)
-                ->toBase()
-                ->where('gps_data.date_time', '<', $startDateTime)
-                ->orderBy('gps_data.date_time', 'desc')
-                ->first();
-
-            // The use of toBase() here tells Eloquent to return generic stdClass results instead of full Eloquent model instances.
-            // This reduces memory usage and speeds up processing when only projection of fields is needed.
-            // After toBase(), you get a query builder that returns simple PHP objects, not models.
-            $windowPoints = $tractor->gpsData()
-                ->select(self::GPS_DATA_FIELDS)
-                ->toBase() // switches the result to base query so results are stdClass, not model instances
-                ->whereBetween('gps_data.date_time', [$startDateTime, $endDateTime])
-                ->orderBy('gps_data.date_time')
-                ->get();
-
-            $gpsData = $prevPoint ? collect([$prevPoint])->merge($windowPoints) : $windowPoints;
-        } else {
-            // No working window → fallback to whole day but still select minimal columns
-            $gpsData = $tractor->gpsData()
-                ->select(self::GPS_DATA_FIELDS)
-                ->toBase()
-                ->whereDate('gps_data.date_time', $date)
-                ->orderBy('gps_data.date_time')
-                ->get();
-        }
-
-        // Load records (data is already sorted by DB, skip re-sorting)
-        $this->parseRecords($gpsData);
+        // $this->parseRecords($points);
+        $this->data = $points->toArray();
 
         return $this;
-    }
-
-    /**
-     * Calculate working time window from tractor settings
-     *
-     * @param Tractor $tractor
-     * @param Carbon $date
-     * @return array{0: Carbon|null, 1: Carbon|null}
-     */
-    private function calculateWorkingWindow(Tractor $tractor, Carbon $date): array
-    {
-        $startDateTime = null;
-        $endDateTime = null;
-
-        if ($tractor->start_work_time && $tractor->end_work_time) {
-            $startDateTime = $date->copy()->setTimeFromTimeString($tractor->start_work_time);
-            $endDateTime = $date->copy()->setTimeFromTimeString($tractor->end_work_time);
-        }
-
-        return [$startDateTime, $endDateTime];
-    }
-
-    /**
-     * Parse coordinate from various formats (string, array, object)
-     *
-     * @param mixed $coord
-     * @return array{0: float, 1: float}
-     */
-    private function parseCoordinate($coord): array
-    {
-        $lat = 0.0;
-        $lon = 0.0;
-
-        if (is_string($coord)) {
-            $decoded = json_decode($coord, true);
-            if ($decoded !== null && is_array($decoded)) {
-                $lat = (float)($decoded[0] ?? 0.0);
-                $lon = (float)($decoded[1] ?? 0.0);
-            } else {
-                // Fallback: comma-separated string
-                $parts = explode(',', $coord);
-                $lat = (float)($parts[0] ?? 0.0);
-                $lon = (float)($parts[1] ?? 0.0);
-            }
-        } elseif (is_array($coord)) {
-            $lat = (float)($coord[0] ?? 0.0);
-            $lon = (float)($coord[1] ?? 0.0);
-        }
-
-        return [$lat, $lon];
     }
 
     /**
@@ -148,7 +72,7 @@ class GpsDataAnalyzer
                 $timestamp = $dateTime instanceof Carbon ? $dateTime : Carbon::parse($dateTime);
                 $ts = $timestamp->timestamp;
 
-                [$lat, $lon] = $this->parseCoordinate($record->coordinate ?? null);
+                [$lat, $lon] = $record->coordinate;
 
                 // Pre-compute radians for distance calculations
                 $this->data[] = [
@@ -164,14 +88,9 @@ class GpsDataAnalyzer
                 ];
             } else {
                 // Array input
-                if (isset($record['coordinate'])) {
-                    [$lat, $lon] = $this->parseCoordinate($record['coordinate']);
-                } else {
-                    $lat = (float)($record['latitude'] ?? $record['lat'] ?? 0.0);
-                    $lon = (float)($record['longitude'] ?? $record['lon'] ?? 0.0);
-                }
+                [$lat, $lon] = $record['coordinate'];
 
-                $ts = $record['timestamp'] ?? $record['date_time'] ?? null;
+                $ts = $record['date_time'];
                 $timestamp = $ts instanceof Carbon ? $ts : ($ts ? Carbon::parse($ts) : Carbon::now());
 
                 $this->data[] = [

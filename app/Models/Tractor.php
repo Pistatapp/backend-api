@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -47,6 +48,19 @@ class Tractor extends Model
     protected $attributes = [
         'is_working' => false,
     ];
+
+    /**
+     * Get working window for the tractor.
+     *
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    public function getWorkingWindow(Carbon $date): array
+    {
+        $startDateTime = $date->copy()->setTimeFromTimeString($this->start_work_time);
+        $endDateTime = $date->copy()->setTimeFromTimeString($this->end_work_time);
+
+        return [$startDateTime, $endDateTime];
+    }
 
     /**
      * Scope a query to only include working tractors.
