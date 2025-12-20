@@ -8,15 +8,14 @@ use App\Models\Tractor;
 use Illuminate\Http\Request;
 use App\Models\Farm;
 use App\Services\ActiveTractorService;
-use App\Services\TractorPathService;
 use App\Services\TractorPathStreamService;
 use App\Services\TractorStartMovementTimeDetectionService;
+use Carbon\Carbon;
 
 class ActiveTractorController extends Controller
 {
     public function __construct(
         private ActiveTractorService $activeTractorService,
-        private TractorPathService $tractorPathService,
         private TractorPathStreamService $tractorPathStreamService,
         private TractorStartMovementTimeDetectionService $tractorStartMovementTimeDetectionService
     ) {}
@@ -34,7 +33,7 @@ class ActiveTractorController extends Controller
             'date' => 'sometimes|shamsi_date'
         ]);
 
-        $date = $request->has('date') ? jalali_to_carbon($request->date) : null;
+        $date = $request->has('date') ? jalali_to_carbon($request->date) : Carbon::today();
 
         $tractors = $farm->tractors()->active()->with('gpsDevice', 'driver')->get();
 
@@ -55,17 +54,11 @@ class ActiveTractorController extends Controller
     {
         $request->validate([
             'date' => 'required|shamsi_date',
-            'stream' => 'sometimes|boolean'
         ]);
 
         $date = jalali_to_carbon($request->date);
 
-        // Use streamed service if stream parameter is present and true
-        if ($request->has('stream') && $request->boolean('stream')) {
-            return $this->tractorPathStreamService->getTractorPath($tractor, $date);
-        }
-
-        return $this->tractorPathService->getTractorPath($tractor, $date);
+        return $this->tractorPathStreamService->getTractorPath($tractor, $date);
     }
 
     /**
@@ -90,11 +83,10 @@ class ActiveTractorController extends Controller
     /**
      * Get weekly efficiency chart for a specific tractor
      *
-     * @param Request $request
      * @param Tractor $tractor
      * @return \Illuminate\Http\JsonResponse
      */
-    public function getWeeklyEfficiencyChart(Request $request, Tractor $tractor)
+    public function getWeeklyEfficiencyChart(Tractor $tractor)
     {
         $chartData = $this->activeTractorService->getWeeklyEfficiencyChart($tractor);
 
@@ -104,11 +96,10 @@ class ActiveTractorController extends Controller
     /**
      * Get working tractors for the farm
      *
-     * @param Request $request
      * @param Farm $farm
      * @return \Illuminate\Http\Resources\Json\AnonymousResourceCollection
      */
-    public function getWorkingTractors(Request $request, Farm $farm)
+    public function getWorkingTractors(Farm $farm)
     {
         $tractors = $farm->tractors()->working()->with(['gpsDevice', 'driver'])->get();
 
