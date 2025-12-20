@@ -14,7 +14,7 @@ class UserResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $role = $this->roles->pluck('name');
+        $role = $this->getRoleNames();
 
         // If working environment ID is provided and user is not root, get role from that farm
         $workingEnvironmentId = $request->input('_working_environment_id');
@@ -27,7 +27,7 @@ class UserResource extends JsonResource
             }
 
             if ($farm && $farm->pivot && $farm->pivot->role) {
-                $role = collect([$farm->pivot->role]);
+                $role = $farm->pivot->role;
             }
         }
 

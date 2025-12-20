@@ -112,8 +112,6 @@ class AuthController extends Controller
                 $user->markMobileAsVerified();
 
                 $user->profile()->create();
-
-                $user->assignRole('admin');
             }
         });
 

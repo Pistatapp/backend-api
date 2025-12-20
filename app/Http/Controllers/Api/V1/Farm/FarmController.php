@@ -49,6 +49,8 @@ class FarmController extends Controller
             'crop_id' => $request->crop_id,
         ]);
 
+        $request->user()->assignRole('admin');
+
         $request->user()->farms()->attach($farm, [
             'is_owner' => true,
             'role' => 'admin',
@@ -155,6 +157,13 @@ class FarmController extends Controller
         // Assign role to user
         $user->assignRole($role);
 
+        // If user has no working environment, set this farm as their working environment
+        if (!$user->workingEnvironment()) {
+            $user->update([
+                'preferences->working_environment' => $farm->id,
+            ]);
+        }
+
         // If custom-role, assign specific permissions
         if ($role === 'custom-role' && !empty($permissions)) {
             $user->givePermissionTo($permissions);
@@ -178,6 +187,13 @@ class FarmController extends Controller
 
         $user = User::find($request->input('user_id'));
         $this->authorize('detach', $user);
+
+        // If user has this farm as their working environment, remove it
+        if ($user->workingEnvironment()?->id === $farm->id) {
+            $user->update([
+                'preferences->working_environment' => null,
+            ]);
+        }
 
         $farm->users()->detach($user->id);
 

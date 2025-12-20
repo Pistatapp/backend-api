@@ -26,7 +26,7 @@ class TractorTaskStatusService
         $task->update(['status' => $newStatus]);
         event(new TractorTaskStatusChanged($task, $newStatus, $isCurrentlyInZone));
 
-        CalculateTaskGpsMetricsJob::dispatchIf($newStatus == 'done', $task);
+        CalculateTaskGpsMetricsJob::dispatchIf($newStatus == 'finished', $task);
     }
 
     /**
@@ -37,7 +37,7 @@ class TractorTaskStatusService
      * - not_done: Task start time arrived but tractor never entered, OR task ended with less than 30% time in zone
      * - in_progress: Task time started and tractor has entered the area
      * - stopped: Task time has not finished yet, but tractor is working outside task zone
-     * - done: Task ended and tractor was in area for at least 30% of total time
+     * - finished: Task ended and tractor was in area for at least 30% of total time
      *
      * @param TractorTask $task
      * @param bool|null $isCurrentlyInZone Optional parameter to indicate if tractor is currently in zone
@@ -69,7 +69,7 @@ class TractorTaskStatusService
             return 'stopped';
         }
 
-        return 'done';
+        return 'finished';
     }
 
     /**
