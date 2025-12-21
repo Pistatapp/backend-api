@@ -18,7 +18,7 @@ class UserResource extends JsonResource
 
         // If working environment ID is provided and user is not root, get role from that farm
         $workingEnvironmentId = $request->input('_working_environment_id');
-        if ($workingEnvironmentId && !$this->hasRole('root')) {
+        if ($workingEnvironmentId) {
             // Check if farms are already loaded
             if ($this->relationLoaded('farms')) {
                 $farm = $this->farms->firstWhere('id', $workingEnvironmentId);
@@ -29,6 +29,8 @@ class UserResource extends JsonResource
             if ($farm && $farm->pivot && $farm->pivot->role) {
                 $role = $farm->pivot->role;
             }
+        } else {
+            $role = $this->getRoleNames()->first();
         }
 
         return [
