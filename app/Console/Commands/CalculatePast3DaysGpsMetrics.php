@@ -44,8 +44,7 @@ class CalculatePast3DaysGpsMetrics extends Command
         Tractor::chunk(100, function ($tractors) use ($dates, &$totalDispatched) {
             foreach ($tractors as $tractor) {
                 foreach ($dates as $date) {
-                    CalculateGpsMetricsJob::dispatch($tractor, $date)
-                        ->delay(now()->addSeconds($totalDispatched + 2));
+                    CalculateGpsMetricsJob::dispatch($tractor, $date);
                     $totalDispatched++;
                 }
             }
