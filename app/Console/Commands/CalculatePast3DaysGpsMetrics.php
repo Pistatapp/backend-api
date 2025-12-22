@@ -30,8 +30,8 @@ class CalculatePast3DaysGpsMetrics extends Command
     {
         $today = Carbon::today();
         $dates = [
-            $today->copy(),
             $today->copy()->subDay(),
+            $today->copy()->subDays(1),
             $today->copy()->subDays(2),
         ];
 
