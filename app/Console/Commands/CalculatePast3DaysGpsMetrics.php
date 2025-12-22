@@ -45,7 +45,7 @@ class CalculatePast3DaysGpsMetrics extends Command
             foreach ($tractors as $tractor) {
                 foreach ($dates as $date) {
                     CalculateGpsMetricsJob::dispatch($tractor, $date)
-                        ->delay(now()->addSeconds($totalDispatched * 5));
+                        ->delay(now()->addSeconds($totalDispatched * 2));
                     $totalDispatched++;
                 }
             }

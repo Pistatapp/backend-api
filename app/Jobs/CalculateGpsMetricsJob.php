@@ -51,7 +51,7 @@ class CalculateGpsMetricsJob implements ShouldQueue
         ]);
 
         // Check if there's any GPS data for this day
-        if (empty($results['start_time'])) {
+        if ($results['movement_duration_seconds'] <= 0) {
             return;
         }
 
