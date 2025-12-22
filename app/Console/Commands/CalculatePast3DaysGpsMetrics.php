@@ -31,8 +31,8 @@ class CalculatePast3DaysGpsMetrics extends Command
         $today = Carbon::today();
         $dates = [
             $today->copy()->subDay(),
-            $today->copy()->subDays(1),
             $today->copy()->subDays(2),
+            $today->copy()->subDays(3),
         ];
 
         $this->info('Calculating GPS metrics for all tractors for the past 3 days...');
@@ -44,7 +44,7 @@ class CalculatePast3DaysGpsMetrics extends Command
         Tractor::chunk(100, function ($tractors) use ($dates, &$totalDispatched) {
             foreach ($tractors as $tractor) {
                 foreach ($dates as $date) {
-                    CalculateGpsMetricsJob::dispatch($tractor, $date);
+                    CalculateGpsMetricsJob::dispatch($tractor, $date)->withoutOverlapping();
                     $totalDispatched++;
                 }
             }

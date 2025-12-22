@@ -11,6 +11,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 
 class CalculateGpsMetricsJob implements ShouldQueue
 {
@@ -42,6 +43,12 @@ class CalculateGpsMetricsJob implements ShouldQueue
 
         // Load GPS records for the entire day using tractor's work time window
         $results = $gpsDataAnalyzer->loadRecordsFor($this->tractor, $this->date)->analyze();
+
+        Log::info('GPS analysis results for tractor', [
+            'tractor_id' => $this->tractor->id,
+            'date' => $dateString,
+            'results' => $results,
+        ]);
 
         // Check if there's any GPS data for this day
         if (empty($results['start_time'])) {
