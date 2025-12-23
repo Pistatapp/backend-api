@@ -21,7 +21,7 @@ class UserController extends Controller
      */
     public function index(Request $request)
     {
-        $query = User::query()->withoutRole('root');
+        $query = User::query();
 
         $workingEnvironmentId = null;
         if (!$request->input('search') && !$request->user()->hasRole('root')) {
