@@ -23,10 +23,28 @@ class UpdateWarningRequest extends FormRequest
      */
     public function rules(): array
     {
+        $key = $this->input('key');
         $rules = [
             'key' => ['required', 'string'],
             'enabled' => ['required', 'boolean'],
-            'parameters' => ['required', 'array'],
+            'parameters' => [
+                'nullable',
+                'array',
+            function ($attribute, $value, $fail) use ($key) {
+                if ($key) {
+                    $warningService = App::make(WarningService::class);
+                    $warningDefinition = $warningService->getWarningDefinition($key);
+
+                    if ($warningDefinition) {
+                        $settingParameters = $warningDefinition['setting-message-parameters'] ?? [];
+
+                        if (!empty($settingParameters) && empty($value)) {
+                            $fail('The parameters field is required for this warning type.');
+                        }
+                    }
+                }
+            },
+            ],
         ];
 
         $key = $this->input('key');
