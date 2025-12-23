@@ -10,7 +10,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use App\Events\TractorStatus;
 use App\Events\ReportReceived;
-use Illuminate\Support\Facades\Log;
 
 class GpsReportController extends Controller
 {
@@ -51,7 +50,7 @@ class GpsReportController extends Controller
             $device = $tractor->gpsDevice;
             event(new ReportReceived($data, $device));
         } catch (\Exception $e) {
-            Log::error('Error processing GPS report', ['error' => $e->getMessage()]);
+            // Log error
         }
 
         return response()->json([], 200);
