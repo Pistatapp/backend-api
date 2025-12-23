@@ -4,7 +4,6 @@ namespace App\Listeners;
 
 use App\Events\ReportReceived;
 use App\Services\TractorTaskService;
-use App\Services\TractorTaskStatusService;
 use Carbon\Carbon;
 
 class ReportReceivedListener
@@ -14,7 +13,6 @@ class ReportReceivedListener
      */
     public function __construct(
         private TractorTaskService $tractorTaskService,
-        private TractorTaskStatusService $tractorTaskStatusService,
     ) {
         //
     }
@@ -59,18 +57,13 @@ class ReportReceivedListener
             return;
         }
 
-        // Load taskable relationship if not already loaded (needed for zone check)
-        if (!$currentTask->relationLoaded('taskable')) {
-            $currentTask->load('taskable');
-        }
-
         // Get the coordinate from the last point
         $coordinate = $lastPoint['coordinate'];
 
         // Determine whether the point is in task zone
         $isInTaskZone = $this->tractorTaskService->isPointInTaskZone($coordinate, $currentTask);
 
-        // Call TractorTaskStatusService for task status updates
-        $this->tractorTaskStatusService->updateTaskStatus($currentTask, $isInTaskZone);
+        // Update task status based on GPS data
+        $this->tractorTaskService->updateTaskStatus($currentTask, $isInTaskZone, $dateTime);
     }
 }

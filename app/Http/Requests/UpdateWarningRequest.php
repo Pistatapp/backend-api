@@ -110,11 +110,7 @@ class UpdateWarningRequest extends FormRequest
         // Date parameters - validate Jalali date format
         if (in_array($param, ['start_date', 'end_date', 'date'])) {
             return [
-                function ($attribute, $value, $fail) {
-                    if (!is_jalali_date($value)) {
-                        $fail('The ' . $attribute . ' must be a valid Jalali date in format YYYY/MM/DD (e.g., 1403/01/15).');
-                    }
-                }
+                'shamsi_date'
             ];
         }
 
