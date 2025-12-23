@@ -27,7 +27,6 @@ class UpdateWarningRequest extends FormRequest
             'key' => ['required', 'string'],
             'enabled' => ['required', 'boolean'],
             'parameters' => ['required', 'array'],
-            'type' => ['sometimes', 'string', 'in:one-time,schedule-based,condition-based'],
         ];
 
         $key = $this->input('key');
