@@ -165,7 +165,20 @@ class IrrigationReportService
                 return $irrigationDate instanceof Carbon && $irrigationDate->isSameDay($currentDate);
             });
 
+            // Skip dates with no irrigations
+            if ($dailyIrrigations->isEmpty()) {
+                $currentDate->addDay();
+                continue;
+            }
+
             $dailyReport = $this->calculateDailyTotals($dailyIrrigations, $currentDate);
+
+            // Skip dates with all zero values
+            if (!$this->hasNonZeroValues($dailyReport)) {
+                $currentDate->addDay();
+                continue;
+            }
+
             $dailyReports[] = $dailyReport;
 
             $currentDate->addDay();
@@ -198,14 +211,34 @@ class IrrigationReportService
                 return $irrigationDate instanceof Carbon && $irrigationDate->isSameDay($currentDate);
             });
 
+            // Skip dates with no irrigations
+            if ($dailyIrrigations->isEmpty()) {
+                $currentDate->addDay();
+                continue;
+            }
+
             $irrigationPerValve = [];
+            $hasNonZeroValveData = false;
+
             foreach ($valveIds as $valveId) {
                 $valveIrrigations = $dailyIrrigations->filter(function ($irrigation) use ($valveId) {
                     return $irrigation->valves->contains('id', $valveId);
                 });
 
                 $valveKey = $valveNames[$valveId] ?? "valve{$valveId}";
-                $irrigationPerValve[$valveKey] = $this->calculateValveSpecificTotals($valveIrrigations, $valveId);
+                $valveReport = $this->calculateValveSpecificTotals($valveIrrigations, $valveId);
+                $irrigationPerValve[$valveKey] = $valveReport;
+
+                // Check if this valve has non-zero values
+                if ($this->hasNonZeroValveValues($valveReport)) {
+                    $hasNonZeroValveData = true;
+                }
+            }
+
+            // Skip dates where all valves have zero values
+            if (!$hasNonZeroValveData) {
+                $currentDate->addDay();
+                continue;
             }
 
             $dailyReports[] = [
@@ -373,5 +406,33 @@ class IrrigationReportService
     {
         $parts = explode(':', $timeFormat);
         return ($parts[0] * 3600) + ($parts[1] * 60) + $parts[2];
+    }
+
+    /**
+     * Check if a daily report has non-zero values
+     *
+     * @param array $report
+     * @return bool
+     */
+    private function hasNonZeroValues(array $report): bool
+    {
+        return $report['total_count'] > 0
+            || $report['total_volume'] > 0
+            || $report['total_volume_per_hectare'] > 0
+            || $this->timeFormatToSeconds($report['total_duration']) > 0;
+    }
+
+    /**
+     * Check if a valve-specific report has non-zero values
+     *
+     * @param array $valveReport
+     * @return bool
+     */
+    private function hasNonZeroValveValues(array $valveReport): bool
+    {
+        return $valveReport['total_count'] > 0
+            || $valveReport['total_volume'] > 0
+            || $valveReport['total_volume_per_hectare'] > 0
+            || $this->timeFormatToSeconds($valveReport['total_duration']) > 0;
     }
 }
