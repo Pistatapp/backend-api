@@ -36,7 +36,7 @@ class NewNutrientDiagnosisRequest extends Notification implements ShouldQueue
      */
     public function via($notifiable): array
     {
-        return ['database', 'firebase'];
+        return ['database'];
     }
 
     /**
