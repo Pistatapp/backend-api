@@ -12,10 +12,16 @@ use Illuminate\Support\Facades\Log;
  *
  * Processing pipeline:
  * 1. Fetch raw GPS data from database
- * 2. Filter GPS jumps (teleportation artifacts)
+ * 2. Detect and interpolate GPS noise/jumps (replaces artifacts with realistic values)
  * 3. Smooth sharp corners and turnarounds
  * 4. Detect and mark stoppages
  * 5. Format and stream results
+ *
+ * Noise Detection & Interpolation:
+ * - Detects unrealistic speeds (>30 m/s)
+ * - Detects teleportation jumps (>100m in <10s)
+ * - Detects trajectory deviations ("spike" noise)
+ * - Replaces noisy points with linearly interpolated coordinates
  *
  * Optimized for performance with sub-1000ms response times using:
  * - Raw PDO queries (no Eloquent overhead)
@@ -27,9 +33,16 @@ class TractorPathStreamService
     // Stoppage detection constants
     private const MIN_STOPPAGE_SECONDS = 60;
 
-    // GPS jump filter constants
+    // GPS noise/jump detection constants
     private const JUMP_FILTER_TIME_SECONDS = 10;
     private const JUMP_FILTER_DISTANCE_METERS = 100;
+
+    // Noise detection and interpolation constants
+    private const NOISE_DETECTION_WINDOW = 5;           // Points to look ahead for noise detection
+    private const MAX_REALISTIC_SPEED_MPS = 30.0;       // Max realistic tractor speed (30 m/s ≈ 108 km/h)
+    private const MIN_NOISE_DISTANCE_METERS = 20.0;     // Minimum distance to consider as potential noise
+    private const NOISE_ANGLE_THRESHOLD_DEG = 45.0;     // Angle deviation threshold for noise detection
+    private const CONSECUTIVE_NOISE_LIMIT = 3;          // Max consecutive noisy points to interpolate
 
     // Corner smoothing constants
     private const CORNER_ANGLE_THRESHOLD_DEG = 140.0;
@@ -227,7 +240,7 @@ class TractorPathStreamService
      * Build path from raw PDO statement stream.
      * Optimized: processes raw rows directly without model hydration.
      * Applies a multi-stage pipeline:
-     *   1. Jump detection - filters GPS teleportation artifacts
+     *   1. Noise/jump interpolation - replaces GPS artifacts with interpolated values
      *   2. Corner smoothing - smooths sharp corners and turnarounds
      *   3. Stoppage detection - identifies stopped points
      *
@@ -236,10 +249,10 @@ class TractorPathStreamService
      */
     private function buildPathFromRawStream(\PDOStatement $stmt): \Generator
     {
-        // Pipeline: Raw -> Filter Jumps -> Smooth Corners -> Process Stoppages
+        // Pipeline: Raw -> Interpolate Noise -> Smooth Corners -> Process Stoppages
         yield from $this->processCleanedStream(
             $this->smoothCornersAndTurnarounds(
-                $this->filterJumps($this->fetchRowsAsGenerator($stmt))
+                $this->interpolateNoiseAndJumps($this->fetchRowsAsGenerator($stmt))
             )
         );
     }
@@ -258,62 +271,349 @@ class TractorPathStreamService
     }
 
     /**
-     * Filter out sudden GPS jumps using distance and time thresholds.
+     * Detect and interpolate GPS noise and sudden jumps.
+     *
+     * Instead of removing noisy points, this algorithm replaces them with
+     * interpolated coordinates that create a realistic path between valid points.
      *
      * Algorithm:
-     * Remove points where:
-     * - Time difference from previous point < 10 seconds AND
-     * - Distance from previous point > 100 meters
-     *
-     * This filters out GPS glitches and teleportation artifacts.
+     * 1. Buffer points in a sliding window
+     * 2. Detect noise using multiple criteria:
+     *    - Unrealistic speed (distance/time exceeds max tractor speed)
+     *    - Sudden direction changes that don't match trajectory
+     *    - Points that "jump back" after teleporting
+     * 3. When noise is detected, interpolate coordinates between last valid
+     *    point and next valid point
+     * 4. Preserve original timestamps and other metadata
      *
      * @param \Generator $points Raw GPS points generator
-     * @return \Generator Filtered points with jumps removed
+     * @return \Generator Points with noise replaced by interpolated values
      */
-    private function filterJumps(\Generator $points): \Generator
+    private function interpolateNoiseAndJumps(\Generator $points): \Generator
     {
-        $previousPoint = null;
+        $buffer = [];
+        $lastValidPoint = null;
+        $windowSize = self::NOISE_DETECTION_WINDOW;
 
+        // Fill initial buffer
         foreach ($points as $row) {
-            $currentCoord = $this->extractCoordinate($row);
-            $currentTimestamp = $this->parseTimestampFast($row->date_time);
+            $this->normalizeRowCoordinate($row);
+            $buffer[] = $this->enrichPointWithMetadata($row);
 
-            // First point is always valid
-            if ($previousPoint === null) {
-                $previousPoint = [
-                    'coord' => $currentCoord,
-                    'timestamp' => $currentTimestamp,
-                ];
-                yield $row;
-                continue;
+            if (count($buffer) >= $windowSize) {
+                break;
             }
-
-            // Calculate time difference in seconds
-            $timeDelta = abs($currentTimestamp - $previousPoint['timestamp']);
-
-            // Calculate distance in meters using helper function
-            $distance = calculate_distance(
-                $previousPoint['coord'],
-                $currentCoord,
-                'm'
-            );
-
-            // Filter condition: remove if time < threshold AND distance > threshold
-            $shouldFilter = ($timeDelta < self::JUMP_FILTER_TIME_SECONDS && $distance > self::JUMP_FILTER_DISTANCE_METERS);
-
-            if ($shouldFilter) {
-                // Skip this point (GPS jump detected)
-                continue;
-            }
-
-            // Valid point - update previous and yield
-            $previousPoint = [
-                'coord' => $currentCoord,
-                'timestamp' => $currentTimestamp,
-            ];
-
-            yield $row;
         }
+
+        // Process remaining points with look-ahead
+        foreach ($points as $row) {
+            $this->normalizeRowCoordinate($row);
+            $buffer[] = $this->enrichPointWithMetadata($row);
+
+            // Process and yield the oldest point in buffer
+            $processedPoint = $this->processBufferedPoint($buffer, $lastValidPoint);
+
+            if ($processedPoint !== null) {
+                if (!$processedPoint['_is_interpolated']) {
+                    $lastValidPoint = $processedPoint;
+                }
+                yield $processedPoint['_row'];
+            }
+
+            array_shift($buffer);
+        }
+
+        // Flush remaining buffer
+        foreach ($buffer as $bufferedPoint) {
+            $processedPoint = $this->processBufferedPoint($buffer, $lastValidPoint);
+
+            if ($processedPoint !== null) {
+                if (!$processedPoint['_is_interpolated']) {
+                    $lastValidPoint = $processedPoint;
+                }
+                yield $processedPoint['_row'];
+            }
+
+            array_shift($buffer);
+        }
+    }
+
+    /**
+     * Enrich a point with pre-computed metadata for noise detection.
+     *
+     * @param object $row
+     * @return array
+     */
+    private function enrichPointWithMetadata(object $row): array
+    {
+        $coord = $this->extractCoordinate($row);
+        $timestamp = $this->parseTimestampFast($row->date_time);
+
+        return [
+            '_row' => $row,
+            '_coord' => $coord,
+            '_timestamp' => $timestamp,
+            '_is_interpolated' => false,
+        ];
+    }
+
+    /**
+     * Process a buffered point: detect if it's noise and interpolate if needed.
+     *
+     * @param array $buffer Current buffer of enriched points
+     * @param array|null $lastValidPoint Last known valid point
+     * @return array|null Processed point with metadata, or null if buffer empty
+     */
+    private function processBufferedPoint(array &$buffer, ?array $lastValidPoint): ?array
+    {
+        if (empty($buffer)) {
+            return null;
+        }
+
+        $currentPoint = $buffer[0];
+
+        // First point is always valid if no previous reference
+        if ($lastValidPoint === null) {
+            return $currentPoint;
+        }
+
+        // Check if current point is noise
+        $noiseInfo = $this->detectNoise($currentPoint, $lastValidPoint, $buffer);
+
+        if (!$noiseInfo['isNoise']) {
+            return $currentPoint;
+        }
+
+        // Find next valid point for interpolation
+        $nextValidPoint = $this->findNextValidPoint($buffer, $lastValidPoint, 1);
+
+        if ($nextValidPoint === null) {
+            // No valid point found ahead - use last valid point's coordinate
+            // (effectively "holding" position during noise)
+            return $this->createInterpolatedPoint(
+                $currentPoint,
+                $lastValidPoint['_coord'],
+                $lastValidPoint['_coord'],
+                0.0
+            );
+        }
+
+        // Interpolate between last valid and next valid
+        $interpolatedPoint = $this->interpolatePoint(
+            $currentPoint,
+            $lastValidPoint,
+            $nextValidPoint
+        );
+
+        return $interpolatedPoint;
+    }
+
+    /**
+     * Detect if a point is GPS noise based on multiple criteria.
+     *
+     * Criteria:
+     * 1. Speed check: distance/time exceeds realistic max speed
+     * 2. Jump detection: large distance in short time
+     * 3. Trajectory deviation: point deviates significantly from expected path
+     *
+     * @param array $currentPoint
+     * @param array $lastValidPoint
+     * @param array $buffer Look-ahead buffer
+     * @return array ['isNoise' => bool, 'reason' => string]
+     */
+    private function detectNoise(array $currentPoint, array $lastValidPoint, array $buffer): array
+    {
+        $distance = $this->haversineDistance($lastValidPoint['_coord'], $currentPoint['_coord']);
+        $timeDelta = max(1, abs($currentPoint['_timestamp'] - $lastValidPoint['_timestamp']));
+        $speed = $distance / $timeDelta; // meters per second
+
+        // Criterion 1: Unrealistic speed
+        if ($speed > self::MAX_REALISTIC_SPEED_MPS && $distance > self::MIN_NOISE_DISTANCE_METERS) {
+            return ['isNoise' => true, 'reason' => 'unrealistic_speed'];
+        }
+
+        // Criterion 2: Classic jump detection (short time, large distance)
+        if ($timeDelta < self::JUMP_FILTER_TIME_SECONDS && $distance > self::JUMP_FILTER_DISTANCE_METERS) {
+            return ['isNoise' => true, 'reason' => 'teleportation_jump'];
+        }
+
+        // Criterion 3: Trajectory deviation (requires look-ahead)
+        if (count($buffer) >= 3) {
+            $trajectoryNoise = $this->detectTrajectoryDeviation($currentPoint, $lastValidPoint, $buffer);
+            if ($trajectoryNoise) {
+                return ['isNoise' => true, 'reason' => 'trajectory_deviation'];
+            }
+        }
+
+        return ['isNoise' => false, 'reason' => ''];
+    }
+
+    /**
+     * Detect if point deviates from expected trajectory.
+     *
+     * A point is considered trajectory noise if:
+     * - It creates a sharp angle with the previous trajectory
+     * - The next point returns closer to the original trajectory
+     *
+     * This catches "spike" noise where GPS briefly jumps away and returns.
+     *
+     * @param array $currentPoint
+     * @param array $lastValidPoint
+     * @param array $buffer
+     * @return bool
+     */
+    private function detectTrajectoryDeviation(array $currentPoint, array $lastValidPoint, array $buffer): bool
+    {
+        // Need at least one point ahead
+        if (count($buffer) < 2) {
+            return false;
+        }
+
+        $nextPoint = $buffer[1];
+
+        // Calculate distances
+        $distToCurrent = $this->haversineDistance($lastValidPoint['_coord'], $currentPoint['_coord']);
+        $distCurrentToNext = $this->haversineDistance($currentPoint['_coord'], $nextPoint['_coord']);
+        $distDirectToNext = $this->haversineDistance($lastValidPoint['_coord'], $nextPoint['_coord']);
+
+        // Skip if distances are too small for reliable angle calculation
+        if ($distToCurrent < self::MIN_NOISE_DISTANCE_METERS) {
+            return false;
+        }
+
+        // "Spike" detection: current point is far, but next point is close to last valid
+        // This indicates the GPS jumped away and came back
+        if ($distToCurrent > self::MIN_NOISE_DISTANCE_METERS * 2 &&
+            $distDirectToNext < $distToCurrent * 0.5) {
+            return true;
+        }
+
+        // Angle-based detection: sharp deviation from trajectory
+        $angle = $this->calculateAngleDegrees(
+            $lastValidPoint['_coord'],
+            $currentPoint['_coord'],
+            $nextPoint['_coord']
+        );
+
+        if ($angle !== null && $angle < self::NOISE_ANGLE_THRESHOLD_DEG) {
+            // Sharp turnaround - check if it's a spike (returns toward origin)
+            $returnDistance = $this->haversineDistance($currentPoint['_coord'], $lastValidPoint['_coord']);
+            $forwardDistance = $this->haversineDistance($nextPoint['_coord'], $lastValidPoint['_coord']);
+
+            // If next point is closer to last valid than current, it's likely noise
+            if ($forwardDistance < $returnDistance * 0.7) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Find the next valid (non-noisy) point in the buffer.
+     *
+     * @param array $buffer
+     * @param array $lastValidPoint
+     * @param int $startIndex Index to start searching from
+     * @return array|null
+     */
+    private function findNextValidPoint(array $buffer, array $lastValidPoint, int $startIndex): ?array
+    {
+        $consecutiveNoise = 0;
+
+        for ($i = $startIndex; $i < count($buffer); $i++) {
+            $point = $buffer[$i];
+            $noiseInfo = $this->detectNoiseSimple($point, $lastValidPoint);
+
+            if (!$noiseInfo['isNoise']) {
+                return $point;
+            }
+
+            $consecutiveNoise++;
+
+            // If too many consecutive noisy points, accept the next one anyway
+            // to avoid infinite interpolation
+            if ($consecutiveNoise >= self::CONSECUTIVE_NOISE_LIMIT && isset($buffer[$i + 1])) {
+                return $buffer[$i + 1];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Simplified noise detection for look-ahead validation.
+     * Uses only speed-based detection to avoid recursion.
+     *
+     * @param array $point
+     * @param array $lastValidPoint
+     * @return array
+     */
+    private function detectNoiseSimple(array $point, array $lastValidPoint): array
+    {
+        $distance = $this->haversineDistance($lastValidPoint['_coord'], $point['_coord']);
+        $timeDelta = max(1, abs($point['_timestamp'] - $lastValidPoint['_timestamp']));
+        $speed = $distance / $timeDelta;
+
+        $isNoise = ($speed > self::MAX_REALISTIC_SPEED_MPS && $distance > self::MIN_NOISE_DISTANCE_METERS)
+            || ($timeDelta < self::JUMP_FILTER_TIME_SECONDS && $distance > self::JUMP_FILTER_DISTANCE_METERS);
+
+        return ['isNoise' => $isNoise];
+    }
+
+    /**
+     * Interpolate a noisy point between two valid points.
+     *
+     * Uses linear interpolation based on timestamps to place the point
+     * on a realistic path between the valid reference points.
+     *
+     * @param array $noisyPoint The point to interpolate
+     * @param array $startPoint Valid point before the noise
+     * @param array $endPoint Valid point after the noise
+     * @return array Interpolated point with updated coordinates
+     */
+    private function interpolatePoint(array $noisyPoint, array $startPoint, array $endPoint): array
+    {
+        // Calculate interpolation factor based on time
+        $totalTime = $endPoint['_timestamp'] - $startPoint['_timestamp'];
+        $elapsedTime = $noisyPoint['_timestamp'] - $startPoint['_timestamp'];
+
+        // Clamp factor to [0, 1]
+        $factor = $totalTime > 0 ? max(0.0, min(1.0, $elapsedTime / $totalTime)) : 0.5;
+
+        return $this->createInterpolatedPoint(
+            $noisyPoint,
+            $startPoint['_coord'],
+            $endPoint['_coord'],
+            $factor
+        );
+    }
+
+    /**
+     * Create an interpolated point with new coordinates.
+     *
+     * @param array $originalPoint Original point (preserves metadata)
+     * @param array $startCoord Start coordinate [lat, lon]
+     * @param array $endCoord End coordinate [lat, lon]
+     * @param float $factor Interpolation factor (0.0 = start, 1.0 = end)
+     * @return array
+     */
+    private function createInterpolatedPoint(array $originalPoint, array $startCoord, array $endCoord, float $factor): array
+    {
+        // Linear interpolation of coordinates
+        $interpolatedLat = $startCoord[0] + ($endCoord[0] - $startCoord[0]) * $factor;
+        $interpolatedLon = $startCoord[1] + ($endCoord[1] - $startCoord[1]) * $factor;
+
+        // Update the row's coordinate
+        $row = $originalPoint['_row'];
+        $row->coordinate = [$interpolatedLat, $interpolatedLon];
+
+        return [
+            '_row' => $row,
+            '_coord' => [$interpolatedLat, $interpolatedLon],
+            '_timestamp' => $originalPoint['_timestamp'],
+            '_is_interpolated' => true,
+        ];
     }
 
 
