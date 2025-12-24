@@ -294,23 +294,22 @@ class TractorPathStreamService
         $buffer = [];
         $lastValidPoint = null;
         $windowSize = self::NOISE_DETECTION_WINDOW;
+        $bufferFilled = false;
 
-        // Fill initial buffer
+        // Single loop: fill buffer first, then process with look-ahead
         foreach ($points as $row) {
             $this->normalizeRowCoordinate($row);
             $buffer[] = $this->enrichPointWithMetadata($row);
 
-            if (count($buffer) >= $windowSize) {
-                break;
+            // Still filling the initial buffer
+            if (!$bufferFilled) {
+                if (count($buffer) >= $windowSize) {
+                    $bufferFilled = true;
+                }
+                continue;
             }
-        }
 
-        // Process remaining points with look-ahead
-        foreach ($points as $row) {
-            $this->normalizeRowCoordinate($row);
-            $buffer[] = $this->enrichPointWithMetadata($row);
-
-            // Process and yield the oldest point in buffer
+            // Buffer is full - process and yield the oldest point
             $processedPoint = $this->processBufferedPoint($buffer, $lastValidPoint);
 
             if ($processedPoint !== null) {
@@ -324,7 +323,7 @@ class TractorPathStreamService
         }
 
         // Flush remaining buffer
-        foreach ($buffer as $bufferedPoint) {
+        while (!empty($buffer)) {
             $processedPoint = $this->processBufferedPoint($buffer, $lastValidPoint);
 
             if ($processedPoint !== null) {
