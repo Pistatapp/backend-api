@@ -7,19 +7,6 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-/**
- * Service for streaming tractor GPS path data.
- *
- * Processing pipeline:
- * 1. Fetch raw GPS data from database
- * 2. Detect and mark stoppages
- * 3. Format and stream results
- *
- * Optimized for performance with sub-1000ms response times using:
- * - Raw PDO queries (no Eloquent overhead)
- * - Unbuffered queries for true streaming
- * - Generator-based processing (minimal memory usage)
- */
 class TractorPathStreamService
 {
     // Stoppage detection constants
@@ -28,9 +15,12 @@ class TractorPathStreamService
     // Movement detection constants
     private const MOVEMENT_BUFFER_SIZE = 3;
 
+    // Pre-computed time format for zero stoppage (most common case)
+    private const ZERO_STOPPAGE_TIME = '00:00:00';
+
     /**
      * Retrieves the tractor movement path for a specific date using GPS data analysis.
-     * Optimized for sub-1000ms response times using raw queries and minimal processing.
+     * Optimized for sub-3s response times using raw queries and minimal processing.
      *
      * @param Tractor $tractor
      * @param Carbon $date
@@ -42,7 +32,6 @@ class TractorPathStreamService
             $tractorId = $tractor->id;
 
             // Use range-based date filter for optimal index utilization
-            // This is faster than DATE(date_time) = ? which prevents index usage
             $startOfDay = $date->copy()->startOfDay()->format('Y-m-d H:i:s');
             $endOfDay = $date->copy()->endOfDay()->format('Y-m-d H:i:s');
 
@@ -63,7 +52,6 @@ class TractorPathStreamService
             }
 
             // Stream raw rows without Eloquent model hydration
-            // This is significantly faster than cursor() with models
             return response()->streamJson(
                 $this->streamPathPointsRaw($tractorId, $startOfDay, $endOfDay)
             );
@@ -82,11 +70,6 @@ class TractorPathStreamService
     /**
      * Stream path points using raw PDO for maximum performance.
      * Bypasses Eloquent hydration entirely.
-     *
-     * @param int $tractorId
-     * @param string $startOfDay
-     * @param string $endOfDay
-     * @return \Generator
      */
     private function streamPathPointsRaw(int $tractorId, string $startOfDay, string $endOfDay): \Generator
     {
@@ -95,7 +78,8 @@ class TractorPathStreamService
         // Use unbuffered query for true streaming with minimal memory
         $pdo->setAttribute(\PDO::MYSQL_ATTR_USE_BUFFERED_QUERY, false);
 
-        // Range-based query uses composite index (tractor_id, date_time) efficiently
+        // Fetch as associative array (faster than FETCH_OBJ)
+        // Select only required columns in optimal order
         $stmt = $pdo->prepare('
             SELECT id, coordinate, speed, status, directions, date_time
             FROM gps_data
@@ -106,7 +90,7 @@ class TractorPathStreamService
         ');
         $stmt->execute([$tractorId, $startOfDay, $endOfDay]);
 
-        yield from $this->buildPathFromRawStream($stmt);
+        yield from $this->processStreamOptimized($stmt);
 
         // Restore buffered query mode
         $pdo->setAttribute(\PDO::MYSQL_ATTR_USE_BUFFERED_QUERY, true);
@@ -114,25 +98,28 @@ class TractorPathStreamService
 
     /**
      * Yield a single point formatted for response.
-     *
-     * @param object $point
-     * @return \Generator
      */
     private function yieldSinglePoint(object $point): \Generator
     {
-        yield $this->formatRawPoint($point, false, false, false, 0);
+        yield $this->formatPointArray(
+            (int) $point->id,
+            $point->coordinate,
+            (int) $point->speed,
+            (int) $point->status,
+            $point->directions,
+            $point->date_time,
+            false,
+            false,
+            false,
+            0
+        );
     }
 
     /**
      * Get the last point from previous date using raw query.
-     *
-     * @param int $tractorId
-     * @param string $startOfDay Start of the current day (used as upper bound)
-     * @return object|null
      */
     private function getLastPointFromPreviousDateRaw(int $tractorId, string $startOfDay): ?object
     {
-        // Use range query for index optimization
         return DB::table('gps_data')
             ->select(['id', 'coordinate', 'speed', 'status', 'directions', 'date_time'])
             ->where('tractor_id', $tractorId)
@@ -143,359 +130,244 @@ class TractorPathStreamService
     }
 
     /**
-     * Format a raw database row to response array.
-     * Optimized: minimal parsing, no Carbon overhead for simple time formatting.
-     *
-     * @param object $row Raw database row
-     * @param bool $isStartingPoint
-     * @param bool $isEndingPoint
-     * @param bool $isStopped
-     * @param int $stoppageTime Seconds
-     * @return array
+     * Process stream with inline optimizations - single loop, minimal function calls.
+     * This is the hot path - every micro-optimization matters here.
      */
-    private function formatRawPoint(
-        object $row,
+    private function processStreamOptimized(\PDOStatement $stmt): \Generator
+    {
+        // State variables (avoid array overhead)
+        $hasSeenMovement = false;
+        $lastPointType = null;
+        $inStoppageSegment = false;
+        $stoppageDuration = 0;
+        $deferredRow = null;
+        $stoppageStartedAtFirstPoint = false;
+        $movementBuffer = [];
+        $startingPointAssigned = false;
+        $firstPointProcessed = false;
+        $prevTimestamp = null;
+
+        // Process rows with FETCH_ASSOC (faster than FETCH_OBJ)
+        while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+            $speed = (int) $row['speed'];
+            $status = (int) $row['status'];
+            $isMovement = ($status === 1 && $speed > 0);
+            $isStoppage = ($speed === 0);
+            $isFirstPoint = !$firstPointProcessed;
+
+            // Parse timestamp inline (avoid function call overhead)
+            $dateTime = $row['date_time'];
+            $timestamp = ($dateTime && isset($dateTime[18]))
+                ? (int) strtotime($dateTime)
+                : time();
+
+            // Update stoppage duration
+            if ($inStoppageSegment && $prevTimestamp !== null && $isStoppage) {
+                $stoppageDuration += max(0, $timestamp - $prevTimestamp);
+            }
+
+            if ($isMovement) {
+                $hasSeenMovement = true;
+
+                // Finalize deferred stoppage if exists
+                if ($inStoppageSegment && $deferredRow !== null) {
+                    if ($stoppageDuration >= self::MIN_STOPPAGE_SECONDS || $stoppageStartedAtFirstPoint) {
+                        yield $this->formatPointArray(
+                            (int) $deferredRow['id'],
+                            $deferredRow['coordinate'],
+                            (int) $deferredRow['speed'],
+                            (int) $deferredRow['status'],
+                            $deferredRow['directions'],
+                            $deferredRow['date_time'],
+                            false,
+                            false,
+                            true,
+                            $stoppageDuration
+                        );
+                    }
+                    $deferredRow = null;
+                }
+
+                // Reset stoppage state
+                $inStoppageSegment = false;
+                $stoppageDuration = 0;
+                $stoppageStartedAtFirstPoint = false;
+
+                // Buffer for starting point detection
+                $movementBuffer[] = $row;
+                $bufferSize = count($movementBuffer);
+
+                if ($bufferSize === self::MOVEMENT_BUFFER_SIZE) {
+                    $firstRow = array_shift($movementBuffer);
+                    $isStart = !$startingPointAssigned;
+                    if ($isStart) {
+                        $startingPointAssigned = true;
+                    }
+                    yield $this->formatPointArray(
+                        (int) $firstRow['id'],
+                        $firstRow['coordinate'],
+                        (int) $firstRow['speed'],
+                        (int) $firstRow['status'],
+                        $firstRow['directions'],
+                        $firstRow['date_time'],
+                        $isStart,
+                        false,
+                        false,
+                        0
+                    );
+                } elseif ($bufferSize > self::MOVEMENT_BUFFER_SIZE) {
+                    $shiftedRow = array_shift($movementBuffer);
+                    yield $this->formatPointArray(
+                        (int) $shiftedRow['id'],
+                        $shiftedRow['coordinate'],
+                        (int) $shiftedRow['speed'],
+                        (int) $shiftedRow['status'],
+                        $shiftedRow['directions'],
+                        $shiftedRow['date_time'],
+                        false,
+                        false,
+                        false,
+                        0
+                    );
+                }
+
+                $lastPointType = 'movement';
+            } elseif ($isStoppage) {
+                // Flush movement buffer on stoppage
+                foreach ($movementBuffer as $bufferedRow) {
+                    yield $this->formatPointArray(
+                        (int) $bufferedRow['id'],
+                        $bufferedRow['coordinate'],
+                        (int) $bufferedRow['speed'],
+                        (int) $bufferedRow['status'],
+                        $bufferedRow['directions'],
+                        $bufferedRow['date_time'],
+                        false,
+                        false,
+                        false,
+                        0
+                    );
+                }
+                $movementBuffer = [];
+
+                if ($isFirstPoint) {
+                    $deferredRow = $row;
+                    $inStoppageSegment = true;
+                    $stoppageDuration = 0;
+                    $stoppageStartedAtFirstPoint = true;
+                } elseif ($hasSeenMovement && $lastPointType !== 'stoppage') {
+                    $deferredRow = $row;
+                    $inStoppageSegment = true;
+                    $stoppageDuration = 0;
+                    $stoppageStartedAtFirstPoint = false;
+                }
+
+                $lastPointType = 'stoppage';
+            }
+
+            $prevTimestamp = $timestamp;
+            $firstPointProcessed = true;
+        }
+
+        // Finalize: flush remaining movement buffer
+        foreach ($movementBuffer as $bufferedRow) {
+            yield $this->formatPointArray(
+                (int) $bufferedRow['id'],
+                $bufferedRow['coordinate'],
+                (int) $bufferedRow['speed'],
+                (int) $bufferedRow['status'],
+                $bufferedRow['directions'],
+                $bufferedRow['date_time'],
+                false,
+                false,
+                false,
+                0
+            );
+        }
+
+        // Finalize trailing stoppage
+        if ($inStoppageSegment && $deferredRow !== null) {
+            if ($stoppageDuration >= self::MIN_STOPPAGE_SECONDS || $stoppageStartedAtFirstPoint) {
+                yield $this->formatPointArray(
+                    (int) $deferredRow['id'],
+                    $deferredRow['coordinate'],
+                    (int) $deferredRow['speed'],
+                    (int) $deferredRow['status'],
+                    $deferredRow['directions'],
+                    $deferredRow['date_time'],
+                    false,
+                    false,
+                    true,
+                    $stoppageDuration
+                );
+            }
+        }
+    }
+
+    /**
+     * Format point with inline coordinate/JSON parsing.
+     * Optimized: minimal function calls, inline parsing.
+     */
+    private function formatPointArray(
+        int $id,
+        $coordinate,
+        int $speed,
+        int $status,
+        $directions,
+        ?string $dateTime,
         bool $isStartingPoint,
         bool $isEndingPoint,
         bool $isStopped,
         int $stoppageTime
     ): array {
-        $coord = $this->parseCoordinate($row->coordinate);
-        $directions = $this->parseJsonField($row->directions);
-        $timestamp = $this->extractTimeFromDateTime($row->date_time);
+        // Inline coordinate parsing
+        $lat = 0.0;
+        $lon = 0.0;
+        if (is_string($coordinate)) {
+            // Fast JSON coordinate extraction for common format: [lat,lon]
+            if (isset($coordinate[0]) && $coordinate[0] === '[') {
+                $decoded = json_decode($coordinate, true);
+                if ($decoded) {
+                    $lat = (float) ($decoded[0] ?? 0);
+                    $lon = (float) ($decoded[1] ?? 0);
+                }
+            }
+        } elseif (is_array($coordinate)) {
+            $lat = (float) ($coordinate[0] ?? 0);
+            $lon = (float) ($coordinate[1] ?? 0);
+        }
+
+        // Inline directions parsing
+        $parsedDirections = is_string($directions) ? json_decode($directions, true) : $directions;
+
+        // Inline time extraction (substr is very fast)
+        $timestamp = ($dateTime && isset($dateTime[18]))
+            ? substr($dateTime, 11, 8)
+            : '00:00:00';
+
+        // Inline stoppage time formatting (avoid function call for common case)
+        if ($stoppageTime === 0) {
+            $formattedStoppage = self::ZERO_STOPPAGE_TIME;
+        } else {
+            $hours = (int) ($stoppageTime / 3600);
+            $remaining = $stoppageTime % 3600;
+            $minutes = (int) ($remaining / 60);
+            $seconds = $remaining % 60;
+            $formattedStoppage = sprintf('%02d:%02d:%02d', $hours, $minutes, $seconds);
+        }
 
         return [
-            'id' => (int) $row->id,
-            'latitude' => (float) ($coord[0] ?? 0),
-            'longitude' => (float) ($coord[1] ?? 0),
-            'speed' => (int) $row->speed,
-            'status' => (int) $row->status,
+            'id' => $id,
+            'latitude' => $lat,
+            'longitude' => $lon,
+            'speed' => $speed,
+            'status' => $status,
             'is_starting_point' => $isStartingPoint,
             'is_ending_point' => $isEndingPoint,
             'is_stopped' => $isStopped,
-            'directions' => $directions,
-            'stoppage_time' => to_time_format($stoppageTime),
+            'directions' => $parsedDirections,
+            'stoppage_time' => $formattedStoppage,
             'timestamp' => $timestamp,
         ];
-    }
-
-    /**
-     * Parse JSON field from database (handles both JSON string and already decoded value).
-     *
-     * @param mixed $field
-     * @return mixed
-     */
-    private function parseJsonField($field)
-    {
-        if (is_string($field)) {
-            return json_decode($field, true);
-        }
-        return $field;
-    }
-
-    /**
-     * Extract time portion from datetime string (HH:MM:SS).
-     * Format: "YYYY-MM-DD HH:MM:SS" -> "HH:MM:SS"
-     *
-     * @param string|null $dateTime
-     * @return string
-     */
-    private function extractTimeFromDateTime(?string $dateTime): string
-    {
-        if (is_string($dateTime) && strlen($dateTime) >= 19) {
-            return substr($dateTime, 11, 8);
-        }
-        return '00:00:00';
-    }
-
-    /**
-     * Build path from raw PDO statement stream.
-     * Processes raw rows directly without model hydration.
-     *
-     * @param \PDOStatement $stmt
-     * @return \Generator
-     */
-    private function buildPathFromRawStream(\PDOStatement $stmt): \Generator
-    {
-        yield from $this->processStream($this->fetchRowsAsGenerator($stmt));
-    }
-
-    /**
-     * Convert PDOStatement to a generator for composability.
-     *
-     * @param \PDOStatement $stmt
-     * @return \Generator
-     */
-    private function fetchRowsAsGenerator(\PDOStatement $stmt): \Generator
-    {
-        while ($row = $stmt->fetch(\PDO::FETCH_OBJ)) {
-            yield $row;
-        }
-    }
-
-    /**
-     * Parse coordinate from database row (handles both JSON string and array).
-     *
-     * @param mixed $coordinate Raw coordinate value from database
-     * @return array [lat, lon]
-     */
-    private function parseCoordinate($coordinate): array
-    {
-        if (is_string($coordinate)) {
-            $decoded = json_decode($coordinate, true);
-            if (is_array($decoded)) {
-                return [(float)($decoded[0] ?? 0), (float)($decoded[1] ?? 0)];
-            }
-        } elseif (is_array($coordinate)) {
-            return [(float)($coordinate[0] ?? 0), (float)($coordinate[1] ?? 0)];
-        }
-
-        return [0.0, 0.0];
-    }
-
-    /**
-     * Process the stream with stoppage detection.
-     *
-     * @param \Generator $points
-     * @return \Generator
-     */
-    private function processStream(\Generator $points): \Generator
-    {
-        $state = $this->initializeStoppageState();
-
-        foreach ($points as $row) {
-            $pointInfo = $this->analyzePoint($row, $state);
-            $timestamp = $this->parseTimestampFast($row->date_time);
-
-            $this->updateStoppageDuration($state, $pointInfo, $timestamp);
-
-            if ($pointInfo['isMovement']) {
-                yield from $this->processMovementPoint($row, $state);
-            } elseif ($pointInfo['isStoppage']) {
-                yield from $this->processStoppagePoint($row, $state, $pointInfo);
-            }
-
-            $state['prevTimestamp'] = $timestamp;
-            $state['firstPointProcessed'] = true;
-        }
-
-        yield from $this->finalizeStream($state);
-    }
-
-    /**
-     * Initialize state for stoppage detection.
-     *
-     * @return array
-     */
-    private function initializeStoppageState(): array
-    {
-        return [
-            'hasSeenMovement' => false,
-            'lastPointType' => null,
-            'inStoppageSegment' => false,
-            'stoppageDuration' => 0,
-            'deferredStoppageRow' => null,
-            'stoppageStartedAtFirstPoint' => false,
-            'movementBuffer' => [],
-            'startingPointAssigned' => false,
-            'firstPointProcessed' => false,
-            'prevTimestamp' => null,
-        ];
-    }
-
-    /**
-     * Analyze a point to determine its type and characteristics.
-     *
-     * @param object $row
-     * @param array $state
-     * @return array
-     */
-    private function analyzePoint(object $row, array $state): array
-    {
-        $speed = (int) $row->speed;
-        $status = (int) $row->status;
-
-        return [
-            'isMovement' => ($status === 1 && $speed > 0),
-            'isStoppage' => ($speed === 0),
-            'isFirstPoint' => !$state['firstPointProcessed'],
-        ];
-    }
-
-    /**
-     * Update stoppage duration based on current point.
-     *
-     * @param array $state
-     * @param array $pointInfo
-     * @param int $timestamp
-     * @return void
-     */
-    private function updateStoppageDuration(array &$state, array $pointInfo, int $timestamp): void
-    {
-        if ($state['inStoppageSegment'] && $state['prevTimestamp'] !== null && $pointInfo['isStoppage']) {
-            $state['stoppageDuration'] += max(0, $timestamp - $state['prevTimestamp']);
-        }
-    }
-
-    /**
-     * Process a movement point.
-     *
-     * @param object $row
-     * @param array $state
-     * @return \Generator
-     */
-    private function processMovementPoint(object $row, array &$state): \Generator
-    {
-        $state['hasSeenMovement'] = true;
-
-        // Finalize deferred stoppage if exists
-        if ($state['inStoppageSegment'] && $state['deferredStoppageRow'] !== null) {
-            if ($this->shouldYieldStoppage($state)) {
-                yield $this->formatRawPoint($state['deferredStoppageRow'], false, false, true, $state['stoppageDuration']);
-            }
-            $state['deferredStoppageRow'] = null;
-        }
-
-        $this->resetStoppageState($state);
-
-        // Buffer for starting point detection
-        $state['movementBuffer'][] = $row;
-
-        yield from $this->processMovementBuffer($state);
-        $state['lastPointType'] = 'movement';
-    }
-
-    /**
-     * Process a stoppage point.
-     *
-     * @param object $row
-     * @param array $state
-     * @param array $pointInfo
-     * @return \Generator
-     */
-    private function processStoppagePoint(object $row, array &$state, array $pointInfo): \Generator
-    {
-        // Flush movement buffer on stoppage
-        yield from $this->flushMovementBuffer($state);
-
-        if ($pointInfo['isFirstPoint']) {
-            $this->startStoppageSegment($row, $state, true);
-        } elseif ($state['hasSeenMovement'] && $state['lastPointType'] !== 'stoppage') {
-            $this->startStoppageSegment($row, $state, false);
-        }
-
-        $state['lastPointType'] = 'stoppage';
-    }
-
-    /**
-     * Process movement buffer and yield points when buffer is full.
-     *
-     * @param array $state
-     * @return \Generator
-     */
-    private function processMovementBuffer(array &$state): \Generator
-    {
-        $bufferSize = count($state['movementBuffer']);
-
-        if ($bufferSize === self::MOVEMENT_BUFFER_SIZE) {
-            $firstRow = array_shift($state['movementBuffer']);
-            $isStart = !$state['startingPointAssigned'];
-            if ($isStart) {
-                $state['startingPointAssigned'] = true;
-            }
-            yield $this->formatRawPoint($firstRow, $isStart, false, false, 0);
-        } elseif ($bufferSize > self::MOVEMENT_BUFFER_SIZE) {
-            yield $this->formatRawPoint(array_shift($state['movementBuffer']), false, false, false, 0);
-        }
-    }
-
-    /**
-     * Flush all remaining points in movement buffer.
-     *
-     * @param array $state
-     * @return \Generator
-     */
-    private function flushMovementBuffer(array &$state): \Generator
-    {
-        foreach ($state['movementBuffer'] as $bufferedRow) {
-            yield $this->formatRawPoint($bufferedRow, false, false, false, 0);
-        }
-        $state['movementBuffer'] = [];
-    }
-
-    /**
-     * Start a new stoppage segment.
-     *
-     * @param object $row
-     * @param array $state
-     * @param bool $isFirstPoint
-     * @return void
-     */
-    private function startStoppageSegment(object $row, array &$state, bool $isFirstPoint): void
-    {
-        $state['deferredStoppageRow'] = $row;
-        $state['inStoppageSegment'] = true;
-        $state['stoppageDuration'] = 0;
-        $state['stoppageStartedAtFirstPoint'] = $isFirstPoint;
-    }
-
-    /**
-     * Reset stoppage state after movement resumes.
-     *
-     * @param array $state
-     * @return void
-     */
-    private function resetStoppageState(array &$state): void
-    {
-        $state['inStoppageSegment'] = false;
-        $state['stoppageDuration'] = 0;
-        $state['stoppageStartedAtFirstPoint'] = false;
-    }
-
-    /**
-     * Determine if a stoppage should be yielded.
-     *
-     * @param array $state
-     * @return bool
-     */
-    private function shouldYieldStoppage(array $state): bool
-    {
-        return $state['stoppageDuration'] >= self::MIN_STOPPAGE_SECONDS || $state['stoppageStartedAtFirstPoint'];
-    }
-
-    /**
-     * Finalize stream by flushing buffers and deferred stoppages.
-     *
-     * @param array $state
-     * @return \Generator
-     */
-    private function finalizeStream(array $state): \Generator
-    {
-        // Flush remaining movement buffer
-        yield from $this->flushMovementBuffer($state);
-
-        // Finalize trailing stoppage
-        if ($state['inStoppageSegment'] && $state['deferredStoppageRow'] !== null) {
-            if ($this->shouldYieldStoppage($state)) {
-                yield $this->formatRawPoint($state['deferredStoppageRow'], false, false, true, $state['stoppageDuration']);
-            }
-        }
-    }
-
-    /**
-     * Parse Unix timestamp from datetime string without Carbon overhead.
-     * Expects format: "YYYY-MM-DD HH:MM:SS"
-     *
-     * @param string|null $dateTime
-     * @return int Unix timestamp
-     */
-    private function parseTimestampFast(?string $dateTime): int
-    {
-        if (!$dateTime || strlen($dateTime) < 19) {
-            return time();
-        }
-
-        // Use strtotime which is faster than Carbon for simple parsing
-        return strtotime($dateTime) ?: time();
     }
 }
