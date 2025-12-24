@@ -168,7 +168,11 @@ class GpsDataAnalyzer
         $prevStatus = null;
 
         for ($index = 0; $index < $dataCount; $index++) {
-            if(!empty($polygon) && !is_point_in_polygon($data[$index]['coordinate'], $polygon)) {
+            $point = [
+                $data[$index]['lon'],
+                $data[$index]['lat']
+            ];
+            if(!empty($polygon) && !is_point_in_polygon($point, $polygon)) {
                 continue;
             }
 
