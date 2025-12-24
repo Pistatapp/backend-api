@@ -36,14 +36,10 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping();
 
         // Update ended tractor tasks every minute
-        $schedule->command('tractor:update-ended-tasks')
-            ->everyMinute()
-            ->withoutOverlapping();
+        $schedule->command('tractor:update-ended-tasks')->everyMinute();
 
         // Check for inactive tractors daily at 8 AM
-        $schedule->command('tractors:check-inactivity')
-            ->dailyAt('08:00')
-            ->appendOutputTo(storage_path('logs/tractor-inactivity-check.log'));
+        $schedule->command('tractors:check-inactivity')->dailyAt('08:00');
 
         // Check for frost conditions daily at 6 AM
         $schedule->job(new CheckFrostConditionsJob)->dailyAt('06:00');
