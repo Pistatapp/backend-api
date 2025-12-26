@@ -64,7 +64,7 @@ return new class extends Migration
             // Recreate the performance index
             DB::statement('
                 CREATE INDEX idx_gps_data_start_time_detection
-                ON gps_data (tractor_id, date_time, status, speed)
+                ON gps_reports (tractor_id, date_time, status, speed)
             ');
         }
     }
