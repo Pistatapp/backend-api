@@ -179,7 +179,7 @@ class GpsDataAnalyzer
             $point = &$data[$index];
             $speed = $point['speed'];
             $status = $point['status'];
-            $ts = $point['ts'];
+            $ts = $this->getTimestamp($point);
 
             // Track max speed
             if ($speed > $maxSpeed) {
@@ -254,7 +254,7 @@ class GpsDataAnalyzer
             }
             // Transition: Stopped -> Moving
             elseif ($isMoving && $isCurrentlyStopped) {
-                $stoppageStartTs = $data[$stoppageStartIndex]['ts'];
+                $stoppageStartTs = $this->getTimestamp($data[$stoppageStartIndex]);
                 $tempDuration = $this->calcDurationFast($stoppageStartTs, $ts, $wsTs, $weTs);
 
                 // Calculate on/off durations
@@ -309,8 +309,8 @@ class GpsDataAnalyzer
         if ($isCurrentlyMoving && $movementStartIndex !== null) {
             $data[$dataCount - 1]['stoppage_time'] = 0;
         } elseif ($isCurrentlyStopped && $stoppageStartIndex !== null) {
-            $stoppageStartTs = $data[$stoppageStartIndex]['ts'];
-            $lastTs = $data[$dataCount - 1]['ts'];
+            $stoppageStartTs = $this->getTimestamp($data[$stoppageStartIndex]);
+            $lastTs = $this->getTimestamp($data[$dataCount - 1]);
             $tempDuration = $this->calcDurationFast($stoppageStartTs, $lastTs, $wsTs, $weTs);
 
             // Calculate on/off durations
@@ -356,6 +356,28 @@ class GpsDataAnalyzer
         ];
 
         return $this->results;
+    }
+
+    /**
+     * Safely get timestamp from data point
+     *
+     * @param array $point Data point array
+     * @return int Unix timestamp
+     */
+    private function getTimestamp(array $point): int
+    {
+        if (isset($point['ts'])) {
+            return $point['ts'];
+        }
+
+        // Fallback to timestamp property if ts is missing
+        if (isset($point['timestamp'])) {
+            $timestamp = $point['timestamp'];
+            return $timestamp instanceof Carbon ? $timestamp->timestamp : (int)$timestamp;
+        }
+
+        // Last resort: return current time (should not happen in normal operation)
+        return time();
     }
 
     /**
@@ -417,11 +439,11 @@ class GpsDataAnalyzer
         $firstPointIndex = $stoppageStartIndex;
 
         // Handle case where stoppage starts before working window
-        if ($wsTs !== null && $data[$stoppageStartIndex]['ts'] < $wsTs) {
+        if ($wsTs !== null && $this->getTimestamp($data[$stoppageStartIndex]) < $wsTs) {
             for ($i = $stoppageStartIndex + 1; $i <= $endIndex; $i++) {
-                if ($data[$i]['ts'] >= $wsTs) {
+                if ($this->getTimestamp($data[$i]) >= $wsTs) {
                     $firstPointIndex = $i;
-                    $td = $this->calcDurationFast($wsTs, $data[$i]['ts'], $wsTs, $weTs);
+                    $td = $this->calcDurationFast($wsTs, $this->getTimestamp($data[$i]), $wsTs, $weTs);
                     if ($data[$stoppageStartIndex]['status'] === 1) {
                         $durationOn += $td;
                     } else {
@@ -431,7 +453,7 @@ class GpsDataAnalyzer
                 }
             }
             if ($firstPointIndex === $stoppageStartIndex) {
-                $td = $this->calcDurationFast($wsTs, $data[$endIndex]['ts'], $wsTs, $weTs);
+                $td = $this->calcDurationFast($wsTs, $this->getTimestamp($data[$endIndex]), $wsTs, $weTs);
                 if ($data[$stoppageStartIndex]['status'] === 1) {
                     $durationOn += $td;
                 } else {
@@ -442,7 +464,7 @@ class GpsDataAnalyzer
 
         // Calculate duration for each segment
         for ($i = $firstPointIndex + 1; $i <= $endIndex; $i++) {
-            $td = $this->calcDurationFast($data[$i - 1]['ts'], $data[$i]['ts'], $wsTs, $weTs);
+            $td = $this->calcDurationFast($this->getTimestamp($data[$i - 1]), $this->getTimestamp($data[$i]), $wsTs, $weTs);
             if ($data[$i]['status'] === 1) {
                 $durationOn += $td;
             } else {
@@ -452,8 +474,8 @@ class GpsDataAnalyzer
 
         // Normalize if there's a discrepancy
         $totalDuration = $this->calcDurationFast(
-            $data[$stoppageStartIndex]['ts'],
-            $data[$endIndex]['ts'],
+            $this->getTimestamp($data[$stoppageStartIndex]),
+            $this->getTimestamp($data[$endIndex]),
             $wsTs,
             $weTs
         );
