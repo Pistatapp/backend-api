@@ -31,7 +31,7 @@ return new class extends Migration
     {
         // Revert back to TIMESTAMP (though this will reintroduce the bug)
         if (Schema::hasColumn('irrigations', 'start_time') && Schema::hasColumn('irrigations', 'end_time')) {
-            DB::statement('ALTER TABLE irrigations MODIFY COLUMN start_time TIMESTAMP NOT NULL');
+            DB::statement('ALTER TABLE irrigations MODIFY COLUMN start_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP');
             DB::statement('ALTER TABLE irrigations MODIFY COLUMN end_time TIMESTAMP NULL');
         }
     }
