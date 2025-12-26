@@ -61,7 +61,10 @@ return new class extends Migration
                 $table->index(['tractor_id', 'date_time']);
             });
 
-            // Recreate the performance index
+            // Drop the old performance index if it exists (created with gps_device_id)
+            DB::statement('DROP INDEX IF EXISTS idx_gps_reports_start_time_detection ON gps_reports');
+
+            // Recreate the performance index with tractor_id
             DB::statement('
                 CREATE INDEX idx_gps_reports_start_time_detection
                 ON gps_reports (tractor_id, date_time, status, speed)
