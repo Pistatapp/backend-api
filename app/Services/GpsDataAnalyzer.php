@@ -12,25 +12,20 @@ class GpsDataAnalyzer
     private ?int $workingStartTimestamp = null;
     private ?int $workingEndTimestamp = null;
 
-    // Business logic constants
     private const MIN_STOPPAGE_DURATION_SECONDS = 60;
     private const CONSECUTIVE_MOVEMENTS_FOR_FIRST_MOVEMENT = 3;
 
     /**
-     * Load GPS records for a tractor on a specific date and set working time window
-     * This method fetches GPS data and automatically configures working time from tractor settings
-     *
-     * @param Tractor $tractor
-     * @param Carbon $date
-     * @return self
+     * Load GPS records for a tractor on a specific date
      */
     public function loadRecordsFor(Tractor $tractor, Carbon $date): self
     {
         [$startDateTime, $endDateTime] = $tractor->getWorkingWindow($date);
+
         $gpsData = $tractor->gpsData()
             ->whereBetween('gps_data.date_time', [$startDateTime, $endDateTime])
             ->orderBy('gps_data.date_time')
-            ->get();
+            ->get(['date_time', 'coordinate', 'speed', 'status', 'imei']);
 
         $this->parseRecords($gpsData);
 
@@ -38,51 +33,47 @@ class GpsDataAnalyzer
     }
 
     /**
-     * Parse records into internal format (optimized)
-     * Stores both Carbon timestamp and Unix timestamp for fast comparisons
-     *
-     * @param \Illuminate\Support\Collection|array $data
+     * Parse records into internal format optimized for analysis
      */
     private function parseRecords($data): void
     {
+        $this->data = [];
+
         foreach ($data as $record) {
             if (is_object($record)) {
-                // stdClass or model - fast path for database results
                 $dateTime = $record->date_time;
-                $timestamp = $dateTime instanceof Carbon ? $dateTime : Carbon::parse($dateTime);
-                $ts = $timestamp->timestamp;
+                $ts = $dateTime instanceof Carbon
+                    ? $dateTime->timestamp
+                    : Carbon::parse($dateTime)->timestamp;
 
                 [$lat, $lon] = $record->coordinate;
+                $latRad = deg2rad($lat);
+                $lonRad = deg2rad($lon);
 
-                // Pre-compute radians for distance calculations
                 $this->data[] = [
-                    'lat' => $lat,
-                    'lon' => $lon,
-                    'lat_rad' => deg2rad($lat),
-                    'lon_rad' => deg2rad($lon),
-                    'timestamp' => $timestamp,
-                    'ts' => $ts,
-                    'speed' => (int)$record->speed,
-                    'status' => (int)$record->status,
-                    'imei' => $record->imei ?? null,
+                    $lat,      // 0: lat
+                    $lon,      // 1: lon
+                    $latRad,   // 2: lat_rad
+                    $lonRad,   // 3: lon_rad
+                    $ts,       // 4: timestamp (unix)
+                    (int)$record->speed,  // 5: speed
+                    (int)$record->status, // 6: status
                 ];
             } else {
-                // Array input
                 [$lat, $lon] = $record['coordinate'];
-
-                $ts = $record['date_time'];
-                $timestamp = $ts instanceof Carbon ? $ts : ($ts ? Carbon::parse($ts) : Carbon::now());
+                $dateTime = $record['date_time'];
+                $ts = $dateTime instanceof Carbon
+                    ? $dateTime->timestamp
+                    : ($dateTime ? Carbon::parse($dateTime)->timestamp : time());
 
                 $this->data[] = [
-                    'lat' => $lat,
-                    'lon' => $lon,
-                    'lat_rad' => deg2rad($lat),
-                    'lon_rad' => deg2rad($lon),
-                    'timestamp' => $timestamp,
-                    'ts' => $timestamp->timestamp,
-                    'speed' => (int)($record['speed'] ?? 0),
-                    'status' => (int)($record['status'] ?? 0),
-                    'imei' => $record['imei'] ?? null,
+                    $lat,
+                    $lon,
+                    deg2rad($lat),
+                    deg2rad($lon),
+                    $ts,
+                    (int)($record['speed'] ?? 0),
+                    (int)($record['status'] ?? 0),
                 ];
             }
         }
@@ -90,268 +81,191 @@ class GpsDataAnalyzer
 
     /**
      * Analyze GPS data and calculate all metrics
-     * Note: Movement = status == 1 && speed > 0
-     * Note: Stoppage = speed == 0
-     * Note: Stoppages less than 60 seconds are considered as movements and are NOT included in stoppages array
-     * Note: Only stoppages >= 60 seconds are counted and included in stoppages details (matches TractorPathService behavior)
-     * Note: First stoppage point in batch = last movement point
-     * Note: First movement point in batch = last stoppage point
-     * Note: firstMovementTime is set when 3 consecutive movement points are detected, using the timestamp of the first point
-     * Note: stoppage_time calculation:
-     *   - For stoppage points: stoppage_time = total duration from start of stoppage segment to end of segment (when movement begins)
-     *   - For movement points: stoppage_time = 0 (end of stoppage / start of movement)
-     * Note: Working time scope:
-     *   - If workingStartTime is provided, calculations start from that time even if points exist before it
-     *   - If workingEndTime is provided, calculations end at that time even if points exist after it
-     *   - Stoppages that start before workingStartTime count only from workingStartTime
-     *   - Stoppages/movements that extend beyond workingEndTime count only until workingEndTime
      *
-     * @param Carbon|null $workingStartTime Optional working start time to scope calculations
-     * @param Carbon|null $workingEndTime Optional working end time to scope calculations
-     * @param array $polygon Optional polygon to filter data
-     * @return array
+     * Movement = status == 1 && speed > 0
+     * Stoppage = speed == 0 (stoppages < 60s counted as movement)
+     * firstMovementTime = timestamp when 3 consecutive movements detected
      */
     public function analyze(
         ?Carbon $workingStartTime = null,
         ?Carbon $workingEndTime = null,
         array $polygon = []
     ): array {
-        if (empty($this->data)) {
+        $dataCount = count($this->data);
+
+        if ($dataCount === 0) {
             return $this->getEmptyResults();
         }
 
-        // Use stored working time if parameters are not provided
-        // Use timestamps for fast comparisons
-        $wsTs = $this->workingStartTimestamp;
-        $weTs = $this->workingEndTimestamp;
-        if ($workingStartTime !== null) {
-            $wsTs = $workingStartTime->timestamp;
-        }
-        if ($workingEndTime !== null) {
-            $weTs = $workingEndTime->timestamp;
+        $wsTs = $workingStartTime?->timestamp ?? $this->workingStartTimestamp;
+        $weTs = $workingEndTime?->timestamp ?? $this->workingEndTimestamp;
+
+        // Pre-normalize polygon once if provided
+        $normalizedPolygon = [];
+        $hasPolygon = !empty($polygon);
+        if ($hasPolygon) {
+            $normalizedPolygon = $this->normalizePolygon($polygon);
         }
 
-        // Initialize counters
+        // Counters
         $movementDistance = 0.0;
         $movementDuration = 0;
         $stoppageDuration = 0;
         $stoppageDurationWhileOn = 0;
         $stoppageDurationWhileOff = 0;
         $stoppageCount = 0;
-        $maxSpeed = 0;
 
-        // State tracking
+        // State
         $isCurrentlyStopped = false;
         $isCurrentlyMoving = false;
-        $stoppageStartIndex = null;
-        $movementStartIndex = null;
-        $movementSegmentDistance = 0.0;
+        $stoppageStartIndex = -1;
 
         // Activation tracking
-        $deviceOnTime = null;
-        $firstMovementTime = null;
-
-        // Track consecutive movements for firstMovementTime detection
+        $deviceOnTs = null;
+        $firstMovementTs = null;
         $consecutiveMovementCount = 0;
-        $firstConsecutiveMovementIndex = null;
+        $firstConsecutiveMovementIndex = -1;
 
-        $dataCount = count($this->data);
-        $data = &$this->data; // Reference for faster access
+        // Previous point cache
+        $prevLatRad = 0.0;
+        $prevLonRad = 0.0;
+        $prevTs = -1;
 
-        // Previous point tracking
-        $prevLat = null;
-        $prevLon = null;
-        $prevLatRad = null;
-        $prevLonRad = null;
-        $prevTs = null;
-        $prevSpeed = null;
-        $prevStatus = null;
+        $data = &$this->data;
 
-        for ($index = 0; $index < $dataCount; $index++) {
-            $point = [
-                $data[$index]['lon'],
-                $data[$index]['lat']
-            ];
-            if(!empty($polygon) && !is_point_in_polygon($point, $polygon)) {
+        for ($i = 0; $i < $dataCount; $i++) {
+            $point = &$data[$i];
+            $lon = $point[1];
+            $lat = $point[0];
+
+            if ($hasPolygon && !$this->isPointInPolygonFast($lon, $lat, $normalizedPolygon)) {
                 continue;
             }
 
-            $point = &$data[$index];
-            $speed = $point['speed'];
-            $status = $point['status'];
-            $ts = $this->getTimestamp($point);
+            $latRad = $point[2];
+            $lonRad = $point[3];
+            $ts = $point[4];
+            $speed = $point[5];
+            $status = $point[6];
 
-            // Track max speed
-            if ($speed > $maxSpeed) {
-                $maxSpeed = $speed;
+            // Track device on time (first status=1)
+            if ($deviceOnTs === null && $status === 1) {
+                $deviceOnTs = $ts;
             }
 
-            // Track activation times inline (optimization: single pass)
-            if ($deviceOnTime === null && $status === 1) {
-                $deviceOnTime = $point['timestamp']->toTimeString();
-            }
-
-            // Inline movement/stoppage checks
             $isMoving = ($status === 1 && $speed > 0);
             $isStopped = ($speed === 0);
 
             // Track consecutive movements for firstMovementTime
-            if ($firstMovementTime === null) {
+            if ($firstMovementTs === null) {
                 if ($isMoving) {
                     if ($consecutiveMovementCount === 0) {
-                        $firstConsecutiveMovementIndex = $index;
+                        $firstConsecutiveMovementIndex = $i;
                     }
                     $consecutiveMovementCount++;
                     if ($consecutiveMovementCount === self::CONSECUTIVE_MOVEMENTS_FOR_FIRST_MOVEMENT) {
-                        $firstMovementTime = $data[$firstConsecutiveMovementIndex]['timestamp']->toTimeString();
+                        $firstMovementTs = $data[$firstConsecutiveMovementIndex][4];
                     }
                 } else {
                     $consecutiveMovementCount = 0;
-                    $firstConsecutiveMovementIndex = null;
+                    $firstConsecutiveMovementIndex = -1;
                 }
             }
 
-            if ($prevTs === null) {
-                // First point
+            if ($prevTs < 0) {
+                // First valid point
                 if ($isStopped) {
                     $isCurrentlyStopped = true;
-                    $stoppageStartIndex = $index;
+                    $stoppageStartIndex = $i;
                 } elseif ($isMoving) {
                     $isCurrentlyMoving = true;
-                    $movementStartIndex = $index;
-                    $movementSegmentDistance = 0.0;
                 }
-                $prevLat = $point['lat'];
-                $prevLon = $point['lon'];
-                $prevLatRad = $point['lat_rad'];
-                $prevLonRad = $point['lon_rad'];
+                $prevLatRad = $latRad;
+                $prevLonRad = $lonRad;
                 $prevTs = $ts;
-                $prevSpeed = $speed;
-                $prevStatus = $status;
                 continue;
             }
 
-            // Calculate time difference within working time boundaries (inline for speed)
-            $timeDiff = $this->calcDurationFast($prevTs, $ts, $wsTs, $weTs);
+            $timeDiff = $this->calcDuration($prevTs, $ts, $wsTs, $weTs);
 
-            // Transition: Moving -> Stopped
+            // State transitions
             if ($isStopped && $isCurrentlyMoving) {
-                // Calculate distance using precomputed radians
-                $distance = $this->haversineDistanceRad(
-                    $prevLatRad,
-                    $prevLonRad,
-                    $point['lat_rad'],
-                    $point['lon_rad']
-                );
-                $movementSegmentDistance += $distance;
-                $movementDistance += $distance;
+                // Moving -> Stopped
+                $movementDistance += $this->haversineRad($prevLatRad, $prevLonRad, $latRad, $lonRad);
                 $movementDuration += $timeDiff;
 
                 $isCurrentlyMoving = false;
                 $isCurrentlyStopped = true;
-                $stoppageStartIndex = $index;
-                $movementSegmentDistance = 0.0;
-            }
-            // Transition: Stopped -> Moving
-            elseif ($isMoving && $isCurrentlyStopped) {
-                $stoppageStartTs = $this->getTimestamp($data[$stoppageStartIndex]);
-                $tempDuration = $this->calcDurationFast($stoppageStartTs, $ts, $wsTs, $weTs);
-
-                // Calculate on/off durations
-                [$tempDurationOn, $tempDurationOff] = $this->calculateStoppageOnOffDuration(
-                    $data,
-                    $stoppageStartIndex,
-                    $index,
-                    $wsTs,
-                    $weTs
-                );
+                $stoppageStartIndex = $i;
+            } elseif ($isMoving && $isCurrentlyStopped) {
+                // Stopped -> Moving
+                $stoppageStartTs = $data[$stoppageStartIndex][4];
+                $tempDuration = $this->calcDuration($stoppageStartTs, $ts, $wsTs, $weTs);
 
                 if ($tempDuration >= self::MIN_STOPPAGE_DURATION_SECONDS) {
                     $stoppageCount++;
                     $stoppageDuration += $tempDuration;
-                    $stoppageDurationWhileOn += $tempDurationOn;
-                    $stoppageDurationWhileOff += $tempDurationOff;
+                    [$onDur, $offDur] = $this->calcStoppageOnOff($stoppageStartIndex, $i, $wsTs, $weTs);
+                    $stoppageDurationWhileOn += $onDur;
+                    $stoppageDurationWhileOff += $offDur;
                 } else {
                     $movementDuration += $tempDuration;
                 }
 
                 $isCurrentlyStopped = false;
                 $isCurrentlyMoving = true;
-                $movementStartIndex = $index;
-                $movementSegmentDistance = 0.0;
-            }
-            // Continue moving
-            elseif ($isMoving && $isCurrentlyMoving) {
-                $distance = $this->haversineDistanceRad(
-                    $prevLatRad,
-                    $prevLonRad,
-                    $point['lat_rad'],
-                    $point['lon_rad']
-                );
-                $movementSegmentDistance += $distance;
-                $movementDistance += $distance;
+            } elseif ($isMoving && $isCurrentlyMoving) {
+                // Continue moving
+                $movementDistance += $this->haversineRad($prevLatRad, $prevLonRad, $latRad, $lonRad);
                 $movementDuration += $timeDiff;
             } elseif ($isStopped && !$isCurrentlyStopped && !$isCurrentlyMoving) {
                 $isCurrentlyStopped = true;
-                $stoppageStartIndex = $index;
+                $stoppageStartIndex = $i;
             }
 
-            $prevLat = $point['lat'];
-            $prevLon = $point['lon'];
-            $prevLatRad = $point['lat_rad'];
-            $prevLonRad = $point['lon_rad'];
+            $prevLatRad = $latRad;
+            $prevLonRad = $lonRad;
             $prevTs = $ts;
-            $prevSpeed = $speed;
-            $prevStatus = $status;
         }
 
         // Handle final state
-        if ($isCurrentlyMoving && $movementStartIndex !== null) {
-            $data[$dataCount - 1]['stoppage_time'] = 0;
-        } elseif ($isCurrentlyStopped && $stoppageStartIndex !== null) {
-            $stoppageStartTs = $this->getTimestamp($data[$stoppageStartIndex]);
-            $lastTs = $this->getTimestamp($data[$dataCount - 1]);
-            $tempDuration = $this->calcDurationFast($stoppageStartTs, $lastTs, $wsTs, $weTs);
-
-            // Calculate on/off durations
-            [$tempDurationOn, $tempDurationOff] = $this->calculateStoppageOnOffDuration(
-                $data,
-                $stoppageStartIndex,
-                $dataCount - 1,
-                $wsTs,
-                $weTs
-            );
+        if ($isCurrentlyStopped && $stoppageStartIndex >= 0) {
+            $stoppageStartTs = $data[$stoppageStartIndex][4];
+            $lastTs = $data[$dataCount - 1][4];
+            $tempDuration = $this->calcDuration($stoppageStartTs, $lastTs, $wsTs, $weTs);
 
             if ($tempDuration >= self::MIN_STOPPAGE_DURATION_SECONDS) {
                 $stoppageCount++;
                 $stoppageDuration += $tempDuration;
-                $stoppageDurationWhileOn += $tempDurationOn;
-                $stoppageDurationWhileOff += $tempDurationOff;
+                [$onDur, $offDur] = $this->calcStoppageOnOff($stoppageStartIndex, $dataCount - 1, $wsTs, $weTs);
+                $stoppageDurationWhileOn += $onDur;
+                $stoppageDurationWhileOff += $offDur;
             } else {
                 $movementDuration += $tempDuration;
             }
         }
 
-        $averageSpeed = $movementDuration > 0 ? (int)($movementDistance * 3600 / $movementDuration) : 0;
+        $averageSpeed = $movementDuration > 0
+            ? (int)($movementDistance * 3600 / $movementDuration)
+            : 0;
 
-        // Latest status is taken from the last processed point in the new batch
         $lastPoint = $data[$dataCount - 1];
 
         $this->results = [
             'movement_distance_km' => round($movementDistance, 1),
             'movement_distance_meters' => round($movementDistance * 1000, 2),
             'movement_duration_seconds' => $movementDuration,
-            'movement_duration_formatted' => to_time_format($movementDuration),
+            'movement_duration_formatted' => $this->formatTime($movementDuration),
             'stoppage_duration_seconds' => $stoppageDuration,
-            'stoppage_duration_formatted' => to_time_format($stoppageDuration),
+            'stoppage_duration_formatted' => $this->formatTime($stoppageDuration),
             'stoppage_duration_while_on_seconds' => $stoppageDurationWhileOn,
-            'stoppage_duration_while_on_formatted' => to_time_format($stoppageDurationWhileOn),
+            'stoppage_duration_while_on_formatted' => $this->formatTime($stoppageDurationWhileOn),
             'stoppage_duration_while_off_seconds' => $stoppageDurationWhileOff,
-            'stoppage_duration_while_off_formatted' => to_time_format($stoppageDurationWhileOff),
+            'stoppage_duration_while_off_formatted' => $this->formatTime($stoppageDurationWhileOff),
             'stoppage_count' => $stoppageCount,
-            'device_on_time' => $deviceOnTime,
-            'first_movement_time' => $firstMovementTime,
-            'latest_status' => $lastPoint['status'],
+            'device_on_time' => $deviceOnTs !== null ? $this->formatTimestamp($deviceOnTs) : null,
+            'first_movement_time' => $firstMovementTs !== null ? $this->formatTimestamp($firstMovementTs) : null,
+            'latest_status' => $lastPoint[6],
             'average_speed' => $averageSpeed,
         ];
 
@@ -359,92 +273,94 @@ class GpsDataAnalyzer
     }
 
     /**
-     * Safely get timestamp from data point
-     *
-     * @param array $point Data point array
-     * @return int Unix timestamp
+     * Normalize polygon coordinates once for reuse
      */
-    private function getTimestamp(array $point): int
+    private function normalizePolygon(array $polygon): array
     {
-        if (isset($point['ts'])) {
-            return $point['ts'];
+        $normalized = [];
+        foreach ($polygon as $p) {
+            if (is_string($p)) {
+                $coords = explode(',', $p);
+                $normalized[] = [(float)$coords[0], (float)$coords[1]];
+            } else {
+                $normalized[] = $p;
+            }
         }
-
-        // Fallback to timestamp property if ts is missing
-        if (isset($point['timestamp'])) {
-            $timestamp = $point['timestamp'];
-            return $timestamp instanceof Carbon ? $timestamp->timestamp : (int)$timestamp;
-        }
-
-        // Last resort: return current time (should not happen in normal operation)
-        return time();
+        return $normalized;
     }
 
     /**
-     * Fast duration calculation using timestamps (no Carbon overhead)
+     * Fast point-in-polygon check using ray casting (pre-normalized polygon)
      */
-    private function calcDurationFast(int $startTs, int $endTs, ?int $wsTs, ?int $weTs): int
+    private function isPointInPolygonFast(float $x, float $y, array $polygon): bool
     {
-        // Clamp to working time boundaries
-        if ($wsTs !== null && $startTs < $wsTs) {
-            $startTs = $wsTs;
-        }
-        if ($weTs !== null && $startTs > $weTs) {
-            $startTs = $weTs;
-        }
-        if ($wsTs !== null && $endTs < $wsTs) {
-            $endTs = $wsTs;
-        }
-        if ($weTs !== null && $endTs > $weTs) {
-            $endTs = $weTs;
+        $inside = false;
+        $numPoints = count($polygon);
+        $j = $numPoints - 1;
+
+        for ($i = 0; $i < $numPoints; $j = $i++) {
+            $xi = $polygon[$i][0];
+            $yi = $polygon[$i][1];
+            $xj = $polygon[$j][0];
+            $yj = $polygon[$j][1];
+
+            if ((($yi > $y) !== ($yj > $y)) &&
+                ($x < ($xj - $xi) * ($y - $yi) / ($yj - $yi) + $xi)) {
+                $inside = !$inside;
+            }
         }
 
-        return $startTs >= $endTs ? 0 : $endTs - $startTs;
+        return $inside;
     }
 
     /**
-     * Fast Haversine distance calculation using pre-computed radians
-     * Returns distance in kilometers
+     * Calculate duration between timestamps, clamped to working window
      */
-    private function haversineDistanceRad(float $lat1Rad, float $lon1Rad, float $lat2Rad, float $lon2Rad): float
+    private function calcDuration(int $startTs, int $endTs, ?int $wsTs, ?int $weTs): int
+    {
+        if ($wsTs !== null) {
+            $startTs = max($startTs, $wsTs);
+            $endTs = max($endTs, $wsTs);
+        }
+        if ($weTs !== null) {
+            $startTs = min($startTs, $weTs);
+            $endTs = min($endTs, $weTs);
+        }
+        return max(0, $endTs - $startTs);
+    }
+
+    /**
+     * Haversine distance using pre-computed radians (returns km)
+     */
+    private function haversineRad(float $lat1Rad, float $lon1Rad, float $lat2Rad, float $lon2Rad): float
     {
         $dLat = $lat2Rad - $lat1Rad;
         $dLon = $lon2Rad - $lon1Rad;
 
-        $a = sin($dLat / 2) ** 2 + cos($lat1Rad) * cos($lat2Rad) * sin($dLon / 2) ** 2;
-        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
+        $a = sin($dLat * 0.5) ** 2 + cos($lat1Rad) * cos($lat2Rad) * sin($dLon * 0.5) ** 2;
 
-        return 6371 * $c; // Earth's radius in kilometers
+        return 12742 * atan2(sqrt($a), sqrt(1 - $a)); // 2 * 6371 = 12742
     }
 
     /**
-     * Calculate stoppage duration split by on/off status
-     *
-     * @param array $data GPS data array
-     * @param int $stoppageStartIndex Index where stoppage started
-     * @param int $endIndex Index where stoppage ends
-     * @param ?int $wsTs Working start timestamp
-     * @param ?int $weTs Working end timestamp
-     * @return array{0: int, 1: int} [durationOn, durationOff]
+     * Calculate stoppage on/off duration split
      */
-    private function calculateStoppageOnOffDuration(
-        array $data,
-        int $stoppageStartIndex,
-        int $endIndex,
-        ?int $wsTs,
-        ?int $weTs
-    ): array {
+    private function calcStoppageOnOff(int $startIdx, int $endIdx, ?int $wsTs, ?int $weTs): array
+    {
+        $data = &$this->data;
         $durationOn = 0;
         $durationOff = 0;
-        $firstPointIndex = $stoppageStartIndex;
+        $firstIdx = $startIdx;
 
-        // Handle case where stoppage starts before working window
-        if ($wsTs !== null && $this->getTimestamp($data[$stoppageStartIndex]) < $wsTs) {
-            for ($i = $stoppageStartIndex + 1; $i <= $endIndex; $i++) {
-                if ($this->getTimestamp($data[$i]) >= $wsTs) {
-                    $firstPointIndex = $i;
-                    $td = $this->calcDurationFast($wsTs, $this->getTimestamp($data[$i]), $wsTs, $weTs);
-                    if ($data[$stoppageStartIndex]['status'] === 1) {
+        $startTs = $data[$startIdx][4];
+
+        // Handle stoppage starting before working window
+        if ($wsTs !== null && $startTs < $wsTs) {
+            for ($i = $startIdx + 1; $i <= $endIdx; $i++) {
+                if ($data[$i][4] >= $wsTs) {
+                    $firstIdx = $i;
+                    $td = $this->calcDuration($wsTs, $data[$i][4], $wsTs, $weTs);
+                    if ($data[$startIdx][6] === 1) {
                         $durationOn += $td;
                     } else {
                         $durationOff += $td;
@@ -452,9 +368,9 @@ class GpsDataAnalyzer
                     break;
                 }
             }
-            if ($firstPointIndex === $stoppageStartIndex) {
-                $td = $this->calcDurationFast($wsTs, $this->getTimestamp($data[$endIndex]), $wsTs, $weTs);
-                if ($data[$stoppageStartIndex]['status'] === 1) {
+            if ($firstIdx === $startIdx) {
+                $td = $this->calcDuration($wsTs, $data[$endIdx][4], $wsTs, $weTs);
+                if ($data[$startIdx][6] === 1) {
                     $durationOn += $td;
                 } else {
                     $durationOff += $td;
@@ -462,31 +378,46 @@ class GpsDataAnalyzer
             }
         }
 
-        // Calculate duration for each segment
-        for ($i = $firstPointIndex + 1; $i <= $endIndex; $i++) {
-            $td = $this->calcDurationFast($this->getTimestamp($data[$i - 1]), $this->getTimestamp($data[$i]), $wsTs, $weTs);
-            if ($data[$i]['status'] === 1) {
+        // Sum duration per segment based on status
+        for ($i = $firstIdx + 1; $i <= $endIdx; $i++) {
+            $td = $this->calcDuration($data[$i - 1][4], $data[$i][4], $wsTs, $weTs);
+            if ($data[$i][6] === 1) {
                 $durationOn += $td;
             } else {
                 $durationOff += $td;
             }
         }
 
-        // Normalize if there's a discrepancy
-        $totalDuration = $this->calcDurationFast(
-            $this->getTimestamp($data[$stoppageStartIndex]),
-            $this->getTimestamp($data[$endIndex]),
-            $wsTs,
-            $weTs
-        );
-        $totalCalculatedDuration = $durationOn + $durationOff;
-        if ($totalCalculatedDuration > 0 && $totalCalculatedDuration !== $totalDuration) {
-            $ratio = $totalDuration / $totalCalculatedDuration;
+        // Normalize to match total duration
+        $totalDuration = $this->calcDuration($data[$startIdx][4], $data[$endIdx][4], $wsTs, $weTs);
+        $calculated = $durationOn + $durationOff;
+
+        if ($calculated > 0 && $calculated !== $totalDuration) {
+            $ratio = $totalDuration / $calculated;
             $durationOn = (int)($durationOn * $ratio);
             $durationOff = $totalDuration - $durationOn;
         }
 
         return [$durationOn, $durationOff];
+    }
+
+    /**
+     * Format seconds to HH:MM:SS
+     */
+    private function formatTime(int $seconds): string
+    {
+        $hours = intdiv($seconds, 3600);
+        $minutes = intdiv($seconds % 3600, 60);
+        $secs = $seconds % 60;
+        return sprintf('%02d:%02d:%02d', $hours, $minutes, $secs);
+    }
+
+    /**
+     * Format unix timestamp to time string HH:MM:SS
+     */
+    private function formatTimestamp(int $timestamp): string
+    {
+        return date('H:i:s', $timestamp);
     }
 
     /**
@@ -506,8 +437,8 @@ class GpsDataAnalyzer
             'stoppage_duration_while_off_seconds' => 0,
             'stoppage_duration_while_off_formatted' => '00:00:00',
             'stoppage_count' => 0,
-            'device_on_time' => '00:00:00',
-            'first_movement_time' => '00:00:00',
+            'device_on_time' => null,
+            'first_movement_time' => null,
             'latest_status' => 0,
             'average_speed' => 0,
         ];
