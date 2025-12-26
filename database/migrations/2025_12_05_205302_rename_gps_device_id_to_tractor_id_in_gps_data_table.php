@@ -63,7 +63,7 @@ return new class extends Migration
 
             // Recreate the performance index
             DB::statement('
-                CREATE INDEX idx_gps_data_start_time_detection
+                CREATE INDEX idx_gps_reports_start_time_detection
                 ON gps_reports (tractor_id, date_time, status, speed)
             ');
         }
@@ -76,8 +76,8 @@ return new class extends Migration
     {
         if (DB::getDriverName() !== 'sqlite') {
             // Drop indexes that reference tractor_id
-            DB::statement('DROP INDEX IF EXISTS idx_gps_data_start_time_detection ON gps_reports');
-            Schema::table('gps_data', function (Blueprint $table) {
+            DB::statement('DROP INDEX IF EXISTS idx_gps_reports_start_time_detection ON gps_reports');
+            Schema::table('gps_reports', function (Blueprint $table) {
                 $table->dropIndex(['tractor_id']);
                 $table->dropIndex(['tractor_id', 'date_time']);
             });
@@ -86,7 +86,7 @@ return new class extends Migration
         // Note: No foreign key to drop since partitioned tables don't support foreign keys
 
         // Add back gps_device_id column
-        Schema::table('gps_data', function (Blueprint $table) {
+        Schema::table('gps_reports', function (Blueprint $table) {
             $table->unsignedBigInteger('gps_device_id')->nullable()->after('tractor_id');
         });
 
@@ -116,7 +116,7 @@ return new class extends Migration
             });
 
             DB::statement('
-                CREATE INDEX idx_gps_data_start_time_detection
+                CREATE INDEX idx_gps_reports_start_time_detection
                 ON gps_reports (gps_device_id, date_time, status, speed)
             ');
         }
