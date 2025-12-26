@@ -19,8 +19,8 @@ return new class extends Migration
             // This index covers: gps_device_id, date_time, status, speed
             // It enables index-only scans for better performance
             DB::statement('
-                CREATE INDEX idx_gps_data_start_time_detection
-                ON gps_data (gps_device_id, date_time, status, speed)
+                CREATE INDEX idx_gps_reports_start_time_detection
+                ON gps_reports (gps_device_id, date_time, status, speed)
             ');
         }
     }
@@ -31,7 +31,7 @@ return new class extends Migration
     public function down(): void
     {
         if (DB::getDriverName() !== 'sqlite') {
-            DB::statement('DROP INDEX idx_gps_data_start_time_detection ON gps_data');
+            DB::statement('DROP INDEX idx_gps_reports_start_time_detection ON gps_reports');
         }
     }
 };
