@@ -139,8 +139,8 @@ class IrrigationService
     public function getIrrigationMessages(Farm $farm, bool $isVerified, User $user)
     {
         $irrigations = $farm->irrigations()
-            ->filter('finished')
-            ->verifiedByAdmin($isVerified)
+            ->where('status', 'finished')
+            ->where('is_verified_by_admin', $isVerified)
             ->with(['plots', 'valves'])->latest();
 
         $messages = $irrigations->get()->map(function ($irrigation) use ($user) {
