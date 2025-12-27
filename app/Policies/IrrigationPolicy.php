@@ -37,7 +37,8 @@ class IrrigationPolicy
      */
     public function update(User $user, Irrigation $irrigation): bool
     {
-        $irrigationEndTime = $irrigation->date->copy()->setTimeFromTimeString($irrigation->end_time);
+        // Combine date with end_time (H:i:s format) to create full datetime
+        $irrigationEndTime = \Carbon\Carbon::parse($irrigation->date->format('Y-m-d') . ' ' . $irrigation->end_time);
         $passedTimeSinceLastVerification = $irrigationEndTime->diffInHours(now());
 
         // If 72 hours have passed since irrigation end_time, return false
