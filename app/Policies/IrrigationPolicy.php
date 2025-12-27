@@ -47,9 +47,12 @@ class IrrigationPolicy
             return false;
         }
 
-        // If irrigation is finished, only farm admin can update; if pending, either creator or farm admin can update
-        if ($irrigation->status === 'finished') {
-            return $irrigation->farm->admins->contains($user);
+        $irrigationEndTime = $irrigation->date->copy()->setTimeFromTimeString($irrigation->end_time);
+        $passedTimeSinceLastVerification = $irrigationEndTime->diffInHours(now());
+
+        // If 72 hours have passed since irrigation end_time, return false
+        if ($passedTimeSinceLastVerification > 72) {
+            return false;
         }
 
         return $irrigation->status === 'pending' && (
