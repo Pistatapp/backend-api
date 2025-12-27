@@ -138,7 +138,7 @@ class IrrigationService
      */
     public function getIrrigationMessages(Farm $farm, bool $isVerified, User $user)
     {
-        return $farm->irrigations()
+        $irrigations = $farm->irrigations()
             ->where('status', 'finished')
             ->where('is_verified_by_admin', $isVerified)
             ->with(['plots', 'valves'])
@@ -146,6 +146,9 @@ class IrrigationService
             ->get()
             ->filter(fn($irrigation) => !$this->shouldFilterOutIrrigation($irrigation))
             ->map(fn($irrigation) => $this->formatIrrigationMessage($irrigation, $user));
+
+        // When $isVerified is true, return as array to avoid numerical indexes
+        return $isVerified ? $irrigations->values()->toArray() : $irrigations;
     }
 
     /**
