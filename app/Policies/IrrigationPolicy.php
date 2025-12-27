@@ -37,16 +37,6 @@ class IrrigationPolicy
      */
     public function update(User $user, Irrigation $irrigation): bool
     {
-        // Cannot update if already verified by admin
-        if ($irrigation->is_verified_by_admin) {
-            return false;
-        }
-
-        // Must have permission to edit irrigation
-        if (!$user->can('edit-irrigation-program')) {
-            return false;
-        }
-
         $irrigationEndTime = $irrigation->date->copy()->setTimeFromTimeString($irrigation->end_time);
         $passedTimeSinceLastVerification = $irrigationEndTime->diffInHours(now());
 
@@ -55,10 +45,8 @@ class IrrigationPolicy
             return false;
         }
 
-        return $irrigation->status === 'pending' && (
-            $irrigation->creator->is($user) ||
-            $irrigation->farm->admins->contains($user)
-        );
+        // Must have permission to edit irrigation
+        return $user->can('edit-irrigation-program');
     }
 
     /**
