@@ -144,6 +144,16 @@ class IrrigationService
             ->with(['plots', 'valves'])->latest();
 
         $messages = $irrigations->get()->map(function ($irrigation) use ($user) {
+            // Skip irrigation if it's verified by admin and 72 hours have passed since end_time
+            if ($irrigation->is_verified_by_admin) {
+                $irrigationEndTime = \Carbon\Carbon::parse($irrigation->date->format('Y-m-d') . ' ' . $irrigation->end_time);
+                $passedTimeSinceLastVerification = $irrigationEndTime->diffInHours(now());
+
+                if ($passedTimeSinceLastVerification > 72) {
+                    return null;
+                }
+            }
+
             $volumeMetrics = $this->calculateIrrigationVolumeMetrics($irrigation);
 
             return [
