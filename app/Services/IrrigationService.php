@@ -146,7 +146,7 @@ class IrrigationService
         $messages = $irrigations->get()->map(function ($irrigation) use ($user) {
 
             // Skip irrigation if end_time is null
-            if (is_null($irrigation->end_time)) {
+            if (is_null($irrigation->end_time) || is_null($irrigation->date)) {
                 return null;
             }
             // Skip irrigation if it's verified by admin and 72 hours have passed since end_time
