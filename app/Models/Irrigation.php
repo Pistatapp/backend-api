@@ -45,6 +45,9 @@ class Irrigation extends Model
         return [
             'start_time' => 'datetime',
             'end_time' => 'datetime',
+            'is_verified_by_admin' => 'boolean',
+            'status' => 'string',
+            'date' => 'date'
         ];
     }
 
