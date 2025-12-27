@@ -144,14 +144,14 @@ class IrrigationService
             ->verifiedByAdmin($isVerified)
             ->with(['plots', 'valves'])
             ->latest()
-            ->simplePaginate(15);
+            ->get();
 
-        $irrigations->getCollection()->transform(function ($irrigation) use ($user) {
+        $messages = $irrigations->map(function ($irrigation) use ($user) {
             $volumeMetrics = $this->calculateIrrigationVolumeMetrics($irrigation);
 
             return [
                 'irrigation_id' => $irrigation->id,
-                'date' => jdate($irrigation->start_time)->format('Y/m/d'),
+                'date' => jdate($irrigation->date)->format('Y/m/d'),
                 'plots_names' => $irrigation->plots->pluck('name')->toArray(),
                 'valves_names' => $irrigation->valves->pluck('name')->toArray(),
                 'duration' => to_time_format($volumeMetrics['duration']),
@@ -164,7 +164,7 @@ class IrrigationService
             ];
         });
 
-        return $irrigations;
+        return $messages;
     }
 
     /**
