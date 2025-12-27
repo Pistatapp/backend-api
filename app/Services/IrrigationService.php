@@ -142,14 +142,7 @@ class IrrigationService
 
         $irrigations = Irrigation::whereBelongsTo($farm)
             ->filter('finished')
-            ->where('is_verified_by_admin', $isVerified)
-            ->where(function ($query) use ($today) {
-                $query->whereDate('start_time', '<=', $today)
-                    ->where(function ($q) use ($today) {
-                        $q->whereDate('end_time', '>=', $today)
-                            ->orWhereDate('start_time', $today);
-                    });
-            })
+            ->verifiedByAdmin($isVerified)
             ->with(['plots', 'valves'])
             ->latest()
             ->get();

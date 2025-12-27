@@ -145,10 +145,11 @@ class Irrigation extends Model
      * Scope a query to only include irrigations verified by admin
      *
      * @param \Illuminate\Database\Eloquent\Builder $query
-     * @return void
+     * @param bool $isVerified
+     * @return \Illuminate\Database\Eloquent\Builder
      */
-    public function scopeVerifiedByAdmin($query): void
+    public function scopeVerifiedByAdmin($query, bool $isVerified)
     {
-        $query->where('is_verified_by_admin', true);
+        $query->where('is_verified_by_admin', $isVerified);
     }
 }
