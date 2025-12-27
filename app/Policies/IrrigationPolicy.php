@@ -37,6 +37,7 @@ class IrrigationPolicy
      */
     public function update(User $user, Irrigation $irrigation): bool
     {
+        return false;
         $irrigationEndTime = $irrigation->date->copy()->setTimeFromTimeString($irrigation->end_time);
         $passedTimeSinceLastVerification = $irrigationEndTime->diffInHours(now());
 
