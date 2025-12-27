@@ -138,47 +138,47 @@ class IrrigationService
      */
     public function getIrrigationMessages(Farm $farm, bool $isVerified, User $user)
     {
-        $irrigations = $farm->irrigations()
+        return $farm->irrigations()
             ->where('status', 'finished')
             ->where('is_verified_by_admin', $isVerified)
-            ->with(['plots', 'valves'])->latest();
+            ->with(['plots', 'valves'])
+            ->latest()
+            ->get()
+            ->filter(fn($irrigation) => !$this->shouldFilterOutIrrigation($irrigation))
+            ->map(fn($irrigation) => $this->formatIrrigationMessage($irrigation, $user));
+    }
 
-        $messages = $irrigations->get()->map(function ($irrigation) use ($user) {
+    /**
+     * Check if irrigation should be filtered out based on verification status and time.
+     */
+    private function shouldFilterOutIrrigation(Irrigation $irrigation): bool
+    {
+        return $irrigation->is_verified_by_admin
+            && $irrigation->end_time->diffInHours(now()) > 72;
+    }
 
-            // Skip irrigation if end_time is null
-            if (is_null($irrigation->end_time) || is_null($irrigation->date)) {
-                return null;
-            }
-            // Skip irrigation if it's verified by admin and 72 hours have passed since end_time
-            if ($irrigation->is_verified_by_admin) {
-                $irrigationEndTime = \Carbon\Carbon::parse($irrigation->date->format('Y-m-d') . ' ' . $irrigation->end_time);
-                $passedTimeSinceLastVerification = $irrigationEndTime->diffInHours(now());
+    /**
+     * Format irrigation data for message response.
+     */
+    private function formatIrrigationMessage(Irrigation $irrigation, User $user): array
+    {
+        $volumeMetrics = $this->calculateIrrigationVolumeMetrics($irrigation);
 
-                if ($passedTimeSinceLastVerification > 72) {
-                    return null;
-                }
-            }
-
-            $volumeMetrics = $this->calculateIrrigationVolumeMetrics($irrigation);
-
-            return [
-                'irrigation_id' => $irrigation->id,
-                'status' => $irrigation->status,
-                'is_verified_by_admin' => $irrigation->is_verified_by_admin,
-                'date' => jdate($irrigation->date)->format('Y/m/d'),
-                'plots_names' => $irrigation->plots->pluck('name')->toArray(),
-                'valves_names' => $irrigation->valves->pluck('name')->toArray(),
-                'duration' => to_time_format($volumeMetrics['duration']),
-                'irrigation_per_hectare' => round($volumeMetrics['total_volume_per_hectare'], 2),
-                'total_volume' => round($volumeMetrics['total_volume'], 2),
-                'can' => [
-                    'update' => $user->can('update', $irrigation),
-                    'verify' => $user->can('verify', $irrigation),
-                ]
-            ];
-        });
-
-        return $messages;
+        return [
+            'irrigation_id' => $irrigation->id,
+            'status' => $irrigation->status,
+            'is_verified_by_admin' => $irrigation->is_verified_by_admin,
+            'date' => jdate($irrigation->date)->format('Y/m/d'),
+            'plots_names' => $irrigation->plots->pluck('name')->toArray(),
+            'valves_names' => $irrigation->valves->pluck('name')->toArray(),
+            'duration' => to_time_format($volumeMetrics['duration']),
+            'irrigation_per_hectare' => round($volumeMetrics['total_volume_per_hectare'], 2),
+            'total_volume' => round($volumeMetrics['total_volume'], 2),
+            'can' => [
+                'update' => $user->can('update', $irrigation),
+                'verify' => $user->can('verify', $irrigation),
+            ]
+        ];
     }
 
     /**
