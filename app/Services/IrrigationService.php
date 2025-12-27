@@ -138,7 +138,6 @@ class IrrigationService
      */
     public function getIrrigationMessages(Farm $farm, bool $isVerified, User $user)
     {
-
         $irrigations = Irrigation::whereBelongsTo($farm)
             ->filter('finished')
             ->verifiedByAdmin($isVerified)

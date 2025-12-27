@@ -134,11 +134,11 @@ class Irrigation extends Model
      *
      * @param \Illuminate\Database\Eloquent\Builder $query
      * @param string $status
-     * @return void
+     * @return \Illuminate\Database\Eloquent\Builder
      */
-    public function scopeFilter($query, string $status): void
+    public function scopeFilter($query, string $status)
     {
-        $query->where('status', $status);
+        return $query->where('status', $status);
     }
 
     /**
@@ -150,6 +150,6 @@ class Irrigation extends Model
      */
     public function scopeVerifiedByAdmin($query, bool $isVerified)
     {
-        $query->where('is_verified_by_admin', $isVerified);
+        return $query->where('is_verified_by_admin', $isVerified);
     }
 }
