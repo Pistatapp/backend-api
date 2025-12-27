@@ -138,14 +138,12 @@ class IrrigationService
      */
     public function getIrrigationMessages(Farm $farm, bool $isVerified, User $user)
     {
-        $irrigations = Irrigation::whereBelongsTo($farm)
+        $irrigations = $farm->irrigations()
             ->filter('finished')
             ->verifiedByAdmin($isVerified)
-            ->with(['plots', 'valves'])
-            ->latest()
-            ->get();
+            ->with(['plots', 'valves'])->latest();
 
-        $messages = $irrigations->map(function ($irrigation) use ($user) {
+        $messages = $irrigations->get()->map(function ($irrigation) use ($user) {
             $volumeMetrics = $this->calculateIrrigationVolumeMetrics($irrigation);
 
             return [
