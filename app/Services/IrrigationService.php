@@ -148,6 +148,8 @@ class IrrigationService
 
             return [
                 'irrigation_id' => $irrigation->id,
+                'status' => $irrigation->status,
+                'is_verified_by_admin' => $irrigation->is_verified_by_admin,
                 'date' => jdate($irrigation->date)->format('Y/m/d'),
                 'plots_names' => $irrigation->plots->pluck('name')->toArray(),
                 'valves_names' => $irrigation->valves->pluck('name')->toArray(),
