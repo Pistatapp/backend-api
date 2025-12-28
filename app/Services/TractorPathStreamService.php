@@ -324,12 +324,20 @@ class TractorPathStreamService
         $lat = 0.0;
         $lon = 0.0;
         if (is_string($coordinate)) {
-            // Fast JSON coordinate extraction for common format: [lat,lon]
-            if (isset($coordinate[0]) && $coordinate[0] === '[') {
+            $firstChar = $coordinate[0] ?? '';
+            if ($firstChar === '[') {
+                // JSON array format: [lat,lon]
                 $decoded = json_decode($coordinate, true);
                 if ($decoded) {
                     $lat = (float) ($decoded[0] ?? 0);
                     $lon = (float) ($decoded[1] ?? 0);
+                }
+            } else {
+                // Comma-separated format: "lat,lon"
+                $parts = explode(',', $coordinate, 2);
+                if (count($parts) === 2) {
+                    $lat = (float) $parts[0];
+                    $lon = (float) $parts[1];
                 }
             }
         } elseif (is_array($coordinate)) {
