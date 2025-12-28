@@ -112,21 +112,30 @@ class GpsReportController extends Controller
      */
     private function saveGpsData(array $data, int $tractorId): void
     {
-        $gpsDataRecords = [];
-
-        foreach ($data as $item) {
-            $gpsDataRecords[] = [
-                'tractor_id' => $tractorId,
-                'coordinate' => json_encode($item['coordinate']),
-                'speed' => $item['speed'],
-                'status' => $item['status'],
-                'directions' => json_encode($item['directions']),
-                'imei' => $item['imei'],
-                'date_time' => $item['date_time'],
-            ];
+        if (empty($data)) {
+            return;
         }
 
-        // Use bulk insert for better performance
-        GpsData::insert($gpsDataRecords);
+        $batchSize = 500; // Process in batches of 500 records
+        $batches = array_chunk($data, $batchSize);
+
+        foreach ($batches as $batch) {
+            $gpsDataRecords = [];
+
+            foreach ($batch as $item) {
+                $gpsDataRecords[] = [
+                    'tractor_id' => $tractorId,
+                    'coordinate' => implode(',', $item['coordinate']),
+                    'speed' => $item['speed'],
+                    'status' => $item['status'],
+                    'directions' => implode(',', $item['directions']),
+                    'imei' => $item['imei'],
+                    'date_time' => $item['date_time'],
+                ];
+            }
+
+            // Insert batch to avoid memory issues and improve performance
+            GpsData::insert($gpsDataRecords);
+        }
     }
 }
