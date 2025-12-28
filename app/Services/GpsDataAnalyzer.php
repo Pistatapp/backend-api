@@ -46,7 +46,18 @@ class GpsDataAnalyzer
                     ? $dateTime->timestamp
                     : Carbon::parse($dateTime)->timestamp;
 
-                [$lat, $lon] = $record->coordinate;
+                $coordinate = $record->coordinate;
+                if ($coordinate === null || !is_array($coordinate) || count($coordinate) < 2) {
+                    continue;
+                }
+
+                [$lat, $lon] = $coordinate;
+                if ($lat === null || $lon === null || !is_numeric($lat) || !is_numeric($lon)) {
+                    continue;
+                }
+
+                $lat = (float)$lat;
+                $lon = (float)$lon;
                 $latRad = deg2rad($lat);
                 $lonRad = deg2rad($lon);
 
@@ -60,7 +71,18 @@ class GpsDataAnalyzer
                     (int)$record->status, // 6: status
                 ];
             } else {
-                [$lat, $lon] = $record['coordinate'];
+                $coordinate = $record['coordinate'] ?? null;
+                if ($coordinate === null || !is_array($coordinate) || count($coordinate) < 2) {
+                    continue;
+                }
+
+                [$lat, $lon] = $coordinate;
+                if ($lat === null || $lon === null || !is_numeric($lat) || !is_numeric($lon)) {
+                    continue;
+                }
+
+                $lat = (float)$lat;
+                $lon = (float)$lon;
                 $dateTime = $record['date_time'];
                 $ts = $dateTime instanceof Carbon
                     ? $dateTime->timestamp
@@ -138,7 +160,12 @@ class GpsDataAnalyzer
             $lon = $point[1];
             $lat = $point[0];
 
-            if ($hasPolygon && !$this->isPointInPolygonFast($lon, $lat, $normalizedPolygon)) {
+            // Skip points with null or invalid coordinates
+            if ($lat === null || $lon === null || !is_numeric($lat) || !is_numeric($lon)) {
+                continue;
+            }
+
+            if ($hasPolygon && !$this->isPointInPolygonFast((float)$lon, (float)$lat, $normalizedPolygon)) {
                 continue;
             }
 
