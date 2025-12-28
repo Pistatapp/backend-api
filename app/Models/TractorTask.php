@@ -49,8 +49,8 @@ class TractorTask extends Model
     {
         return [
             'date' => 'date',
-            'start_time' => 'string',
-            'end_time' => 'string',
+            'start_time' => 'datetime',
+            'end_time' => 'datetime',
             'created_by' => 'integer',
             'data' => 'array',
         ];

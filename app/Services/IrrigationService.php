@@ -132,7 +132,6 @@ class IrrigationService
      * Get irrigation messages for a farm.
      *
      * @param Farm $farm
-     * @param bool $isVerified
      * @param User $user
      * @return Collection
      */
