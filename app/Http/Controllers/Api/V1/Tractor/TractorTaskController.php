@@ -68,7 +68,7 @@ class TractorTaskController extends Controller
 
         // Dispatch GPS metrics calculation if task end time has passed
         $taskEndDateTime = $task->date->copy()->setTimeFromTimeString($task->end_time);
-        $isTaskPassed = $task->end_time && now()->greaterThan($taskEndDateTime);
+        $isTaskPassed = now()->greaterThan($taskEndDateTime);
 
         CalculateTaskGpsMetricsJob::dispatchIf($isTaskPassed, $task);
 

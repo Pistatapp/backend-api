@@ -44,7 +44,7 @@ class UpdateEndedTractorTasks extends Command
 
             // Query tasks for current day where end time has passed
             TractorTask::whereDate('date', $today)
-                ->whereRaw('CONCAT(date, " ", end_time) <= ?', [$now->format('Y-m-d H:i:s')])
+                ->whereRaw('CONCAT(date, " ", end_time) <= ?', [$now->format('H:i:s')])
                 ->chunk(100, function ($tasks) {
                     foreach ($tasks as $task) {
                         // Dispatch job to calculate metrics and update status
