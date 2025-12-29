@@ -13,6 +13,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 
 class CalculateTaskGpsMetricsJob implements ShouldQueue
@@ -58,6 +59,8 @@ class CalculateTaskGpsMetricsJob implements ShouldQueue
         // Analyze GPS data with task time window
         $results = $gpsDataAnalyzer->loadRecordsFor($tractor, $date)
             ->analyze($taskStartTime, $taskEndTime, $taskZone);
+
+        Log::info('Results: ' . json_encode($results));
 
         // Check if there's any valid GPS data
         if ($results['movement_duration_seconds'] <= 0) {
