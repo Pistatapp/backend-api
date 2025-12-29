@@ -209,8 +209,12 @@ class GpsDataAnalyzer
                     $stoppageDurationWhileOn += $onDur;
                     $stoppageDurationWhileOff += $offDur;
                 } else {
+                    // Short stoppage counted as movement
                     $movementDuration += $tempDuration;
                 }
+
+                // Add distance from last point to current moving point
+                $movementDistance += $this->haversineRad($prevLatRad, $prevLonRad, $latRad, $lonRad);
 
                 $isCurrentlyStopped = false;
                 $isCurrentlyMoving = true;
@@ -221,6 +225,9 @@ class GpsDataAnalyzer
             } elseif ($isStopped && !$isCurrentlyStopped && !$isCurrentlyMoving) {
                 $isCurrentlyStopped = true;
                 $stoppageStartIndex = $i;
+            } elseif ($isMoving && !$isCurrentlyStopped && !$isCurrentlyMoving) {
+                // Start moving from neutral state
+                $isCurrentlyMoving = true;
             }
 
             $prevLatRad = $latRad;
