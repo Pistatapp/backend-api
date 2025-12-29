@@ -46,8 +46,8 @@ class GpsDataAnalyzer
                     ? $dateTime->timestamp
                     : Carbon::parse($dateTime)->timestamp;
 
-                $lat = (float)$lat;
-                $lon = (float)$lon;
+                $lat = (float)($record->coordinate[0] ?? 0);
+                $lon = (float)($record->coordinate[1] ?? 0);
                 $latRad = deg2rad($lat);
                 $lonRad = deg2rad($lon);
 
@@ -61,8 +61,8 @@ class GpsDataAnalyzer
                     (int)$record->status, // 6: status
                 ];
             } else {
-                $lat = (float)$lat;
-                $lon = (float)$lon;
+                $lat = (float)($record['coordinate'][0] ?? 0);
+                $lon = (float)($record['coordinate'][1] ?? 0);
                 $dateTime = $record['date_time'];
                 $ts = $dateTime instanceof Carbon
                     ? $dateTime->timestamp
