@@ -47,6 +47,9 @@ class GpsDataAnalyzer
                     : Carbon::parse($dateTime)->timestamp;
 
                 $coordinate = $record->coordinate;
+                if (is_string($coordinate)) {
+                    $coordinate = json_decode($coordinate, true);
+                }
                 if ($coordinate === null || !is_array($coordinate) || count($coordinate) < 2) {
                     continue;
                 }
@@ -72,6 +75,9 @@ class GpsDataAnalyzer
                 ];
             } else {
                 $coordinate = $record['coordinate'] ?? null;
+                if (is_string($coordinate)) {
+                    $coordinate = json_decode($coordinate, true);
+                }
                 if ($coordinate === null || !is_array($coordinate) || count($coordinate) < 2) {
                     continue;
                 }
