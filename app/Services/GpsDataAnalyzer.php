@@ -46,19 +46,6 @@ class GpsDataAnalyzer
                     ? $dateTime->timestamp
                     : Carbon::parse($dateTime)->timestamp;
 
-                $coordinate = $record->coordinate;
-                if (is_string($coordinate)) {
-                    $coordinate = json_decode($coordinate, true);
-                }
-                if ($coordinate === null || !is_array($coordinate) || count($coordinate) < 2) {
-                    continue;
-                }
-
-                [$lat, $lon] = $coordinate;
-                if ($lat === null || $lon === null || !is_numeric($lat) || !is_numeric($lon)) {
-                    continue;
-                }
-
                 $lat = (float)$lat;
                 $lon = (float)$lon;
                 $latRad = deg2rad($lat);
@@ -74,19 +61,6 @@ class GpsDataAnalyzer
                     (int)$record->status, // 6: status
                 ];
             } else {
-                $coordinate = $record['coordinate'] ?? null;
-                if (is_string($coordinate)) {
-                    $coordinate = json_decode($coordinate, true);
-                }
-                if ($coordinate === null || !is_array($coordinate) || count($coordinate) < 2) {
-                    continue;
-                }
-
-                [$lat, $lon] = $coordinate;
-                if ($lat === null || $lon === null || !is_numeric($lat) || !is_numeric($lon)) {
-                    continue;
-                }
-
                 $lat = (float)$lat;
                 $lon = (float)$lon;
                 $dateTime = $record['date_time'];
