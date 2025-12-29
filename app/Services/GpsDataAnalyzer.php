@@ -104,9 +104,9 @@ class GpsDataAnalyzer
     /**
      * Analyze GPS data and calculate all metrics
      *
-     * Movement = status == 1 && speed > 0
+     * Movement = speed > 0
      * Stoppage = speed == 0 (stoppages < 60s counted as movement)
-     * firstMovementTime = timestamp when 3 consecutive movements detected
+     * firstMovementTime = timestamp when 3 consecutive active movements detected (status=1 && speed>0)
      */
     public function analyze(
         ?Carbon $workingStartTime = null,
@@ -160,15 +160,6 @@ class GpsDataAnalyzer
             $lon = $point[1];
             $lat = $point[0];
 
-            // Skip points with null or invalid coordinates
-            // if ($lat === null || $lon === null || !is_numeric($lat) || !is_numeric($lon)) {
-            //     continue;
-            // }
-
-            // if ($hasPolygon && !$this->isPointInPolygonFast((float)$lon, (float)$lat, $normalizedPolygon)) {
-            //     continue;
-            // }
-
             $latRad = $point[2];
             $lonRad = $point[3];
             $ts = $point[4];
@@ -180,12 +171,15 @@ class GpsDataAnalyzer
                 $deviceOnTs = $ts;
             }
 
-            $isMoving = ($status === 1 && $speed > 0);
+            // Movement: speed > 0 (status=1 required only for first_movement_time tracking)
+            // Stoppage: speed == 0
+            $isMoving = ($speed > 0);
             $isStopped = ($speed === 0);
+            $isActiveMovement = ($status === 1 && $speed > 0);
 
-            // Track consecutive movements for firstMovementTime
+            // Track consecutive active movements for firstMovementTime (requires status=1)
             if ($firstMovementTs === null) {
-                if ($isMoving) {
+                if ($isActiveMovement) {
                     if ($consecutiveMovementCount === 0) {
                         $firstConsecutiveMovementIndex = $i;
                     }
