@@ -46,13 +46,8 @@ class GpsDataAnalyzer
                     ? $dateTime->timestamp
                     : Carbon::parse($dateTime)->timestamp;
 
-                [$lat, $lon] = $this->parseCoordinate($record->coordinate);
-
-                // Skip records with invalid coordinates (0,0)
-                if ($lat == 0 && $lon == 0) {
-                    continue;
-                }
-
+                $lat = (float)($record->coordinate[0] ?? 0);
+                $lon = (float)($record->coordinate[1] ?? 0);
                 $latRad = deg2rad($lat);
                 $lonRad = deg2rad($lon);
 
@@ -66,13 +61,8 @@ class GpsDataAnalyzer
                     (int)$record->status, // 6: status
                 ];
             } else {
-                [$lat, $lon] = $this->parseCoordinate($record['coordinate'] ?? null);
-
-                // Skip records with invalid coordinates (0,0)
-                if ($lat == 0 && $lon == 0) {
-                    continue;
-                }
-
+                $lat = (float)($record['coordinate'][0] ?? 0);
+                $lon = (float)($record['coordinate'][1] ?? 0);
                 $dateTime = $record['date_time'];
                 $ts = $dateTime instanceof Carbon
                     ? $dateTime->timestamp
@@ -89,43 +79,6 @@ class GpsDataAnalyzer
                 ];
             }
         }
-    }
-
-    /**
-     * Parse coordinate from various formats (JSON string, comma-separated string, or array)
-     */
-    private function parseCoordinate($coordinate): array
-    {
-        $lat = 0.0;
-        $lon = 0.0;
-
-        if ($coordinate === null) {
-            return [$lat, $lon];
-        }
-
-        if (is_string($coordinate)) {
-            $firstChar = $coordinate[0] ?? '';
-            if ($firstChar === '[') {
-                // JSON array format: [lat,lon]
-                $decoded = json_decode($coordinate, true);
-                if ($decoded && is_array($decoded)) {
-                    $lat = (float)($decoded[0] ?? 0);
-                    $lon = (float)($decoded[1] ?? 0);
-                }
-            } else {
-                // Comma-separated format: "lat,lon"
-                $parts = explode(',', $coordinate, 2);
-                if (count($parts) === 2) {
-                    $lat = (float)trim($parts[0]);
-                    $lon = (float)trim($parts[1]);
-                }
-            }
-        } elseif (is_array($coordinate)) {
-            $lat = (float)($coordinate[0] ?? 0);
-            $lon = (float)($coordinate[1] ?? 0);
-        }
-
-        return [$lat, $lon];
     }
 
     /**
