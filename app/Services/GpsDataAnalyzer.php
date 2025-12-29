@@ -161,13 +161,13 @@ class GpsDataAnalyzer
             $lat = $point[0];
 
             // Skip points with null or invalid coordinates
-            if ($lat === null || $lon === null || !is_numeric($lat) || !is_numeric($lon)) {
-                continue;
-            }
+            // if ($lat === null || $lon === null || !is_numeric($lat) || !is_numeric($lon)) {
+            //     continue;
+            // }
 
-            if ($hasPolygon && !$this->isPointInPolygonFast((float)$lon, (float)$lat, $normalizedPolygon)) {
-                continue;
-            }
+            // if ($hasPolygon && !$this->isPointInPolygonFast((float)$lon, (float)$lat, $normalizedPolygon)) {
+            //     continue;
+            // }
 
             $latRad = $point[2];
             $lonRad = $point[3];
