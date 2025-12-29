@@ -46,8 +46,7 @@ class GpsDataAnalyzer
                     ? $dateTime->timestamp
                     : Carbon::parse($dateTime)->timestamp;
 
-                $lat = (float)($record->coordinate[0] ?? 0);
-                $lon = (float)($record->coordinate[1] ?? 0);
+                [$lat, $lon] = $record->coordinate;
                 $latRad = deg2rad($lat);
                 $lonRad = deg2rad($lon);
 
@@ -61,8 +60,7 @@ class GpsDataAnalyzer
                     (int)$record->status, // 6: status
                 ];
             } else {
-                $lat = (float)($record['coordinate'][0] ?? 0);
-                $lon = (float)($record['coordinate'][1] ?? 0);
+                [$lat, $lon] = $record['coordinate'];
                 $dateTime = $record['date_time'];
                 $ts = $dateTime instanceof Carbon
                     ? $dateTime->timestamp
@@ -84,9 +82,9 @@ class GpsDataAnalyzer
     /**
      * Analyze GPS data and calculate all metrics
      *
-     * Movement = speed > 0
+     * Movement = status == 1 && speed > 0
      * Stoppage = speed == 0 (stoppages < 60s counted as movement)
-     * firstMovementTime = timestamp when 3 consecutive active movements detected (status=1 && speed>0)
+     * firstMovementTime = timestamp when 3 consecutive movements detected
      */
     public function analyze(
         ?Carbon $workingStartTime = null,
@@ -140,6 +138,10 @@ class GpsDataAnalyzer
             $lon = $point[1];
             $lat = $point[0];
 
+            if ($hasPolygon && !$this->isPointInPolygonFast($lon, $lat, $normalizedPolygon)) {
+                continue;
+            }
+
             $latRad = $point[2];
             $lonRad = $point[3];
             $ts = $point[4];
@@ -151,15 +153,12 @@ class GpsDataAnalyzer
                 $deviceOnTs = $ts;
             }
 
-            // Movement: speed > 0 (status=1 required only for first_movement_time tracking)
-            // Stoppage: speed == 0
-            $isMoving = ($speed > 0);
+            $isMoving = ($status === 1 && $speed > 0);
             $isStopped = ($speed === 0);
-            $isActiveMovement = ($status === 1 && $speed > 0);
 
-            // Track consecutive active movements for firstMovementTime (requires status=1)
+            // Track consecutive movements for firstMovementTime
             if ($firstMovementTs === null) {
-                if ($isActiveMovement) {
+                if ($isMoving) {
                     if ($consecutiveMovementCount === 0) {
                         $firstConsecutiveMovementIndex = $i;
                     }
@@ -211,7 +210,6 @@ class GpsDataAnalyzer
                     $stoppageDurationWhileOff += $offDur;
                 } else {
                     $movementDuration += $tempDuration;
-                    $movementDistance += $this->haversineRad($prevLatRad, $prevLonRad, $latRad, $lonRad);
                 }
 
                 $isCurrentlyStopped = false;
