@@ -166,8 +166,8 @@ class GpsDataAnalyzer
      * firstMovementTime = timestamp when 3 consecutive movements detected
      */
     public function analyze(
-        ?Carbon $workingStartTime = null,
-        ?Carbon $workingEndTime = null,
+        ?Carbon $timeBoundStartTime = null,
+        ?Carbon $timeBoundEndTime = null,
         array $polygon = []
     ): array {
         $dataCount = count($this->data);
@@ -176,8 +176,8 @@ class GpsDataAnalyzer
             return $this->getEmptyResults();
         }
 
-        $workingStartTs = $workingStartTime?->timestamp ?? $this->workingStartTimestamp;
-        $workingEndTs = $workingEndTime?->timestamp ?? $this->workingEndTimestamp;
+        $workingStartTs = $timeBoundStartTime?->timestamp ?? $this->workingStartTimestamp;
+        $workingEndTs = $timeBoundEndTime?->timestamp ?? $this->workingEndTimestamp;
         $normalizedPolygon = $this->preparePolygon($polygon);
         $hasPolygon = !empty($normalizedPolygon);
 

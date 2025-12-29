@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\Time;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -49,8 +50,8 @@ class TractorTask extends Model
     {
         return [
             'date' => 'date',
-            'start_time' => 'string',
-            'end_time' => 'string',
+            'start_time' => Time::class,
+            'end_time' => Time::class,
             'created_by' => 'integer',
             'data' => 'array',
         ];

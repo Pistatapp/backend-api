@@ -122,17 +122,17 @@ class TractorTaskService
         // Use GPS timestamp if provided, otherwise fall back to current time
         $now = $gpsTimestamp ?? Carbon::now();
 
-        $taskDateTime = Carbon::parse($task->date);
-        $taskStartDateTime = $taskDateTime->copy()->setTimeFromTimeString($task->start_time);
-        $taskEndDateTime = $taskDateTime->copy()->setTimeFromTimeString($task->end_time);
+        $taskDate = Carbon::parse($task->date);
+        $taskStartTime = $taskDate->copy()->setTimeFromTimeString($task->start_time);
+        $taskEndTime = $taskDate->copy()->setTimeFromTimeString($task->end_time);
 
         // Scenario 1: Task time has not started
-        if ($now->lt($taskStartDateTime)) {
+        if ($now->lt($taskStartTime)) {
             return 'not_started';
         }
 
         // Scenario 2: Task time has started but not ended
-        if ($now->gte($taskStartDateTime) && $now->lt($taskEndDateTime)) {
+        if ($now->gte($taskStartTime) && $now->lt($taskEndTime)) {
             // If tractor is currently in zone, mark as in_progress
             if ($isCurrentlyInZone === true) {
                 return 'in_progress';

@@ -40,14 +40,14 @@ class CalculateTaskGpsMetricsJob implements ShouldQueue
      */
     public function handle(GpsDataAnalyzer $gpsDataAnalyzer, TractorTaskService $tractorTaskService): void
     {
-        $date = $this->task->date ;
+        $date = $this->task->date;
 
         $dateString = $date->toDateString();
 
         // Get task time window
-        $taskDateTime = Carbon::parse($this->task->date);
-        $taskStartDateTime = $taskDateTime->copy()->setTimeFromTimeString($this->task->start_time);
-        $taskEndDateTime = $taskDateTime->copy()->setTimeFromTimeString($this->task->end_time);
+        $taskDate = Carbon::parse($this->task->date);
+        $taskStartTime = $taskDate->copy()->setTimeFromTimeString($this->task->start_time);
+        $taskEndTime = $taskDate->copy()->setTimeFromTimeString($this->task->end_time);
 
         // Ensure the tractor relationship is loaded
         $this->task->load('tractor');
@@ -56,7 +56,8 @@ class CalculateTaskGpsMetricsJob implements ShouldQueue
         $taskZone = $tractorTaskService->getTaskZone($this->task);
 
         // Analyze GPS data with task time window
-        $results = $gpsDataAnalyzer->loadRecordsFor($tractor, $date)->analyze($taskStartDateTime, $taskEndDateTime, $taskZone);
+        $results = $gpsDataAnalyzer->loadRecordsFor($tractor, $date)
+            ->analyze($taskStartTime, $taskEndTime, $taskZone);
 
         // Check if there's any valid GPS data
         if ($results['movement_duration_seconds'] <= 0) {
