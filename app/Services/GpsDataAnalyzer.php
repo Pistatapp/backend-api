@@ -138,20 +138,35 @@ class GpsDataAnalyzer
 
         // Already an array
         if (is_array($coordinate) && count($coordinate) >= self::MIN_COORDINATE_COUNT) {
-            return [(float)$coordinate[0], (float)$coordinate[1]];
+            $lat = $coordinate[0] ?? null;
+            $lon = $coordinate[1] ?? null;
+            if ($lat === null || $lon === null) {
+                return null;
+            }
+            return [(float)$lat, (float)$lon];
         }
 
         if (is_string($coordinate)) {
             // Try JSON decode first
             $decoded = json_decode($coordinate, true);
             if (is_array($decoded) && count($decoded) >= self::MIN_COORDINATE_COUNT) {
-                return [(float)$decoded[0], (float)$decoded[1]];
+                $lat = $decoded[0] ?? null;
+                $lon = $decoded[1] ?? null;
+                if ($lat === null || $lon === null) {
+                    return null;
+                }
+                return [(float)$lat, (float)$lon];
             }
 
             // Fall back to comma-separated format
             $parts = explode(',', $coordinate);
             if (count($parts) >= self::MIN_COORDINATE_COUNT) {
-                return [(float)$parts[0], (float)$parts[1]];
+                $lat = trim($parts[0]);
+                $lon = trim($parts[1]);
+                if ($lat === '' || $lon === '') {
+                    return null;
+                }
+                return [(float)$lat, (float)$lon];
             }
         }
 
@@ -305,9 +320,17 @@ class GpsDataAnalyzer
      */
     private function isPointInPolygon(array $point, array $polygon): bool
     {
+        $lon = $point[self::IDX_LON] ?? null;
+        $lat = $point[self::IDX_LAT] ?? null;
+
+        // Skip polygon check if coordinates are invalid
+        if ($lon === null || $lat === null) {
+            return false;
+        }
+
         return $this->isPointInPolygonFast(
-            $point[self::IDX_LON],
-            $point[self::IDX_LAT],
+            (float)$lon,
+            (float)$lat,
             $polygon
         );
     }
