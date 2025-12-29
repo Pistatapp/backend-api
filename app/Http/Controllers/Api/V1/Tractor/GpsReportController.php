@@ -125,10 +125,10 @@ class GpsReportController extends Controller
             foreach ($batch as $item) {
                 $gpsDataRecords[] = [
                     'tractor_id' => $tractorId,
-                    'coordinate' => json_encode($item['coordinate']),
+                    'coordinate' => implode(',', $item['coordinate']),
                     'speed' => $item['speed'],
                     'status' => $item['status'],
-                    'directions' => json_encode($item['directions']),
+                    'directions' => implode(',', $item['directions']),
                     'imei' => $item['imei'],
                     'date_time' => $item['date_time'],
                 ];

@@ -46,7 +46,9 @@ class GpsDataAnalyzer
                     ? $dateTime->timestamp
                     : Carbon::parse($dateTime)->timestamp;
 
-                $coordinate = $this->normalizeCoordinate($record->coordinate);
+                // Get raw coordinate value to handle both JSON and comma-separated formats
+                $rawCoordinate = $record->getRawOriginal('coordinate') ?? $record->coordinate;
+                $coordinate = $this->parseCoordinate($rawCoordinate);
                 if ($coordinate === null) {
                     continue;
                 }
@@ -64,7 +66,7 @@ class GpsDataAnalyzer
                     (int)$record->status, // 6: status
                 ];
             } else {
-                $coordinate = $this->normalizeCoordinate($record['coordinate'] ?? null);
+                $coordinate = $this->parseCoordinate($record['coordinate'] ?? null);
                 if ($coordinate === null) {
                     continue;
                 }
@@ -88,20 +90,28 @@ class GpsDataAnalyzer
     }
 
     /**
-     * Normalize coordinate to [lat, lon] array format
-     * Handles: array [lat, lon], comma-separated string "lat,lon", or null
+     * Parse coordinate from various formats to [lat, lon] array
+     * Handles: array, JSON string, comma-separated string
      */
-    private function normalizeCoordinate(mixed $coordinate): ?array
+    private function parseCoordinate(mixed $coordinate): ?array
     {
         if ($coordinate === null) {
             return null;
         }
 
+        // Already an array
         if (is_array($coordinate) && count($coordinate) >= 2) {
             return [(float)$coordinate[0], (float)$coordinate[1]];
         }
 
         if (is_string($coordinate)) {
+            // Try JSON decode first
+            $decoded = json_decode($coordinate, true);
+            if (is_array($decoded) && count($decoded) >= 2) {
+                return [(float)$decoded[0], (float)$decoded[1]];
+            }
+
+            // Fall back to comma-separated format
             $parts = explode(',', $coordinate);
             if (count($parts) >= 2) {
                 return [(float)$parts[0], (float)$parts[1]];
@@ -170,7 +180,7 @@ class GpsDataAnalyzer
             $lon = $point[1];
             $lat = $point[0];
 
-            if ($hasPolygon && !$this->isPointInPolygonFast($lat, $lon, $normalizedPolygon)) {
+            if ($hasPolygon && !$this->isPointInPolygonFast($lon, $lat, $normalizedPolygon)) {
                 continue;
             }
 
@@ -259,8 +269,6 @@ class GpsDataAnalyzer
                 $stoppageStartIndex = $i;
             } elseif ($isMoving && !$isCurrentlyStopped && !$isCurrentlyMoving) {
                 // Start moving from neutral state
-                $movementDistance += $this->haversineRad($prevLatRad, $prevLonRad, $latRad, $lonRad);
-                $movementDuration += $timeDiff;
                 $isCurrentlyMoving = true;
             }
 
