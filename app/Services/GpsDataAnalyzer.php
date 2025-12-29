@@ -205,16 +205,12 @@ class GpsDataAnalyzer
         for ($i = 0; $i < $dataCount; $i++) {
             $point = &$this->data[$i];
 
-            // Filter by time bounds
-            $pointTimestamp = $point[self::IDX_TIMESTAMP];
-            if ($workingStartTs !== null && $pointTimestamp < $workingStartTs) {
-                continue;
-            }
-            if ($workingEndTs !== null && $pointTimestamp > $workingEndTs) {
+            // Filter by time bounds - skip points outside the time window
+            if (!$this->isPointInTimeBounds($point, $workingStartTs, $workingEndTs)) {
                 continue;
             }
 
-            // Filter by polygon
+            // Filter by polygon - skip points outside the polygon area
             if ($hasPolygon && !$this->isPointInPolygon($point, $normalizedPolygon)) {
                 continue;
             }
@@ -323,6 +319,24 @@ class GpsDataAnalyzer
             'is_moving' => ($point[self::IDX_STATUS] === 1 && $point[self::IDX_SPEED] > 0),
             'is_stopped' => ($point[self::IDX_SPEED] === 0),
         ];
+    }
+
+    /**
+     * Check if point timestamp is within time bounds
+     */
+    private function isPointInTimeBounds(array $point, ?int $startTs, ?int $endTs): bool
+    {
+        $timestamp = $point[self::IDX_TIMESTAMP];
+
+        if ($startTs !== null && $timestamp < $startTs) {
+            return false;
+        }
+
+        if ($endTs !== null && $timestamp > $endTs) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
