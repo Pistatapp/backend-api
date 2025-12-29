@@ -105,8 +105,8 @@ class TractorTaskCreated extends Notification implements ShouldQueue
     public function toKavenegar(object $notifiable): KavenegarMessage
     {
         $operationName = $this->task->operation->name;
-        $startTime = $this->task->start_time->format('H:i');
-        $endTime = $this->task->end_time->format('H:i');
+        $startTime = $this->task->start_time;
+        $endTime = $this->task->end_time;
         $taskDate = jdate($this->task->date)->format('Y/m/d');
 
 
