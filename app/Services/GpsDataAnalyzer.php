@@ -211,6 +211,7 @@ class GpsDataAnalyzer
                     $stoppageDurationWhileOff += $offDur;
                 } else {
                     $movementDuration += $tempDuration;
+                    $movementDistance += $this->haversineRad($prevLatRad, $prevLonRad, $latRad, $lonRad);
                 }
 
                 $isCurrentlyStopped = false;
