@@ -45,9 +45,19 @@ class IrrigationEventListener
 
         // Pump can be null for some irrigations, so guard against it
         if ($irrigation->pump) {
-            $irrigation->pump->update([
-                'is_active' => $newStatus === 'in-progress',
-            ]);
+            if ($newStatus === 'in-progress') {
+                $irrigation->pump->update(['is_active' => 1]);
+            } elseif ($newStatus === 'finished') {
+                // Check if there are other active irrigations for this pump
+                $activeIrrigationsCount = $irrigation->pump->irrigations()
+                    ->where('status', 'in-progress')
+                    ->where('id', '!=', $irrigation->id)
+                    ->count();
+                if ($activeIrrigationsCount === 0) {
+                    $irrigation->pump->update(['is_active' => 0]);
+                }
+                // Otherwise, skip setting is_active to 0
+            }
         }
 
         // Creator can also be null (e.g. if user was deleted), so guard against it
