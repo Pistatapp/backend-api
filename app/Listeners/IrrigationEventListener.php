@@ -41,44 +41,71 @@ class IrrigationEventListener
     {
         $irrigation->loadMissing('creator', 'pump', 'valves');
 
-        $irrigation->update(['status' => $newStatus]);
+        $this->updateIrrigationModelStatus($irrigation, $newStatus);
+        $this->updatePumpStatusIfNeeded($irrigation, $newStatus);
+        $this->notifyCreatorIfExists($irrigation);
+        $this->updateAllValvesStatus($irrigation, $valveStatus);
+    }
 
-        // Pump can be null for some irrigations, so guard against it
-        if ($irrigation->pump) {
-            if ($newStatus === 'in-progress') {
-                $irrigation->pump->update(['is_active' => 1]);
-            } elseif ($newStatus === 'finished') {
-                // Check if there are other active irrigations for this pump
-                $activeIrrigationsCount = $irrigation->pump->irrigations()
-                    ->where('status', 'in-progress')
-                    ->where('id', '!=', $irrigation->id)
-                    ->count();
-                if ($activeIrrigationsCount === 0) {
-                    $irrigation->pump->update(['is_active' => 0]);
-                }
-                // Otherwise, skip setting is_active to 0
-            }
+    private function updateIrrigationModelStatus($irrigation, $newStatus)
+    {
+        $irrigation->update(['status' => $newStatus]);
+    }
+
+    private function updatePumpStatusIfNeeded($irrigation, $newStatus)
+    {
+        if (!$irrigation->pump) {
+            return;
         }
 
-        // Creator can also be null (e.g. if user was deleted), so guard against it
+        if ($newStatus === 'in-progress') {
+            $irrigation->pump->update(['is_active' => 1]);
+        } elseif ($newStatus === 'finished') {
+            $this->deactivatePumpIfNoActiveIrrigations($irrigation);
+        }
+    }
+
+    private function deactivatePumpIfNoActiveIrrigations($irrigation)
+    {
+        $now = now();
+        $activeIrrigationsCount = $irrigation->pump->irrigations()
+            ->where('id', '!=', $irrigation->id)
+            ->where('status', 'in-progress')
+            ->count();
+
+        if ($activeIrrigationsCount === 0) {
+            $irrigation->pump->update(['is_active' => 0]);
+        }
+    }
+
+    private function notifyCreatorIfExists($irrigation)
+    {
         if ($irrigation->creator) {
             $irrigation->creator->notify(new IrrigationNotification($irrigation));
         }
+    }
 
+    private function updateAllValvesStatus($irrigation, $valveStatus)
+    {
         foreach ($irrigation->valves as $valve) {
-            $pivotData = [
-                'status' => $valveStatus,
-                $valveStatus === 'opened' ? 'opened_at' : 'closed_at' => now(),
-            ];
-
-            if ($valveStatus === 'closed') {
-                $pivotData['duration'] = $irrigation->start_time->diffInMinutes(now());
-            }
-
-            $irrigation->valves()->updateExistingPivot($valve->id, $pivotData);
-
-            $valve->is_open = $valveStatus === 'opened';
-            $valve->save();
+            $this->updateValveStatus($irrigation, $valve, $valveStatus);
         }
+    }
+
+    private function updateValveStatus($irrigation, $valve, $valveStatus)
+    {
+        $pivotData = [
+            'status' => $valveStatus,
+            $valveStatus === 'opened' ? 'opened_at' : 'closed_at' => now(),
+        ];
+
+        if ($valveStatus === 'closed') {
+            $pivotData['duration'] = $irrigation->start_time->diffInMinutes(now());
+        }
+
+        $irrigation->valves()->updateExistingPivot($valve->id, $pivotData);
+
+        $valve->is_open = $valveStatus === 'opened';
+        $valve->save();
     }
 }
