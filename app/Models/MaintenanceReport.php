@@ -60,12 +60,12 @@ class MaintenanceReport extends Model
     }
 
     /**
-     * Get the employee that owns the MaintenanceReport
+     * Get the labour that owns the MaintenanceReport
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
     public function maintainedBy()
     {
-        return $this->belongsTo(Employee::class, 'maintained_by');
+        return $this->belongsTo(Labour::class, 'maintained_by');
     }
 }

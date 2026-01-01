@@ -24,7 +24,7 @@ class FarmResource extends JsonResource
             'crop' => new CropResource($this->whenLoaded('crop')),
             'fields_count' => $this->whenCounted('fields'),
             'trees_count' => $this->whenCounted('trees'),
-            'employees_count' => $this->whenCounted('employees'),
+            'labours_count' => $this->whenCounted('labours'),
             'tractors_count' => $this->whenCounted('tractors'),
             'plans_count' => $this->whenCounted('plans'),
             'is_working_environment' => $this->isWorkingEnvironment(),

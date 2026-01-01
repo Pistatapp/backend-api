@@ -16,7 +16,7 @@ class IrrigationResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'employee' => $this->whenLoaded('labour', function () {
+            'labour' => $this->whenLoaded('labour', function () {
                 return [
                     'id' => $this->labour->id,
                     'name' => $this->labour->full_name,

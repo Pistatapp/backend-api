@@ -3,23 +3,23 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\ActiveWorkerResource;
+use App\Http\Resources\ActiveLabourResource;
 use App\Models\Farm;
-use App\Services\ActiveWorkerService;
+use App\Services\ActiveLabourService;
 use Illuminate\Http\Request;
 
 class HumanResourcesMapController extends Controller
 {
     public function __construct(
-        private ActiveWorkerService $activeWorkerService
+        private ActiveLabourService $activeLabourService
     ) {}
 
     /**
-     * Get active workers with GPS data for map display
+     * Get active labours with GPS data for map display
      */
-    public function getActiveWorkers(Farm $farm)
+    public function getActiveLabours(Farm $farm)
     {
-        $activeWorkers = $this->activeWorkerService->getActiveWorkers($farm);
-        return ActiveWorkerResource::collection($activeWorkers);
+        $activeLabours = $this->activeLabourService->getActiveLabours($farm);
+        return ActiveLabourResource::collection($activeLabours);
     }
 }

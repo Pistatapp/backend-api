@@ -2,7 +2,7 @@
 
 namespace App\Jobs;
 
-use App\Models\WorkerAttendanceSession;
+use App\Models\LabourAttendanceSession;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -32,7 +32,7 @@ class CloseAttendanceSessionsJob implements ShouldQueue
         // Close sessions that are in progress but haven't been updated in the last hour
         $cutoffTime = Carbon::now()->subHour();
 
-        $staleSessions = WorkerAttendanceSession::where('status', 'in_progress')
+        $staleSessions = LabourAttendanceSession::where('status', 'in_progress')
             ->where('updated_at', '<', $cutoffTime)
             ->get();
 
@@ -45,12 +45,12 @@ class CloseAttendanceSessionsJob implements ShouldQueue
 
             Log::info('Closed stale attendance session', [
                 'session_id' => $session->id,
-                'employee_id' => $session->employee_id,
+                'labour_id' => $session->labour_id,
             ]);
         }
 
         // Also close sessions from previous days that are still in progress
-        $previousDaysSessions = WorkerAttendanceSession::where('status', 'in_progress')
+        $previousDaysSessions = LabourAttendanceSession::where('status', 'in_progress')
             ->where('date', '<', Carbon::today()->toDateString())
             ->get();
 
@@ -64,7 +64,7 @@ class CloseAttendanceSessionsJob implements ShouldQueue
 
             Log::info('Closed previous day attendance session', [
                 'session_id' => $session->id,
-                'employee_id' => $session->employee_id,
+                'labour_id' => $session->labour_id,
                 'date' => $session->date->toDateString(),
             ]);
         }

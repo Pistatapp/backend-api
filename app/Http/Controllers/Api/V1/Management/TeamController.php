@@ -20,7 +20,7 @@ class TeamController extends Controller
      */
     public function index(Farm $farm)
     {
-        $teams = $farm->teams()->withCount('employees');
+        $teams = $farm->teams()->withCount('labours');
 
         if (request()->has('search')) {
             $teams = $teams->where('name', 'like', '%' . request()->search . '%')
@@ -38,15 +38,15 @@ class TeamController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'supervisor_id' => 'nullable|integer|exists:employees,id',
-            'employees' => 'nullable|array',
-            'employees.*' => 'integer|exists:employees,id'
+            'supervisor_id' => 'nullable|integer|exists:labours,id',
+            'labours' => 'nullable|array',
+            'labours.*' => 'integer|exists:labours,id'
         ]);
 
         $team = $farm->teams()->create($request->only('name', 'supervisor_id'));
 
-        if ($request->has('employees')) {
-            $team->employees()->sync($request->employees);
+        if ($request->has('labours')) {
+            $team->labours()->sync($request->labours);
         }
 
         return new TeamResource($team);
@@ -57,7 +57,7 @@ class TeamController extends Controller
      */
     public function show(Team $team)
     {
-        return new TeamResource($team->load('employees', 'supervisor'));
+        return new TeamResource($team->load('labours', 'supervisor'));
     }
 
     /**
@@ -67,15 +67,15 @@ class TeamController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'supervisor_id' => 'nullable|integer|exists:employees,id',
-            'employees' => 'nullable|array',
-            'employees.*' => 'integer|exists:employees,id'
+            'supervisor_id' => 'nullable|integer|exists:labours,id',
+            'labours' => 'nullable|array',
+            'labours.*' => 'integer|exists:labours,id'
         ]);
 
         $team->update($request->only('name', 'supervisor_id'));
 
-        if ($request->has('employees')) {
-            $team->employees()->sync($request->employees);
+        if ($request->has('labours')) {
+            $team->labours()->sync($request->labours);
         }
 
         return new TeamResource($team->fresh());

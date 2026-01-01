@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('worker_monthly_payrolls', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('employee_id')->constrained('employees')->cascadeOnDelete();
+            $table->foreignId('labour_id')->constrained('labours')->cascadeOnDelete();
             $table->tinyInteger('month');
             $table->smallInteger('year');
             $table->decimal('total_work_hours', 8, 2)->default(0);
@@ -28,7 +28,7 @@ return new class extends Migration
             $table->timestamps();
             
             // One payroll per worker per month
-            $table->unique(['employee_id', 'month', 'year'], 'unique_worker_month_year');
+            $table->unique(['labour_id', 'month', 'year'], 'unique_worker_month_year');
         });
     }
 

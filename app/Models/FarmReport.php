@@ -62,13 +62,13 @@ class FarmReport extends Model
     }
 
     /**
-     * Get the employee that owns the FarmReport
+     * Get the labour that owns the FarmReport
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
     public function labour()
     {
-        return $this->belongsTo(Employee::class);
+        return $this->belongsTo(Labour::class);
     }
 
     /**

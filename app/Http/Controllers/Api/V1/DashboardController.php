@@ -3,16 +3,16 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\ActiveWorkerWidgetResource;
+use App\Http\Resources\ActiveLabourWidgetResource;
 use App\Models\Farm;
-use App\Services\ActiveWorkerService;
+use App\Services\ActiveLabourService;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
     public function __construct(
-        private ActiveWorkerService $activeWorkerService
+        private ActiveLabourService $activeLabourService
     ) {}
 
     /**
@@ -32,7 +32,7 @@ class DashboardController extends Controller
         $dashboardData = [
             'weather_forecast' => $this->getWeatherData($farm->center),
             'working_tractors' => $farm->tractors()->working()->count(),
-            'working_employees' => $farm->employees()->working()->count(),
+            'working_labours' => $farm->labours()->working()->count(),
             'active_pumps' => $farm->pumps()->active()->count(),
         ];
 
@@ -40,19 +40,19 @@ class DashboardController extends Controller
     }
 
     /**
-     * Get active workers for dashboard widget
+     * Get active labours for dashboard widget
      *
      * @param Farm $farm
      * @return \Illuminate\Http\JsonResponse
      */
-    public function getActiveWorkers(Farm $farm)
+    public function getActiveLabours(Farm $farm)
     {
-        $activeWorkers = $this->activeWorkerService->getActiveWorkers($farm);
+        $activeLabours = $this->activeLabourService->getActiveLabours($farm);
 
         // Format for widget display
-        $formattedWorkers = $activeWorkers->map(function ($worker) {
+        $formattedLabours = $activeLabours->map(function ($labour) {
             // Get entry time from today's session
-            $session = \App\Models\WorkerAttendanceSession::where('employee_id', $worker['id'])
+            $session = \App\Models\LabourAttendanceSession::where('labour_id', $labour['id'])
                 ->where('date', Carbon::today()->toDateString())
                 ->where('status', 'in_progress')
                 ->first();
@@ -61,14 +61,14 @@ class DashboardController extends Controller
             $workingHours = $entryTime ? Carbon::now()->diffInHours($entryTime) : 0;
 
             return [
-                'id' => $worker['id'],
-                'name' => $worker['name'],
+                'id' => $labour['id'],
+                'name' => $labour['name'],
                 'entry_time' => $entryTime?->toIso8601String(),
                 'working_hours' => $workingHours,
             ];
         });
 
-        return response()->json(['data' => ActiveWorkerWidgetResource::collection($formattedWorkers)]);
+        return response()->json(['data' => ActiveLabourWidgetResource::collection($formattedLabours)]);
     }
 
     /**

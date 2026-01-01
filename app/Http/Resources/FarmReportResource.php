@@ -23,7 +23,7 @@ class FarmReportResource extends JsonResource
                     'name' => $this->operation->name,
                 ];
             }),
-            'employee' => $this->whenLoaded('labour', function () {
+            'labour' => $this->whenLoaded('labour', function () {
                 return [
                     'id' => $this->labour->id,
                     'name' => $this->labour->full_name,

@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('worker_daily_reports', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('employee_id')->constrained('employees')->cascadeOnDelete();
+            $table->foreignId('labour_id')->constrained('labours')->cascadeOnDelete();
             $table->date('date');
             $table->decimal('scheduled_hours', 5, 2)->default(0);
             $table->decimal('actual_work_hours', 5, 2)->default(0);
@@ -29,7 +29,7 @@ return new class extends Migration
             $table->timestamps();
             
             // One report per worker per day
-            $table->unique(['employee_id', 'date'], 'unique_worker_date_report');
+            $table->unique(['labour_id', 'date'], 'unique_worker_date_report');
         });
     }
 

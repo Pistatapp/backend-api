@@ -2,12 +2,12 @@
 
 namespace App\Jobs;
 
-use App\Models\Employee;
-use App\Models\WorkerAttendanceSession;
-use App\Models\WorkerDailyReport;
-use App\Models\WorkerShiftSchedule;
-use App\Services\WorkerProductivityCalculator;
-use App\Services\WorkerWageCalculationService;
+use App\Models\Labour;
+use App\Models\LabourAttendanceSession;
+use App\Models\LabourDailyReport;
+use App\Models\LabourShiftSchedule;
+use App\Services\LabourProductivityCalculator;
+use App\Services\LabourWageCalculationService;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -40,22 +40,22 @@ class GenerateDailyAttendanceSummaryJob implements ShouldQueue
      * @return void
      */
     public function handle(
-        WorkerProductivityCalculator $productivityCalculator,
-        WorkerWageCalculationService $wageCalculationService
+        LabourProductivityCalculator $productivityCalculator,
+        LabourWageCalculationService $wageCalculationService
     ): void {
-        // Get all employees
-        $employees = Employee::all();
+        // Get all labours
+        $labours = Labour::all();
 
-        foreach ($employees as $employee) {
+        foreach ($labours as $labour) {
             try {
                 // Get attendance session for the date
-                $session = WorkerAttendanceSession::where('employee_id', $employee->id)
+                $session = LabourAttendanceSession::where('labour_id', $labour->id)
                     ->whereDate('date', $this->date)
                     ->first();
 
                 if (!$session) {
-                    // No attendance session - worker was absent
-                    $this->createAbsentReport($employee, $this->date);
+                    // No attendance session - labour was absent
+                    $this->createAbsentReport($labour, $this->date);
                     continue;
                 }
 
@@ -63,7 +63,7 @@ class GenerateDailyAttendanceSummaryJob implements ShouldQueue
                 $actualWorkHours = ($session->total_in_zone_duration + $session->total_out_zone_duration) / 60;
                 
                 // Get required work time based on work type
-                $requiredHours = $wageCalculationService->getRequiredHours($employee, $this->date);
+                $requiredHours = $wageCalculationService->getRequiredHours($labour, $this->date);
                 
                 // Calculate overtime (if actual > required)
                 $overtimeHours = max(0, $actualWorkHours - $requiredHours);
@@ -75,9 +75,9 @@ class GenerateDailyAttendanceSummaryJob implements ShouldQueue
                 $productivityScore = $productivityCalculator->calculate($session);
 
                 // Create or update daily report
-                WorkerDailyReport::updateOrCreate(
+                LabourDailyReport::updateOrCreate(
                     [
-                        'employee_id' => $employee->id,
+                        'labour_id' => $labour->id,
                         'date' => $this->date,
                     ],
                     [
@@ -91,8 +91,8 @@ class GenerateDailyAttendanceSummaryJob implements ShouldQueue
                 );
 
             } catch (\Exception $e) {
-                Log::error('Error generating daily report for employee', [
-                    'employee_id' => $employee->id,
+                Log::error('Error generating daily report for labour', [
+                    'labour_id' => $labour->id,
                     'date' => $this->date->toDateString(),
                     'error' => $e->getMessage(),
                 ]);
@@ -103,19 +103,19 @@ class GenerateDailyAttendanceSummaryJob implements ShouldQueue
     }
 
     /**
-     * Create absent report for employee
+     * Create absent report for labour
      *
-     * @param Employee $employee
+     * @param Labour $labour
      * @param Carbon $date
      * @return void
      */
-    private function createAbsentReport(Employee $employee, Carbon $date): void
+    private function createAbsentReport(Labour $labour, Carbon $date): void
     {
-        $requiredHours = app(WorkerWageCalculationService::class)->getRequiredHours($employee, $date);
+        $requiredHours = app(LabourWageCalculationService::class)->getRequiredHours($labour, $date);
 
         WorkerDailyReport::updateOrCreate(
             [
-                'employee_id' => $employee->id,
+                'labour_id' => $labour->id,
                 'date' => $date,
             ],
             [

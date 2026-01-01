@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('worker_gps_data', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('employee_id')->constrained('employees')->cascadeOnDelete();
+            $table->foreignId('labour_id')->constrained('labours')->cascadeOnDelete();
             $table->json('coordinate'); // {lat, lng, altitude}
             $table->decimal('speed', 8, 2)->nullable();
             $table->decimal('bearing', 8, 2)->nullable();
@@ -23,7 +23,7 @@ return new class extends Migration
             $table->timestamps();
             
             // Indexes for performance
-            $table->index(['employee_id', 'date_time']);
+            $table->index(['labour_id', 'date_time']);
             $table->index('date_time');
         });
     }

@@ -53,6 +53,6 @@ class WorkShift extends Model
      */
     public function shiftSchedules()
     {
-        return $this->hasMany(WorkerShiftSchedule::class, 'shift_id');
+        return $this->hasMany(LabourShiftSchedule::class, 'shift_id');
     }
 }

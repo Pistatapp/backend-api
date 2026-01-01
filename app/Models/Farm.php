@@ -199,33 +199,23 @@ class Farm extends Model
     }
 
     /**
-     * Get the employees for the farm (through teams).
+     * Get the labours for the farm (through teams).
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasManyThrough
      */
     public function laboursInTeams()
     {
-        return $this->through('teams')->has('employees');
+        return $this->through('teams')->has('labours');
     }
 
     /**
-     * Get the employees for the farm.
+     * Get the labours for the farm.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function labours()
     {
-        return $this->hasMany(Employee::class);
-    }
-
-    /**
-     * Get the employees for the farm (alias for labours).
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
-     */
-    public function employees()
-    {
-        return $this->hasMany(Employee::class);
+        return $this->hasMany(Labour::class);
     }
 
     /**

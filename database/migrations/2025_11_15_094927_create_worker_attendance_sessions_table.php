@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('worker_attendance_sessions', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('employee_id')->constrained('employees')->cascadeOnDelete();
+            $table->foreignId('labour_id')->constrained('labours')->cascadeOnDelete();
             $table->date('date');
             $table->dateTime('entry_time');
             $table->dateTime('exit_time')->nullable();
@@ -23,7 +23,7 @@ return new class extends Migration
             $table->timestamps();
             
             // One session per worker per day
-            $table->unique(['employee_id', 'date'], 'unique_worker_date_session');
+            $table->unique(['labour_id', 'date'], 'unique_worker_date_session');
         });
     }
 

@@ -205,7 +205,6 @@ class FarmReportService
                 'reportable_type' => $query->where('reportable_type', 'App\\Models\\' . ucfirst($value)),
                 'reportable_id' => $query->whereIn('reportable_id', $value),
                 'operation_ids' => $query->whereIn('operation_id', $value),
-                'employee_ids' => $query->whereIn('labour_id', $value),
                 'labour_ids' => $query->whereIn('labour_id', $value),
                 'date_range' => $query->whereBetween('date', [$value['from'], $value['to']]),
                 default => null,

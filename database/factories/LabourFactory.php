@@ -2,6 +2,9 @@
 
 namespace Database\Factories;
 
+use App\Models\Labour;
+use App\Models\Farm;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -10,6 +13,13 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 class LabourFactory extends Factory
 {
     /**
+     * The name of the factory's corresponding model.
+     *
+     * @var string
+     */
+    protected $model = Labour::class;
+
+    /**
      * Define the model's default state.
      *
      * @return array<string, mixed>
@@ -17,22 +27,21 @@ class LabourFactory extends Factory
     public function definition(): array
     {
         return [
-            'type' => $this->faker->randomElement(['Full-time', 'Part-time']),
+            'farm_id' => Farm::factory(),
             'fname' => $this->faker->firstName,
             'lname' => $this->faker->lastName,
-            'national_id' => $this->faker->unique()->randomNumber(9),
+            'national_id' => $this->faker->unique()->numerify('##########'),
             'mobile' => $this->faker->phoneNumber,
-            'position' => $this->faker->jobTitle,
-            'project_start_date' => $this->faker->dateTimeBetween('-1 year', 'now'),
-            'project_end_date' => $this->faker->dateTimeBetween('now', '+1 year'),
-            'work_type' => $this->faker->randomElement(['Indoor', 'Outdoor']),
-            'work_days' => $this->faker->numberBetween(1, 7),
-            'work_hours' => $this->faker->numberBetween(1, 12),
-            'start_work_time' => $this->faker->time('H:i'),
-            'end_work_time' => $this->faker->time('H:i'),
-            'salary' => $this->faker->numberBetween(1000, 5000),
-            'daily_salary' => $this->faker->numberBetween(100, 500),
-            'monthly_salary' => $this->faker->numberBetween(1000, 5000),
+            'work_type' => $this->faker->randomElement(['shift_based', 'administrative']),
+            'work_days' => $this->faker->randomElements([0, 1, 2, 3, 4, 5, 6], $this->faker->numberBetween(1, 7)),
+            'work_hours' => $this->faker->numberBetween(4, 12),
+            'start_work_time' => $this->faker->time('H:i:s'),
+            'end_work_time' => $this->faker->time('H:i:s'),
+            'monthly_salary' => $this->faker->numberBetween(1000000, 5000000),
+            'hourly_wage' => $this->faker->numberBetween(50000, 200000),
+            'overtime_hourly_wage' => $this->faker->numberBetween(75000, 300000),
+            'user_id' => null,
+            'is_working' => $this->faker->boolean,
         ];
     }
 }
