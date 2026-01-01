@@ -30,8 +30,8 @@ return new class extends Migration
 
         // For partitioning to work, the partitioning column (date_time) must be part of the primary key
         // We need to alter the table to set a composite primary key
-        // Only execute for MySQL - SQLite doesn't support these operations
-        if (DB::getDriverName() === 'mysql') {
+        // Skip this for SQLite as it doesn't support this syntax
+        if (DB::getDriverName() !== 'sqlite') {
             DB::statement('ALTER TABLE gps_data DROP PRIMARY KEY, ADD PRIMARY KEY (id, date_time)');
 
             // Implement daily table partitioning
@@ -106,8 +106,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Drop the MySQL event first (only for MySQL)
-        if (DB::getDriverName() === 'mysql') {
+        // Drop the MySQL event first (skip for SQLite)
+        if (DB::getDriverName() !== 'sqlite') {
             DB::statement("DROP EVENT IF EXISTS create_daily_gps_data_partitions");
         }
 

@@ -20,7 +20,7 @@ class FarmResource extends JsonResource
             'coordinates' => $this->coordinates,
             'center' => $this->center,
             'zoom' => $this->zoom,
-            'area' => number_format($this->area, 2),
+            'area' => calculate_polygon_area($this->coordinates),
             'crop' => new CropResource($this->whenLoaded('crop')),
             'fields_count' => $this->whenCounted('fields'),
             'trees_count' => $this->whenCounted('trees'),
@@ -28,7 +28,7 @@ class FarmResource extends JsonResource
             'tractors_count' => $this->whenCounted('tractors'),
             'plans_count' => $this->whenCounted('plans'),
             'is_working_environment' => $this->isWorkingEnvironment(),
-            'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),
+            'created_at' => jdate($this->created_at)->format('Y/m/d'),
             'users' => $this->whenLoaded('users', function () {
                 return $this->users->map(function ($user) {
                     $role = $user->pivot->role;

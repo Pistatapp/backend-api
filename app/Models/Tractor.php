@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -47,6 +48,19 @@ class Tractor extends Model
     protected $attributes = [
         'is_working' => false,
     ];
+
+    /**
+     * Get working window for the tractor.
+     *
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    public function getWorkingWindow(Carbon $date): array
+    {
+        $startDateTime = $date->copy()->setTimeFromTimeString($this->start_work_time);
+        $endDateTime = $date->copy()->setTimeFromTimeString($this->end_work_time);
+
+        return [$startDateTime, $endDateTime];
+    }
 
     /**
      * Scope a query to only include working tractors.
@@ -110,16 +124,6 @@ class Tractor extends Model
     }
 
     /**
-     * Get the efficiency charts for the tractor.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
-     */
-    public function efficiencyCharts()
-    {
-        return $this->hasMany(TractorEfficiencyChart::class);
-    }
-
-    /**
      * Get the tasks for the tractor.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
@@ -142,11 +146,11 @@ class Tractor extends Model
     /**
      * Get the gps data for the tractor.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\HasManyThrough
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function gpsData()
     {
-        return $this->hasManyThrough(GpsData::class, GpsDevice::class);
+        return $this->hasMany(GpsData::class);
     }
 
 

@@ -8,6 +8,8 @@ use App\Jobs\CheckRadiativeFrostConditionsJob;
 use App\Jobs\CalculateTractorEfficiencyChartJob;
 use App\Jobs\GenerateDailyAttendanceSummaryJob;
 use App\Jobs\CloseAttendanceSessionsJob;
+use App\Jobs\CheckPestDegreeDayConditionsJob;
+use App\Jobs\CheckCropTypeDegreeDayConditionsJob;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 use Carbon\Carbon;
@@ -19,22 +21,29 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        $schedule->command('app:change-farm-plan-status')->everyMinute();
-        $schedule->command('app:change-irrigation-status')->everyMinute();
+        $schedule->command('app:change-farm-plan-status')
+            ->everyMinute()
+            ->withoutOverlapping();
+
+        $schedule->command('app:change-irrigation-status')
+            ->everyMinute()
+            ->withoutOverlapping();
 
         // Check for tractor stoppage warnings every 5 minutes
-        $schedule->command('tractor:check-stoppage-warnings')->everyFiveMinutes();
+        $schedule->command('tractor:check-stoppage-warnings')
+            ->everyFiveMinutes()
+            ->withoutOverlapping();
 
         // Check for tractor activity status every minute
-        $schedule->command('tractor:check-activity-status')->everyMinute();
+        $schedule->command('tractor:check-activity-status')
+            ->everyMinute()
+            ->withoutOverlapping();
 
         // Update ended tractor tasks every minute
         $schedule->command('tractor:update-ended-tasks')->everyMinute();
 
         // Check for inactive tractors daily at 8 AM
-        $schedule->command('tractors:check-inactivity')
-            ->dailyAt('08:00')
-            ->appendOutputTo(storage_path('logs/tractor-inactivity-check.log'));
+        $schedule->command('tractors:check-inactivity')->dailyAt('08:00');
 
         // Check for frost conditions daily at 6 AM
         $schedule->job(new CheckFrostConditionsJob)->dailyAt('06:00');
@@ -45,20 +54,20 @@ class Kernel extends ConsoleKernel
         // Check for oil spray conditions daily at midnight
         $schedule->job(new CheckOilSprayConditionsJob)->dailyAt('00:00');
 
-        // Calculate tractor efficiency chart data daily at midnight
-        $schedule->job(new CalculateTractorEfficiencyChartJob)->dailyAt('01:00');
-
         // Check for pest degree day conditions daily at 05:00 AM
-        $schedule->job(CheckFrostConditionsJob::class)->dailyAt('05:00');
+        $schedule->job(new CheckPestDegreeDayConditionsJob)->dailyAt('05:00');
 
         // Check for crop type degree day conditions daily at 05:30 AM
-        $schedule->job(CheckFrostConditionsJob::class)->dailyAt('05:30');
+        $schedule->job(new CheckCropTypeDegreeDayConditionsJob)->dailyAt('05:30');
 
         // Generate daily attendance summary at midnight
         $schedule->job(new GenerateDailyAttendanceSummaryJob(Carbon::yesterday()))->dailyAt('00:00');
 
         // Close stale attendance sessions every hour
         $schedule->job(new CloseAttendanceSessionsJob)->hourly();
+
+        // Prune Telescope entries older than 24 hours
+        $schedule->command('telescope:prune')->daily();
     }
 
     /**

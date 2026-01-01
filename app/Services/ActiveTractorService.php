@@ -3,18 +3,15 @@
 namespace App\Services;
 
 use App\Models\Tractor;
-use App\Models\TractorEfficiencyChart;
 use App\Models\GpsMetricsCalculation;
 use Carbon\Carbon;
 use App\Http\Resources\DriverResource;
 use App\Services\GpsDataAnalyzer;
-use App\Services\TractorTaskService;
 
 class ActiveTractorService
 {
     public function __construct(
         private GpsDataAnalyzer $gpsDataAnalyzer,
-        private TractorTaskService $tractorTaskService
     ) {}
 
     /**
@@ -36,7 +33,7 @@ class ActiveTractorService
 
         if ($isPastDate) {
             // Fetch data from GpsMetricsCalculation for past dates
-            return $this->getTractorPerformanceFromCache($tractor, $date);
+            return $this->getTractorPerformanceFromMetrics($tractor, $date);
         }
 
         // For current day or future dates, use real-time GPS data analysis
@@ -50,7 +47,7 @@ class ActiveTractorService
      * @param Carbon $date
      * @return array
      */
-    private function getTractorPerformanceFromCache(Tractor $tractor, Carbon $date): array
+    private function getTractorPerformanceFromMetrics(Tractor $tractor, Carbon $date): array
     {
         $dateString = $date->toDateString();
 
@@ -81,8 +78,8 @@ class ActiveTractorService
         return [
             'id' => $tractor->id,
             'name' => $tractor->name,
-            'on_time' => to_time_format($metrics->device_on_time), // Not stored in GpsMetricsCalculation
-            'start_working_time' => to_time_format($metrics->first_movement_time), // Not stored in GpsMetricsCalculation
+            'on_time' => $metrics->timings['device_on_time'], // Not stored in GpsMetricsCalculation
+            'start_working_time' => $metrics->timings['first_movement_time'], // Not stored in GpsMetricsCalculation
             'speed' => $metrics->average_speed,
             'status' => 0, // Not stored in GpsMetricsCalculation, default to 0 (off)
             'traveled_distance' => $metrics->traveled_distance,
@@ -101,6 +98,7 @@ class ActiveTractorService
 
     /**
      * Get tractor performance from real-time GPS data analysis.
+     * Uses incremental caching for fast response times on subsequent requests.
      *
      * @param Tractor $tractor
      * @param Carbon $date
@@ -108,7 +106,7 @@ class ActiveTractorService
      */
     private function getTractorPerformanceFromGpsData(Tractor $tractor, Carbon $date): array
     {
-        $results = $this->gpsDataAnalyzer->loadRecordsFor($tractor, $date)->analyzeLight();
+        $results = $this->gpsDataAnalyzer->loadRecordsFor($tractor, $date)->analyze();
 
         $averageSpeed = $results['average_speed'];
         $latestStatus = $results['latest_status'];
@@ -213,7 +211,7 @@ class ActiveTractorService
 
     /**
      * Get weekly efficiency chart data for both total and task-based metrics.
-     * Loads data from tractor_efficiency_charts table.
+     * Loads data from gps_metrics_calculations table.
      *
      * @param Tractor $tractor
      * @return array
@@ -224,15 +222,29 @@ class ActiveTractorService
         $endDate = Carbon::yesterday(); // Exclude current day
         $startDate = $endDate->copy()->subDays(6);
 
-        // Load efficiency chart data from database
-        $efficiencyCharts = TractorEfficiencyChart::where('tractor_id', $tractor->id)
+        // Load total efficiency data (where tractor_task_id is null) from gps_metrics_calculations
+        $totalEfficiencyRecords = GpsMetricsCalculation::where('tractor_id', $tractor->id)
             ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
+            ->whereNull('tractor_task_id')
             ->orderBy('date')
             ->get();
 
-        // Create a map of date => efficiency data for quick lookup
-        $efficiencyMap = $efficiencyCharts->keyBy(function ($chart) {
-            return $chart->date->toDateString();
+        // Load task-based efficiency data (where tractor_task_id is not null) from gps_metrics_calculations
+        $taskEfficiencyRecords = GpsMetricsCalculation::where('tractor_id', $tractor->id)
+            ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
+            ->whereNotNull('tractor_task_id')
+            ->get();
+
+        // Create a map of date => total efficiency for quick lookup
+        $totalEfficiencyMap = $totalEfficiencyRecords->keyBy(function ($record) {
+            return $record->date->toDateString();
+        });
+
+        // Group task records by date and calculate average efficiency for each day
+        $taskEfficiencyMap = $taskEfficiencyRecords->groupBy(function ($record) {
+            return $record->date->toDateString();
+        })->map(function ($records) {
+            return $records->avg('efficiency');
         });
 
         $totalEfficiencies = [];
@@ -244,24 +256,30 @@ class ActiveTractorService
             $shamsiDate = jdate($currentDate)->format('Y/m/d');
             $dateString = $currentDate->toDateString();
 
-            // Get efficiency data from database
-            $chartData = $efficiencyMap->get($dateString);
-
-            if ($chartData) {
+            // Get total efficiency from record where tractor_task_id is null
+            $totalRecord = $totalEfficiencyMap->get($dateString);
+            if ($totalRecord) {
                 $totalEfficiencies[] = [
-                    'efficiency' => number_format((float) $chartData->total_efficiency, 2),
-                    'date' => $shamsiDate
-                ];
-                $taskBasedEfficiencies[] = [
-                    'efficiency' => number_format((float) $chartData->task_based_efficiency, 2),
+                    'efficiency' => number_format((float) $totalRecord->efficiency, 2),
                     'date' => $shamsiDate
                 ];
             } else {
-                // No data for this day - use default values
+                // No data for this day - use default value
                 $totalEfficiencies[] = [
                     'efficiency' => '0.00',
                     'date' => $shamsiDate
                 ];
+            }
+
+            // Get average efficiency from task records for this day
+            $averageTaskEfficiency = $taskEfficiencyMap->get($dateString);
+            if ($averageTaskEfficiency !== null) {
+                $taskBasedEfficiencies[] = [
+                    'efficiency' => number_format((float) $averageTaskEfficiency, 2),
+                    'date' => $shamsiDate
+                ];
+            } else {
+                // No task data for this day - use default value
                 $taskBasedEfficiencies[] = [
                     'efficiency' => '0.00',
                     'date' => $shamsiDate

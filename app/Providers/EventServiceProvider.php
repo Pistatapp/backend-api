@@ -19,12 +19,6 @@ class EventServiceProvider extends ServiceProvider
         Registered::class => [
             SendEmailVerificationNotification::class,
         ],
-        ReportReceived::class => [
-            ReportReceivedListener::class,
-        ],
-        ReportReceived::class => [
-            ReportReceivedListener::class,
-        ],
     ];
 
     /**

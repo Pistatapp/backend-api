@@ -61,7 +61,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::controller(AuthController::class)->prefix('auth')->group(function () {
     Route::middleware('guest')->group(function () {
-        Route::post('send', 'sendToken');
+        Route::post('send', 'sendToken')->middleware('throttle:120,1');
         Route::post('verify', 'verifyToken');
     });
     Route::post('logout', 'logout')->middleware('auth:sanctum');
@@ -69,7 +69,7 @@ Route::controller(AuthController::class)->prefix('auth')->group(function () {
     Route::get('permissions', 'permissions')->middleware('auth:sanctum');
 });
 
-Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(function () {
+Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
 
     Route::apiResource('gps_devices', GpsDeviceController::class);
     Route::apiResource('crops', CropController::class);
@@ -106,7 +106,6 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::apiResource('fields.plots', PlotController::class)->shallow();
     Route::apiResource('plots.valves', ValveController::class)->shallow();
     Route::apiResource('farms.pumps', PumpController::class)->shallow();
-    Route::get('/fields/{field}/valves', [FieldController::class, 'getValvesForField']);
 
     // Tractors gps device and driver assignment routes
     Route::get('/farms/{farm}/gps-devices/available', [TractorController::class, 'getAvailableDevices']);
@@ -115,11 +114,11 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     Route::post('/tractors/{tractor}/assignments', [TractorController::class, 'assignments']);
 
     // Active Tractors Routes
-    Route::get('/farms/{farm}/tractors/active', [ActiveTractorController::class, 'index']);
-    Route::get('/farms/{farm}/tractors/working', [ActiveTractorController::class, 'getWorkingTractors']);
-    Route::get('/tractors/{tractor}/path', [ActiveTractorController::class, 'getPath']);
-    Route::get('/tractors/{tractor}/performance', [ActiveTractorController::class, 'getPerformance']);
-    Route::get('/tractors/{tractor}/weekly-efficiency-chart', [ActiveTractorController::class, 'getWeeklyEfficiencyChart']);
+    Route::get('/farms/{farm}/tractors/active', [ActiveTractorController::class, 'index'])->can('view', 'farm');
+    Route::get('/farms/{farm}/tractors/working', [ActiveTractorController::class, 'getWorkingTractors'])->can('view', 'farm');
+    Route::get('/tractors/{tractor}/path', [ActiveTractorController::class, 'getPath'])->can('view', 'tractor');
+    Route::get('/tractors/{tractor}/performance', [ActiveTractorController::class, 'getPerformance'])->can('view', 'tractor');
+    Route::get('/tractors/{tractor}/weekly-efficiency-chart', [ActiveTractorController::class, 'getWeeklyEfficiencyChart'])->can('view', 'tractor');
 
     Route::apiResource('farms.tractors', TractorController::class)->shallow();
     Route::apiResource('/tractors.tractor_reports', TractorReportController::class)->shallow();
@@ -176,6 +175,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
     // Irrigation Routes
     Route::post('/pumps/{pump}/irrigation-reports', [PumpController::class, 'generateIrrigationReport']);
     Route::get('/plots/{plot}/irrigation-statistics', [PlotController::class, 'getIrrigationStatistics']);
+    Route::get('/irrigations/{irrigation}/plots/{plot}', [IrrigationController::class, 'getIrrigationStatisticsForPlot']);
     Route::post('/farms/{farm}/irrigations/filter-reports', [IrrigationController::class, 'filterReports']);
     Route::get('/farms/{farm}/irrigation-messages', [IrrigationController::class, 'getIrrigationMessages']);
     Route::patch('/irrigations/{irrigation}/verify', [IrrigationController::class, 'verify']);
@@ -227,7 +227,7 @@ Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->group(f
 
 Route::post('/gps/reports', GpsReportController::class)->name('gps.reports');
 
-Route::middleware(['auth:sanctum', 'last.activity', 'ensure.username'])->prefix('v1')->group(function () {
+Route::middleware(['auth:sanctum', 'ensure.username'])->prefix('v1')->group(function () {
     Route::apiResource('warnings', WarningController::class)->only(['index', 'store']);
 
     // Payment routes

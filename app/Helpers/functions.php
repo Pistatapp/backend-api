@@ -83,15 +83,40 @@ function calculate_polygon_area(array $points): float
     $numPoints = count($points);
 
     if ($numPoints < 3) {
-        throw new \InvalidArgumentException('A polygon must have at least 3 points');
+        return 0;
     }
 
+    // Parse coordinates if they are in string format "lat,lng"
+    $parsedPoints = [];
+    foreach ($points as $point) {
+        if (is_string($point)) {
+            $coords = explode(',', $point);
+            $parsedPoints[] = [(float)$coords[0], (float)$coords[1]];
+        } else {
+            $parsedPoints[] = $point;
+        }
+    }
+
+    // Calculate area using the Shoelace formula for geographic coordinates
+    // Convert lat/lng to meters using Haversine-based approach
     $area = 0.0;
-    for ($i = 0, $j = $numPoints - 1; $i < $numPoints; $j = $i++) {
-        $area += ($points[$j][0] * $points[$i][1]) - ($points[$i][0] * $points[$j][1]);
+    $earthRadius = 6371000; // Earth's radius in meters
+
+    for ($i = 0; $i < $numPoints; $i++) {
+        $j = ($i + 1) % $numPoints;
+
+        $lat1 = deg2rad($parsedPoints[$i][0]);
+        $lng1 = deg2rad($parsedPoints[$i][1]);
+        $lat2 = deg2rad($parsedPoints[$j][0]);
+        $lng2 = deg2rad($parsedPoints[$j][1]);
+
+        // Calculate area contribution using spherical excess formula
+        $area += ($lng2 - $lng1) * (2 + sin($lat1) + sin($lat2));
     }
 
-    return abs($area) / 2.0;
+    $area = abs($area) * $earthRadius * $earthRadius / 2.0;
+
+    return round($area, 2);
 }
 
 /**
@@ -106,7 +131,7 @@ function calculate_polygon_center(array $points): array
     $numPoints = count($points);
 
     if ($numPoints < 3) {
-        throw new \InvalidArgumentException('A polygon must have at least 3 points');
+        return [0, 0];
     }
 
     $sumX = 0;

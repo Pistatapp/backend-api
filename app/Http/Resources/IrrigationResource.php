@@ -22,7 +22,8 @@ class IrrigationResource extends JsonResource
                     'name' => $this->labour->full_name,
                 ];
             }),
-            'date' => jdate($this->date)->format('Y/m/d'),
+            'start_date' => jdate($this->start_time)->format('Y/m/d'),
+            'end_date' => jdate($this->end_time)->format('Y/m/d'),
             'start_time' => $this->start_time->format('H:i'),
             'end_time' => $this->end_time->format('H:i'),
             'pump' => $this->whenLoaded('pump', function () {
@@ -52,7 +53,7 @@ class IrrigationResource extends JsonResource
             'note' => $this->note,
             'status' => $this->status,
             'is_verified_by_admin' => (bool) $this->is_verified_by_admin,
-            'duration' => gmdate('H:i:s', $this->duration),
+            'duration' => to_time_format($this->duration),
             'plots_count' => $this->whenCounted('plots'),
             'area_covered' => $this->getAreaCovered(),
             $this->mergeWhen(in_array($this->status, ['in-progress', 'finished']), [
@@ -87,7 +88,7 @@ class IrrigationResource extends JsonResource
     {
         return $this->valves->sum(function ($valve) {
             $area = $valve->dripper_count * $valve->dripper_flow_rate * ($this->duration / 3600);
-            return round($area, 2);
+            return round($area / 1000, 2);
         });
     }
 }

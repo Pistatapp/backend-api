@@ -10,6 +10,11 @@ use Illuminate\Http\Request;
 
 class PlotController extends Controller
 {
+    public function __construct()
+    {
+        $this->authorizeResource(Plot::class, 'plot');
+    }
+
     /**
      * Display a listing of the resource.
      */
@@ -85,7 +90,7 @@ class PlotController extends Controller
         // Get successful irrigations (status = 'finished') in the last 30 days
         $successfulIrrigations = $plot->irrigations()
             ->where('status', 'finished')
-            ->where('start_date', '>=', $thirtyDaysAgo)
+            ->whereDate('start_time', '>=', $thirtyDaysAgo)
             ->with('valves')
             ->get();
 
@@ -93,7 +98,7 @@ class PlotController extends Controller
         $latestSuccessfulIrrigation = $plot->irrigations()
             ->where('status', 'finished')
             ->with('valves')
-            ->latest('start_date')
+            ->latest('start_time')
             ->first();
 
         // Calculate statistics for last 30 days
@@ -123,10 +128,10 @@ class PlotController extends Controller
         if ($latestSuccessfulIrrigation) {
             $latestIrrigationData = [
                 'id' => $latestSuccessfulIrrigation->id,
-                'start_date' => jdate($latestSuccessfulIrrigation->start_date)->format('Y/m/d'),
-                'end_date' => $latestSuccessfulIrrigation->end_date ? jdate($latestSuccessfulIrrigation->end_date)->format('Y/m/d') : null,
+                'start_date' => jdate($latestSuccessfulIrrigation->start_time)->format('Y/m/d'),
+                'end_date' => $latestSuccessfulIrrigation->end_time?->format('Y/m/d'),
                 'start_time' => $latestSuccessfulIrrigation->start_time->format('H:i'),
-                'end_time' => $latestSuccessfulIrrigation->end_time->format('H:i'),
+                'end_time' => $latestSuccessfulIrrigation->end_time?->format('H:i'),
             ];
         }
 
@@ -136,8 +141,8 @@ class PlotController extends Controller
                 'latest_successful_irrigation' => $latestIrrigationData,
                 'successful_irrigations_count_last_30_days' => $successfulIrrigations->count(),
                 'area_covered_duration_last_30_days' => to_time_format($totalDuration),
-                'total_volume_last_30_days' => round($totalVolume, 2),
-                'total_volume_per_hectare_last_30_days' => round($totalVolumePerHectare, 2),
+                'total_volume_last_30_days' => round($totalVolume / 1000, 2),
+                'total_volume_per_hectare_last_30_days' => round($totalVolumePerHectare / 1000, 2),
             ]
         ]);
     }

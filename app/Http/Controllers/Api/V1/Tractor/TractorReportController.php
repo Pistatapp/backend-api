@@ -76,6 +76,13 @@ class TractorReportController extends Controller
     public function filter(FilterTractorReportRequest $request)
     {
         $validated = $request->validated();
+
+        // Verify user has access to the tractor's farm
+        $tractor = \App\Models\Tractor::findOrFail($validated['tractor_id']);
+        if (!$tractor->farm->users->contains($request->user())) {
+            abort(403, 'Unauthorized access to this tractor.');
+        }
+
         $query = TractorReport::where('tractor_id', $validated['tractor_id'])
             ->with(['operation', 'field']);
 

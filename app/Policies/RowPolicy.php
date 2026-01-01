@@ -13,7 +13,7 @@ class RowPolicy
      */
     public function viewAny(User $user): bool
     {
-        return true;
+        return $user->hasFarm();
     }
 
     /**
@@ -29,7 +29,7 @@ class RowPolicy
      */
     public function create(User $user): bool
     {
-        return $user->hasFarm();
+        return $user->hasFarm() && $user->can('draw-field-block-row-tree');
     }
 
     /**
@@ -37,6 +37,6 @@ class RowPolicy
      */
     public function delete(User $user, Row $row): bool
     {
-        return $row->field->farm->users->contains($user);
+        return $row->field->farm->users->contains($user) && $user->can('draw-field-block-row-tree');
     }
 }

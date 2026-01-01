@@ -22,7 +22,7 @@ class IrrigationNotification extends Notification implements ShouldQueue
      */
     public function via($notifiable)
     {
-        return ['firebase', 'database'];
+        return ['database'];
     }
 
     /**

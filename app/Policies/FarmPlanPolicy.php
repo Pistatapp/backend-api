@@ -13,7 +13,7 @@ class FarmPlanPolicy
      */
     public function viewAny(User $user): bool
     {
-        return true;
+        return $user->hasFarm() && $user->can('view-treatment-plan-details');
     }
 
     /**
@@ -21,7 +21,7 @@ class FarmPlanPolicy
      */
     public function view(User $user, FarmPlan $farmPlan): bool
     {
-        return $farmPlan->creator->is($user) || $farmPlan->farm->users->contains($user);
+        return $farmPlan->farm->users->contains($user) && $user->can('view-treatment-plan-details');
     }
 
     /**
@@ -29,7 +29,7 @@ class FarmPlanPolicy
      */
     public function create(User $user): bool
     {
-        return true;
+        return $user->hasFarm() && $user->can('define-treatment-plan');
     }
 
     /**
@@ -37,7 +37,7 @@ class FarmPlanPolicy
      */
     public function update(User $user, FarmPlan $farmPlan): bool
     {
-        return $farmPlan->creator->is($user);
+        return $farmPlan->creator->is($user) && $user->can('define-treatment-plan');
     }
 
     /**
@@ -45,6 +45,6 @@ class FarmPlanPolicy
      */
     public function delete(User $user, FarmPlan $farmPlan): bool
     {
-        return $farmPlan->creator->is($user);
+        return $farmPlan->creator->is($user) && $user->can('define-treatment-plan');
     }
 }

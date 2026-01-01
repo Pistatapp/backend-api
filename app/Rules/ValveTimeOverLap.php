@@ -10,64 +10,72 @@ use Illuminate\Contracts\Validation\ValidationRule;
 
 class ValveTimeOverLap implements ValidationRule, DataAwareRule
 {
-
-    /**
-     * The data the validation rule has access to.
-     *
-     * @var array<string, mixed>
-     */
+    /** @var array<string, mixed> */
     protected array $data;
 
-    /**
-     * Set the data the validation rule has access to.
-     *
-     * @param  array<string, mixed>  $data
-     * @return static
-     */
     public function setData(array $data): static
     {
         $this->data = $data;
-
         return $this;
     }
 
     /**
      * Run the validation rule.
      *
-     * @param  \Closure(string): \Illuminate\Translation\PotentiallyTranslatedString  $fail
+     * @param \Closure(string): \Illuminate\Translation\PotentiallyTranslatedString $fail
      */
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
-        try {
-            $valves = $this->data['valves'] ?? [];
-            $start_time = $this->data['start_time'] ?? null;
-            $end_time = $this->data['end_time'] ?? null;
-            $dateInput = $this->data['start_date'] ?? $this->data['date'] ?? request('start_date') ?? request('date');
+        [$startDateTime, $endDateTime, $valves] = $this->extractValidationData();
 
-            if (empty($valves) || !$start_time || !$end_time || !$dateInput) {
-                return;
-            }
-
-            $date = $dateInput instanceof Carbon ? $dateInput : Carbon::parse($dateInput);
-            $irrigation = request()->route('irrigation');
-            $farm_id = request()->route('farm')->id ?? $irrigation->farm_id;
-
-            $irrigationExistsQuery = Irrigation::where('farm_id', $farm_id)
-                ->whereDate('start_date', $date->format('Y-m-d'))
-                // Check for time overlap
-                ->where('start_time', '<', $end_time)
-                ->where('end_time', '>', $start_time)
-                ->whereHas('valves', fn($query) => $query->whereIn('valves.id', $valves));
-
-            if ($irrigation) {
-                $irrigationExistsQuery->where('id', '!=', $irrigation->id);
-            }
-
-            if ($irrigationExistsQuery->exists()) {
-                $fail(__("زمان انتخاب شده با برنامه آبیاری دیگری برای این سرویس تداخل دارد."));
-            }
-        } catch (\Exception $e) {
-            $fail(__("An error occurred while validating the irrigation report: " . $e->getMessage()));
+        if (!$startDateTime || !$endDateTime || empty($valves)) {
+            return;
         }
+
+        $query = $this->buildOverlapQuery($startDateTime, $endDateTime, $valves);
+
+        if ($query->exists()) {
+            $fail(__('The selected time overlaps with another irrigation schedule for this service.'));
+        }
+    }
+
+    private function extractValidationData(): array
+    {
+        $valves = $this->data['valves'] ?? [];
+        $startTime = $this->data['start_time'] ?? null;
+        $endTime = $this->data['end_time'] ?? null;
+
+        if (empty($valves) || !$startTime || !$endTime) {
+            return [null, null, []];
+        }
+
+        // start_time and end_time are already combined datetime values from prepareForValidation
+        $startDateTime = $startTime instanceof Carbon ? $startTime : Carbon::parse($startTime);
+        $endDateTime = $endTime instanceof Carbon ? $endTime : Carbon::parse($endTime);
+
+        return [$startDateTime, $endDateTime, $valves];
+    }
+
+    private function buildOverlapQuery(Carbon $startDateTime, Carbon $endDateTime, array $valves)
+    {
+        $irrigation = request()->route('irrigation');
+        $farmId = request()->route('farm')->id ?? ($irrigation?->farm_id);
+
+        return Irrigation::query()
+            ->where('farm_id', $farmId)
+            ->where(fn($query) => $this->addOverlapConditions($query, $startDateTime, $endDateTime))
+            ->whereHas('valves', fn($query) => $query->whereIn('valves.id', $valves))
+            ->when($irrigation, fn($query) => $query->where('id', '!=', $irrigation->id));
+    }
+
+    private function addOverlapConditions($query, Carbon $startDateTime, Carbon $endDateTime)
+    {
+        return $query
+            // New irrigation starts during existing irrigation
+            ->orWhere(fn($q) => $q->where('start_time', '<=', $startDateTime)->where('end_time', '>', $startDateTime))
+            // New irrigation ends during existing irrigation
+            ->orWhere(fn($q) => $q->where('start_time', '<', $endDateTime)->where('end_time', '>=', $endDateTime))
+            // New irrigation completely encompasses existing irrigation
+            ->orWhere(fn($q) => $q->where('start_time', '>=', $startDateTime)->where('end_time', '<=', $endDateTime));
     }
 }

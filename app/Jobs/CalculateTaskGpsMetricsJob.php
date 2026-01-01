@@ -28,11 +28,6 @@ class CalculateTaskGpsMetricsJob implements ShouldQueue
     public $tries = 3;
 
     /**
-     * Minimum percentage of time tractor must be in zone to mark task as done.
-     */
-    private const MINIMUM_PRESENCE_PERCENTAGE = 30;
-
-    /**
      * Create a new job instance.
      */
     public function __construct(
@@ -46,69 +41,29 @@ class CalculateTaskGpsMetricsJob implements ShouldQueue
      */
     public function handle(GpsDataAnalyzer $gpsDataAnalyzer, TractorTaskService $tractorTaskService): void
     {
-        $date = $this->task->date instanceof Carbon
-            ? $this->task->date
-            : Carbon::parse($this->task->date);
+        $date = $this->task->date;
 
         $dateString = $date->toDateString();
 
         // Get task time window
-        $taskDateTime = Carbon::parse($this->task->date);
-        $taskStartDateTime = $taskDateTime->copy()->setTimeFromTimeString($this->task->start_time);
-        $taskEndDateTime = $taskDateTime->copy()->setTimeFromTimeString($this->task->end_time);
-
-        if ($taskEndDateTime->lt($taskStartDateTime)) {
-            $taskEndDateTime->addDay();
-        }
+        $taskDate = Carbon::parse($this->task->date);
+        $taskStartTime = $taskDate->copy()->setTimeFromTimeString($this->task->start_time);
+        $taskEndTime = $taskDate->copy()->setTimeFromTimeString($this->task->end_time);
 
         // Ensure the tractor relationship is loaded
         $this->task->load('tractor');
         $tractor = $this->task->tractor;
 
-        if (!$tractor) {
-            Log::warning('No tractor found for task', [
-                'task_id' => $this->task->id,
-            ]);
-            // If no tractor, set status to not_done and send notification
-            $this->setTaskStatusAndNotify('not_done', null);
-            return;
-        }
-
-        // Get GPS data for the tractor within task time window
-        $gpsData = $tractor->gpsData()
-            ->whereDate('date_time', $date)
-            ->whereBetween('date_time', [$taskStartDateTime, $taskEndDateTime])
-            ->orderBy('date_time')
-            ->get();
-
-        // Filter points that are in the task zone
         $taskZone = $tractorTaskService->getTaskZone($this->task);
 
-        if (!$taskZone) {
-            Log::warning('No task zone found for task', [
-                'task_id' => $this->task->id,
-                'tractor_id' => $this->task->tractor_id,
-            ]);
-            // If no task zone, set status to not_done and send notification
-            $this->setTaskStatusAndNotify('not_done', null);
-            return;
-        }
-
-        $filteredGpsData = $gpsData->filter(function ($point) use ($taskZone) {
-            return is_point_in_polygon($point->coordinate, $taskZone);
-        });
-
-        if ($filteredGpsData->isEmpty()) {
-            // If no GPS data in zone, set status to not_done and send notification
-            $this->setTaskStatusAndNotify('not_done', null);
-            return;
-        }
-
         // Analyze GPS data with task time window
-        $results = $gpsDataAnalyzer->loadFromRecords($filteredGpsData)->analyzeLight($taskStartDateTime, $taskEndDateTime);
+        $results = $gpsDataAnalyzer->loadRecordsFor($tractor, $date)
+            ->analyze($taskStartTime, $taskEndTime, $taskZone);
+
+        Log::info('Results: ' . json_encode($results));
 
         // Check if there's any valid GPS data
-        if (empty($results['start_time'])) {
+        if ($results['movement_duration_seconds'] <= 0) {
             // If no valid GPS data, set status to not_done and send notification
             $this->setTaskStatusAndNotify('not_done', null);
             return;
@@ -123,13 +78,7 @@ class CalculateTaskGpsMetricsJob implements ShouldQueue
             'first_movement_time' => $results['first_movement_time'] ?? null,
         ];
 
-        // Calculate percentage of time spent in zone
-        $totalTaskDuration = $taskStartDateTime->diffInSeconds($taskEndDateTime);
-        $timeInZone = $results['movement_duration_seconds']; // work duration in seconds
-        $presencePercentage = $totalTaskDuration > 0 ? ($timeInZone / $totalTaskDuration) * 100 : 0;
-
-        // Determine task status based on 30% threshold
-        $taskStatus = $presencePercentage >= self::MINIMUM_PRESENCE_PERCENTAGE ? 'done' : 'not_done';
+        $taskStatus = 'done';
 
         // Update or create metrics record
         $metrics = GpsMetricsCalculation::updateOrCreate(

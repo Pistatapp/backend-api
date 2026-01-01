@@ -41,11 +41,10 @@ class CalculateGpsMetricsJob implements ShouldQueue
         $dateString = $this->date->toDateString();
 
         // Load GPS records for the entire day using tractor's work time window
-        // This automatically uses start_work_time and end_work_time if set
-        $results = $gpsDataAnalyzer->loadRecordsFor($this->tractor, $this->date)->analyzeLight();
+        $results = $gpsDataAnalyzer->loadRecordsFor($this->tractor, $this->date)->analyze();
 
         // Check if there's any GPS data for this day
-        if (empty($results['start_time'])) {
+        if ($results['movement_duration_seconds'] <= 0) {
             return;
         }
 

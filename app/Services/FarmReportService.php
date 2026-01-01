@@ -195,7 +195,7 @@ class FarmReportService
     /**
      * Get farm reports with filters
      */
-    public function getFilteredReports(Farm $farm, array $filters): Collection
+    public function getFilteredReports(Farm $farm, array $filters, int $perPage = 50): \Illuminate\Contracts\Pagination\LengthAwarePaginator
     {
         $query = $farm->reports()->with(['operation', 'labour', 'reportable']);
 
@@ -206,12 +206,13 @@ class FarmReportService
                 'reportable_id' => $query->whereIn('reportable_id', $value),
                 'operation_ids' => $query->whereIn('operation_id', $value),
                 'employee_ids' => $query->whereIn('labour_id', $value),
-                'date_range' => $query->where('date', '>=', $value['from'])->where('date', '<=', $value['to']),
+                'labour_ids' => $query->whereIn('labour_id', $value),
+                'date_range' => $query->whereBetween('date', [$value['from'], $value['to']]),
                 default => null,
             };
         }
 
-        return $query->orderBy('date', 'desc')->get();
+        return $query->orderBy('date', 'desc')->paginate($perPage);
     }
 
     /**

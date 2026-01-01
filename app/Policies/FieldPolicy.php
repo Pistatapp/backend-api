@@ -29,7 +29,7 @@ class FieldPolicy
      */
     public function create(User $user): bool
     {
-        return $user->hasFarm();
+        return $user->hasFarm() && $user->can('draw-field-block-row-tree');
     }
 
     /**
@@ -37,7 +37,7 @@ class FieldPolicy
      */
     public function update(User $user, Field $field): bool
     {
-        return $field->farm->users->contains($user);
+        return $field->farm->users->contains($user) && $user->can('draw-field-block-row-tree');
     }
 
     /**
@@ -45,6 +45,6 @@ class FieldPolicy
      */
     public function delete(User $user, Field $field): bool
     {
-        return $field->farm->users->contains($user);
+        return $field->farm->users->contains($user) && $user->can('draw-field-block-row-tree');
     }
 }

@@ -4,6 +4,7 @@ namespace App\Casts;
 
 use Illuminate\Contracts\Database\Eloquent\CastsAttributes;
 use Illuminate\Database\Eloquent\Model;
+use Carbon\Carbon;
 
 class Time implements CastsAttributes
 {
@@ -14,7 +15,7 @@ class Time implements CastsAttributes
      */
     public function get(Model $model, string $key, mixed $value, array $attributes): mixed
     {
-        return $value ? \Carbon\Carbon::createFromFormat('H:i:s', $value)->format('H:i') : null;
+        return Carbon::createFromFormat('H:i:s', $value);
     }
 
     /**
@@ -24,6 +25,6 @@ class Time implements CastsAttributes
      */
     public function set(Model $model, string $key, mixed $value, array $attributes): mixed
     {
-        return $value ? \Carbon\Carbon::parse($value)->format('H:i') : null;
+        return Carbon::parse($value)->format('H:i:s');
     }
 }

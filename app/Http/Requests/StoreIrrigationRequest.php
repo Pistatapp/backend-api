@@ -25,15 +25,15 @@ class StoreIrrigationRequest extends FormRequest
         return [
             'labour_id' => 'required|exists:employees,id',
             'pump_id' => 'required|exists:pumps,id',
-            'date' => 'required|date',
-            'end_date' => 'nullable|date|after_or_equal:date',
             'start_time' => [
                 'required',
+                'date',
                 new \App\Rules\ValveTimeOverLap(),
                 new \App\Rules\PlotIrrigationTimeOverLap(),
             ],
             'end_time' => [
                 'required',
+                'date',
                 'after:start_time',
                 new \App\Rules\ValveTimeOverLap(),
                 new \App\Rules\PlotIrrigationTimeOverLap(),
@@ -53,29 +53,33 @@ class StoreIrrigationRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
-        $startDateInput = $this->input('start_date', $this->input('date'));
-        $startDate = $startDateInput ? jalali_to_carbon($startDateInput) : null;
-        $endDate = $this->filled('end_date') ? jalali_to_carbon($this->end_date) : null;
+        $startDate = $this->filled('start_date') ? jalali_to_carbon($this->start_date) : null;
+        $endDate = $this->filled('end_date') ? jalali_to_carbon($this->end_date) : $startDate;
         $startTime = $this->filled('start_time') ? Carbon::createFromFormat('H:i', $this->start_time) : null;
         $endTime = $this->filled('end_time') ? Carbon::createFromFormat('H:i', $this->end_time) : null;
 
         $prepared = [];
 
-        if ($startDate) {
-            $prepared['date'] = $startDate;
-            $prepared['start_date'] = $startDate;
+        // Combine start_date and start_time into start_time datetime
+        if ($startDate && $startTime) {
+            $prepared['start_time'] = $startDate->copy()->setTime(
+                $startTime->hour,
+                $startTime->minute,
+                $startTime->second
+            );
+        } elseif ($startDate) {
+            $prepared['start_time'] = $startDate->copy()->startOfDay();
         }
 
-        if ($endDate) {
-            $prepared['end_date'] = $endDate;
-        }
-
-        if ($startTime) {
-            $prepared['start_time'] = $startTime;
-        }
-
-        if ($endTime) {
-            $prepared['end_time'] = $endTime;
+        // Combine end_date and end_time into end_time datetime
+        if ($endDate && $endTime) {
+            $prepared['end_time'] = $endDate->copy()->setTime(
+                $endTime->hour,
+                $endTime->minute,
+                $endTime->second
+            );
+        } elseif ($endDate) {
+            $prepared['end_time'] = $endDate->copy()->startOfDay();
         }
 
         if (!empty($prepared)) {

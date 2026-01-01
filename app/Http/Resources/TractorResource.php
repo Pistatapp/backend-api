@@ -35,8 +35,8 @@ class TractorResource extends JsonResource
             }),
             'created_at' => jdate($this->created_at)->format('Y/m/d'),
             'can' => [
-                'add_driver' => $this->driver()->doesntExist(),
-                'add_gps_device' => $this->gpsDevice()->doesntExist(),
+                'add_driver' => !$this->relationLoaded('driver') || is_null($this->driver),
+                'add_gps_device' => !$this->relationLoaded('gpsDevice') || is_null($this->gpsDevice),
                 'update' => $request->user()->can('update', $this->resource),
                 'delete' => $request->user()->can('delete', $this->resource),
             ],

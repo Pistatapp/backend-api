@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Api\V1\Tractor;
 
 use App\Http\Controllers\Controller;
 use App\Services\ParseDataService;
-use App\Models\GpsDevice;
 use App\Models\GpsData;
+use App\Models\Tractor;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use App\Events\TractorStatus;
@@ -33,38 +33,45 @@ class GpsReportController extends Controller
             // Log raw GPS data
             $this->logRawGpsData($rawData, $deviceImei);
 
-            $device = $this->fetchDeviceByImei($deviceImei);
+            $tractor = $this->fetchTractorByDeviceImei($deviceImei);
+
+            if (!$tractor) {
+                return response()->json([], 200);
+            }
 
             // Save parsed GPS data to database
-            $this->saveGpsData($data, $device->id);
+            $this->saveGpsData($data, $tractor->id);
 
             // Update tractor status
-            $tractor = $device->tractor;
             $lastStatus = end($data)['status'];
             event(new TractorStatus($tractor, $lastStatus));
+
+            // Get device for ReportReceived event (only fire if device exists)
+            $device = $tractor->gpsDevice;
             event(new ReportReceived($data, $device));
         } catch (\Exception $e) {
-            //
+            // Log error
         }
 
         return response()->json([], 200);
     }
 
     /**
-     * Fetch GPS device by IMEI with tractor relationship, using cache for performance.
+     * Fetch tractor by device IMEI, using cache for performance.
      *
      * @param string $imei Device IMEI
-     * @return GpsDevice|null
+     * @return Tractor|null
      */
-    private function fetchDeviceByImei(string $imei): ?GpsDevice
+    private function fetchTractorByDeviceImei(string $imei): ?Tractor
     {
-        $cacheKey = "gps_device_with_tractor_{$imei}";
+        $cacheKey = "tractor_by_device_imei_{$imei}";
 
         return Cache::remember($cacheKey, now()->addHour(), function () use ($imei) {
-            return GpsDevice::where('imei', $imei)
-                ->whereHas('tractor')
-                ->with(['tractor'])
-                ->first();
+            $tractor = Tractor::whereHas('gpsDevice', function ($query) use ($imei) {
+                $query->where('imei', $imei);
+            })->with('gpsDevice')->first();
+
+            return $tractor;
         });
     }
 
@@ -100,26 +107,35 @@ class GpsReportController extends Controller
      * Save parsed GPS data to database
      *
      * @param array $data Parsed GPS data array
-     * @param int $deviceId GPS device ID
+     * @param int $tractorId Tractor ID
      * @return void
      */
-    private function saveGpsData(array $data, int $deviceId): void
+    private function saveGpsData(array $data, int $tractorId): void
     {
-        $gpsDataRecords = [];
-
-        foreach ($data as $item) {
-            $gpsDataRecords[] = [
-                'gps_device_id' => $deviceId,
-                'coordinate' => json_encode($item['coordinate']),
-                'speed' => $item['speed'],
-                'status' => $item['status'],
-                'directions' => json_encode($item['directions']),
-                'imei' => $item['imei'],
-                'date_time' => $item['date_time'],
-            ];
+        if (empty($data)) {
+            return;
         }
 
-        // Use bulk insert for better performance
-        GpsData::insert($gpsDataRecords);
+        $batchSize = 500; // Process in batches of 500 records
+        $batches = array_chunk($data, $batchSize);
+
+        foreach ($batches as $batch) {
+            $gpsDataRecords = [];
+
+            foreach ($batch as $item) {
+                $gpsDataRecords[] = [
+                    'tractor_id' => $tractorId,
+                    'coordinate' => json_encode($item['coordinate']),
+                    'speed' => $item['speed'],
+                    'status' => $item['status'],
+                    'directions' => json_encode($item['directions']),
+                    'imei' => $item['imei'],
+                    'date_time' => $item['date_time'],
+                ];
+            }
+
+            // Insert batch to avoid memory issues and improve performance
+            GpsData::insert($gpsDataRecords);
+        }
     }
 }

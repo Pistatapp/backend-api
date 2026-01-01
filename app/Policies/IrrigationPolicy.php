@@ -13,7 +13,7 @@ class IrrigationPolicy
      */
     public function viewAny(User $user): bool
     {
-        return true;
+        return $user->hasFarm();
     }
 
     /**
@@ -21,8 +21,7 @@ class IrrigationPolicy
      */
     public function view(User $user, Irrigation $irrigation): bool
     {
-        return $irrigation->creator->is($user)
-            || $irrigation->farm->users->contains($user);
+        return $irrigation->farm->users->contains($user);
     }
 
     /**
@@ -30,7 +29,7 @@ class IrrigationPolicy
      */
     public function create(User $user): bool
     {
-        return true;
+        return $user->hasFarm() && $user->can('define-irrigation-program');
     }
 
     /**
@@ -38,20 +37,15 @@ class IrrigationPolicy
      */
     public function update(User $user, Irrigation $irrigation): bool
     {
-        // Cannot update if already verified by admin
-        if ($irrigation->is_verified_by_admin) {
+        // Combine date with end_time (H:i:s format) to create full datetime
+        $irrigationEndTimeDiff = $irrigation->end_time->diffInHours(now());
+        // If 72 hours have passed since irrigation end_time, return false
+        if ($irrigationEndTimeDiff > 72) {
             return false;
         }
 
-        // If irrigation is finished, only farm admin can update; if pending, either creator or farm admin can update
-        if ($irrigation->status === 'finished') {
-            return $irrigation->farm->admins->contains($user);
-        }
-
-        return $irrigation->status === 'pending' && (
-            $irrigation->creator->is($user) ||
-            $irrigation->farm->admins->contains($user)
-        );
+        // Must have permission to edit irrigation
+        return $user->can('edit-irrigation-program');
     }
 
     /**
@@ -71,8 +65,12 @@ class IrrigationPolicy
      */
     public function verify(User $user, Irrigation $irrigation): bool
     {
+        // Check if irrigation was verified by admin and if enough time has passed
         if ($irrigation->is_verified_by_admin) {
-            return false;
+            $passedTimeSinceLastVerification = $irrigation->updated_at->diffInHours(now());
+            if ($passedTimeSinceLastVerification <= 72) {
+                return false;
+            }
         }
 
         return $irrigation->farm->admins->contains($user);

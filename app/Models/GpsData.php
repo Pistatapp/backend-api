@@ -20,7 +20,7 @@ class GpsData extends Model
      * @var array<int, string>
      */
     protected $fillable = [
-        'gps_device_id',
+        'tractor_id',
         'coordinate',
         'speed',
         'status',
@@ -46,11 +46,11 @@ class GpsData extends Model
     }
 
     /**
-     * Get the GPS device that owns this GPS data.
+     * Get the tractor that owns this GPS data.
      */
-    public function device()
+    public function tractor()
     {
-        return $this->belongsTo(GpsDevice::class, 'gps_device_id');
+        return $this->belongsTo(Tractor::class, 'tractor_id');
     }
 }
 

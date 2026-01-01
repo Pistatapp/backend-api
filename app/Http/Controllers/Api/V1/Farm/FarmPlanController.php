@@ -43,13 +43,13 @@ class FarmPlanController extends Controller
             ->with(['details.treatable']);
 
         // Filter by date range
-        if ($request->has('from_date')) {
-            $query->where('start_date', '>=', $request->from_date);
-        }
-
-        if ($request->has('to_date')) {
-            $query->where('end_date', '<=', $request->to_date);
-        }
+        $query->where(function($query) use ($request) {
+            $query->where(function($subQuery) use ($request) {
+                // Plan overlaps with the requested date range
+                $subQuery->where('start_date', '<=', $request->to_date)
+                    ->where('end_date', '>=', $request->from_date);
+            });
+        });
 
         // Filter by treatables
         if ($request->has('treatable') && is_array($request->treatable)) {
@@ -65,7 +65,7 @@ class FarmPlanController extends Controller
             });
         }
 
-        $plans = $query->get();
+        $plans = $query->simplePaginate();
 
         return FilteredFarmPlanResource::collection($plans);
     }

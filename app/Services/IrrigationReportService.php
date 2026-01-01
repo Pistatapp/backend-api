@@ -20,17 +20,10 @@ class IrrigationReportService
     {
         $irrigations = $this->getFilteredIrrigations($plotIds, $filters);
 
-        // Generate daily reports in liters first
-        $dailyReportsLiters = $this->generateDailyReports($irrigations, $filters['from_date'], $filters['to_date']);
+        // Generate daily reports (already in cubic meters)
+        $dailyReports = $this->generateDailyReports($irrigations, $filters['from_date'], $filters['to_date']);
 
-        // Convert to cubic meters
-        $dailyReports = array_map(function (array $report) {
-            $report['total_volume'] = $report['total_volume'] / 1000;
-            $report['total_volume_per_hectare'] = $report['total_volume_per_hectare'] / 1000;
-            return $report;
-        }, $dailyReportsLiters);
-
-        // Calculate accumulated values from converted (m3) daily reports
+        // Calculate accumulated values from daily reports
         $accumulated = $this->calculateAccumulatedValues($dailyReports);
 
         return [
@@ -136,9 +129,9 @@ class IrrigationReportService
                     $query->whereIn('valves.id', $filters['valves']);
                 });
             })
-            ->whereBetween('start_date', [
-                $filters['from_date']->format('Y-m-d'),
-                $filters['to_date']->format('Y-m-d'),
+            ->whereBetween('start_time', [
+                $filters['from_date']->startOfDay(),
+                $filters['to_date']->endOfDay(),
             ])
             ->with([
                 'valves' => function ($query) use ($filters) {
@@ -167,12 +160,25 @@ class IrrigationReportService
 
         while ($currentDate->lte($toDate)) {
             $dailyIrrigations = $irrigations->filter(function ($irrigation) use ($currentDate) {
-                $irrigationDate = $irrigation->start_date;
+                $irrigationDate = $irrigation->start_time;
 
                 return $irrigationDate instanceof Carbon && $irrigationDate->isSameDay($currentDate);
             });
 
+            // Skip dates with no irrigations
+            if ($dailyIrrigations->isEmpty()) {
+                $currentDate->addDay();
+                continue;
+            }
+
             $dailyReport = $this->calculateDailyTotals($dailyIrrigations, $currentDate);
+
+            // Skip dates with all zero values
+            if (!$this->hasNonZeroValues($dailyReport)) {
+                $currentDate->addDay();
+                continue;
+            }
+
             $dailyReports[] = $dailyReport;
 
             $currentDate->addDay();
@@ -200,19 +206,39 @@ class IrrigationReportService
 
         while ($currentDate->lte($toDate)) {
             $dailyIrrigations = $irrigations->filter(function ($irrigation) use ($currentDate) {
-                $irrigationDate = $irrigation->start_date;
+                $irrigationDate = $irrigation->start_time;
 
                 return $irrigationDate instanceof Carbon && $irrigationDate->isSameDay($currentDate);
             });
 
+            // Skip dates with no irrigations
+            if ($dailyIrrigations->isEmpty()) {
+                $currentDate->addDay();
+                continue;
+            }
+
             $irrigationPerValve = [];
+            $hasNonZeroValveData = false;
+
             foreach ($valveIds as $valveId) {
                 $valveIrrigations = $dailyIrrigations->filter(function ($irrigation) use ($valveId) {
                     return $irrigation->valves->contains('id', $valveId);
                 });
 
                 $valveKey = $valveNames[$valveId] ?? "valve{$valveId}";
-                $irrigationPerValve[$valveKey] = $this->calculateValveSpecificTotals($valveIrrigations, $valveId);
+                $valveReport = $this->calculateValveSpecificTotals($valveIrrigations, $valveId);
+                $irrigationPerValve[$valveKey] = $valveReport;
+
+                // Check if this valve has non-zero values
+                if ($this->hasNonZeroValveValues($valveReport)) {
+                    $hasNonZeroValveData = true;
+                }
+            }
+
+            // Skip dates where all valves have zero values
+            if (!$hasNonZeroValveData) {
+                $currentDate->addDay();
+                continue;
             }
 
             $dailyReports[] = [
@@ -240,13 +266,17 @@ class IrrigationReportService
         $totalVolumePerHectare = 0;
 
         foreach ($dailyIrrigations as $irrigation) {
-            $durationInSeconds = $irrigation->start_time->diffInSeconds($irrigation->end_time);
+            /** @var \App\Models\Irrigation $irrigation */
+            $durationInSeconds = $this->calculateIrrigationDuration($irrigation);
             $totalDuration += $durationInSeconds;
 
             foreach ($irrigation->valves as $valve) {
-                $volume = ($valve->dripper_count * $valve->dripper_flow_rate) * ($durationInSeconds / 3600);
-                $totalVolume += $volume;
-                $totalVolumePerHectare += ($volume / $valve->irrigation_area);
+                /** @var \App\Models\Valve $valve */
+                // Calculate volume in liters, then convert to cubic meters
+                $volumeInLiters = ($valve->dripper_count * $valve->dripper_flow_rate) * ($durationInSeconds / 3600);
+                $volumeInCubicMeters = $volumeInLiters / 1000;
+                $totalVolume += $volumeInCubicMeters;
+                $totalVolumePerHectare += ($volumeInCubicMeters / $valve->irrigation_area);
             }
         }
 
@@ -273,14 +303,18 @@ class IrrigationReportService
         $totalVolumePerHectare = 0;
 
         foreach ($valveIrrigations as $irrigation) {
-            $durationInSeconds = $irrigation->start_time->diffInSeconds($irrigation->end_time);
+            /** @var \App\Models\Irrigation $irrigation */
+            $durationInSeconds = $this->calculateIrrigationDuration($irrigation);
             $totalDuration += $durationInSeconds;
 
+            /** @var \App\Models\Valve|null $valve */
             $valve = $irrigation->valves->firstWhere('id', $valveId);
             if ($valve) {
-                $volume = ($valve->dripper_count * $valve->dripper_flow_rate) * ($durationInSeconds / 3600);
-                $totalVolume += $volume;
-                $totalVolumePerHectare += $volume / $valve->irrigation_area;
+                // Calculate volume in liters, then convert to cubic meters
+                $volumeInLiters = ($valve->dripper_count * $valve->dripper_flow_rate) * ($durationInSeconds / 3600);
+                $volumeInCubicMeters = $volumeInLiters / 1000;
+                $totalVolume += $volumeInCubicMeters;
+                $totalVolumePerHectare += $volumeInCubicMeters / $valve->irrigation_area;
             }
         }
 
@@ -352,6 +386,17 @@ class IrrigationReportService
     }
 
     /**
+     * Calculate irrigation duration from start_time to end_time
+     *
+     * @param \App\Models\Irrigation $irrigation
+     * @return int Duration in seconds
+     */
+    private function calculateIrrigationDuration(\App\Models\Irrigation $irrigation): int
+    {
+        return $irrigation->start_time->diffInSeconds($irrigation->end_time);
+    }
+
+    /**
      * Convert time format (HH:MM:SS) to seconds
      *
      * @param string $timeFormat
@@ -361,5 +406,33 @@ class IrrigationReportService
     {
         $parts = explode(':', $timeFormat);
         return ($parts[0] * 3600) + ($parts[1] * 60) + $parts[2];
+    }
+
+    /**
+     * Check if a daily report has non-zero values
+     *
+     * @param array $report
+     * @return bool
+     */
+    private function hasNonZeroValues(array $report): bool
+    {
+        return $report['total_count'] > 0
+            || $report['total_volume'] > 0
+            || $report['total_volume_per_hectare'] > 0
+            || $this->timeFormatToSeconds($report['total_duration']) > 0;
+    }
+
+    /**
+     * Check if a valve-specific report has non-zero values
+     *
+     * @param array $valveReport
+     * @return bool
+     */
+    private function hasNonZeroValveValues(array $valveReport): bool
+    {
+        return $valveReport['total_count'] > 0
+            || $valveReport['total_volume'] > 0
+            || $valveReport['total_volume_per_hectare'] > 0
+            || $this->timeFormatToSeconds($valveReport['total_duration']) > 0;
     }
 }

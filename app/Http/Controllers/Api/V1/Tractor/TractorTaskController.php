@@ -14,6 +14,7 @@ use App\Services\TractorReportFilterService;
 use App\Services\TractorTaskService;
 use Illuminate\Support\Facades\Notification;
 use App\Notifications\TractorTaskCreated;
+use App\Jobs\CalculateTaskGpsMetricsJob;
 
 class TractorTaskController extends Controller
 {
@@ -64,6 +65,12 @@ class TractorTaskController extends Controller
 
         // Send notification to driver
         Notification::send($driver, new TractorTaskCreated($task));
+
+        // Dispatch GPS metrics calculation if task end time has passed
+        $taskEndDateTime = $task->date->copy()->setTimeFromTimeString($task->end_time);
+        $isTaskPassed = now()->greaterThan($taskEndDateTime);
+
+        CalculateTaskGpsMetricsJob::dispatchIf($isTaskPassed, $task);
 
         return new TractorTaskResource($task);
     }
@@ -152,6 +159,12 @@ class TractorTaskController extends Controller
     {
         $validated = $request->validated();
 
+        // Verify user has access to the tractor's farm
+        $tractor = Tractor::findOrFail($validated['tractor_id']);
+        if (!$tractor->farm->users->contains($request->user())) {
+            abort(403, 'Unauthorized access to this tractor.');
+        }
+
         $query = TractorTask::query()
             ->with(['operation', 'taskable', 'creator', 'tractor.driver', 'operation'])
             ->where('tractor_id', $validated['tractor_id'])
@@ -176,7 +189,7 @@ class TractorTaskController extends Controller
 
         $tasks = $query->orderBy('date', 'asc')
                       ->orderBy('start_time', 'asc')
-                      ->get();
+                      ->paginate($request->input('per_page', 50));
 
         return TractorTaskResource::collection($tasks);
     }
@@ -194,6 +207,12 @@ class TractorTaskController extends Controller
             'year' => 'required_if:period,persian_year|regex:/^\d{4}$/',
             'operation' => 'nullable|exists:operations,id'
         ]);
+
+        // Verify user has access to the tractor's farm
+        $tractor = Tractor::findOrFail($validated['tractor_id']);
+        if (!$tractor->farm->users->contains($request->user())) {
+            abort(403, 'Unauthorized access to this tractor.');
+        }
 
         $data = $this->reportFilterService->filter($validated);
 

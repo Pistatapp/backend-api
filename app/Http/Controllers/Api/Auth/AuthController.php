@@ -84,7 +84,7 @@ class AuthController extends Controller
             return $this->login($request);
         }
 
-        // $this->incrementLoginAttempts($request);
+        $this->incrementLoginAttempts($request);
 
         throw ValidationException::withMessages([
             'token' => __('The provided token is incorrect.'),
@@ -112,8 +112,6 @@ class AuthController extends Controller
                 $user->markMobileAsVerified();
 
                 $user->profile()->create();
-
-                $user->assignRole('admin');
             }
         });
 

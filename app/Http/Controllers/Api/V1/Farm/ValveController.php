@@ -10,6 +10,11 @@ use Illuminate\Http\Request;
 
 class ValveController extends Controller
 {
+    public function __construct()
+    {
+        $this->authorizeResource(Valve::class, 'valve');
+    }
+
     /**
      * Display a listing of the resource.
      */

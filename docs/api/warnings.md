@@ -100,15 +100,21 @@ Creates or updates settings for a specific warning.
 
 #### Parameter Types and Validation
 
-The `parameters` object contains warning-specific configuration. Each warning type has different required parameters:
+The `parameters` object contains warning-specific configuration. Each warning type has different required parameters based on its `setting-message-parameters` array defined in `warnings.json`.
 
 **Common Parameter Types:**
-- **Time-based**: `hours`, `days` - Integer values representing duration
-- **Date-based**: `start_date`, `end_date`, `date` - Jalali date strings (automatically converted to Carbon instances)
-- **String-based**: `pest`, `crop_type` - Text identifiers for specific entities
-- **Numeric**: `degree_days` - Float values for degree day calculations
+- **Time-based**: `hours`, `days` - Integer values (≥ 1) representing duration
+- **Date-based**: `start_date`, `end_date`, `date` - Jalali date strings in format `YYYY/MM/DD` (e.g., `1403/01/15`), automatically converted to Carbon instances
+- **String-based**: `pest`, `crop_type` - Text identifiers (max 255 characters) for specific entities
+- **Numeric**: `degree_days` - Numeric values (≥ 0) for degree day calculations
 
-**Date Format**: All date parameters accept Jalali date format and are automatically converted to Carbon instances for processing.
+**Validation Rules:**
+- All parameters listed in the warning's `setting-message-parameters` are **required**
+- Only parameters listed in `setting-message-parameters` are **allowed** (extra parameters will be rejected)
+- Parameter types are automatically validated based on parameter names
+- Date parameters must be valid Jalali calendar dates (years 13xx or 14xx)
+
+**Date Format**: All date parameters must be in Jalali date format (`YYYY/MM/DD`) and are automatically validated and converted to Carbon instances for processing.
 
 #### Response
 ```json
@@ -476,33 +482,151 @@ CREATE TABLE warnings (
 
 ### Request Validation
 
-The system validates incoming requests using Laravel's validation system:
+The system validates incoming requests using Laravel's validation system with dynamic validation based on the warning key and its `setting-message-parameters` defined in `warnings.json`:
+
+#### Base Validation Rules
 
 ```php
 // Required fields
-'key' => 'required|string',
+'key' => 'required|string',  // Must exist in warnings.json
 'enabled' => 'required|boolean',
 'parameters' => 'required|array',
 'type' => 'sometimes|string|in:one-time,schedule-based,condition-based',
-
-// Dynamic parameter validation based on warning type
-'parameters.hours' => 'required|integer|min:1|max:24',
-'parameters.days' => 'required|integer|min:1|max:365',
-'parameters.degree_days' => 'required|numeric|min:0',
-'parameters.start_date' => 'required|string',
-'parameters.end_date' => 'required|string',
-'parameters.pest' => 'required|string|max:255',
-'parameters.crop_type' => 'required|string|max:255'
 ```
 
-### Parameter Validation
+#### Dynamic Parameter Validation
 
-Each warning type validates its specific parameters:
+The system automatically validates parameters based on the warning key's `setting-message-parameters` array. Each parameter is validated according to its type:
 
-- **Time Parameters**: Must be positive integers within reasonable ranges
-- **Date Parameters**: Must be valid Jalali date strings
-- **String Parameters**: Must be non-empty strings with length limits
-- **Numeric Parameters**: Must be valid numbers within expected ranges
+**Parameter Type Detection:**
+- **Date Parameters** (`start_date`, `end_date`, `date`): Validated as Jalali date strings in format `YYYY/MM/DD` (e.g., `1403/01/15`)
+  - Must be valid Jalali calendar dates (years 13xx or 14xx)
+  - Automatically converted to Carbon instances after validation
+  
+- **Time Parameters** (`hours`, `days`): Validated as positive integers
+  - `hours`: Must be integer ≥ 1
+  - `days`: Must be integer ≥ 1
+  
+- **Numeric Parameters** (`degree_days`): Validated as numeric values
+  - Must be numeric (integer or float)
+  - Must be ≥ 0
+  
+- **String Parameters** (`pest`, `crop_type`): Validated as strings
+  - Must be non-empty strings
+  - Maximum length: 255 characters
+  
+- **Other Parameters**: Default to string validation
+
+#### Parameter Restrictions
+
+- **Only Allowed Parameters**: The system ensures that only parameters listed in the warning's `setting-message-parameters` array are provided. Any extra parameters will result in a validation error.
+- **Required Parameters**: All parameters listed in `setting-message-parameters` are required when the warning is enabled.
+
+### Parameter Validation Examples
+
+#### Example 1: Tractor Stoppage Warning
+```json
+{
+    "key": "tractor_stoppage",
+    "enabled": true,
+    "parameters": {
+        "hours": 3  // ✅ Valid: integer ≥ 1
+    }
+}
+```
+
+**Validation Rules Applied:**
+- `parameters.hours`: `required|integer|min:1`
+
+#### Example 2: Oil Spray Warning
+```json
+{
+    "key": "oil_spray_warning",
+    "enabled": true,
+    "parameters": {
+        "start_date": "1403/01/01",  // ✅ Valid: Jalali date format
+        "end_date": "1403/01/15",     // ✅ Valid: Jalali date format
+        "hours": 800                  // ✅ Valid: integer ≥ 1
+    }
+}
+```
+
+**Validation Rules Applied:**
+- `parameters.start_date`: `required|string|jalali_date_format`
+- `parameters.end_date`: `required|string|jalali_date_format`
+- `parameters.hours`: `required|integer|min:1`
+
+#### Example 3: Pest Degree Day Warning
+```json
+{
+    "key": "pest_degree_day_warning",
+    "enabled": true,
+    "parameters": {
+        "pest": "codling_moth",       // ✅ Valid: string ≤ 255 chars
+        "start_date": "1403/03/01",   // ✅ Valid: Jalali date format
+        "end_date": "1403/03/30",     // ✅ Valid: Jalali date format
+        "degree_days": 250.5          // ✅ Valid: numeric ≥ 0
+    }
+}
+```
+
+**Validation Rules Applied:**
+- `parameters.pest`: `required|string|max:255`
+- `parameters.start_date`: `required|string|jalali_date_format`
+- `parameters.end_date`: `required|string|jalali_date_format`
+- `parameters.degree_days`: `required|numeric|min:0`
+
+### Common Validation Errors
+
+#### Invalid Warning Key
+```json
+{
+    "errors": {
+        "key": ["The selected warning key is invalid."]
+    }
+}
+```
+**Cause**: The provided `key` does not exist in `warnings.json`.
+
+#### Missing Required Parameter
+```json
+{
+    "errors": {
+        "parameters.hours": ["The parameter 'hours' is required for this warning type."]
+    }
+}
+```
+**Cause**: A required parameter from `setting-message-parameters` is missing.
+
+#### Invalid Parameter Type
+```json
+{
+    "errors": {
+        "parameters.hours": ["The parameter 'hours' must be an integer."]
+    }
+}
+```
+**Cause**: Parameter value does not match the expected type (e.g., string instead of integer).
+
+#### Invalid Jalali Date Format
+```json
+{
+    "errors": {
+        "parameters.start_date": ["The parameters.start_date must be a valid Jalali date in format YYYY/MM/DD (e.g., 1403/01/15)."]
+    }
+}
+```
+**Cause**: Date parameter is not in valid Jalali format or is outside valid date range.
+
+#### Extra Parameters Not Allowed
+```json
+{
+    "errors": {
+        "parameters": ["The parameters field contains invalid parameters: extra_param"]
+    }
+}
+```
+**Cause**: Parameters provided that are not listed in the warning's `setting-message-parameters` array.
 
 ## Best Practices
 

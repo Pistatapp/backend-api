@@ -21,7 +21,7 @@ class CropTypeDegreeDayNotification extends Notification implements ShouldQueue
 
     public function via(object $notifiable): array
     {
-        return ['database', 'firebase'];
+        return ['database'];
     }
 
     public function toFirebase(object $notifiable): FirebaseMessage
