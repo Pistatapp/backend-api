@@ -56,8 +56,6 @@ class CalculateTaskGpsMetricsJob implements ShouldQueue
         $results = $gpsDataAnalyzer->loadRecordsFor($tractor, $taskStartTime, $taskEndTime)
             ->analyze($taskZone);
 
-        Log::info('Results: ' . json_encode($results));
-
         // Check if there's any valid GPS data
         if ($results['movement_duration_seconds'] <= 0) {
             // If no valid GPS data, set status to not_done and send notification
