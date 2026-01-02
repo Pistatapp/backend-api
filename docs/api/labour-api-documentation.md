@@ -13,19 +13,19 @@ This document provides comprehensive API documentation for managing labourers wi
   - [Update an Existing Labour](#update-an-existing-labour)
   - [Delete a Labour](#delete-a-labour)
 - [Data Models](#data-models)
-- [Labour Types](#labour-types)
+- [Work Types](#work-types)
 - [Validation Rules](#validation-rules)
+- [User Account Creation](#user-account-creation)
 - [Error Responses](#error-responses)
 - [Examples](#examples)
 
 ## Overview
 
-The Labour API allows farm managers to create, read, update, and delete labour records in the farm management system. Labourers can be categorized into three types:
-- **Daily labourers** (`daily_labourer`): Workers paid on a daily basis
-- **Project labourers** (`project_labourer`): Workers hired for specific projects with defined start and end dates
-- **Permanent labourers** (`permanent_labourer`): Full-time employees with monthly salaries
+The Labour API allows farm managers to create, read, update, and delete labour records in the farm management system. Labourers are categorized into two work types:
+- **Administrative** (`administrative`): Full-time employees with fixed schedules and work hours
+- **Shift-based** (`shift_based`): Workers who work in shifts with hourly wages
 
-Each type has specific fields and validation rules that apply to them.
+When a labour record is created, a user account is automatically created for them with the appropriate role assigned based on their work type.
 
 ## Authentication
 
@@ -53,7 +53,7 @@ Retrieves a paginated list of all labourers associated with a specific farm.
 - `farm_id` (integer, required): The ID of the farm
 
 **Query Parameters:**
-- `search` (string, optional): Filter labourers by first name or last name
+- `search` (string, optional): Filter labourers by name
 - `page` (integer, optional): Page number for pagination (default: 1)
 
 **Response:**
@@ -62,33 +62,30 @@ Retrieves a paginated list of all labourers associated with a specific farm.
   "data": [
     {
       "id": 1,
-      "team": {
-        "id": 3,
-        "name": "Harvesting Team",
-        "farm_id": 1,
-        "supervisor": {
-          "id": 2,
-          "fname": "Ahmad",
-          "lname": "Rezaei"
-        },
-        "created_at": "1402/08/15 10:30:00"
-      },
-      "type": "permanent_labourer",
-      "fname": "John",
-      "lname": "Doe",
-      "national_id": "5380108717",
+      "teams": [
+        {
+          "id": 3,
+          "name": "Harvesting Team",
+          "farm_id": 1,
+          "supervisor": {
+            "id": 2,
+            "name": "Ahmad Rezaei"
+          },
+          "created_at": "1402/08/15 10:30:00"
+        }
+      ],
+      "name": "John Doe",
+      "personnel_number": "EMP001",
       "mobile": "09123456789",
-      "position": "Worker",
-      "project_start_date": null,
-      "project_end_date": null,
-      "work_type": "Full-time",
-      "work_days": 5,
+      "work_type": "administrative",
+      "work_days": [1, 2, 3, 4, 5],
       "work_hours": 8,
       "start_work_time": "08:00",
       "end_work_time": "16:00",
-      "salary": null,
-      "daily_salary": null,
-      "monthly_salary": 4000,
+      "hourly_wage": 50000,
+      "overtime_hourly_wage": 75000,
+      "image": "http://example.com/storage/labours/abc123.jpg",
+      "is_working": false,
       "created_at": "1402/08/15 10:00:00"
     }
   ],
@@ -124,33 +121,30 @@ Retrieves details of a specific labourer with their team information.
 {
   "data": {
     "id": 1,
-    "team": {
-      "id": 3,
-      "name": "Harvesting Team",
-      "farm_id": 1,
-      "supervisor": {
-        "id": 2,
-        "fname": "Ahmad",
-        "lname": "Rezaei"
-      },
-      "created_at": "1402/08/15 10:30:00"
-    },
-    "type": "permanent_labourer",
-    "fname": "John",
-    "lname": "Doe",
-    "national_id": "5380108717",
+    "teams": [
+      {
+        "id": 3,
+        "name": "Harvesting Team",
+        "farm_id": 1,
+        "supervisor": {
+          "id": 2,
+          "name": "Ahmad Rezaei"
+        },
+        "created_at": "1402/08/15 10:30:00"
+      }
+    ],
+    "name": "John Doe",
+    "personnel_number": "EMP001",
     "mobile": "09123456789",
-    "position": "Worker",
-    "project_start_date": null,
-    "project_end_date": null,
-    "work_type": "Full-time",
-    "work_days": 5,
+    "work_type": "administrative",
+    "work_days": [1, 2, 3, 4, 5],
     "work_hours": 8,
     "start_work_time": "08:00",
     "end_work_time": "16:00",
-    "salary": null,
-    "daily_salary": null,
-    "monthly_salary": 4000,
+    "hourly_wage": 50000,
+    "overtime_hourly_wage": 75000,
+    "image": "http://example.com/storage/labours/abc123.jpg",
+    "is_working": false,
     "created_at": "1402/08/15 10:00:00"
   }
 }
@@ -158,7 +152,7 @@ Retrieves details of a specific labourer with their team information.
 
 ### Create a New Labour
 
-Creates a new labourer record associated with a farm.
+Creates a new labourer record associated with a farm. A user account will be automatically created for the labour based on their mobile number.
 
 **Endpoint:** `POST /api/farms/{farm_id}/labours`
 
@@ -167,83 +161,65 @@ Creates a new labourer record associated with a farm.
 
 **Request Body:**
 
-#### For Permanent Labourer:
+#### For Administrative Labour:
 ```json
 {
   "team_id": 3,
-  "type": "permanent_labourer",
-  "fname": "John",
-  "lname": "Doe",
-  "national_id": "5380108717",
+  "name": "John Doe",
+  "personnel_number": "EMP001",
   "mobile": "09123456789",
-  "position": "Worker",
-  "work_type": "Full-time",
-  "work_days": 5,
+  "work_type": "administrative",
+  "work_days": [1, 2, 3, 4, 5],
   "work_hours": 8,
   "start_work_time": "08:00",
   "end_work_time": "16:00",
-  "monthly_salary": 4000
+  "hourly_wage": 50000,
+  "overtime_hourly_wage": 75000,
+  "image": null
 }
 ```
 
-#### For Daily Labourer:
+#### For Shift-based Labour:
 ```json
 {
   "team_id": 3,
-  "type": "daily_labourer",
-  "fname": "Ali",
-  "lname": "Ahmadi",
-  "national_id": "1234567890",
+  "name": "Ali Ahmadi",
+  "personnel_number": null,
   "mobile": "09987654321",
-  "position": "Field Worker",
-  "work_type": "Seasonal",
-  "work_days": 6,
-  "work_hours": 10,
-  "start_work_time": "06:00",
-  "end_work_time": "16:00",
-  "daily_salary": 300
+  "work_type": "shift_based",
+  "hourly_wage": 40000,
+  "overtime_hourly_wage": 60000,
+  "image": null
 }
 ```
 
-#### For Project Labourer:
-```json
-{
-  "team_id": 3,
-  "type": "project_labourer",
-  "fname": "Hassan",
-  "lname": "Karimi",
-  "national_id": "9876543210",
-  "mobile": "09111222333",
-  "position": "Project Manager",
-  "work_type": "Management",
-  "project_start_date": "1402/09/01",
-  "project_end_date": "1402/12/30",
-  "salary": 15000
-}
-```
+**Note:** The `image` field should be sent as a multipart/form-data file upload, not in JSON format.
 
 **Response:**
 ```json
 {
   "data": {
     "id": 1,
-    "team": null,
-    "type": "permanent_labourer",
-    "fname": "John",
-    "lname": "Doe",
-    "national_id": "5380108717",
+    "teams": [
+      {
+        "id": 3,
+        "name": "Harvesting Team",
+        "farm_id": 1,
+        "created_at": "1402/08/15 10:30:00"
+      }
+    ],
+    "name": "John Doe",
+    "personnel_number": "EMP001",
     "mobile": "09123456789",
-    "position": "Worker",
-    "project_start_date": null,
-    "project_end_date": null,
-    "work_type": "Full-time",
-    "work_days": 5,
+    "work_type": "administrative",
+    "work_days": [1, 2, 3, 4, 5],
     "work_hours": 8,
     "start_work_time": "08:00",
     "end_work_time": "16:00",
-    "salary": null,
-    "daily_salary": null,
-    "monthly_salary": 4000,
+    "hourly_wage": 50000,
+    "overtime_hourly_wage": 75000,
+    "image": "http://example.com/storage/labours/abc123.jpg",
+    "is_working": false,
     "created_at": "1402/08/15 10:00:00"
   }
 }
@@ -251,7 +227,7 @@ Creates a new labourer record associated with a farm.
 
 ### Update an Existing Labour
 
-Updates an existing labourer's information.
+Updates an existing labourer's information. If the work_type changes, the user's role will be automatically updated.
 
 **Endpoint:** `PUT /api/labours/{labour_id}`
 
@@ -259,40 +235,35 @@ Updates an existing labourer's information.
 - `labour_id` (integer, required): The ID of the labourer
 
 **Request Body:**
-Same structure as the Create endpoint. All fields are required, but you can send the current values for fields you don't want to change.
+Same structure as the Create endpoint. All required fields must be included, but you can send the current values for fields you don't want to change.
+
+**Note:** The `image` field should be sent as a multipart/form-data file upload if you want to update it.
 
 **Response:**
 ```json
 {
   "data": {
     "id": 1,
-    "team": {
-      "id": 3,
-      "name": "Harvesting Team",
-      "farm_id": 1,
-      "supervisor": {
-        "id": 2,
-        "fname": "Ahmad",
-        "lname": "Rezaei"
-      },
-      "created_at": "1402/08/15 10:30:00"
-    },
-    "type": "permanent_labourer",
-    "fname": "John",
-    "lname": "Smith",
-    "national_id": "5380108717",
+    "teams": [
+      {
+        "id": 3,
+        "name": "Harvesting Team",
+        "farm_id": 1,
+        "created_at": "1402/08/15 10:30:00"
+      }
+    ],
+    "name": "John Smith",
+    "personnel_number": "EMP001",
     "mobile": "09123456789",
-    "position": "Senior Worker",
-    "project_start_date": null,
-    "project_end_date": null,
-    "work_type": "Full-time",
-    "work_days": 5,
+    "work_type": "administrative",
+    "work_days": [1, 2, 3, 4, 5],
     "work_hours": 8,
     "start_work_time": "08:00",
     "end_work_time": "16:00",
-    "salary": null,
-    "daily_salary": null,
-    "monthly_salary": 4500,
+    "hourly_wage": 55000,
+    "overtime_hourly_wage": 80000,
+    "image": "http://example.com/storage/labours/xyz789.jpg",
+    "is_working": false,
     "created_at": "1402/08/15 10:00:00"
   }
 }
@@ -314,28 +285,23 @@ Removes a labourer from the system.
 
 ### Labour Model
 
-| Field              | Type      | Description                                               | Required |
-|--------------------|-----------|-----------------------------------------------------------|----------|
-| id                 | integer   | Unique identifier                                         | Auto     |
-| team               | object    | Team information (when loaded)                            | No       |
-| type               | string    | Type of labourer (daily_labourer, project_labourer, permanent_labourer) | Yes |
-| fname              | string    | First name                                                | Yes      |
-| lname              | string    | Last name                                                 | Yes      |
-| national_id        | string    | Iranian national ID (unique)                              | Yes      |
-| mobile             | string    | Iranian mobile number (unique)                            | Yes      |
-| position           | string    | Job position                                              | Yes      |
-| project_start_date | date      | Start date for project labourers (Shamsi date format)    | Conditional |
-| project_end_date   | date      | End date for project labourers (Shamsi date format)      | Conditional |
-| work_type          | string    | Type of work                                              | Yes      |
-| work_days          | integer   | Number of working days per week (1-7)                    | Conditional |
-| work_hours         | integer   | Hours of work per day (1-24)                             | Conditional |
-| start_work_time    | time      | Daily start time (HH:mm format)                          | Conditional |
-| end_work_time      | time      | Daily end time (HH:mm format)                            | Conditional |
-| salary             | integer   | Total salary for project labourers                       | Conditional |
-| daily_salary       | integer   | Daily rate for daily labourers                           | Conditional |
-| monthly_salary     | integer   | Monthly salary for permanent labourers                   | Conditional |
-| is_working         | boolean   | Whether the labourer is currently working                 | Auto     |
-| created_at         | timestamp | Record creation time (Shamsi format)                     | Auto     |
+| Field                | Type      | Description                                               | Required |
+|----------------------|-----------|-----------------------------------------------------------|----------|
+| id                   | integer   | Unique identifier                                         | Auto     |
+| teams                | array     | Array of team objects (when loaded)                       | No       |
+| name                 | string    | Full name of the labourer                                 | Yes      |
+| personnel_number     | string    | Personnel/employee number (unique)                        | No       |
+| mobile               | string    | Iranian mobile number (unique)                            | Yes      |
+| work_type            | string    | Type of work: `administrative` or `shift_based`           | Yes      |
+| work_days            | array     | Array of day numbers (1=Saturday, 7=Friday) for administrative workers | Conditional |
+| work_hours           | numeric   | Hours of work per day (1-24) for administrative workers   | Conditional |
+| start_work_time      | time      | Daily start time (HH:mm format) for administrative workers | Conditional |
+| end_work_time        | time      | Daily end time (HH:mm format) for administrative workers  | Conditional |
+| hourly_wage          | integer   | Hourly wage rate (must be > 0)                           | Yes      |
+| overtime_hourly_wage | integer   | Overtime hourly wage rate (must be > 0)                  | Yes      |
+| image                | string    | URL to the labourer's profile image                       | No       |
+| is_working           | boolean   | Whether the labourer is currently working                 | Auto     |
+| created_at           | timestamp | Record creation time (Shamsi format)                     | Auto     |
 
 ### Team Model (when loaded)
 
@@ -347,88 +313,79 @@ Removes a labourer from the system.
 | supervisor | object    | Supervisor information         |
 | created_at | timestamp | Team creation time             |
 
-## Labour Types
+## Work Types
 
-### 1. Daily Labourer (`daily_labourer`)
-Workers paid on a daily basis.
+### 1. Administrative (`administrative`)
+Full-time employees with fixed schedules and work hours. These workers are assigned the `employee` role in the system.
 
 **Required Fields:**
-- `work_days` (1-7)
-- `work_hours` (1-24)
-- `start_work_time` (HH:mm)
-- `end_work_time` (HH:mm)
-- `daily_salary` (integer)
+- `work_days` (array of integers, 1-7)
+- `work_hours` (numeric, 1-24)
+- `start_work_time` (HH:mm format)
+- `end_work_time` (HH:mm format, must be after start_work_time)
+- `hourly_wage` (integer, minimum 1)
+- `overtime_hourly_wage` (integer, minimum 1)
 
 **Prohibited Fields:**
-- `project_start_date`
-- `project_end_date`
-- `salary`
-- `monthly_salary`
+- None (all other fields can be included)
 
-### 2. Project Labourer (`project_labourer`)
-Workers hired for specific projects with defined start and end dates.
+### 2. Shift-based (`shift_based`)
+Workers who work in shifts with hourly wages. These workers are assigned the `labour` role in the system.
 
 **Required Fields:**
-- `project_start_date` (Shamsi date: YYYY/MM/DD)
-- `project_end_date` (Shamsi date: YYYY/MM/DD)
-- `salary` (integer)
+- `hourly_wage` (integer, minimum 1)
+- `overtime_hourly_wage` (integer, minimum 1)
 
 **Prohibited Fields:**
 - `work_days`
 - `work_hours`
 - `start_work_time`
 - `end_work_time`
-- `daily_salary`
-- `monthly_salary`
-
-### 3. Permanent Labourer (`permanent_labourer`)
-Full-time employees with monthly salaries.
-
-**Required Fields:**
-- `work_days` (1-7)
-- `work_hours` (1-24)
-- `start_work_time` (HH:mm)
-- `end_work_time` (HH:mm)
-- `monthly_salary` (integer)
-
-**Prohibited Fields:**
-- `project_start_date`
-- `project_end_date`
-- `salary`
-- `daily_salary`
 
 ## Validation Rules
 
-### Common Fields (All Types)
-- `team_id`: Optional, must exist in teams table
-- `type`: Required, must be one of: daily_labourer, project_labourer, permanent_labourer
-- `fname`: Required, string, max 255 characters
-- `lname`: Required, string, max 255 characters
-- `national_id`: Required, must be valid Iranian national ID, unique
-- `mobile`: Required, must be valid Iranian mobile number, unique
-- `position`: Required, string, max 255 characters
-- `work_type`: Required, string, max 255 characters
+### Common Fields (All Work Types)
+- `team_id`: Optional, integer, must exist in teams table
+- `name`: Required, string, max 255 characters
+- `personnel_number`: Optional, string, max 255 characters, unique
+- `mobile`: Required, must be valid Iranian mobile number (ir_mobile), unique
+- `work_type`: Required, must be one of: `administrative`, `shift_based`
+- `hourly_wage`: Required, integer, minimum 1
+- `overtime_hourly_wage`: Required, integer, minimum 1
+- `image`: Optional, image file, maximum size 1MB (1024 KB)
 
-### Type-Specific Validation
+### Work Type-Specific Validation
 
-#### Project Labourer
-- `project_start_date`: Required, valid Shamsi date, must be before or equal to project_end_date
-- `project_end_date`: Required, valid Shamsi date, must be after or equal to project_start_date
-- `salary`: Required, integer
-
-#### Daily Labourer
-- `work_days`: Required, integer between 1 and 7
-- `work_hours`: Required, integer between 1 and 24
+#### Administrative Workers
+- `work_days`: Required, array of integers (1-7), where 1 = Saturday, 7 = Friday
+- `work_hours`: Required, numeric, between 1 and 24
 - `start_work_time`: Required, time format H:i (hours:minutes)
-- `end_work_time`: Required, time format H:i (hours:minutes)
-- `daily_salary`: Required, integer
+- `end_work_time`: Required, time format H:i (hours:minutes), must be after `start_work_time`
 
-#### Permanent Labourer
-- `work_days`: Required, integer between 1 and 7
-- `work_hours`: Required, integer between 1 and 24
-- `start_work_time`: Required, time format H:i (hours:minutes)
-- `end_work_time`: Required, time format H:i (hours:minutes)
-- `monthly_salary`: Required, integer
+#### Shift-based Workers
+- `work_days`: Prohibited (must not be included)
+- `work_hours`: Prohibited (must not be included)
+- `start_work_time`: Prohibited (must not be included)
+- `end_work_time`: Prohibited (must not be included)
+
+## User Account Creation
+
+When a labour record is created, the system automatically:
+
+1. **Creates a user account** using the labour's mobile number
+2. **Generates a username** in the format: `labour_{mobile_number}` (country code and leading zero removed)
+3. **Assigns a role** based on work_type:
+   - `administrative` → `employee` role
+   - `shift_based` → `labour` role
+4. **Creates a user profile** with the labour's name split into first_name and last_name
+5. **Links the user** to the labour record via `user_id`
+
+If a user account with the same mobile number already exists, the system will:
+- Use the existing user account
+- Sync the role based on the current work_type
+- Link the user to the labour record
+
+When updating a labour's work_type, the associated user's role is automatically updated to match the new work_type.
 
 ## Error Responses
 
@@ -437,14 +394,17 @@ Full-time employees with monthly salaries.
 {
   "message": "The given data was invalid.",
   "errors": {
-    "fname": [
-      "The fname field is required."
-    ],
-    "national_id": [
-      "The national id has already been taken."
+    "name": [
+      "The name field is required."
     ],
     "mobile": [
-      "The mobile field must be a valid Iranian mobile number."
+      "The mobile has already been taken."
+    ],
+    "hourly_wage": [
+      "The hourly wage must be at least 1."
+    ],
+    "work_days": [
+      "The work days field is required when work type is administrative."
     ]
   }
 }
@@ -478,45 +438,60 @@ Full-time employees with monthly salaries.
 GET /api/farms/1/labours?search=John
 ```
 
-### Create Daily Labourer
+### Create Administrative Labour
 ```bash
 POST /api/farms/1/labours
-Content-Type: application/json
+Content-Type: multipart/form-data
 
 {
-  "type": "daily_labourer",
-  "fname": "Ali",
-  "lname": "Ahmadi",
-  "national_id": "1234567890",
-  "mobile": "09987654321",
-  "position": "Field Worker",
-  "work_type": "Seasonal",
-  "work_days": 6,
-  "work_hours": 10,
-  "start_work_time": "06:00",
+  "team_id": 3,
+  "name": "John Doe",
+  "personnel_number": "EMP001",
+  "mobile": "09123456789",
+  "work_type": "administrative",
+  "work_days": [1, 2, 3, 4, 5],
+  "work_hours": 8,
+  "start_work_time": "08:00",
   "end_work_time": "16:00",
-  "daily_salary": 300
+  "hourly_wage": 50000,
+  "overtime_hourly_wage": 75000,
+  "image": <file>
+}
+```
+
+### Create Shift-based Labour
+```bash
+POST /api/farms/1/labours
+Content-Type: multipart/form-data
+
+{
+  "team_id": 3,
+  "name": "Ali Ahmadi",
+  "mobile": "09987654321",
+  "work_type": "shift_based",
+  "hourly_wage": 40000,
+  "overtime_hourly_wage": 60000
 }
 ```
 
 ### Update Labour
 ```bash
 PUT /api/labours/1
-Content-Type: application/json
+Content-Type: multipart/form-data
 
 {
-  "type": "permanent_labourer",
-  "fname": "John",
-  "lname": "Smith",
-  "national_id": "5380108717",
+  "team_id": 3,
+  "name": "John Smith",
+  "personnel_number": "EMP001",
   "mobile": "09123456789",
-  "position": "Senior Worker",
-  "work_type": "Full-time",
-  "work_days": 5,
+  "work_type": "administrative",
+  "work_days": [1, 2, 3, 4, 5],
   "work_hours": 8,
   "start_work_time": "08:00",
   "end_work_time": "16:00",
-  "monthly_salary": 4500
+  "hourly_wage": 55000,
+  "overtime_hourly_wage": 80000,
+  "image": <file>
 }
 ```
 
@@ -533,7 +508,10 @@ DELETE /api/labours/1
 - List endpoints use simple pagination
 - Team relationships are loaded when viewing single labour records
 - The `is_working` field is automatically managed by the system
-- National ID validation follows Iranian national ID format
 - Mobile number validation follows Iranian mobile number format (starting with 09)
 - When creating a labour, if `team_id` is provided, the labour will be assigned to that team
-- The `jdate()` function is used to format timestamps in Shamsi calendar format 
+- The `jdate()` function is used to format timestamps in Shamsi calendar format
+- Image uploads are stored in the `storage/app/public/labours/` directory
+- User accounts are automatically created when a labour is created, using the mobile number as the identifier
+- Roles are automatically assigned based on work_type: `administrative` → `employee`, `shift_based` → `labour`
+- When updating work_type, the associated user's role is automatically synchronized
