@@ -27,7 +27,28 @@ return new class extends Migration
             }
         }
 
-        // Ensure user_id column exists and has proper foreign key constraint
+        // First, ensure hourly_wage and overtime_hourly_wage exist (needed for user_id placement)
+        if (Schema::hasColumn('labours', 'hourly_wage')) {
+            Schema::table('labours', function (Blueprint $table) {
+                $table->integer('hourly_wage')->nullable(false)->change();
+            });
+        } else {
+            Schema::table('labours', function (Blueprint $table) {
+                $table->integer('hourly_wage')->after('end_work_time');
+            });
+        }
+
+        if (Schema::hasColumn('labours', 'overtime_hourly_wage')) {
+            Schema::table('labours', function (Blueprint $table) {
+                $table->integer('overtime_hourly_wage')->nullable(false)->change();
+            });
+        } else {
+            Schema::table('labours', function (Blueprint $table) {
+                $table->integer('overtime_hourly_wage')->after('hourly_wage');
+            });
+        }
+
+        // Now ensure user_id column exists and has proper foreign key constraint
         if (!Schema::hasColumn('labours', 'user_id')) {
             Schema::table('labours', function (Blueprint $table) {
                 $table->foreignId('user_id')->nullable()->after('overtime_hourly_wage')->constrained()->nullOnDelete();
@@ -114,26 +135,6 @@ return new class extends Migration
             });
         }
 
-        // Modify hourly_wage and overtime_hourly_wage if they exist
-        if (Schema::hasColumn('labours', 'hourly_wage')) {
-            Schema::table('labours', function (Blueprint $table) {
-                $table->integer('hourly_wage')->nullable(false)->change();
-            });
-        } else {
-            Schema::table('labours', function (Blueprint $table) {
-                $table->integer('hourly_wage')->after('end_work_time');
-            });
-        }
-
-        if (Schema::hasColumn('labours', 'overtime_hourly_wage')) {
-            Schema::table('labours', function (Blueprint $table) {
-                $table->integer('overtime_hourly_wage')->nullable(false)->change();
-            });
-        } else {
-            Schema::table('labours', function (Blueprint $table) {
-                $table->integer('overtime_hourly_wage')->after('hourly_wage');
-            });
-        }
     }
 
     /**
