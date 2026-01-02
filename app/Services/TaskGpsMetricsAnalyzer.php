@@ -229,7 +229,7 @@ class TaskGpsMetricsAnalyzer
         for ($i = 0; $i < $dataCount; $i++) {
             $point = $this->data[$i];
             $pointInZone = is_point_in_polygon(
-                [$point[self::IDX_LON], $point[self::IDX_LAT]],
+                [$point[self::IDX_LAT], $point[self::IDX_LON]],
                 $polygon
             );
 

@@ -821,21 +821,91 @@ class TaskGpsMetricsAnalyzerTest extends TestCase
     }
 
     /**
+     * Test with real-world task zone polygon format (string coordinates).
+     * This tests the normalization of string format "lat,lon" coordinates.
+     */
+    public function test_real_world_task_zone_polygon_format(): void
+    {
+        $baseTime = Carbon::now()->setTime(8, 0, 0);
+
+        // Real task zone polygon (string format "lat,lon")
+        $polygon = [
+            "35.94381226988189,50.06009976643685",
+            "35.94690540840553,50.05982871316343",
+            "35.94649068708508,50.06900302348089",
+            "35.945701135668436,50.06913141713673",
+            "35.945308456893386,50.06890316174858",
+            "35.94383451601217,50.060574244825546",
+            "35.943761357694456,50.060124305929804"
+        ];
+
+        // GPS points - some inside, some outside the polygon
+        $gpsData = [
+            // Inside the polygon
+            [
+                'date_time' => $baseTime->copy(),
+                'coordinate' => [35.9450, 50.0650], // Inside
+                'speed' => 10,
+                'status' => 1,
+            ],
+            [
+                'date_time' => $baseTime->copy()->addSeconds(10),
+                'coordinate' => [35.9455, 50.0655], // Inside
+                'speed' => 10,
+                'status' => 1,
+            ],
+            // Outside the polygon
+            [
+                'date_time' => $baseTime->copy()->addSeconds(20),
+                'coordinate' => [35.9500, 50.0700], // Outside
+                'speed' => 10,
+                'status' => 1,
+            ],
+            [
+                'date_time' => $baseTime->copy()->addSeconds(30),
+                'coordinate' => [35.9510, 50.0710], // Outside
+                'speed' => 10,
+                'status' => 1,
+            ],
+            // Back inside the polygon
+            [
+                'date_time' => $baseTime->copy()->addSeconds(40),
+                'coordinate' => [35.9452, 50.0652], // Inside
+                'speed' => 10,
+                'status' => 1,
+            ],
+            [
+                'date_time' => $baseTime->copy()->addSeconds(50),
+                'coordinate' => [35.9456, 50.0656], // Inside
+                'speed' => 10,
+                'status' => 1,
+            ],
+        ];
+
+        $results = $this->getAnalyzerResults($gpsData, $polygon);
+
+        // Should only count time inside polygon (0-10s and 40-50s = 20s)
+        $this->assertEquals(20, $results['movement_duration_seconds']);
+        $this->assertGreaterThan(0, $results['movement_distance_km']);
+        $this->assertEquals(0, $results['stoppage_count']);
+    }
+
+    /**
      * Helper method to create a square polygon around a center point.
      *
      * @param float $centerLat Center latitude
      * @param float $centerLon Center longitude
      * @param float $size Half-width of the square in degrees
-     * @return array Polygon coordinates
+     * @return array Polygon coordinates in [lat, lon] format
      */
     private function createSquarePolygon(float $centerLat, float $centerLon, float $size): array
     {
         return [
-            [$centerLon - $size, $centerLat - $size], // SW
-            [$centerLon + $size, $centerLat - $size], // SE
-            [$centerLon + $size, $centerLat + $size], // NE
-            [$centerLon - $size, $centerLat + $size], // NW
-            [$centerLon - $size, $centerLat - $size], // Close polygon
+            [$centerLat - $size, $centerLon - $size], // SW [lat, lon]
+            [$centerLat - $size, $centerLon + $size], // SE [lat, lon]
+            [$centerLat + $size, $centerLon + $size], // NE [lat, lon]
+            [$centerLat + $size, $centerLon - $size], // NW [lat, lon]
+            [$centerLat - $size, $centerLon - $size], // Close polygon [lat, lon]
         ];
     }
 
