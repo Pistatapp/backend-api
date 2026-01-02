@@ -31,7 +31,7 @@ class MaintenanceReportResource extends JsonResource
             'maintained_by' => $this->whenLoaded('maintainedBy', function () {
                 return [
                     'id' => $this->maintainedBy->id,
-                    'name' => $this->maintainedBy->full_name,
+                    'name' => $this->maintainedBy->name,
                 ];
             }),
             'date' => jdate($this->date)->format('Y/m/d'),

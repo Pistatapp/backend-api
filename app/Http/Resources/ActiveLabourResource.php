@@ -17,8 +17,6 @@ class ActiveLabourResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
-            'fname' => $this->fname,
-            'lname' => $this->lname,
             'coordinate' => $this->coordinate,
             'last_update' => $this->when($this->last_update, function () {
                 return $this->last_update instanceof \Carbon\Carbon 

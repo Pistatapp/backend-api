@@ -24,9 +24,8 @@ class StoreLabourRequest extends FormRequest
     {
         return [
             'team_id' => 'nullable|integer|exists:teams,id',
-            'fname' => 'required|string|max:255',
-            'lname' => 'required|string|max:255',
-            'national_id' => 'required|unique:labours,national_id',
+            'name' => 'required|string|max:255',
+            'personnel_number' => 'nullable|string|max:255|unique:labours,personnel_number',
             'mobile' => 'required|ir_mobile|unique:labours,mobile',
             'work_type' => 'required|string|in:administrative,shift_based',
             'work_days' => [
@@ -54,14 +53,9 @@ class StoreLabourRequest extends FormRequest
                 Rule::requiredIf(fn () => $this->work_type === 'administrative'),
                 Rule::prohibitedIf(fn () => $this->work_type === 'shift_based'),
             ],
-            'monthly_salary' => 'nullable|integer',
-            'hourly_wage' => [
-                'nullable',
-                'integer',
-                Rule::requiredIf(fn () => $this->work_type === 'shift_based'),
-            ],
-            'overtime_hourly_wage' => 'nullable|integer',
-            'user_id' => 'nullable|exists:users,id',
+            'hourly_wage' => 'required|integer|min:1',
+            'overtime_hourly_wage' => 'required|integer|min:1',
+            'image' => 'nullable|image|max:1024',
         ];
     }
 }

@@ -27,7 +27,7 @@ class MaintenanceReport extends Model
      *
      * @var array<string>
      */
-    protected $with = ['createdBy', 'maintainedBy:id,fname,lname', 'maintainable', 'maintenance:id,name'];
+    protected $with = ['createdBy', 'maintainedBy:id,name', 'maintainable', 'maintenance:id,name'];
 
     /**
      * Get the maintenance that owns the MaintenanceReport

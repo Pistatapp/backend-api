@@ -23,20 +23,19 @@ class Labour extends Model
      */
     protected $fillable = [
         'farm_id',
-        'fname',
-        'lname',
-        'national_id',
+        'name',
+        'personnel_number',
         'mobile',
         'work_type',
         'work_days',
         'work_hours',
         'start_work_time',
         'end_work_time',
-        'monthly_salary',
         'hourly_wage',
         'overtime_hourly_wage',
-        'user_id',
+        'image',
         'is_working',
+        'user_id',
     ];
 
     /**
@@ -72,15 +71,6 @@ class Labour extends Model
         return $query->where('is_working', true);
     }
 
-    /**
-     * Get full name of the Labour
-     *
-     * @return string
-     */
-    public function getFullNameAttribute()
-    {
-        return "{$this->fname} {$this->lname}";
-    }
 
     /**
      * Get the teams that the Labour belongs to
@@ -111,6 +101,7 @@ class Labour extends Model
     {
         return $this->belongsTo(User::class);
     }
+
 
     /**
      * Get the GPS data for the Labour

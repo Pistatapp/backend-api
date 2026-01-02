@@ -45,7 +45,7 @@ class LabourStatusChanged implements ShouldBroadcast
         return [
             'labour' => [
                 'id' => $this->labour->id,
-                'name' => $this->labour->full_name,
+                'name' => $this->labour->name,
             ],
             'coordinate' => $this->gpsData['coordinate'] ?? null,
             'date_time' => now()->toIso8601String(),

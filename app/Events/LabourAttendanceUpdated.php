@@ -46,7 +46,7 @@ class LabourAttendanceUpdated implements ShouldBroadcast
         return [
             'labour' => [
                 'id' => $this->labour->id,
-                'name' => $this->labour->full_name,
+                'name' => $this->labour->name,
             ],
             'session' => [
                 'id' => $this->session->id,

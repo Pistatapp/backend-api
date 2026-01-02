@@ -36,9 +36,7 @@ class ActiveLabourService
                     $latestGps = $labour->gpsData->first();
                     return [
                         'id' => $labour->id,
-                        'name' => $labour->full_name,
-                        'fname' => $labour->fname,
-                        'lname' => $labour->lname,
+                        'name' => $labour->name,
                         'coordinate' => $latestGps?->coordinate,
                         'last_update' => $latestGps?->date_time,
                         'is_in_zone' => $this->isLabourInZone($labour, $latestGps?->coordinate),

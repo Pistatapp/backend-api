@@ -19,7 +19,7 @@ class IrrigationResource extends JsonResource
             'labour' => $this->whenLoaded('labour', function () {
                 return [
                     'id' => $this->labour->id,
-                    'name' => $this->labour->full_name,
+                    'name' => $this->labour->name,
                 ];
             }),
             'start_date' => jdate($this->start_time)->format('Y/m/d'),
