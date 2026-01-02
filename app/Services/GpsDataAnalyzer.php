@@ -9,8 +9,6 @@ class GpsDataAnalyzer
 {
     private array $data = [];
     private array $results = [];
-    private ?int $workingStartTimestamp = null;
-    private ?int $workingEndTimestamp = null;
 
     private const MIN_STOPPAGE_DURATION_SECONDS = 60;
     private const CONSECUTIVE_MOVEMENTS_FOR_FIRST_MOVEMENT = 3;
@@ -31,9 +29,15 @@ class GpsDataAnalyzer
     /**
      * Load GPS records for a tractor on a specific date
      */
-    public function loadRecordsFor(Tractor $tractor, Carbon $date): self
+    public function loadRecordsFor(Tractor $tractor, Carbon $date, ?Carbon $timeBoundStart = null, ?Carbon $timeBoundEnd = null): self
     {
-        [$startDateTime, $endDateTime] = $tractor->getWorkingWindow($date);
+        // Use time bound parameters if provided, otherwise use tractor's working window
+        if ($timeBoundStart !== null && $timeBoundEnd !== null) {
+            $startDateTime = $timeBoundStart;
+            $endDateTime = $timeBoundEnd;
+        } else {
+            [$startDateTime, $endDateTime] = $tractor->getWorkingWindow($date);
+        }
 
         $gpsData = $tractor->gpsData()
             ->whereBetween('gps_data.date_time', [$startDateTime, $endDateTime])
@@ -180,21 +184,15 @@ class GpsDataAnalyzer
      * Stoppage = speed == 0 (stoppages < 60s counted as movement)
      * firstMovementTime = timestamp when 3 consecutive movements detected
      */
-    public function analyze(
-        ?Carbon $timeBoundStart = null,
-        ?Carbon $timeBoundEnd = null,
-        array $polygon = []
-    ): array {
+    public function analyze(array $polygon = []): array
+    {
         $dataCount = count($this->data);
 
         if ($dataCount === 0) {
             return $this->getEmptyResults();
         }
 
-        $workingStartTs = $timeBoundStart?->timestamp ?? $this->workingStartTimestamp;
-        $workingEndTs = $timeBoundEnd?->timestamp ?? $this->workingEndTimestamp;
-        $normalizedPolygon = $this->preparePolygon($polygon);
-        $hasPolygon = !empty($normalizedPolygon);
+        $hasPolygon = !empty($polygon);
 
         $metrics = $this->initializeMetrics();
         $state = $this->initializeState();
@@ -205,13 +203,8 @@ class GpsDataAnalyzer
         for ($i = 0; $i < $dataCount; $i++) {
             $point = &$this->data[$i];
 
-            // Filter by time bounds - skip points outside the time window
-            if (!$this->isPointInTimeBounds($point, $workingStartTs, $workingEndTs)) {
-                continue;
-            }
-
             // Filter by polygon - skip points outside the polygon area
-            if ($hasPolygon && !$this->isPointInPolygon($point, $normalizedPolygon)) {
+            if ($hasPolygon && !is_point_in_polygon([$point[self::IDX_LON], $point[self::IDX_LAT]], $polygon)) {
                 continue;
             }
 
@@ -231,8 +224,8 @@ class GpsDataAnalyzer
             $timeDiff = $this->calcDuration(
                 $previousPoint['timestamp'],
                 $pointData['timestamp'],
-                $workingStartTs,
-                $workingEndTs
+                null,
+                null
             );
 
             $this->processStateTransition(
@@ -241,26 +234,19 @@ class GpsDataAnalyzer
                 $state,
                 $metrics,
                 $timeDiff,
-                $workingStartTs,
-                $workingEndTs,
+                null,
+                null,
                 $i
             );
 
             $previousPoint = $pointData;
         }
 
-        $this->handleFinalState($state, $metrics, $dataCount, $workingStartTs, $workingEndTs);
+        $this->handleFinalState($state, $metrics, $dataCount, null, null);
 
         return $this->buildResults($metrics, $activation, $dataCount);
     }
 
-    /**
-     * Prepare and normalize polygon if provided
-     */
-    private function preparePolygon(array $polygon): array
-    {
-        return !empty($polygon) ? $this->normalizePolygon($polygon) : [];
-    }
 
     /**
      * Initialize metrics counters
@@ -321,43 +307,6 @@ class GpsDataAnalyzer
         ];
     }
 
-    /**
-     * Check if point timestamp is within time bounds
-     */
-    private function isPointInTimeBounds(array $point, ?int $startTs, ?int $endTs): bool
-    {
-        $timestamp = $point[self::IDX_TIMESTAMP];
-
-        if ($startTs !== null && $timestamp < $startTs) {
-            return false;
-        }
-
-        if ($endTs !== null && $timestamp > $endTs) {
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
-     * Check if point is within polygon
-     */
-    private function isPointInPolygon(array $point, array $polygon): bool
-    {
-        $lon = $point[self::IDX_LON] ?? null;
-        $lat = $point[self::IDX_LAT] ?? null;
-
-        // Skip polygon check if coordinates are invalid
-        if ($lon === null || $lat === null) {
-            return false;
-        }
-
-        return $this->isPointInPolygonFast(
-            (float)$lon,
-            (float)$lat,
-            $polygon
-        );
-    }
 
     /**
      * Track device activation (first status=1)
@@ -564,46 +513,6 @@ class GpsDataAnalyzer
         return $this->results;
     }
 
-    /**
-     * Normalize polygon coordinates once for reuse
-     */
-    private function normalizePolygon(array $polygon): array
-    {
-        $normalized = [];
-        foreach ($polygon as $p) {
-            if (is_string($p)) {
-                $coords = explode(',', $p);
-                $normalized[] = [(float)$coords[0], (float)$coords[1]];
-            } else {
-                $normalized[] = $p;
-            }
-        }
-        return $normalized;
-    }
-
-    /**
-     * Fast point-in-polygon check using ray casting (pre-normalized polygon)
-     */
-    private function isPointInPolygonFast(float $x, float $y, array $polygon): bool
-    {
-        $inside = false;
-        $numPoints = count($polygon);
-        $j = $numPoints - 1;
-
-        for ($i = 0; $i < $numPoints; $j = $i++) {
-            $xi = $polygon[$i][0];
-            $yi = $polygon[$i][1];
-            $xj = $polygon[$j][0];
-            $yj = $polygon[$j][1];
-
-            if ((($yi > $y) !== ($yj > $y)) &&
-                ($x < ($xj - $xi) * ($y - $yi) / ($yj - $yi) + $xi)) {
-                $inside = !$inside;
-            }
-        }
-
-        return $inside;
-    }
 
     /**
      * Calculate duration between timestamps, clamped to working window
