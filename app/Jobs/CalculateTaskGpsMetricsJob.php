@@ -5,7 +5,7 @@ namespace App\Jobs;
 use App\Models\TractorTask;
 use App\Models\GpsMetricsCalculation;
 use App\Notifications\TractorTaskStatusNotification;
-use App\Services\GpsDataAnalyzer;
+use App\Services\TaskGpsMetricsAnalyzer;
 use App\Services\TractorTaskService;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
@@ -39,12 +39,8 @@ class CalculateTaskGpsMetricsJob implements ShouldQueue
      *
      * @return void
      */
-    public function handle(GpsDataAnalyzer $gpsDataAnalyzer, TractorTaskService $tractorTaskService): void
+    public function handle(TaskGpsMetricsAnalyzer $gpsDataAnalyzer, TractorTaskService $tractorTaskService): void
     {
-        $date = $this->task->date;
-
-        $dateString = $date->toDateString();
-
         // Get task time window
         $taskDate = Carbon::parse($this->task->date);
         $taskStartTime = $taskDate->copy()->setTimeFromTimeString($this->task->start_time);
@@ -57,7 +53,7 @@ class CalculateTaskGpsMetricsJob implements ShouldQueue
         $taskZone = $tractorTaskService->getTaskZone($this->task);
 
         // Analyze GPS data with task time window
-        $results = $gpsDataAnalyzer->loadRecordsFor($tractor, $date, $taskStartTime, $taskEndTime)
+        $results = $gpsDataAnalyzer->loadRecordsFor($tractor, $taskStartTime, $taskEndTime)
             ->analyze($taskZone);
 
         Log::info('Results: ' . json_encode($results));
@@ -85,7 +81,7 @@ class CalculateTaskGpsMetricsJob implements ShouldQueue
             [
                 'tractor_id' => $this->task->tractor_id,
                 'tractor_task_id' => $this->task->id,
-                'date' => $dateString,
+                'date' => $this->task->date->toDateString(),
             ],
             [
                 'traveled_distance' => $results['movement_distance_km'],

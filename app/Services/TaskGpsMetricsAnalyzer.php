@@ -5,7 +5,20 @@ namespace App\Services;
 use Carbon\Carbon;
 use App\Models\Tractor;
 
-class GpsDataAnalyzer
+/**
+ * GPS Metrics Analyzer for Task Zones
+ *
+ * This analyzer calculates GPS metrics specifically for tractor tasks within designated zones.
+ * Unlike GpsDataAnalyzer which continuously analyzes all data, this analyzer segments data
+ * by zone presence and only measures metrics while inside the task zone.
+ *
+ * Key behaviors:
+ * - Metrics (movement/stoppage) are only measured when tractor is inside task zone
+ * - When tractor exits zone, measurement stops
+ * - When tractor re-enters zone, measurement resumes in a new segment
+ * - Gaps between segments (exit to re-entry) are completely ignored (no time, no distance)
+ */
+class TaskGpsMetricsAnalyzer
 {
     private array $data = [];
     private array $results = [];
@@ -29,12 +42,10 @@ class GpsDataAnalyzer
     /**
      * Load GPS records for a tractor on a specific date
      */
-    public function loadRecordsFor(Tractor $tractor, Carbon $date): self
+    public function loadRecordsFor(Tractor $tractor, Carbon $taskStartTime, Carbon $taskEndTime): self
     {
-        [$startDateTime, $endDateTime] = $tractor->getWorkingWindow($date);
-
         $gpsData = $tractor->gpsData()
-            ->whereBetween('gps_data.date_time', [$startDateTime, $endDateTime])
+            ->whereBetween('gps_data.date_time', [$taskStartTime, $taskEndTime])
             ->orderBy('gps_data.date_time')
             ->get(['date_time', 'coordinate', 'speed', 'status', 'imei']);
 
@@ -172,48 +183,161 @@ class GpsDataAnalyzer
     }
 
     /**
-     * Analyze GPS data and calculate all metrics
+     * Analyze GPS data within task zone and calculate metrics
      *
-     * Movement = status == 1 && speed > 0
-     * Stoppage = speed == 0 (stoppages < 60s counted as movement)
-     * firstMovementTime = timestamp when 3 consecutive movements detected
+     * This is the main entry point. It segments the data by zone presence
+     * and analyzes each segment independently.
+     *
+     * @param array $polygon Task zone polygon coordinates
+     * @return array Analysis results
      */
-    public function analyze(): array
+    public function analyze(array $polygon = []): array
     {
         $dataCount = count($this->data);
 
-        if ($dataCount === 0) {
+        if ($dataCount === 0 || empty($polygon)) {
             return $this->getEmptyResults();
         }
 
+        // Identify continuous segments where tractor is inside the zone
+        $segments = $this->identifyZoneSegments($polygon);
+
+        if (empty($segments)) {
+            return $this->getEmptyResults();
+        }
+
+        // Analyze each segment and merge results
+        return $this->analyzeSegments($segments);
+    }
+
+    /**
+     * Identify continuous presence segments within the task zone
+     *
+     * A segment is a continuous period where the tractor is inside the zone.
+     * Returns array of segments, each containing start and end indices.
+     *
+     * @param array $polygon Task zone polygon
+     * @return array Array of segments [['start' => idx, 'end' => idx], ...]
+     */
+    private function identifyZoneSegments(array $polygon): array
+    {
+        $segments = [];
+        $inZone = false;
+        $segmentStart = -1;
+        $dataCount = count($this->data);
+
+        for ($i = 0; $i < $dataCount; $i++) {
+            $point = $this->data[$i];
+            $pointInZone = is_point_in_polygon(
+                [$point[self::IDX_LON], $point[self::IDX_LAT]],
+                $polygon
+            );
+
+            if ($pointInZone && !$inZone) {
+                // Entering zone - start new segment
+                $segmentStart = $i;
+                $inZone = true;
+            } elseif (!$pointInZone && $inZone) {
+                // Exiting zone - close current segment
+                $segments[] = [
+                    'start' => $segmentStart,
+                    'end' => $i - 1, // Last point that was in zone
+                ];
+                $inZone = false;
+                $segmentStart = -1;
+            }
+        }
+
+        // If still in zone at end of data, include partial segment
+        if ($inZone && $segmentStart >= 0) {
+            $segments[] = [
+                'start' => $segmentStart,
+                'end' => $dataCount - 1,
+            ];
+        }
+
+        return $segments;
+    }
+
+    /**
+     * Analyze all segments and merge their metrics
+     *
+     * @param array $segments Array of segment definitions
+     * @return array Combined metrics from all segments
+     */
+    private function analyzeSegments(array $segments): array
+    {
+        $totalMetrics = $this->initializeMetrics();
+        $globalActivation = $this->initializeActivationTracking();
+        $lastStatus = 0;
+
+        foreach ($segments as $segment) {
+            $segmentResults = $this->analyzeSegment(
+                $segment['start'],
+                $segment['end'],
+                $globalActivation
+            );
+
+            // Merge metrics
+            $totalMetrics['movement_distance'] += $segmentResults['metrics']['movement_distance'];
+            $totalMetrics['movement_duration'] += $segmentResults['metrics']['movement_duration'];
+            $totalMetrics['stoppage_duration'] += $segmentResults['metrics']['stoppage_duration'];
+            $totalMetrics['stoppage_duration_while_on'] += $segmentResults['metrics']['stoppage_duration_while_on'];
+            $totalMetrics['stoppage_duration_while_off'] += $segmentResults['metrics']['stoppage_duration_while_off'];
+            $totalMetrics['stoppage_count'] += $segmentResults['metrics']['stoppage_count'];
+
+            // Update global activation tracking
+            if ($globalActivation['device_on_timestamp'] === null && $segmentResults['activation']['device_on_timestamp'] !== null) {
+                $globalActivation['device_on_timestamp'] = $segmentResults['activation']['device_on_timestamp'];
+            }
+            if ($globalActivation['first_movement_timestamp'] === null && $segmentResults['activation']['first_movement_timestamp'] !== null) {
+                $globalActivation['first_movement_timestamp'] = $segmentResults['activation']['first_movement_timestamp'];
+            }
+
+            // Track latest status from last segment
+            $lastStatus = $this->data[$segment['end']][self::IDX_STATUS];
+        }
+
+        return $this->buildResults($totalMetrics, $globalActivation, $lastStatus);
+    }
+
+    /**
+     * Analyze a single segment of zone presence
+     *
+     * This processes GPS points within one continuous presence in the zone,
+     * calculating movement and stoppage metrics just like GpsDataAnalyzer
+     * but only for points within this segment.
+     *
+     * @param int $startIdx Index of first point in segment
+     * @param int $endIdx Index of last point in segment
+     * @param array $globalActivation Global activation tracking (for first movement across all segments)
+     * @return array Segment metrics and activation data
+     */
+    private function analyzeSegment(int $startIdx, int $endIdx, array &$globalActivation): array
+    {
         $metrics = $this->initializeMetrics();
         $state = $this->initializeState();
         $activation = $this->initializeActivationTracking();
 
         $previousPoint = null;
 
-        for ($i = 0; $i < $dataCount; $i++) {
+        for ($i = $startIdx; $i <= $endIdx; $i++) {
             $point = &$this->data[$i];
-
             $pointData = $this->extractPointData($point, $i);
 
             // Track device activation
             $activation = $this->trackDeviceActivation($activation, $pointData);
 
-            // Track first movement
+            // Track first movement (within this segment and globally)
             $activation = $this->trackFirstMovement($activation, $pointData, $i);
+            $globalActivation = $this->trackFirstMovement($globalActivation, $pointData, $i);
 
             if ($previousPoint === null) {
                 $previousPoint = $this->initializeFirstPoint($pointData, $state);
                 continue;
             }
 
-            $timeDiff = $this->calcDuration(
-                $previousPoint['timestamp'],
-                $pointData['timestamp'],
-                null,
-                null
-            );
+            $timeDiff = $pointData['timestamp'] - $previousPoint['timestamp'];
 
             $this->processStateTransition(
                 $pointData,
@@ -221,19 +345,20 @@ class GpsDataAnalyzer
                 $state,
                 $metrics,
                 $timeDiff,
-                null,
-                null,
                 $i
             );
 
             $previousPoint = $pointData;
         }
 
-        $this->handleFinalState($state, $metrics, $dataCount, null, null);
+        // Handle final state for this segment
+        $this->handleFinalState($state, $metrics, $startIdx, $endIdx);
 
-        return $this->buildResults($metrics, $activation, $dataCount);
+        return [
+            'metrics' => $metrics,
+            'activation' => $activation,
+        ];
     }
-
 
     /**
      * Initialize metrics counters
@@ -293,7 +418,6 @@ class GpsDataAnalyzer
             'is_stopped' => ($point[self::IDX_SPEED] === 0),
         ];
     }
-
 
     /**
      * Track device activation (first status=1)
@@ -356,8 +480,6 @@ class GpsDataAnalyzer
         array &$state,
         array &$metrics,
         int $timeDiff,
-        ?int $workingStartTs,
-        ?int $workingEndTs,
         int $currentIndex
     ): void {
         $distance = $this->haversineRad(
@@ -369,10 +491,10 @@ class GpsDataAnalyzer
 
         if ($pointData['is_stopped'] && $state['is_moving']) {
             // Moving -> Stopped
-            $this->handleMovingToStopped($pointData, $previousPoint, $state, $metrics, $distance, $timeDiff);
+            $this->handleMovingToStopped($pointData, $state, $metrics, $distance, $timeDiff);
         } elseif ($pointData['is_moving'] && $state['is_stopped']) {
             // Stopped -> Moving
-            $this->handleStoppedToMoving($pointData, $previousPoint, $state, $metrics, $distance, $workingStartTs, $workingEndTs, $currentIndex);
+            $this->handleStoppedToMoving($pointData, $state, $metrics, $distance, $currentIndex);
         } elseif ($pointData['is_moving'] && $state['is_moving']) {
             // Continue moving
             $metrics['movement_distance'] += $distance;
@@ -392,7 +514,6 @@ class GpsDataAnalyzer
      */
     private function handleMovingToStopped(
         array $pointData,
-        array $previousPoint,
         array &$state,
         array &$metrics,
         float $distance,
@@ -411,21 +532,18 @@ class GpsDataAnalyzer
      */
     private function handleStoppedToMoving(
         array $pointData,
-        array $previousPoint,
         array &$state,
         array &$metrics,
         float $distance,
-        ?int $workingStartTs,
-        ?int $workingEndTs,
         int $currentIndex
     ): void {
         $stoppageStartTs = $this->data[$state['stoppage_start_index']][self::IDX_TIMESTAMP];
-        $stoppageDuration = $this->calcDuration($stoppageStartTs, $pointData['timestamp'], $workingStartTs, $workingEndTs);
+        $stoppageDuration = $pointData['timestamp'] - $stoppageStartTs;
 
         if ($stoppageDuration >= self::MIN_STOPPAGE_DURATION_SECONDS) {
             $metrics['stoppage_count']++;
             $metrics['stoppage_duration'] += $stoppageDuration;
-            [$onDuration, $offDuration] = $this->calcStoppageOnOff($state['stoppage_start_index'], $currentIndex, $workingStartTs, $workingEndTs);
+            [$onDuration, $offDuration] = $this->calcStoppageOnOff($state['stoppage_start_index'], $currentIndex);
             $metrics['stoppage_duration_while_on'] += $onDuration;
             $metrics['stoppage_duration_while_off'] += $offDuration;
         } else {
@@ -440,27 +558,31 @@ class GpsDataAnalyzer
     }
 
     /**
-     * Handle final state after processing all points
+     * Handle final state after processing segment points
+     *
+     * @param array $state Current state
+     * @param array $metrics Metrics array (modified by reference)
+     * @param int $startIdx Segment start index
+     * @param int $endIdx Segment end index
      */
     private function handleFinalState(
         array $state,
         array &$metrics,
-        int $dataCount,
-        ?int $workingStartTs,
-        ?int $workingEndTs
+        int $startIdx,
+        int $endIdx
     ): void {
         if (!$state['is_stopped'] || $state['stoppage_start_index'] < 0) {
             return;
         }
 
         $stoppageStartTs = $this->data[$state['stoppage_start_index']][self::IDX_TIMESTAMP];
-        $lastTs = $this->data[$dataCount - 1][self::IDX_TIMESTAMP];
-        $stoppageDuration = $this->calcDuration($stoppageStartTs, $lastTs, $workingStartTs, $workingEndTs);
+        $lastTs = $this->data[$endIdx][self::IDX_TIMESTAMP];
+        $stoppageDuration = $lastTs - $stoppageStartTs;
 
         if ($stoppageDuration >= self::MIN_STOPPAGE_DURATION_SECONDS) {
             $metrics['stoppage_count']++;
             $metrics['stoppage_duration'] += $stoppageDuration;
-            [$onDuration, $offDuration] = $this->calcStoppageOnOff($state['stoppage_start_index'], $dataCount - 1, $workingStartTs, $workingEndTs);
+            [$onDuration, $offDuration] = $this->calcStoppageOnOff($state['stoppage_start_index'], $endIdx);
             $metrics['stoppage_duration_while_on'] += $onDuration;
             $metrics['stoppage_duration_while_off'] += $offDuration;
         } else {
@@ -470,14 +592,17 @@ class GpsDataAnalyzer
 
     /**
      * Build final results array from metrics and activation data
+     *
+     * @param array $metrics Combined metrics from all segments
+     * @param array $activation Global activation tracking
+     * @param int $lastStatus Status from last point in last segment
+     * @return array Final results
      */
-    private function buildResults(array $metrics, array $activation, int $dataCount): array
+    private function buildResults(array $metrics, array $activation, int $lastStatus): array
     {
         $averageSpeed = $metrics['movement_duration'] > 0
             ? (int)($metrics['movement_distance'] * self::SECONDS_PER_HOUR / $metrics['movement_duration'])
             : 0;
-
-        $lastPoint = $this->data[$dataCount - 1];
 
         $this->results = [
             'movement_distance_km' => round($metrics['movement_distance'], 1),
@@ -493,28 +618,11 @@ class GpsDataAnalyzer
             'stoppage_count' => $metrics['stoppage_count'],
             'device_on_time' => $activation['device_on_timestamp'] !== null ? $this->formatTimestamp($activation['device_on_timestamp']) : null,
             'first_movement_time' => $activation['first_movement_timestamp'] !== null ? $this->formatTimestamp($activation['first_movement_timestamp']) : null,
-            'latest_status' => $lastPoint[self::IDX_STATUS],
+            'latest_status' => $lastStatus,
             'average_speed' => $averageSpeed,
         ];
 
         return $this->results;
-    }
-
-
-    /**
-     * Calculate duration between timestamps, clamped to working window
-     */
-    private function calcDuration(int $startTs, int $endTs, ?int $wsTs, ?int $weTs): int
-    {
-        if ($wsTs !== null) {
-            $startTs = max($startTs, $wsTs);
-            $endTs = max($endTs, $wsTs);
-        }
-        if ($weTs !== null) {
-            $startTs = min($startTs, $weTs);
-            $endTs = min($endTs, $weTs);
-        }
-        return max(0, $endTs - $startTs);
     }
 
     /**
@@ -533,43 +641,20 @@ class GpsDataAnalyzer
 
     /**
      * Calculate stoppage on/off duration split
+     *
+     * @param int $startIdx Stoppage start index
+     * @param int $endIdx Stoppage end index
+     * @return array [onDuration, offDuration]
      */
-    private function calcStoppageOnOff(int $startIdx, int $endIdx, ?int $wsTs, ?int $weTs): array
+    private function calcStoppageOnOff(int $startIdx, int $endIdx): array
     {
         $data = &$this->data;
         $durationOn = 0;
         $durationOff = 0;
-        $firstIdx = $startIdx;
-
-        $startTs = $data[$startIdx][self::IDX_TIMESTAMP];
-
-        // Handle stoppage starting before working window
-        if ($wsTs !== null && $startTs < $wsTs) {
-            for ($i = $startIdx + 1; $i <= $endIdx; $i++) {
-                if ($data[$i][self::IDX_TIMESTAMP] >= $wsTs) {
-                    $firstIdx = $i;
-                    $timeDiff = $this->calcDuration($wsTs, $data[$i][self::IDX_TIMESTAMP], $wsTs, $weTs);
-                    if ($data[$startIdx][self::IDX_STATUS] === 1) {
-                        $durationOn += $timeDiff;
-                    } else {
-                        $durationOff += $timeDiff;
-                    }
-                    break;
-                }
-            }
-            if ($firstIdx === $startIdx) {
-                $timeDiff = $this->calcDuration($wsTs, $data[$endIdx][self::IDX_TIMESTAMP], $wsTs, $weTs);
-                if ($data[$startIdx][self::IDX_STATUS] === 1) {
-                    $durationOn += $timeDiff;
-                } else {
-                    $durationOff += $timeDiff;
-                }
-            }
-        }
 
         // Sum duration per segment based on status
-        for ($i = $firstIdx + 1; $i <= $endIdx; $i++) {
-            $timeDiff = $this->calcDuration($data[$i - 1][self::IDX_TIMESTAMP], $data[$i][self::IDX_TIMESTAMP], $wsTs, $weTs);
+        for ($i = $startIdx + 1; $i <= $endIdx; $i++) {
+            $timeDiff = $data[$i][self::IDX_TIMESTAMP] - $data[$i - 1][self::IDX_TIMESTAMP];
             if ($data[$i][self::IDX_STATUS] === 1) {
                 $durationOn += $timeDiff;
             } else {
@@ -578,7 +663,7 @@ class GpsDataAnalyzer
         }
 
         // Normalize to match total duration
-        $totalDuration = $this->calcDuration($data[$startIdx][self::IDX_TIMESTAMP], $data[$endIdx][self::IDX_TIMESTAMP], $wsTs, $weTs);
+        $totalDuration = $data[$endIdx][self::IDX_TIMESTAMP] - $data[$startIdx][self::IDX_TIMESTAMP];
         $calculated = $durationOn + $durationOff;
 
         if ($calculated > 0 && $calculated !== $totalDuration) {
@@ -633,3 +718,4 @@ class GpsDataAnalyzer
         ];
     }
 }
+
