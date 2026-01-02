@@ -53,4 +53,3 @@ class GpsData extends Model
         return $this->belongsTo(Tractor::class, 'tractor_id');
     }
 }
-

@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Services\WeatherApi;
 use App\Services\KalmanFilter;
 use App\Services\ActiveTractorService;
+use App\Services\GpsPathCorrectorService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\ServiceProvider;
@@ -19,6 +20,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(KalmanFilter::class);
         $this->app->singleton(ActiveTractorService::class);
+        $this->app->singleton(GpsPathCorrectorService::class);
     }
 
     /**

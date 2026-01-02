@@ -18,17 +18,42 @@ class TractorPathStreamService
     // Pre-computed time format for zero stoppage (most common case)
     private const ZERO_STOPPAGE_TIME = '00:00:00';
 
+    // GPS path correction batch size (process in chunks to maintain streaming performance)
+    private const GPS_CORRECTION_BATCH_SIZE = 500;
+
+    /**
+     * GPS Path Corrector Service instance
+     *
+     * @var GpsPathCorrectorService|null
+     */
+    private ?GpsPathCorrectorService $pathCorrector = null;
+
+    /**
+     * Whether to enable GPS path correction
+     *
+     * @var bool
+     */
+    private bool $enablePathCorrection = true;
+
     /**
      * Retrieves the tractor movement path for a specific date using GPS data analysis.
      * Optimized for sub-3s response times using raw queries and minimal processing.
      *
      * @param Tractor $tractor
      * @param Carbon $date
+     * @param bool $enablePathCorrection Whether to apply GPS path correction filters (default: true)
      * @return \Illuminate\Http\StreamedResponse
      */
-    public function getTractorPath(Tractor $tractor, Carbon $date)
+    public function getTractorPath(Tractor $tractor, Carbon $date, bool $enablePathCorrection = true)
     {
         try {
+            $this->enablePathCorrection = $enablePathCorrection;
+
+            // Initialize path corrector if enabled
+            if ($this->enablePathCorrection) {
+                $this->pathCorrector = app(GpsPathCorrectorService::class);
+            }
+
             $tractorId = $tractor->id;
 
             // Use range-based date filter for optimal index utilization
@@ -147,8 +172,41 @@ class TractorPathStreamService
         $firstPointProcessed = false;
         $prevTimestamp = null;
 
+        // Batch buffer for GPS path correction
+        $correctionBatch = [];
+        $correctedRowsBuffer = []; // Buffer for corrected rows ready to process
+
         // Process rows with FETCH_ASSOC (faster than FETCH_OBJ)
-        while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+        while (true) {
+            // Try to get next row from database
+            $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+            // If we have a new row, handle it
+            if ($row !== false) {
+                if ($this->enablePathCorrection && $this->pathCorrector !== null) {
+                    $correctionBatch[] = $row;
+
+                    // Process batch when it reaches the batch size
+                    if (count($correctionBatch) >= self::GPS_CORRECTION_BATCH_SIZE) {
+                        $this->processCorrectionBatch($correctionBatch, $correctedRowsBuffer);
+                        $correctionBatch = [];
+                    }
+                } else {
+                    // Correction disabled, use row as-is
+                    $correctedRowsBuffer[] = $row;
+                }
+            }
+
+            // Process rows from buffer (corrected or uncorrected)
+            if (!empty($correctedRowsBuffer)) {
+                $row = array_shift($correctedRowsBuffer);
+            } elseif ($row === false) {
+                // No more rows from database and buffer is empty
+                break;
+            } else {
+                // Row is in correction batch, continue to next iteration
+                continue;
+            }
             $speed = (int) $row['speed'];
             $status = (int) $row['status'];
             $isMovement = ($status === 1 && $speed > 0);
@@ -156,6 +214,135 @@ class TractorPathStreamService
             $isFirstPoint = !$firstPointProcessed;
 
             // Parse timestamp inline (avoid function call overhead)
+            $dateTime = $row['date_time'];
+            $timestamp = ($dateTime && isset($dateTime[18]))
+                ? (int) strtotime($dateTime)
+                : time();
+
+            // Update stoppage duration
+            if ($inStoppageSegment && $prevTimestamp !== null && $isStoppage) {
+                $stoppageDuration += max(0, $timestamp - $prevTimestamp);
+            }
+
+            if ($isMovement) {
+                $hasSeenMovement = true;
+
+                // Finalize deferred stoppage if exists
+                if ($inStoppageSegment && $deferredRow !== null) {
+                    if ($stoppageDuration >= self::MIN_STOPPAGE_SECONDS || $stoppageStartedAtFirstPoint) {
+                        yield $this->formatPointArray(
+                            (int) $deferredRow['id'],
+                            $deferredRow['coordinate'],
+                            (int) $deferredRow['speed'],
+                            (int) $deferredRow['status'],
+                            $deferredRow['directions'],
+                            $deferredRow['date_time'],
+                            false,
+                            false,
+                            true,
+                            $stoppageDuration
+                        );
+                    }
+                    $deferredRow = null;
+                }
+
+                // Reset stoppage state
+                $inStoppageSegment = false;
+                $stoppageDuration = 0;
+                $stoppageStartedAtFirstPoint = false;
+
+                // Buffer for starting point detection
+                $movementBuffer[] = $row;
+                $bufferSize = count($movementBuffer);
+
+                if ($bufferSize === self::MOVEMENT_BUFFER_SIZE) {
+                    $firstRow = array_shift($movementBuffer);
+                    $isStart = !$startingPointAssigned;
+                    if ($isStart) {
+                        $startingPointAssigned = true;
+                    }
+                    yield $this->formatPointArray(
+                        (int) $firstRow['id'],
+                        $firstRow['coordinate'],
+                        (int) $firstRow['speed'],
+                        (int) $firstRow['status'],
+                        $firstRow['directions'],
+                        $firstRow['date_time'],
+                        $isStart,
+                        false,
+                        false,
+                        0
+                    );
+                } elseif ($bufferSize > self::MOVEMENT_BUFFER_SIZE) {
+                    $shiftedRow = array_shift($movementBuffer);
+                    yield $this->formatPointArray(
+                        (int) $shiftedRow['id'],
+                        $shiftedRow['coordinate'],
+                        (int) $shiftedRow['speed'],
+                        (int) $shiftedRow['status'],
+                        $shiftedRow['directions'],
+                        $shiftedRow['date_time'],
+                        false,
+                        false,
+                        false,
+                        0
+                    );
+                }
+
+                $lastPointType = 'movement';
+            } elseif ($isStoppage) {
+                // Flush movement buffer on stoppage
+                foreach ($movementBuffer as $bufferedRow) {
+                    yield $this->formatPointArray(
+                        (int) $bufferedRow['id'],
+                        $bufferedRow['coordinate'],
+                        (int) $bufferedRow['speed'],
+                        (int) $bufferedRow['status'],
+                        $bufferedRow['directions'],
+                        $bufferedRow['date_time'],
+                        false,
+                        false,
+                        false,
+                        0
+                    );
+                }
+                $movementBuffer = [];
+
+                if ($isFirstPoint) {
+                    $deferredRow = $row;
+                    $inStoppageSegment = true;
+                    $stoppageDuration = 0;
+                    $stoppageStartedAtFirstPoint = true;
+                } elseif ($hasSeenMovement && $lastPointType !== 'stoppage') {
+                    $deferredRow = $row;
+                    $inStoppageSegment = true;
+                    $stoppageDuration = 0;
+                    $stoppageStartedAtFirstPoint = false;
+                }
+
+                $lastPointType = 'stoppage';
+            }
+
+            $prevTimestamp = $timestamp;
+            $firstPointProcessed = true;
+        }
+
+        // Process remaining correction batch if any
+        if ($this->enablePathCorrection && $this->pathCorrector !== null && !empty($correctionBatch)) {
+            $this->processCorrectionBatch($correctionBatch, $correctedRowsBuffer);
+        }
+
+        // Process any remaining rows from buffer
+        while (!empty($correctedRowsBuffer)) {
+            $row = array_shift($correctedRowsBuffer);
+
+            $speed = (int) $row['speed'];
+            $status = (int) $row['status'];
+            $isMovement = ($status === 1 && $speed > 0);
+            $isStoppage = ($speed === 0);
+            $isFirstPoint = !$firstPointProcessed;
+
+            // Parse timestamp
             $dateTime = $row['date_time'];
             $timestamp = ($dateTime && isset($dateTime[18]))
                 ? (int) strtotime($dateTime)
@@ -377,5 +564,67 @@ class TractorPathStreamService
             'stoppage_time' => $formattedStoppage,
             'timestamp' => $timestamp,
         ];
+    }
+
+    /**
+     * Process a batch of GPS points through the correction pipeline
+     *
+     * @param array $correctionBatch Batch of raw database rows to correct
+     * @param array $correctedRowsBuffer Reference to buffer array for storing corrected rows ready to yield
+     * @return void
+     */
+    private function processCorrectionBatch(array $correctionBatch, array &$correctedRowsBuffer): void
+    {
+        if (empty($correctionBatch) || $this->pathCorrector === null) {
+            return;
+        }
+
+        // Parse coordinates and prepare points for correction pipeline
+        $pointsToCorrect = [];
+        foreach ($correctionBatch as $row) {
+            $coordinate = $row['coordinate'];
+            $lat = 0.0;
+            $lon = 0.0;
+
+            // Parse coordinate
+            if (is_string($coordinate)) {
+                $firstChar = $coordinate[0] ?? '';
+                if ($firstChar === '[') {
+                    $decoded = json_decode($coordinate, true);
+                    if ($decoded) {
+                        $lat = (float) ($decoded[0] ?? 0);
+                        $lon = (float) ($decoded[1] ?? 0);
+                    }
+                } else {
+                    $parts = explode(',', $coordinate, 2);
+                    if (count($parts) === 2) {
+                        $lat = (float) $parts[0];
+                        $lon = (float) $parts[1];
+                    }
+                }
+            } elseif (is_array($coordinate)) {
+                $lat = (float) ($coordinate[0] ?? 0);
+                $lon = (float) ($coordinate[1] ?? 0);
+            }
+
+            $pointsToCorrect[] = [
+                'lat' => $lat,
+                'lon' => $lon,
+                'coordinate' => [$lat, $lon],
+            ];
+        }
+
+        // Apply correction through pipeline
+        $correctedPoints = $this->pathCorrector->correct($pointsToCorrect);
+
+        // Update rows with corrected coordinates and add to buffer
+        foreach ($correctionBatch as $batchIndex => $row) {
+            if (isset($correctedPoints[$batchIndex])) {
+                $corrected = $correctedPoints[$batchIndex];
+                // Update coordinate in the row
+                $row['coordinate'] = json_encode([$corrected['lat'], $corrected['lon']]);
+            }
+            $correctedRowsBuffer[] = $row;
+        }
     }
 }
