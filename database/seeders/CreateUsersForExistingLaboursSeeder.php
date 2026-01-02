@@ -68,10 +68,10 @@ class CreateUsersForExistingLaboursSeeder extends Seeder
                     $created++;
                     $this->command->info("Created user account for labour ID {$labour->id} ({$labour->name})");
                 } else {
-                    $this->command->warn("User with mobile {$labour->mobile} already exists. Using existing user.");
+                    $this->command->info("User with mobile {$labour->mobile} already exists. Syncing role and linking to labour ID {$labour->id}.");
                 }
 
-                // Assign role based on work_type
+                // Assign role based on work_type (sync roles to ensure only one role)
                 $role = $labour->work_type === 'administrative' ? 'employee' : 'labour';
                 $user->syncRoles($role);
 
@@ -80,7 +80,7 @@ class CreateUsersForExistingLaboursSeeder extends Seeder
 
             } catch (\Exception $e) {
                 $skipped++;
-                $this->command->error("Failed to create user for labour ID {$labour->id}: {$e->getMessage()}");
+                $this->command->error("Failed to process labour ID {$labour->id}: {$e->getMessage()}");
             }
         }
 
