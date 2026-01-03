@@ -104,16 +104,6 @@ class Tractor extends Model
     }
 
     /**
-     * Get the gps reports for the tractor.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasManyThrough
-     */
-    public function gpsReports()
-    {
-        return $this->hasManyThrough(GpsReport::class, GpsDevice::class);
-    }
-
-    /**
      * Get the gps metrics calculations for the tractor.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
