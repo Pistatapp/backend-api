@@ -2,8 +2,8 @@
 
 namespace Tests\Unit\Models;
 
-use App\Models\Employee;
-use App\Models\WorkerAttendanceSession;
+use App\Models\Labour;
+use App\Models\LabourAttendanceSession;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 use Carbon\Carbon;
@@ -13,15 +13,15 @@ class WorkerAttendanceSessionTest extends TestCase
     use RefreshDatabase;
 
     /**
-     * Test that attendance session belongs to employee.
+     * Test that attendance session belongs to labour.
      */
     public function test_attendance_session_belongs_to_employee(): void
     {
-        $employee = Employee::factory()->create();
-        $session = WorkerAttendanceSession::factory()->create(['employee_id' => $employee->id]);
+        $labour = Labour::factory()->create();
+        $session = LabourAttendanceSession::factory()->create(['labour_id' => $labour->id]);
 
-        $this->assertInstanceOf(Employee::class, $session->employee);
-        $this->assertEquals($employee->id, $session->employee->id);
+        $this->assertInstanceOf(Labour::class, $session->labour);
+        $this->assertEquals($labour->id, $session->labour->id);
     }
 
     /**
@@ -30,7 +30,7 @@ class WorkerAttendanceSessionTest extends TestCase
     public function test_date_is_cast_to_date(): void
     {
         $date = Carbon::today();
-        $session = WorkerAttendanceSession::factory()->create(['date' => $date]);
+        $session = LabourAttendanceSession::factory()->create(['date' => $date]);
 
         $this->assertInstanceOf(Carbon::class, $session->date);
         $this->assertEquals($date->toDateString(), $session->date->toDateString());
@@ -44,7 +44,7 @@ class WorkerAttendanceSessionTest extends TestCase
         $entryTime = Carbon::now()->subHours(8);
         $exitTime = Carbon::now();
 
-        $session = WorkerAttendanceSession::factory()->create([
+        $session = LabourAttendanceSession::factory()->create([
             'entry_time' => $entryTime,
             'exit_time' => $exitTime,
         ]);
@@ -58,13 +58,13 @@ class WorkerAttendanceSessionTest extends TestCase
      */
     public function test_attendance_session_can_be_created(): void
     {
-        $employee = Employee::factory()->create();
+        $labour = Labour::factory()->create();
         $date = Carbon::today();
         $entryTime = Carbon::now()->subHours(8);
         $exitTime = Carbon::now();
 
-        $session = WorkerAttendanceSession::factory()->create([
-            'employee_id' => $employee->id,
+        $session = LabourAttendanceSession::factory()->create([
+            'labour_id' => $labour->id,
             'date' => $date,
             'entry_time' => $entryTime,
             'exit_time' => $exitTime,
@@ -73,9 +73,9 @@ class WorkerAttendanceSessionTest extends TestCase
             'status' => 'completed',
         ]);
 
-        $this->assertDatabaseHas('worker_attendance_sessions', [
+        $this->assertDatabaseHas('labour_attendance_sessions', [
             'id' => $session->id,
-            'employee_id' => $employee->id,
+            'labour_id' => $labour->id,
             'status' => 'completed',
         ]);
 
@@ -88,7 +88,7 @@ class WorkerAttendanceSessionTest extends TestCase
      */
     public function test_attendance_session_can_have_in_progress_status(): void
     {
-        $session = WorkerAttendanceSession::factory()->create([
+        $session = LabourAttendanceSession::factory()->create([
             'status' => 'in_progress',
             'exit_time' => null,
         ]);

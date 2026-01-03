@@ -4,7 +4,7 @@ namespace Tests\Unit\Models;
 
 use App\Models\Farm;
 use App\Models\WorkShift;
-use App\Models\WorkerShiftSchedule;
+use App\Models\LabourShiftSchedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -30,10 +30,10 @@ class WorkShiftTest extends TestCase
     public function test_work_shift_has_many_shift_schedules(): void
     {
         $shift = WorkShift::factory()->create();
-        WorkerShiftSchedule::factory()->count(5)->create(['shift_id' => $shift->id]);
+        LabourShiftSchedule::factory()->count(5)->create(['shift_id' => $shift->id]);
 
         $this->assertCount(5, $shift->shiftSchedules);
-        $this->assertInstanceOf(WorkerShiftSchedule::class, $shift->shiftSchedules->first());
+        $this->assertInstanceOf(LabourShiftSchedule::class, $shift->shiftSchedules->first());
     }
 
     /**

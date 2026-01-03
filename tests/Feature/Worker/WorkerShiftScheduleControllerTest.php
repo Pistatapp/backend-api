@@ -2,11 +2,11 @@
 
 namespace Tests\Feature\Worker;
 
-use App\Models\Employee;
+use App\Models\Labour;
 use App\Models\Farm;
 use App\Models\User;
 use App\Models\WorkShift;
-use App\Models\WorkerShiftSchedule;
+use App\Models\LabourShiftSchedule;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -30,7 +30,7 @@ class WorkerShiftScheduleControllerTest extends TestCase
      */
     public function test_index_returns_monthly_calendar(): void
     {
-        $employee = Employee::factory()->create([
+        $labour = Labour::factory()->create([
             'farm_id' => $this->farm->id,
             'work_type' => 'shift_based',
         ]);
@@ -38,8 +38,8 @@ class WorkerShiftScheduleControllerTest extends TestCase
         $shift = WorkShift::factory()->create(['farm_id' => $this->farm->id]);
 
         $date = Carbon::parse('2024-11-15');
-        WorkerShiftSchedule::factory()->create([
-            'employee_id' => $employee->id,
+        LabourShiftSchedule::factory()->create([
+            'labour_id' => $labour->id,
             'shift_id' => $shift->id,
             'scheduled_date' => $date,
         ]);
@@ -55,7 +55,7 @@ class WorkerShiftScheduleControllerTest extends TestCase
      */
     public function test_store_creates_new_shift_schedule(): void
     {
-        $employee = Employee::factory()->create([
+        $labour = Labour::factory()->create([
             'farm_id' => $this->farm->id,
             'work_type' => 'shift_based',
         ]);
@@ -70,7 +70,7 @@ class WorkerShiftScheduleControllerTest extends TestCase
 
         $response = $this->actingAs($this->user)
             ->postJson('/api/shift-schedules', [
-                'employee_id' => $employee->id,
+                'labour_id' => $labour->id,
                 'shift_id' => $shift->id,
                 'scheduled_date' => $date->toDateString(),
             ]);
@@ -78,11 +78,11 @@ class WorkerShiftScheduleControllerTest extends TestCase
         $response->assertStatus(201);
 
         // Verify the schedule was created
-        $schedule = \App\Models\WorkerShiftSchedule::where('employee_id', $employee->id)
+        $schedule = \App\Models\LabourShiftSchedule::where('labour_id', $labour->id)
             ->where('shift_id', $shift->id)
             ->whereDate('scheduled_date', $date)
             ->first();
-        
+
         $this->assertNotNull($schedule);
         $this->assertEquals('scheduled', $schedule->status);
     }
@@ -92,7 +92,7 @@ class WorkerShiftScheduleControllerTest extends TestCase
      */
     public function test_store_prevents_assignment_to_non_shift_based_employee(): void
     {
-        $employee = Employee::factory()->create([
+        $labour = Labour::factory()->create([
             'farm_id' => $this->farm->id,
             'work_type' => 'administrative', // Not shift-based
         ]);
@@ -101,13 +101,13 @@ class WorkerShiftScheduleControllerTest extends TestCase
 
         $response = $this->actingAs($this->user)
             ->postJson('/api/shift-schedules', [
-                'employee_id' => $employee->id,
+                'labour_id' => $labour->id,
                 'shift_id' => $shift->id,
                 'scheduled_date' => Carbon::tomorrow()->toDateString(),
             ]);
 
         $response->assertStatus(400);
-        $response->assertJsonFragment(['error' => 'Employee must be shift-based to assign shifts']);
+        $response->assertJsonFragment(['error' => 'Labour must be shift-based to assign shifts']);
     }
 
     /**
@@ -115,7 +115,7 @@ class WorkerShiftScheduleControllerTest extends TestCase
      */
     public function test_store_prevents_overlapping_shifts(): void
     {
-        $employee = Employee::factory()->create([
+        $labour = Labour::factory()->create([
             'farm_id' => $this->farm->id,
             'work_type' => 'shift_based',
         ]);
@@ -135,8 +135,8 @@ class WorkerShiftScheduleControllerTest extends TestCase
         $date = Carbon::tomorrow();
 
         // Create existing schedule
-        WorkerShiftSchedule::factory()->create([
-            'employee_id' => $employee->id,
+        LabourShiftSchedule::factory()->create([
+            'labour_id' => $labour->id,
             'shift_id' => $existingShift->id,
             'scheduled_date' => $date,
         ]);
@@ -144,7 +144,7 @@ class WorkerShiftScheduleControllerTest extends TestCase
         // Try to create overlapping schedule
         $response = $this->actingAs($this->user)
             ->postJson('/api/shift-schedules', [
-                'employee_id' => $employee->id,
+                'labour_id' => $labour->id,
                 'shift_id' => $newShift->id,
                 'scheduled_date' => $date->toDateString(),
             ]);
@@ -158,7 +158,7 @@ class WorkerShiftScheduleControllerTest extends TestCase
      */
     public function test_store_allows_non_overlapping_shifts_same_day(): void
     {
-        $employee = Employee::factory()->create([
+        $labour = Labour::factory()->create([
             'farm_id' => $this->farm->id,
             'work_type' => 'shift_based',
         ]);
@@ -178,8 +178,8 @@ class WorkerShiftScheduleControllerTest extends TestCase
         $date = Carbon::tomorrow();
 
         // Create morning schedule
-        WorkerShiftSchedule::factory()->create([
-            'employee_id' => $employee->id,
+        LabourShiftSchedule::factory()->create([
+            'labour_id' => $labour->id,
             'shift_id' => $morningShift->id,
             'scheduled_date' => $date,
         ]);
@@ -187,7 +187,7 @@ class WorkerShiftScheduleControllerTest extends TestCase
         // Should allow evening schedule (no overlap)
         $response = $this->actingAs($this->user)
             ->postJson('/api/shift-schedules', [
-                'employee_id' => $employee->id,
+                'labour_id' => $labour->id,
                 'shift_id' => $eveningShift->id,
                 'scheduled_date' => $date->toDateString(),
             ]);
@@ -200,14 +200,14 @@ class WorkerShiftScheduleControllerTest extends TestCase
      */
     public function test_update_modifies_shift_schedule(): void
     {
-        $employee = Employee::factory()->create([
+        $labour = Labour::factory()->create([
             'farm_id' => $this->farm->id,
             'work_type' => 'shift_based',
         ]);
 
         $shift = WorkShift::factory()->create(['farm_id' => $this->farm->id]);
-        $schedule = WorkerShiftSchedule::factory()->create([
-            'employee_id' => $employee->id,
+        $schedule = LabourShiftSchedule::factory()->create([
+            'labour_id' => $labour->id,
             'shift_id' => $shift->id,
             'status' => 'scheduled',
         ]);
@@ -228,13 +228,13 @@ class WorkerShiftScheduleControllerTest extends TestCase
      */
     public function test_destroy_deletes_shift_schedule(): void
     {
-        $schedule = WorkerShiftSchedule::factory()->create();
+        $schedule = LabourShiftSchedule::factory()->create();
 
         $response = $this->actingAs($this->user)
             ->deleteJson("/api/shift-schedules/{$schedule->id}");
 
         $response->assertStatus(204);
-        $this->assertDatabaseMissing('worker_shift_schedules', ['id' => $schedule->id]);
+        $this->assertDatabaseMissing('labour_shift_schedules', ['id' => $schedule->id]);
     }
 }
 

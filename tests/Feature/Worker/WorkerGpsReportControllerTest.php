@@ -2,11 +2,11 @@
 
 namespace Tests\Feature\Worker;
 
-use App\Events\WorkerStatusChanged;
-use App\Models\Employee;
+use App\Events\LabourStatusChanged;
+use App\Models\Labour;
 use App\Models\Farm;
 use App\Models\User;
-use App\Models\WorkerGpsData;
+use App\Models\LabourGpsData;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
@@ -25,7 +25,7 @@ class WorkerGpsReportControllerTest extends TestCase
 
         $user = User::factory()->create();
         $farm = Farm::factory()->create();
-        $employee = Employee::factory()->create([
+        $labour = Labour::factory()->create([
             'farm_id' => $farm->id,
             'user_id' => $user->id,
         ]);
@@ -40,7 +40,7 @@ class WorkerGpsReportControllerTest extends TestCase
         ];
         $farm->save();
 
-        $response = $this->actingAs($user)->postJson('/api/workers/gps-report', [
+        $response = $this->actingAs($user)->postJson('/api/labours/gps-report', [
             'latitude' => 35.6895,
             'longitude' => 51.3895,
             'altitude' => 1200.5,
@@ -54,12 +54,12 @@ class WorkerGpsReportControllerTest extends TestCase
         $response->assertStatus(200);
         $response->assertJson(['success' => true]);
 
-        $this->assertDatabaseHas('worker_gps_data', [
-            'employee_id' => $employee->id,
+        $this->assertDatabaseHas('labour_gps_data', [
+            'labour_id' => $labour->id,
             'provider' => 'gps',
         ]);
 
-        Event::assertDispatched(WorkerStatusChanged::class);
+        Event::assertDispatched(LabourStatusChanged::class);
     }
 
     /**
@@ -67,7 +67,7 @@ class WorkerGpsReportControllerTest extends TestCase
      */
     public function test_gps_report_endpoint_returns_401_for_unauthenticated_user(): void
     {
-        $response = $this->postJson('/api/workers/gps-report', [
+        $response = $this->postJson('/api/labours/gps-report', [
             'latitude' => 35.6895,
             'longitude' => 51.3895,
             'time' => now()->getTimestampMs(),
@@ -84,14 +84,14 @@ class WorkerGpsReportControllerTest extends TestCase
         $user = User::factory()->create();
         // Don't create employee for this user
 
-        $response = $this->actingAs($user)->postJson('/api/workers/gps-report', [
+        $response = $this->actingAs($user)->postJson('/api/labours/gps-report', [
             'latitude' => 35.6895,
             'longitude' => 51.3895,
             'time' => now()->getTimestampMs(),
         ]);
 
         $response->assertStatus(404);
-        $response->assertJson(['error' => 'Employee not found']);
+        $response->assertJson(['error' => 'Labour not found']);
     }
 
     /**
@@ -100,10 +100,10 @@ class WorkerGpsReportControllerTest extends TestCase
     public function test_gps_report_endpoint_returns_400_for_invalid_gps_data(): void
     {
         $user = User::factory()->create();
-        $employee = Employee::factory()->create(['user_id' => $user->id]);
+        $labour = Labour::factory()->create(['user_id' => $user->id]);
 
         // Missing required fields
-        $response = $this->actingAs($user)->postJson('/api/workers/gps-report', [
+        $response = $this->actingAs($user)->postJson('/api/labours/gps-report', [
             'latitude' => 35.6895,
             // Missing longitude and time
         ]);
@@ -121,7 +121,7 @@ class WorkerGpsReportControllerTest extends TestCase
 
         $user = User::factory()->create();
         $farm = Farm::factory()->create();
-        $employee = Employee::factory()->create([
+        $labour = Labour::factory()->create([
             'farm_id' => $farm->id,
             'user_id' => $user->id,
         ]);
@@ -136,7 +136,7 @@ class WorkerGpsReportControllerTest extends TestCase
         $farm->save();
 
         // Only required fields
-        $response = $this->actingAs($user)->postJson('/api/workers/gps-report', [
+        $response = $this->actingAs($user)->postJson('/api/labours/gps-report', [
             'latitude' => 35.6895,
             'longitude' => 51.3895,
             'time' => now()->getTimestampMs(),
@@ -144,7 +144,7 @@ class WorkerGpsReportControllerTest extends TestCase
 
         $response->assertStatus(200);
 
-        $gpsData = WorkerGpsData::where('employee_id', $employee->id)->first();
+        $gpsData = LabourGpsData::where('labour_id', $labour->id)->first();
         $this->assertNotNull($gpsData);
         $this->assertEquals(0, $gpsData->altitude ?? 0);
         $this->assertEquals(0, $gpsData->speed);
@@ -160,7 +160,7 @@ class WorkerGpsReportControllerTest extends TestCase
 
         $user = User::factory()->create();
         $farm = Farm::factory()->create();
-        $employee = Employee::factory()->create([
+        $labour = Labour::factory()->create([
             'farm_id' => $farm->id,
             'user_id' => $user->id,
         ]);
@@ -169,7 +169,7 @@ class WorkerGpsReportControllerTest extends TestCase
         $farm->coordinates = [];
         $farm->save();
 
-        $response = $this->actingAs($user)->postJson('/api/workers/gps-report', [
+        $response = $this->actingAs($user)->postJson('/api/labours/gps-report', [
             'latitude' => 35.6895,
             'longitude' => 51.3895,
             'time' => now()->getTimestampMs(),

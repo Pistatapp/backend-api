@@ -2,8 +2,8 @@
 
 namespace Tests\Unit\Models;
 
-use App\Models\Employee;
-use App\Models\WorkerMonthlyPayroll;
+use App\Models\Labour;
+use App\Models\LabourMonthlyPayroll;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 use Carbon\Carbon;
@@ -13,15 +13,15 @@ class WorkerMonthlyPayrollTest extends TestCase
     use RefreshDatabase;
 
     /**
-     * Test that monthly payroll belongs to employee.
+     * Test that monthly payroll belongs to labour.
      */
     public function test_monthly_payroll_belongs_to_employee(): void
     {
-        $employee = Employee::factory()->create();
-        $payroll = WorkerMonthlyPayroll::factory()->create(['employee_id' => $employee->id]);
+        $labour = Labour::factory()->create();
+        $payroll = LabourMonthlyPayroll::factory()->create(['labour_id' => $labour->id]);
 
-        $this->assertInstanceOf(Employee::class, $payroll->employee);
-        $this->assertEquals($employee->id, $payroll->employee->id);
+        $this->assertInstanceOf(Labour::class, $payroll->labour);
+        $this->assertEquals($labour->id, $payroll->labour->id);
     }
 
     /**
@@ -29,7 +29,7 @@ class WorkerMonthlyPayrollTest extends TestCase
      */
     public function test_numeric_fields_are_cast_to_decimal(): void
     {
-        $payroll = WorkerMonthlyPayroll::factory()->create([
+        $payroll = LabourMonthlyPayroll::factory()->create([
             'total_work_hours' => 176.5,
             'total_required_hours' => 160.0,
             'total_overtime_hours' => 16.5,
@@ -46,7 +46,7 @@ class WorkerMonthlyPayrollTest extends TestCase
     public function test_generated_at_is_cast_to_datetime(): void
     {
         $generatedAt = Carbon::now();
-        $payroll = WorkerMonthlyPayroll::factory()->create(['generated_at' => $generatedAt]);
+        $payroll = LabourMonthlyPayroll::factory()->create(['generated_at' => $generatedAt]);
 
         $this->assertInstanceOf(Carbon::class, $payroll->generated_at);
     }
@@ -56,10 +56,10 @@ class WorkerMonthlyPayrollTest extends TestCase
      */
     public function test_monthly_payroll_can_be_created(): void
     {
-        $employee = Employee::factory()->create();
+        $labour = Labour::factory()->create();
 
-        $payroll = WorkerMonthlyPayroll::factory()->create([
-            'employee_id' => $employee->id,
+        $payroll = LabourMonthlyPayroll::factory()->create([
+            'labour_id' => $labour->id,
             'month' => 11,
             'year' => 2024,
             'total_work_hours' => 176.5,
@@ -73,9 +73,9 @@ class WorkerMonthlyPayrollTest extends TestCase
             'generated_at' => Carbon::now(),
         ]);
 
-        $this->assertDatabaseHas('worker_monthly_payrolls', [
+        $this->assertDatabaseHas('labour_monthly_payrolls', [
             'id' => $payroll->id,
-            'employee_id' => $employee->id,
+            'labour_id' => $labour->id,
             'month' => 11,
             'year' => 2024,
         ]);

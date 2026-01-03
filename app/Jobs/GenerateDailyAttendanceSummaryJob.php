@@ -113,7 +113,7 @@ class GenerateDailyAttendanceSummaryJob implements ShouldQueue
     {
         $requiredHours = app(LabourWageCalculationService::class)->getRequiredHours($labour, $date);
 
-        WorkerDailyReport::updateOrCreate(
+        LabourDailyReport::updateOrCreate(
             [
                 'labour_id' => $labour->id,
                 'date' => $date,

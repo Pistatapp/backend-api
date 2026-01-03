@@ -28,16 +28,14 @@ class LabourFactory extends Factory
     {
         return [
             'farm_id' => Farm::factory(),
-            'fname' => $this->faker->firstName,
-            'lname' => $this->faker->lastName,
-            'national_id' => $this->faker->unique()->numerify('##########'),
+            'name' => $this->faker->name,
+            'personnel_number' => $this->faker->unique()->numerify('##########'),
             'mobile' => $this->faker->phoneNumber,
             'work_type' => $this->faker->randomElement(['shift_based', 'administrative']),
             'work_days' => $this->faker->randomElements([0, 1, 2, 3, 4, 5, 6], $this->faker->numberBetween(1, 7)),
             'work_hours' => $this->faker->numberBetween(4, 12),
             'start_work_time' => $this->faker->time('H:i:s'),
             'end_work_time' => $this->faker->time('H:i:s'),
-            'monthly_salary' => $this->faker->numberBetween(1000000, 5000000),
             'hourly_wage' => $this->faker->numberBetween(50000, 200000),
             'overtime_hourly_wage' => $this->faker->numberBetween(75000, 300000),
             'user_id' => null,

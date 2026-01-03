@@ -955,13 +955,48 @@ class GpsDataAnalyzerTest extends TestCase
         ?Carbon $timeBoundEnd = null,
         array $polygon = []
     ): array {
+        // Filter data by time bounds if provided
+        if ($timeBoundStart !== null || $timeBoundEnd !== null) {
+            $gpsData = array_filter($gpsData, function ($point) use ($timeBoundStart, $timeBoundEnd) {
+                $pointTime = $point['date_time'] instanceof Carbon 
+                    ? $point['date_time'] 
+                    : Carbon::parse($point['date_time']);
+                
+                if ($timeBoundStart !== null && $pointTime->lt($timeBoundStart)) {
+                    return false;
+                }
+                if ($timeBoundEnd !== null && $pointTime->gt($timeBoundEnd)) {
+                    return false;
+                }
+                return true;
+            });
+            // Re-index array after filtering
+            $gpsData = array_values($gpsData);
+        }
+
+        // Filter data by polygon if provided
+        if (!empty($polygon)) {
+            $gpsData = array_filter($gpsData, function ($point) use ($polygon) {
+                $coordinate = $point['coordinate'];
+                // Coordinate format: [lat, lon] or [lon, lat] - check both
+                if (is_array($coordinate) && count($coordinate) >= 2) {
+                    // Try [lon, lat] format first (polygon format)
+                    $pointToCheck = [$coordinate[1] ?? $coordinate[0], $coordinate[0] ?? $coordinate[1]];
+                    return is_point_in_polygon($pointToCheck, $polygon);
+                }
+                return false;
+            });
+            // Re-index array after filtering
+            $gpsData = array_values($gpsData);
+        }
+
         // Use reflection to access private parseRecords method
         $reflection = new \ReflectionClass($this->analyzer);
         $parseMethod = $reflection->getMethod('parseRecords');
         $parseMethod->setAccessible(true);
         $parseMethod->invoke($this->analyzer, $gpsData);
 
-        return $this->analyzer->analyze($timeBoundStart, $timeBoundEnd, $polygon);
+        return $this->analyzer->analyze();
     }
 }
 

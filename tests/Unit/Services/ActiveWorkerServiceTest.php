@@ -2,10 +2,10 @@
 
 namespace Tests\Unit\Services;
 
-use App\Models\Employee;
+use App\Models\Labour;
 use App\Models\Farm;
-use App\Models\WorkerGpsData;
-use App\Services\ActiveWorkerService;
+use App\Models\LabourGpsData;
+use App\Services\ActiveLabourService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
@@ -15,12 +15,12 @@ class ActiveWorkerServiceTest extends TestCase
 {
     use RefreshDatabase;
 
-    private ActiveWorkerService $service;
+    private ActiveLabourService $service;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new ActiveWorkerService();
+        $this->service = new ActiveLabourService();
         Cache::flush();
     }
 
@@ -39,37 +39,35 @@ class ActiveWorkerServiceTest extends TestCase
         ];
         $farm->save();
 
-        $employee1 = Employee::factory()->create([
+        $labour1 = Labour::factory()->create([
             'farm_id' => $farm->id,
-            'fname' => 'John',
-            'lname' => 'Doe',
+            'name' => 'John Doe',
         ]);
 
-        $employee2 = Employee::factory()->create([
+        $labour2 = Labour::factory()->create([
             'farm_id' => $farm->id,
-            'fname' => 'Jane',
-            'lname' => 'Smith',
+            'name' => 'Jane Smith',
         ]);
 
-        // Employee with recent GPS data (5 minutes ago)
-        WorkerGpsData::factory()->create([
-            'employee_id' => $employee1->id,
+        // Labour with recent GPS data (5 minutes ago)
+        LabourGpsData::factory()->create([
+            'labour_id' => $labour1->id,
             'date_time' => Carbon::now()->subMinutes(5),
             'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
         ]);
 
-        // Employee with old GPS data (15 minutes ago - not active)
-        WorkerGpsData::factory()->create([
-            'employee_id' => $employee2->id,
+        // Labour with old GPS data (15 minutes ago - not active)
+        LabourGpsData::factory()->create([
+            'labour_id' => $labour2->id,
             'date_time' => Carbon::now()->subMinutes(15),
             'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
         ]);
 
-        $activeWorkers = $this->service->getActiveWorkers($farm);
+        $activeLabours = $this->service->getActiveLabours($farm);
 
-        $this->assertCount(1, $activeWorkers);
-        $this->assertEquals($employee1->id, $activeWorkers->first()['id']);
-        $this->assertEquals('John Doe', $activeWorkers->first()['name']);
+        $this->assertCount(1, $activeLabours);
+        $this->assertEquals($labour1->id, $activeLabours->first()['id']);
+        $this->assertEquals('John Doe', $activeLabours->first()['name']);
     }
 
     /**
@@ -79,17 +77,17 @@ class ActiveWorkerServiceTest extends TestCase
     {
         $farm = Farm::factory()->create();
 
-        $employee = Employee::factory()->create(['farm_id' => $farm->id]);
+        $labour = Labour::factory()->create(['farm_id' => $farm->id]);
 
         // Only old GPS data
-        WorkerGpsData::factory()->create([
-            'employee_id' => $employee->id,
+        LabourGpsData::factory()->create([
+            'labour_id' => $labour->id,
             'date_time' => Carbon::now()->subMinutes(15),
         ]);
 
-        $activeWorkers = $this->service->getActiveWorkers($farm);
+        $activeLabours = $this->service->getActiveLabours($farm);
 
-        $this->assertCount(0, $activeWorkers);
+        $this->assertCount(0, $activeLabours);
     }
 
     /**
@@ -107,24 +105,24 @@ class ActiveWorkerServiceTest extends TestCase
         ];
         $farm->save();
 
-        $employee = Employee::factory()->create(['farm_id' => $farm->id]);
+        $labour = Labour::factory()->create(['farm_id' => $farm->id]);
         
-        WorkerGpsData::factory()->create([
-            'employee_id' => $employee->id,
+        LabourGpsData::factory()->create([
+            'labour_id' => $labour->id,
             'date_time' => Carbon::now()->subMinutes(5),
             'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
         ]);
 
         // First call
-        $activeWorkers1 = $this->service->getActiveWorkers($farm);
+        $activeLabours1 = $this->service->getActiveLabours($farm);
 
         // Delete GPS data
-        WorkerGpsData::where('employee_id', $employee->id)->delete();
+        LabourGpsData::where('labour_id', $labour->id)->delete();
 
         // Second call should return cached result
-        $activeWorkers2 = $this->service->getActiveWorkers($farm);
+        $activeLabours2 = $this->service->getActiveLabours($farm);
 
-        $this->assertEquals($activeWorkers1->count(), $activeWorkers2->count());
+        $this->assertEquals($activeLabours1->count(), $activeLabours2->count());
     }
 
     /**
@@ -142,27 +140,27 @@ class ActiveWorkerServiceTest extends TestCase
         ];
         $farm->save();
 
-        $employee = Employee::factory()->create(['farm_id' => $farm->id]);
+        $labour = Labour::factory()->create(['farm_id' => $farm->id]);
         
-        WorkerGpsData::factory()->create([
-            'employee_id' => $employee->id,
+        LabourGpsData::factory()->create([
+            'labour_id' => $labour->id,
             'date_time' => Carbon::now()->subMinutes(5),
             'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
         ]);
 
         // Get and cache
-        $this->service->getActiveWorkers($farm);
+        $this->service->getActiveLabours($farm);
 
         // Clear cache
         $this->service->clearCache($farm);
 
         // Delete GPS data
-        WorkerGpsData::where('employee_id', $employee->id)->delete();
+        LabourGpsData::where('labour_id', $labour->id)->delete();
 
         // Should now return empty (cache was cleared)
-        $activeWorkers = $this->service->getActiveWorkers($farm);
+        $activeLabours = $this->service->getActiveLabours($farm);
 
-        $this->assertCount(0, $activeWorkers);
+        $this->assertCount(0, $activeLabours);
     }
 
     /**
@@ -180,18 +178,18 @@ class ActiveWorkerServiceTest extends TestCase
         ];
         $farm->save();
 
-        $employee = Employee::factory()->create(['farm_id' => $farm->id]);
+        $labour = Labour::factory()->create(['farm_id' => $farm->id]);
         
         // Point inside boundary
-        WorkerGpsData::factory()->create([
-            'employee_id' => $employee->id,
+        LabourGpsData::factory()->create([
+            'labour_id' => $labour->id,
             'date_time' => Carbon::now()->subMinutes(5),
             'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
         ]);
 
-        $activeWorkers = $this->service->getActiveWorkers($farm);
+        $activeLabours = $this->service->getActiveLabours($farm);
 
-        $this->assertTrue($activeWorkers->first()['is_in_zone']);
+        $this->assertTrue($activeLabours->first()['is_in_zone']);
     }
 }
 

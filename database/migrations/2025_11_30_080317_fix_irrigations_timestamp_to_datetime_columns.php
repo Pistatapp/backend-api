@@ -17,6 +17,14 @@ return new class extends Migration
     {
         // Check if columns exist and are TIMESTAMP type
         if (Schema::hasColumn('irrigations', 'start_time') && Schema::hasColumn('irrigations', 'end_time')) {
+            $driverName = DB::getDriverName();
+            
+            if ($driverName === 'sqlite') {
+                // SQLite doesn't support MODIFY COLUMN, skip for tests
+                // In SQLite, DATETIME and TIMESTAMP are treated the same
+                return;
+            }
+            
             // Use raw SQL to change TIMESTAMP to DATETIME
             // This prevents MySQL from auto-updating these columns when other fields change
             DB::statement('ALTER TABLE irrigations MODIFY COLUMN start_time DATETIME NOT NULL');
@@ -31,6 +39,13 @@ return new class extends Migration
     {
         // Revert back to TIMESTAMP (though this will reintroduce the bug)
         if (Schema::hasColumn('irrigations', 'start_time') && Schema::hasColumn('irrigations', 'end_time')) {
+            $driverName = DB::getDriverName();
+            
+            if ($driverName === 'sqlite') {
+                // SQLite doesn't support MODIFY COLUMN, skip for tests
+                return;
+            }
+            
             DB::statement('ALTER TABLE irrigations MODIFY COLUMN start_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP');
             DB::statement('ALTER TABLE irrigations MODIFY COLUMN end_time TIMESTAMP NULL');
         }

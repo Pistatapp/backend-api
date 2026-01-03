@@ -2,12 +2,12 @@
 
 namespace Tests\Feature\Worker;
 
-use App\Jobs\ValidateWorkerShiftAttendanceJob;
-use App\Models\Employee;
+use App\Jobs\ValidateLabourShiftAttendanceJob;
+use App\Models\Labour;
 use App\Models\Farm;
 use App\Models\WorkShift;
-use App\Models\WorkerGpsData;
-use App\Models\WorkerShiftSchedule;
+use App\Models\LabourGpsData;
+use App\Models\LabourShiftSchedule;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Log;
@@ -25,7 +25,7 @@ class ValidateWorkerShiftAttendanceJobTest extends TestCase
         Log::spy();
 
         $farm = Farm::factory()->create();
-        $employee = Employee::factory()->create(['farm_id' => $farm->id]);
+        $labour = Labour::factory()->create(['farm_id' => $farm->id]);
         $shift = WorkShift::factory()->create([
             'farm_id' => $farm->id,
             'start_time' => '08:00:00',
@@ -33,22 +33,22 @@ class ValidateWorkerShiftAttendanceJobTest extends TestCase
         ]);
 
         $date = Carbon::today();
-        $schedule = WorkerShiftSchedule::factory()->create([
-            'employee_id' => $employee->id,
+        $schedule = LabourShiftSchedule::factory()->create([
+            'labour_id' => $labour->id,
             'shift_id' => $shift->id,
             'scheduled_date' => $date,
             'status' => 'scheduled',
         ]);
 
-        $job = new ValidateWorkerShiftAttendanceJob($shift, $date);
+        $job = new ValidateLabourShiftAttendanceJob($shift, $date);
         $job->handle();
 
         $schedule->refresh();
         $this->assertEquals('missed', $schedule->status);
 
-        Log::assertLogged('warning', function ($message, $context) use ($employee, $shift, $date) {
-            return str_contains($message, 'Worker absent') &&
-                   $context['employee_id'] === $employee->id &&
+        Log::assertLogged('warning', function ($message, $context) use ($labour, $shift, $date) {
+            return str_contains($message, 'Labour absent') &&
+                   $context['labour_id'] === $labour->id &&
                    $context['shift_id'] === $shift->id &&
                    $context['date'] === $date->toDateString();
         });
@@ -60,7 +60,7 @@ class ValidateWorkerShiftAttendanceJobTest extends TestCase
     public function test_job_marks_schedule_as_completed_when_gps_data_present(): void
     {
         $farm = Farm::factory()->create();
-        $employee = Employee::factory()->create(['farm_id' => $farm->id]);
+        $labour = Labour::factory()->create(['farm_id' => $farm->id]);
         $shift = WorkShift::factory()->create([
             'farm_id' => $farm->id,
             'start_time' => '08:00:00',
@@ -68,8 +68,8 @@ class ValidateWorkerShiftAttendanceJobTest extends TestCase
         ]);
 
         $date = Carbon::today();
-        $schedule = WorkerShiftSchedule::factory()->create([
-            'employee_id' => $employee->id,
+        $schedule = LabourShiftSchedule::factory()->create([
+            'labour_id' => $labour->id,
             'shift_id' => $shift->id,
             'scheduled_date' => $date,
             'status' => 'scheduled',
@@ -79,19 +79,19 @@ class ValidateWorkerShiftAttendanceJobTest extends TestCase
         $shiftStart = $date->copy()->setTime(8, 0, 0);
         $shiftEnd = $date->copy()->setTime(16, 0, 0);
 
-        WorkerGpsData::factory()->create([
-            'employee_id' => $employee->id,
+        LabourGpsData::factory()->create([
+            'labour_id' => $labour->id,
             'date_time' => $shiftStart->copy()->addHours(2),
             'accuracy' => 10.0, // Good accuracy
         ]);
 
-        WorkerGpsData::factory()->create([
-            'employee_id' => $employee->id,
+        LabourGpsData::factory()->create([
+            'labour_id' => $labour->id,
             'date_time' => $shiftEnd->copy()->subHours(2),
             'accuracy' => 10.0, // Good accuracy
         ]);
 
-        $job = new ValidateWorkerShiftAttendanceJob($shift, $date);
+        $job = new ValidateLabourShiftAttendanceJob($shift, $date);
         $job->handle();
 
         $schedule->refresh();
@@ -106,7 +106,7 @@ class ValidateWorkerShiftAttendanceJobTest extends TestCase
         Log::spy();
 
         $farm = Farm::factory()->create();
-        $employee = Employee::factory()->create(['farm_id' => $farm->id]);
+        $labour = Labour::factory()->create(['farm_id' => $farm->id]);
         $shift = WorkShift::factory()->create([
             'farm_id' => $farm->id,
             'start_time' => '08:00:00',
@@ -114,8 +114,8 @@ class ValidateWorkerShiftAttendanceJobTest extends TestCase
         ]);
 
         $date = Carbon::today();
-        $schedule = WorkerShiftSchedule::factory()->create([
-            'employee_id' => $employee->id,
+        $schedule = LabourShiftSchedule::factory()->create([
+            'labour_id' => $labour->id,
             'shift_id' => $shift->id,
             'scheduled_date' => $date,
             'status' => 'scheduled',
@@ -123,18 +123,18 @@ class ValidateWorkerShiftAttendanceJobTest extends TestCase
 
         // Create GPS data with poor accuracy (> 20m)
         $shiftStart = $date->copy()->setTime(8, 0, 0);
-        WorkerGpsData::factory()->create([
-            'employee_id' => $employee->id,
+        LabourGpsData::factory()->create([
+            'labour_id' => $labour->id,
             'date_time' => $shiftStart->copy()->addHours(1),
             'accuracy' => 25.0, // Poor accuracy
         ]);
 
-        $job = new ValidateWorkerShiftAttendanceJob($shift, $date);
+        $job = new ValidateLabourShiftAttendanceJob($shift, $date);
         $job->handle();
 
-        Log::assertLogged('warning', function ($message, $context) use ($employee, $shift, $date) {
+        Log::assertLogged('warning', function ($message, $context) use ($labour, $shift, $date) {
             return str_contains($message, 'GPS accuracy unreliable') &&
-                   $context['employee_id'] === $employee->id;
+                   $context['labour_id'] === $labour->id;
         });
     }
 
@@ -144,7 +144,7 @@ class ValidateWorkerShiftAttendanceJobTest extends TestCase
     public function test_job_handles_shifts_that_span_midnight(): void
     {
         $farm = Farm::factory()->create();
-        $employee = Employee::factory()->create(['farm_id' => $farm->id]);
+        $labour = Labour::factory()->create(['farm_id' => $farm->id]);
         $shift = WorkShift::factory()->create([
             'farm_id' => $farm->id,
             'start_time' => '22:00:00', // 10 PM
@@ -152,8 +152,8 @@ class ValidateWorkerShiftAttendanceJobTest extends TestCase
         ]);
 
         $date = Carbon::today();
-        $schedule = WorkerShiftSchedule::factory()->create([
-            'employee_id' => $employee->id,
+        $schedule = LabourShiftSchedule::factory()->create([
+            'labour_id' => $labour->id,
             'shift_id' => $shift->id,
             'scheduled_date' => $date,
             'status' => 'scheduled',
@@ -163,19 +163,19 @@ class ValidateWorkerShiftAttendanceJobTest extends TestCase
         $shiftStart = $date->copy()->setTime(22, 0, 0);
         $shiftEnd = $date->copy()->addDay()->setTime(6, 0, 0);
 
-        WorkerGpsData::factory()->create([
-            'employee_id' => $employee->id,
+        LabourGpsData::factory()->create([
+            'labour_id' => $labour->id,
             'date_time' => $shiftStart->copy()->addHours(2), // 12 AM
             'accuracy' => 10.0,
         ]);
 
-        WorkerGpsData::factory()->create([
-            'employee_id' => $employee->id,
+        LabourGpsData::factory()->create([
+            'labour_id' => $labour->id,
             'date_time' => $shiftEnd->copy()->subHours(1), // 5 AM
             'accuracy' => 10.0,
         ]);
 
-        $job = new ValidateWorkerShiftAttendanceJob($shift, $date);
+        $job = new ValidateLabourShiftAttendanceJob($shift, $date);
         $job->handle();
 
         $schedule->refresh();
@@ -194,20 +194,20 @@ class ValidateWorkerShiftAttendanceJobTest extends TestCase
             'end_time' => '16:00:00',
         ]);
 
-        $employee1 = Employee::factory()->create(['farm_id' => $farm->id]);
-        $employee2 = Employee::factory()->create(['farm_id' => $farm->id]);
+        $labour1 = Labour::factory()->create(['farm_id' => $farm->id]);
+        $labour2 = Labour::factory()->create(['farm_id' => $farm->id]);
 
         $date = Carbon::today();
         
-        $schedule1 = WorkerShiftSchedule::factory()->create([
-            'employee_id' => $employee1->id,
+        $schedule1 = LabourShiftSchedule::factory()->create([
+            'labour_id' => $labour1->id,
             'shift_id' => $shift->id,
             'scheduled_date' => $date,
             'status' => 'scheduled',
         ]);
 
-        $schedule2 = WorkerShiftSchedule::factory()->create([
-            'employee_id' => $employee2->id,
+        $schedule2 = LabourShiftSchedule::factory()->create([
+            'labour_id' => $labour2->id,
             'shift_id' => $shift->id,
             'scheduled_date' => $date,
             'status' => 'scheduled',
@@ -216,18 +216,18 @@ class ValidateWorkerShiftAttendanceJobTest extends TestCase
         // Only employee1 has GPS data - create multiple points to meet 50% threshold
         $shiftStart = $date->copy()->setTime(8, 0, 0);
         $shiftEnd = $date->copy()->setTime(16, 0, 0);
-        WorkerGpsData::factory()->create([
-            'employee_id' => $employee1->id,
+        LabourGpsData::factory()->create([
+            'labour_id' => $labour1->id,
             'date_time' => $shiftStart->copy()->addHours(2),
             'accuracy' => 10.0,
         ]);
-        WorkerGpsData::factory()->create([
-            'employee_id' => $employee1->id,
+        LabourGpsData::factory()->create([
+            'labour_id' => $labour1->id,
             'date_time' => $shiftEnd->copy()->subHours(2),
             'accuracy' => 10.0,
         ]);
 
-        $job = new ValidateWorkerShiftAttendanceJob($shift, $date);
+        $job = new ValidateLabourShiftAttendanceJob($shift, $date);
         $job->handle();
 
         $schedule1->refresh();
@@ -243,27 +243,27 @@ class ValidateWorkerShiftAttendanceJobTest extends TestCase
     public function test_job_only_validates_scheduled_status(): void
     {
         $farm = Farm::factory()->create();
-        $employee1 = Employee::factory()->create(['farm_id' => $farm->id]);
-        $employee2 = Employee::factory()->create(['farm_id' => $farm->id]);
+        $labour1 = Labour::factory()->create(['farm_id' => $farm->id]);
+        $labour2 = Labour::factory()->create(['farm_id' => $farm->id]);
         $shift = WorkShift::factory()->create(['farm_id' => $farm->id]);
 
         $date = Carbon::today();
         
-        $scheduledSchedule = WorkerShiftSchedule::factory()->create([
-            'employee_id' => $employee1->id,
+        $scheduledSchedule = LabourShiftSchedule::factory()->create([
+            'labour_id' => $labour1->id,
             'shift_id' => $shift->id,
             'scheduled_date' => $date,
             'status' => 'scheduled',
         ]);
 
-        $completedSchedule = WorkerShiftSchedule::factory()->create([
-            'employee_id' => $employee2->id,
+        $completedSchedule = LabourShiftSchedule::factory()->create([
+            'labour_id' => $labour2->id,
             'shift_id' => $shift->id,
             'scheduled_date' => $date,
             'status' => 'completed',
         ]);
 
-        $job = new ValidateWorkerShiftAttendanceJob($shift, $date);
+        $job = new ValidateLabourShiftAttendanceJob($shift, $date);
         $job->handle();
 
         $completedSchedule->refresh();

@@ -6,18 +6,18 @@ use App\Events\WorkerStatusChanged;
 use App\Jobs\CloseAttendanceSessionsJob;
 use App\Jobs\GenerateDailyAttendanceSummaryJob;
 use App\Jobs\GenerateMonthlyPayrollJob;
-use App\Jobs\ValidateWorkerShiftAttendanceJob;
-use App\Models\Employee;
+use App\Jobs\ValidateLabourShiftAttendanceJob;
+use App\Models\Labour;
 use App\Models\Farm;
 use App\Models\User;
 use App\Models\WorkShift;
-use App\Models\WorkerAttendanceSession;
-use App\Models\WorkerDailyReport;
-use App\Models\WorkerGpsData;
-use App\Models\WorkerMonthlyPayroll;
-use App\Models\WorkerShiftSchedule;
-use App\Services\WorkerProductivityCalculator;
-use App\Services\WorkerWageCalculationService;
+use App\Models\LabourAttendanceSession;
+use App\Models\LabourDailyReport;
+use App\Models\LabourGpsData;
+use App\Models\LabourMonthlyPayroll;
+use App\Models\LabourShiftSchedule;
+use App\Services\LabourProductivityCalculator;
+use App\Services\LabourWageCalculationService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
@@ -28,7 +28,7 @@ class WorkerAttendanceWorkflowTest extends TestCase
     use RefreshDatabase;
 
     private Farm $farm;
-    private Employee $employee;
+    private Labour $labour;
     private WorkShift $shift;
 
     protected function setUp(): void
@@ -45,7 +45,7 @@ class WorkerAttendanceWorkflowTest extends TestCase
         ];
         $this->farm->save();
 
-        $this->employee = Employee::factory()->create([
+        $this->labour = Labour::factory()->create([
             'farm_id' => $this->farm->id,
             'work_type' => 'shift_based',
             'hourly_wage' => 100000,
@@ -69,13 +69,13 @@ class WorkerAttendanceWorkflowTest extends TestCase
         Event::fake();
 
         $user = User::factory()->create();
-        $this->employee->update(['user_id' => $user->id]);
+        $this->labour->update(['user_id' => $user->id]);
 
         $date = Carbon::parse('2024-11-15');
-        
+
         // 1. Schedule worker for shift
-        $schedule = WorkerShiftSchedule::factory()->create([
-            'employee_id' => $this->employee->id,
+        $schedule = LabourShiftSchedule::factory()->create([
+            'labour_id' => $this->labour->id,
             'shift_id' => $this->shift->id,
             'scheduled_date' => $date,
             'status' => 'scheduled',
@@ -87,8 +87,8 @@ class WorkerAttendanceWorkflowTest extends TestCase
 
         // Entry GPS points (in boundary)
         for ($hour = 8; $hour <= 16; $hour++) {
-            WorkerGpsData::factory()->create([
-                'employee_id' => $this->employee->id,
+            LabourGpsData::factory()->create([
+                'labour_id' => $this->labour->id,
                 'date_time' => $date->copy()->setTime($hour, 0, 0),
                 'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
                 'accuracy' => 10.0,
@@ -96,23 +96,23 @@ class WorkerAttendanceWorkflowTest extends TestCase
         }
 
         // Exit GPS point (still in boundary, just overtime)
-        WorkerGpsData::factory()->create([
-            'employee_id' => $this->employee->id,
+        LabourGpsData::factory()->create([
+            'labour_id' => $this->labour->id,
             'date_time' => $exitTime,
             'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
             'accuracy' => 10.0,
         ]);
 
         // 3. Validate shift attendance
-        $validationJob = new ValidateWorkerShiftAttendanceJob($this->shift, $date);
+        $validationJob = new ValidateLabourShiftAttendanceJob($this->shift, $date);
         $validationJob->handle();
 
         $schedule->refresh();
         $this->assertEquals('completed', $schedule->status);
 
         // 4. Create attendance session manually (normally done by boundary detection service)
-        $session = WorkerAttendanceSession::factory()->create([
-            'employee_id' => $this->employee->id,
+        $session = LabourAttendanceSession::factory()->create([
+            'labour_id' => $this->labour->id,
             'date' => $date,
             'entry_time' => $entryTime,
             'exit_time' => $exitTime,
@@ -123,11 +123,11 @@ class WorkerAttendanceWorkflowTest extends TestCase
 
         // 5. Generate daily attendance summary
         $dailySummaryJob = new GenerateDailyAttendanceSummaryJob($date);
-        $productivityCalculator = app(WorkerProductivityCalculator::class);
-        $wageCalculationService = app(WorkerWageCalculationService::class);
+        $productivityCalculator = app(LabourProductivityCalculator::class);
+        $wageCalculationService = app(LabourWageCalculationService::class);
         $dailySummaryJob->handle($productivityCalculator, $wageCalculationService);
 
-        $dailyReport = WorkerDailyReport::where('employee_id', $this->employee->id)
+        $dailyReport = LabourDailyReport::where('labour_id', $this->labour->id)
             ->whereDate('date', $date)
             ->first();
 
@@ -148,10 +148,10 @@ class WorkerAttendanceWorkflowTest extends TestCase
         $fromDate = Carbon::parse('2024-11-01');
         $toDate = Carbon::parse('2024-11-30');
         $payrollJob = new GenerateMonthlyPayrollJob($fromDate, $toDate);
-        $wageCalculationService = app(WorkerWageCalculationService::class);
+        $wageCalculationService = app(LabourWageCalculationService::class);
         $payrollJob->handle($wageCalculationService);
 
-        $payroll = WorkerMonthlyPayroll::where('employee_id', $this->employee->id)
+        $payroll = LabourMonthlyPayroll::where('labour_id', $this->labour->id)
             ->where('month', 11)
             ->where('year', 2024)
             ->first();
@@ -171,10 +171,10 @@ class WorkerAttendanceWorkflowTest extends TestCase
     public function test_workflow_handles_worker_absence(): void
     {
         $date = Carbon::parse('2024-11-15');
-        
+
         // Schedule worker
-        $schedule = WorkerShiftSchedule::factory()->create([
-            'employee_id' => $this->employee->id,
+        $schedule = LabourShiftSchedule::factory()->create([
+            'labour_id' => $this->labour->id,
             'shift_id' => $this->shift->id,
             'scheduled_date' => $date,
             'status' => 'scheduled',
@@ -183,7 +183,7 @@ class WorkerAttendanceWorkflowTest extends TestCase
         // No GPS data sent
 
         // Validate shift attendance
-        $validationJob = new ValidateWorkerShiftAttendanceJob($this->shift, $date);
+        $validationJob = new ValidateLabourShiftAttendanceJob($this->shift, $date);
         $validationJob->handle();
 
         $schedule->refresh();
@@ -191,11 +191,11 @@ class WorkerAttendanceWorkflowTest extends TestCase
 
         // Generate daily summary (should create absent report)
         $dailySummaryJob = new GenerateDailyAttendanceSummaryJob($date);
-        $productivityCalculator = app(WorkerProductivityCalculator::class);
-        $wageCalculationService = app(WorkerWageCalculationService::class);
+        $productivityCalculator = app(LabourProductivityCalculator::class);
+        $wageCalculationService = app(LabourWageCalculationService::class);
         $dailySummaryJob->handle($productivityCalculator, $wageCalculationService);
 
-        $dailyReport = WorkerDailyReport::where('employee_id', $this->employee->id)
+        $dailyReport = LabourDailyReport::where('labour_id', $this->labour->id)
             ->whereDate('date', $date)
             ->first();
 
@@ -212,8 +212,8 @@ class WorkerAttendanceWorkflowTest extends TestCase
         $date = Carbon::yesterday();
 
         // Create stale session from yesterday
-        $session = WorkerAttendanceSession::factory()->create([
-            'employee_id' => $this->employee->id,
+        $session = LabourAttendanceSession::factory()->create([
+            'labour_id' => $this->labour->id,
             'date' => $date,
             'status' => 'in_progress',
             'updated_at' => Carbon::now()->subHours(2),
@@ -250,23 +250,58 @@ class WorkerAttendanceWorkflowTest extends TestCase
         ]);
 
         // Schedule both shifts
-        WorkerShiftSchedule::factory()->create([
-            'employee_id' => $this->employee->id,
+        LabourShiftSchedule::factory()->create([
+            'labour_id' => $this->labour->id,
             'shift_id' => $morningShift->id,
             'scheduled_date' => $date,
             'status' => 'scheduled',
         ]);
 
-        WorkerShiftSchedule::factory()->create([
-            'employee_id' => $this->employee->id,
+        $eveningSchedule = LabourShiftSchedule::factory()->create([
+            'labour_id' => $this->labour->id,
             'shift_id' => $eveningShift->id,
             'scheduled_date' => $date,
             'status' => 'scheduled',
         ]);
 
+        // Create GPS data for morning shift (8:00-12:00) - need points at start and end
+        // to satisfy 50% presence requirement (at least 2 hours out of 4 hours)
+        LabourGpsData::factory()->create([
+            'labour_id' => $this->labour->id,
+            'date_time' => $date->copy()->setTime(8, 0, 0),
+            'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
+            'accuracy' => 10.0,
+        ]);
+        LabourGpsData::factory()->create([
+            'labour_id' => $this->labour->id,
+            'date_time' => $date->copy()->setTime(10, 0, 0), // 2 hours later (50% of 4 hours)
+            'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
+            'accuracy' => 10.0,
+        ]);
+
+        // Create GPS data for evening shift (13:00-17:00) - need points at start and end
+        LabourGpsData::factory()->create([
+            'labour_id' => $this->labour->id,
+            'date_time' => $date->copy()->setTime(13, 0, 0),
+            'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
+            'accuracy' => 10.0,
+        ]);
+        LabourGpsData::factory()->create([
+            'labour_id' => $this->labour->id,
+            'date_time' => $date->copy()->setTime(15, 0, 0), // 2 hours later (50% of 4 hours)
+            'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
+            'accuracy' => 10.0,
+        ]);
+
+        // Validate shifts to mark them as completed
+        $morningValidationJob = new ValidateLabourShiftAttendanceJob($morningShift, $date);
+        $morningValidationJob->handle();
+        $eveningValidationJob = new ValidateLabourShiftAttendanceJob($eveningShift, $date);
+        $eveningValidationJob->handle();
+
         // Create attendance session covering both shifts
-        $session = WorkerAttendanceSession::factory()->create([
-            'employee_id' => $this->employee->id,
+        $session = LabourAttendanceSession::factory()->create([
+            'labour_id' => $this->labour->id,
             'date' => $date,
             'entry_time' => $date->copy()->setTime(8, 0, 0),
             'exit_time' => $date->copy()->setTime(17, 0, 0),
@@ -277,11 +312,11 @@ class WorkerAttendanceWorkflowTest extends TestCase
 
         // Generate daily summary
         $dailySummaryJob = new GenerateDailyAttendanceSummaryJob($date);
-        $productivityCalculator = app(WorkerProductivityCalculator::class);
-        $wageCalculationService = app(WorkerWageCalculationService::class);
+        $productivityCalculator = app(LabourProductivityCalculator::class);
+        $wageCalculationService = app(LabourWageCalculationService::class);
         $dailySummaryJob->handle($productivityCalculator, $wageCalculationService);
 
-        $dailyReport = WorkerDailyReport::where('employee_id', $this->employee->id)
+        $dailyReport = LabourDailyReport::where('labour_id', $this->labour->id)
             ->whereDate('date', $date)
             ->first();
 

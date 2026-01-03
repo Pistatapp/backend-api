@@ -2,8 +2,8 @@
 
 namespace Tests\Unit\Models;
 
-use App\Models\Employee;
-use App\Models\WorkerGpsData;
+use App\Models\Labour;
+use App\Models\LabourGpsData;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 use Carbon\Carbon;
@@ -13,15 +13,15 @@ class WorkerGpsDataTest extends TestCase
     use RefreshDatabase;
 
     /**
-     * Test that GPS data belongs to employee.
+     * Test that GPS data belongs to labour.
      */
     public function test_gps_data_belongs_to_employee(): void
     {
-        $employee = Employee::factory()->create();
-        $gpsData = WorkerGpsData::factory()->create(['employee_id' => $employee->id]);
+        $labour = Labour::factory()->create();
+        $gpsData = LabourGpsData::factory()->create(['labour_id' => $labour->id]);
 
-        $this->assertInstanceOf(Employee::class, $gpsData->employee);
-        $this->assertEquals($employee->id, $gpsData->employee->id);
+        $this->assertInstanceOf(Labour::class, $gpsData->labour);
+        $this->assertEquals($labour->id, $gpsData->labour->id);
     }
 
     /**
@@ -30,7 +30,7 @@ class WorkerGpsDataTest extends TestCase
     public function test_coordinate_is_cast_to_array(): void
     {
         $coordinate = ['lat' => 35.6892, 'lng' => 51.3890, 'altitude' => 1200.5];
-        $gpsData = WorkerGpsData::factory()->create(['coordinate' => $coordinate]);
+        $gpsData = LabourGpsData::factory()->create(['coordinate' => $coordinate]);
 
         $this->assertIsArray($gpsData->coordinate);
         $this->assertEquals($coordinate, $gpsData->coordinate);
@@ -42,7 +42,7 @@ class WorkerGpsDataTest extends TestCase
     public function test_date_time_is_cast_to_datetime(): void
     {
         $dateTime = Carbon::now();
-        $gpsData = WorkerGpsData::factory()->create(['date_time' => $dateTime]);
+        $gpsData = LabourGpsData::factory()->create(['date_time' => $dateTime]);
 
         $this->assertInstanceOf(Carbon::class, $gpsData->date_time);
         $this->assertEquals($dateTime->format('Y-m-d H:i:s'), $gpsData->date_time->format('Y-m-d H:i:s'));
@@ -53,7 +53,7 @@ class WorkerGpsDataTest extends TestCase
      */
     public function test_numeric_fields_are_cast_to_decimal(): void
     {
-        $gpsData = WorkerGpsData::factory()->create([
+        $gpsData = LabourGpsData::factory()->create([
             'speed' => 5.5,
             'bearing' => 90.25,
             'accuracy' => 10.75,
@@ -72,12 +72,12 @@ class WorkerGpsDataTest extends TestCase
      */
     public function test_gps_data_can_be_created(): void
     {
-        $employee = Employee::factory()->create();
+        $labour = Labour::factory()->create();
         $coordinate = ['lat' => 35.6892, 'lng' => 51.3890, 'altitude' => 1200.5];
         $dateTime = Carbon::now();
 
-        $gpsData = WorkerGpsData::factory()->create([
-            'employee_id' => $employee->id,
+        $gpsData = LabourGpsData::factory()->create([
+            'labour_id' => $labour->id,
             'coordinate' => $coordinate,
             'speed' => 0.0,
             'bearing' => 0.0,
@@ -86,9 +86,9 @@ class WorkerGpsDataTest extends TestCase
             'date_time' => $dateTime,
         ]);
 
-        $this->assertDatabaseHas('worker_gps_data', [
+        $this->assertDatabaseHas('labour_gps_data', [
             'id' => $gpsData->id,
-            'employee_id' => $employee->id,
+            'labour_id' => $labour->id,
             'provider' => 'gps',
         ]);
     }

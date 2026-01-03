@@ -4,7 +4,7 @@ namespace Tests\Feature\Worker;
 
 use App\Models\Farm;
 use App\Models\WorkShift;
-use App\Models\WorkerShiftSchedule;
+use App\Models\LabourShiftSchedule;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -171,7 +171,7 @@ class WorkShiftControllerTest extends TestCase
             'farm_id' => $this->farm->id,
         ]);
 
-        WorkerShiftSchedule::factory()->create([
+        LabourShiftSchedule::factory()->create([
             'shift_id' => $shift->id,
         ]);
 

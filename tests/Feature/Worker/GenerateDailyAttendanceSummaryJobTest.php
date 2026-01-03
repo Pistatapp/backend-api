@@ -3,10 +3,10 @@
 namespace Tests\Feature\Worker;
 
 use App\Jobs\GenerateDailyAttendanceSummaryJob;
-use App\Models\Employee;
+use App\Models\Labour;
 use App\Models\Farm;
-use App\Models\WorkerAttendanceSession;
-use App\Models\WorkerDailyReport;
+use App\Models\LabourAttendanceSession;
+use App\Models\LabourDailyReport;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Log;
@@ -22,7 +22,7 @@ class GenerateDailyAttendanceSummaryJobTest extends TestCase
     public function test_job_creates_daily_report_from_attendance_session(): void
     {
         $farm = Farm::factory()->create();
-        $employee = Employee::factory()->create([
+        $labour = Labour::factory()->create([
             'farm_id' => $farm->id,
             'work_type' => 'administrative',
             'work_days' => [1], // Monday
@@ -30,8 +30,8 @@ class GenerateDailyAttendanceSummaryJobTest extends TestCase
         ]);
 
         $date = Carbon::parse('2024-11-11'); // Monday
-        $session = WorkerAttendanceSession::factory()->create([
-            'employee_id' => $employee->id,
+        $session = LabourAttendanceSession::factory()->create([
+            'labour_id' => $labour->id,
             'date' => $date,
             'total_in_zone_duration' => 450, // 7.5 hours in minutes
             'total_out_zone_duration' => 60,  // 1 hour in minutes
@@ -41,7 +41,7 @@ class GenerateDailyAttendanceSummaryJobTest extends TestCase
         $job = new GenerateDailyAttendanceSummaryJob($date);
         app()->call([$job, 'handle']);
 
-        $report = WorkerDailyReport::where('employee_id', $employee->id)
+        $report = LabourDailyReport::where('labour_id', $labour->id)
             ->whereDate('date', $date)
             ->first();
 
@@ -60,7 +60,7 @@ class GenerateDailyAttendanceSummaryJobTest extends TestCase
     public function test_job_creates_absent_report_when_no_attendance_session(): void
     {
         $farm = Farm::factory()->create();
-        $employee = Employee::factory()->create([
+        $labour = Labour::factory()->create([
             'farm_id' => $farm->id,
             'work_type' => 'administrative',
             'work_days' => [1], // Monday
@@ -73,7 +73,7 @@ class GenerateDailyAttendanceSummaryJobTest extends TestCase
         $job = new GenerateDailyAttendanceSummaryJob($date);
         app()->call([$job, 'handle']);
 
-        $report = WorkerDailyReport::where('employee_id', $employee->id)
+        $report = LabourDailyReport::where('labour_id', $labour->id)
             ->whereDate('date', $date)
             ->first();
 
@@ -92,7 +92,7 @@ class GenerateDailyAttendanceSummaryJobTest extends TestCase
     public function test_job_updates_existing_report_if_it_exists(): void
     {
         $farm = Farm::factory()->create();
-        $employee = Employee::factory()->create([
+        $labour = Labour::factory()->create([
             'farm_id' => $farm->id,
             'work_type' => 'administrative',
             'work_days' => [1],
@@ -102,15 +102,15 @@ class GenerateDailyAttendanceSummaryJobTest extends TestCase
         $date = Carbon::parse('2024-11-11');
         
         // Create existing report
-        $existingReport = WorkerDailyReport::factory()->create([
-            'employee_id' => $employee->id,
+        $existingReport = LabourDailyReport::factory()->create([
+            'labour_id' => $labour->id,
             'date' => $date,
             'status' => 'pending',
         ]);
 
         // Create attendance session
-        $session = WorkerAttendanceSession::factory()->create([
-            'employee_id' => $employee->id,
+        $session = LabourAttendanceSession::factory()->create([
+            'labour_id' => $labour->id,
             'date' => $date,
             'total_in_zone_duration' => 480, // 8 hours
             'total_out_zone_duration' => 0,
@@ -119,7 +119,7 @@ class GenerateDailyAttendanceSummaryJobTest extends TestCase
         $job = new GenerateDailyAttendanceSummaryJob($date);
         app()->call([$job, 'handle']);
 
-        $report = WorkerDailyReport::find($existingReport->id);
+        $report = LabourDailyReport::find($existingReport->id);
         $this->assertEquals(8.0, $report->actual_work_hours);
     }
 
@@ -130,14 +130,14 @@ class GenerateDailyAttendanceSummaryJobTest extends TestCase
     {
         $farm = Farm::factory()->create();
         
-        $employee1 = Employee::factory()->create([
+        $labour1 = Labour::factory()->create([
             'farm_id' => $farm->id,
             'work_type' => 'administrative',
             'work_days' => [1],
             'work_hours' => 8.0,
         ]);
 
-        $employee2 = Employee::factory()->create([
+        $labour2 = Labour::factory()->create([
             'farm_id' => $farm->id,
             'work_type' => 'administrative',
             'work_days' => [1],
@@ -146,15 +146,15 @@ class GenerateDailyAttendanceSummaryJobTest extends TestCase
 
         $date = Carbon::parse('2024-11-11');
 
-        WorkerAttendanceSession::factory()->create([
-            'employee_id' => $employee1->id,
+        LabourAttendanceSession::factory()->create([
+            'labour_id' => $labour1->id,
             'date' => $date,
             'total_in_zone_duration' => 480,
             'total_out_zone_duration' => 0,
         ]);
 
-        WorkerAttendanceSession::factory()->create([
-            'employee_id' => $employee2->id,
+        LabourAttendanceSession::factory()->create([
+            'labour_id' => $labour2->id,
             'date' => $date,
             'total_in_zone_duration' => 360,
             'total_out_zone_duration' => 120,
@@ -163,7 +163,7 @@ class GenerateDailyAttendanceSummaryJobTest extends TestCase
         $job = new GenerateDailyAttendanceSummaryJob($date);
         app()->call([$job, 'handle']);
 
-        $reports = WorkerDailyReport::whereDate('date', $date)->get();
+        $reports = LabourDailyReport::whereDate('date', $date)->get();
         $this->assertCount(2, $reports);
     }
 
@@ -175,7 +175,7 @@ class GenerateDailyAttendanceSummaryJobTest extends TestCase
         Log::spy();
 
         $farm = Farm::factory()->create();
-        $employee = Employee::factory()->create([
+        $labour = Labour::factory()->create([
             'farm_id' => $farm->id,
             'work_type' => 'administrative',
             'work_days' => null, // Invalid work_days
@@ -184,8 +184,8 @@ class GenerateDailyAttendanceSummaryJobTest extends TestCase
 
         $date = Carbon::parse('2024-11-11');
 
-        WorkerAttendanceSession::factory()->create([
-            'employee_id' => $employee->id,
+        LabourAttendanceSession::factory()->create([
+            'labour_id' => $labour->id,
             'date' => $date,
             'total_in_zone_duration' => 480,
             'total_out_zone_duration' => 0,
@@ -196,9 +196,9 @@ class GenerateDailyAttendanceSummaryJobTest extends TestCase
         // Should not throw exception
         app()->call([$job, 'handle']);
 
-        Log::assertLogged('error', function ($message, $context) use ($employee, $date) {
+        Log::assertLogged('error', function ($message, $context) use ($labour, $date) {
             return str_contains($message, 'Error generating daily report') &&
-                   $context['employee_id'] === $employee->id &&
+                   $context['labour_id'] === $labour->id &&
                    $context['date'] === $date->toDateString();
         });
     }
@@ -209,7 +209,7 @@ class GenerateDailyAttendanceSummaryJobTest extends TestCase
     public function test_job_calculates_productivity_score_correctly(): void
     {
         $farm = Farm::factory()->create();
-        $employee = Employee::factory()->create([
+        $labour = Labour::factory()->create([
             'farm_id' => $farm->id,
             'work_type' => 'administrative',
             'work_days' => [1],
@@ -219,8 +219,8 @@ class GenerateDailyAttendanceSummaryJobTest extends TestCase
         $date = Carbon::parse('2024-11-11');
         
         // 400 minutes in zone, 100 minutes out of zone = 80% productivity
-        $session = WorkerAttendanceSession::factory()->create([
-            'employee_id' => $employee->id,
+        $session = LabourAttendanceSession::factory()->create([
+            'labour_id' => $labour->id,
             'date' => $date,
             'total_in_zone_duration' => 400,
             'total_out_zone_duration' => 100,
@@ -229,7 +229,7 @@ class GenerateDailyAttendanceSummaryJobTest extends TestCase
         $job = new GenerateDailyAttendanceSummaryJob($date);
         app()->call([$job, 'handle']);
 
-        $report = WorkerDailyReport::where('employee_id', $employee->id)
+        $report = LabourDailyReport::where('labour_id', $labour->id)
             ->whereDate('date', $date)
             ->first();
 

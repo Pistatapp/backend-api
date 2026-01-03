@@ -2,9 +2,9 @@
 
 namespace Tests\Unit\Services;
 
-use App\Models\Employee;
-use App\Models\WorkerAttendanceSession;
-use App\Services\WorkerAttendanceService;
+use App\Models\Labour;
+use App\Models\LabourAttendanceSession;
+use App\Services\LabourAttendanceService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -13,12 +13,12 @@ class WorkerAttendanceServiceTest extends TestCase
 {
     use RefreshDatabase;
 
-    private WorkerAttendanceService $service;
+    private LabourAttendanceService $service;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new WorkerAttendanceService();
+        $this->service = new LabourAttendanceService();
     }
 
     /**
@@ -26,13 +26,13 @@ class WorkerAttendanceServiceTest extends TestCase
      */
     public function test_get_or_create_session_creates_new_session_if_not_exists(): void
     {
-        $employee = Employee::factory()->create();
+        $labour = Labour::factory()->create();
         $date = Carbon::today();
 
-        $session = $this->service->getOrCreateSession($employee, $date);
+        $session = $this->service->getOrCreateSession($labour, $date);
 
-        $this->assertInstanceOf(WorkerAttendanceSession::class, $session);
-        $this->assertEquals($employee->id, $session->employee_id);
+        $this->assertInstanceOf(LabourAttendanceSession::class, $session);
+        $this->assertEquals($labour->id, $session->labour_id);
         $this->assertEquals($date->toDateString(), $session->date->toDateString());
         $this->assertEquals('in_progress', $session->status);
     }
@@ -42,16 +42,16 @@ class WorkerAttendanceServiceTest extends TestCase
      */
     public function test_get_or_create_session_returns_existing_session_if_exists(): void
     {
-        $employee = Employee::factory()->create();
+        $labour = Labour::factory()->create();
         $date = Carbon::today();
 
-        $existingSession = WorkerAttendanceSession::factory()->create([
-            'employee_id' => $employee->id,
+        $existingSession = LabourAttendanceSession::factory()->create([
+            'labour_id' => $labour->id,
             'date' => $date->toDateString(), // Use toDateString for consistency
             'status' => 'completed',
         ]);
 
-        $session = $this->service->getOrCreateSession($employee, $date);
+        $session = $this->service->getOrCreateSession($labour, $date);
 
         $this->assertEquals($existingSession->id, $session->id);
         $this->assertEquals('completed', $session->status);
@@ -62,20 +62,20 @@ class WorkerAttendanceServiceTest extends TestCase
      */
     public function test_get_active_session_returns_todays_in_progress_session(): void
     {
-        $employee = Employee::factory()->create();
-        $todaySession = WorkerAttendanceSession::factory()->create([
-            'employee_id' => $employee->id,
+        $labour = Labour::factory()->create();
+        $todaySession = LabourAttendanceSession::factory()->create([
+            'labour_id' => $labour->id,
             'date' => Carbon::today()->toDateString(), // Use toDateString for consistency
             'status' => 'in_progress',
         ]);
 
-        WorkerAttendanceSession::factory()->create([
-            'employee_id' => $employee->id,
+        LabourAttendanceSession::factory()->create([
+            'labour_id' => $labour->id,
             'date' => Carbon::yesterday()->toDateString(),
             'status' => 'in_progress',
         ]);
 
-        $session = $this->service->getActiveSession($employee);
+        $session = $this->service->getActiveSession($labour);
 
         $this->assertNotNull($session);
         $this->assertEquals($todaySession->id, $session->id);
@@ -86,14 +86,14 @@ class WorkerAttendanceServiceTest extends TestCase
      */
     public function test_get_active_session_returns_null_if_no_active_session(): void
     {
-        $employee = Employee::factory()->create();
-        WorkerAttendanceSession::factory()->create([
-            'employee_id' => $employee->id,
+        $labour = Labour::factory()->create();
+        LabourAttendanceSession::factory()->create([
+            'labour_id' => $labour->id,
             'date' => Carbon::today(),
             'status' => 'completed',
         ]);
 
-        $session = $this->service->getActiveSession($employee);
+        $session = $this->service->getActiveSession($labour);
 
         $this->assertNull($session);
     }
@@ -103,7 +103,7 @@ class WorkerAttendanceServiceTest extends TestCase
      */
     public function test_close_session_updates_status_and_exit_time(): void
     {
-        $session = WorkerAttendanceSession::factory()->create([
+        $session = LabourAttendanceSession::factory()->create([
             'status' => 'in_progress',
             'exit_time' => null,
         ]);
@@ -121,7 +121,7 @@ class WorkerAttendanceServiceTest extends TestCase
      */
     public function test_close_session_uses_current_time_if_exit_time_not_provided(): void
     {
-        $session = WorkerAttendanceSession::factory()->create([
+        $session = LabourAttendanceSession::factory()->create([
             'status' => 'in_progress',
             'exit_time' => null,
         ]);
@@ -143,20 +143,20 @@ class WorkerAttendanceServiceTest extends TestCase
      */
     public function test_get_session_for_date_returns_correct_session(): void
     {
-        $employee = Employee::factory()->create();
+        $labour = Labour::factory()->create();
         $targetDate = Carbon::parse('2024-11-15');
 
-        $targetSession = WorkerAttendanceSession::factory()->create([
-            'employee_id' => $employee->id,
+        $targetSession = LabourAttendanceSession::factory()->create([
+            'labour_id' => $labour->id,
             'date' => $targetDate->toDateString(), // Use toDateString for consistency
         ]);
 
-        WorkerAttendanceSession::factory()->create([
-            'employee_id' => $employee->id,
+        LabourAttendanceSession::factory()->create([
+            'labour_id' => $labour->id,
             'date' => $targetDate->copy()->addDay()->toDateString(),
         ]);
 
-        $session = $this->service->getSessionForDate($employee, $targetDate);
+        $session = $this->service->getSessionForDate($labour, $targetDate);
 
         $this->assertNotNull($session);
         $this->assertEquals($targetSession->id, $session->id);
@@ -167,10 +167,10 @@ class WorkerAttendanceServiceTest extends TestCase
      */
     public function test_get_session_for_date_returns_null_if_not_found(): void
     {
-        $employee = Employee::factory()->create();
+        $labour = Labour::factory()->create();
         $date = Carbon::parse('2024-11-15');
 
-        $session = $this->service->getSessionForDate($employee, $date);
+        $session = $this->service->getSessionForDate($labour, $date);
 
         $this->assertNull($session);
     }

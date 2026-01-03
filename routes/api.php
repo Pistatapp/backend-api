@@ -22,6 +22,11 @@ use App\Http\Controllers\Api\V1\Tractor\TractorTaskController;
 use App\Http\Controllers\Api\V1\Farm\IrrigationController;
 use App\Http\Controllers\Api\V1\UserController;
 use App\Http\Controllers\Api\V1\GpsDeviceController;
+use App\Http\Controllers\Api\DeviceController;
+use App\Http\Controllers\Api\DeviceConnectionRequestController;
+use App\Http\Controllers\Api\WorkerDeviceController;
+use App\Http\Controllers\Api\Mobile\MobileDeviceController;
+use App\Http\Controllers\Api\Mobile\MobileGpsController;
 use App\Http\Controllers\Api\V1\PestController;
 use App\Http\Controllers\Api\V1\PhonologyGuideFileController;
 use App\Http\Controllers\Api\V1\Farm\ColdRequirementController;
@@ -71,6 +76,15 @@ Route::controller(AuthController::class)->prefix('auth')->group(function () {
 
 Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
 
+    // Device Management Routes (Root only)
+    Route::middleware('role:root')->group(function () {
+        Route::apiResource('devices', DeviceController::class);
+        Route::get('device-connection-requests', [DeviceConnectionRequestController::class, 'index']);
+        Route::post('device-connection-requests/{deviceConnectionRequest}/approve', [DeviceConnectionRequestController::class, 'approve']);
+        Route::post('device-connection-requests/{deviceConnectionRequest}/reject', [DeviceConnectionRequestController::class, 'reject']);
+    });
+
+    // Keep old route for backward compatibility (deprecated)
     Route::apiResource('gps_devices', GpsDeviceController::class);
     Route::apiResource('crops', CropController::class);
     Route::apiResource('crops.crop_types', CropTypeController::class)->shallow();
@@ -140,6 +154,13 @@ Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
     // Teams and Labours Routes
     Route::apiResource('farms.teams', TeamController::class)->shallow();
     Route::apiResource('farms.labours', LabourController::class)->shallow();
+
+    // Worker Device Management Routes (Orchard Admin)
+    Route::middleware('role:orchard_admin')->group(function () {
+        Route::get('farms/{farm}/worker-devices', [WorkerDeviceController::class, 'index']);
+        Route::put('worker-devices/{device}/assign', [WorkerDeviceController::class, 'assign']);
+        Route::put('worker-devices/{device}/unassign', [WorkerDeviceController::class, 'unassign']);
+    });
 
     // Labour GPS and Attendance Routes
     Route::post('/labours/gps-report', [\App\Http\Controllers\Api\Labour\LabourGpsReportController::class, '__invoke']);
@@ -226,6 +247,12 @@ Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
 });
 
 Route::post('/gps/reports', GpsReportController::class)->name('gps.reports');
+
+// Mobile app routes (no authentication required)
+Route::prefix('mobile')->group(function () {
+    Route::post('connect', [MobileDeviceController::class, 'connect']);
+    Route::post('gps', [MobileGpsController::class, 'store']);
+});
 
 Route::middleware(['auth:sanctum', 'ensure.username'])->prefix('v1')->group(function () {
     Route::apiResource('warnings', WarningController::class)->only(['index', 'store']);

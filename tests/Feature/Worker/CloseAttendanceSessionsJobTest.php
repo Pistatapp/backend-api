@@ -3,8 +3,8 @@
 namespace Tests\Feature\Worker;
 
 use App\Jobs\CloseAttendanceSessionsJob;
-use App\Models\Employee;
-use App\Models\WorkerAttendanceSession;
+use App\Models\Labour;
+use App\Models\LabourAttendanceSession;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Log;
@@ -21,12 +21,12 @@ class CloseAttendanceSessionsJobTest extends TestCase
     {
         Log::spy();
 
-        $employee1 = Employee::factory()->create();
-        $employee2 = Employee::factory()->create();
+        $labour1 = Labour::factory()->create();
+        $labour2 = Labour::factory()->create();
 
         // Stale session (updated 2 hours ago)
-        $staleSession = WorkerAttendanceSession::factory()->create([
-            'employee_id' => $employee1->id,
+        $staleSession = LabourAttendanceSession::factory()->create([
+            'labour_id' => $labour1->id,
             'date' => Carbon::today(),
             'status' => 'in_progress',
             'updated_at' => Carbon::now()->subHours(2),
@@ -35,8 +35,8 @@ class CloseAttendanceSessionsJobTest extends TestCase
         ]);
 
         // Active session (updated 30 minutes ago)
-        $activeSession = WorkerAttendanceSession::factory()->create([
-            'employee_id' => $employee2->id,
+        $activeSession = LabourAttendanceSession::factory()->create([
+            'labour_id' => $labour2->id,
             'date' => Carbon::today(),
             'status' => 'in_progress',
             'updated_at' => Carbon::now()->subMinutes(30),
@@ -67,11 +67,11 @@ class CloseAttendanceSessionsJobTest extends TestCase
     {
         Log::spy();
 
-        $employee = Employee::factory()->create();
+        $labour = Labour::factory()->create();
 
         // Session from yesterday still in progress
-        $yesterdaySession = WorkerAttendanceSession::factory()->create([
-            'employee_id' => $employee->id,
+        $yesterdaySession = LabourAttendanceSession::factory()->create([
+            'labour_id' => $labour->id,
             'date' => Carbon::yesterday(),
             'status' => 'in_progress',
             'entry_time' => Carbon::yesterday()->setTime(8, 0, 0),
@@ -79,8 +79,8 @@ class CloseAttendanceSessionsJobTest extends TestCase
         ]);
 
         // Today's session (should remain open)
-        $todaySession = WorkerAttendanceSession::factory()->create([
-            'employee_id' => $employee->id,
+        $todaySession = LabourAttendanceSession::factory()->create([
+            'labour_id' => $labour->id,
             'date' => Carbon::today(),
             'status' => 'in_progress',
             'entry_time' => Carbon::today()->setTime(8, 0, 0),
@@ -114,11 +114,11 @@ class CloseAttendanceSessionsJobTest extends TestCase
      */
     public function test_job_sets_exit_time_to_last_update_time_for_stale_sessions(): void
     {
-        $employee = Employee::factory()->create();
+        $labour = Labour::factory()->create();
 
         $lastUpdate = Carbon::now()->subHours(2);
-        $staleSession = WorkerAttendanceSession::factory()->create([
-            'employee_id' => $employee->id,
+        $staleSession = LabourAttendanceSession::factory()->create([
+            'labour_id' => $labour->id,
             'date' => Carbon::today(),
             'status' => 'in_progress',
             'updated_at' => $lastUpdate,
@@ -141,10 +141,10 @@ class CloseAttendanceSessionsJobTest extends TestCase
      */
     public function test_job_does_not_close_completed_sessions(): void
     {
-        $employee = Employee::factory()->create();
+        $labour = Labour::factory()->create();
 
-        $completedSession = WorkerAttendanceSession::factory()->create([
-            'employee_id' => $employee->id,
+        $completedSession = LabourAttendanceSession::factory()->create([
+            'labour_id' => $labour->id,
             'date' => Carbon::today(),
             'status' => 'completed',
             'updated_at' => Carbon::now()->subHours(2),
@@ -178,18 +178,18 @@ class CloseAttendanceSessionsJobTest extends TestCase
      */
     public function test_job_handles_multiple_stale_sessions(): void
     {
-        $employee1 = Employee::factory()->create();
-        $employee2 = Employee::factory()->create();
+        $labour1 = Labour::factory()->create();
+        $labour2 = Labour::factory()->create();
 
-        $staleSession1 = WorkerAttendanceSession::factory()->create([
-            'employee_id' => $employee1->id,
+        $staleSession1 = LabourAttendanceSession::factory()->create([
+            'labour_id' => $labour1->id,
             'date' => Carbon::today(),
             'status' => 'in_progress',
             'updated_at' => Carbon::now()->subHours(2),
         ]);
 
-        $staleSession2 = WorkerAttendanceSession::factory()->create([
-            'employee_id' => $employee2->id,
+        $staleSession2 = LabourAttendanceSession::factory()->create([
+            'labour_id' => $labour2->id,
             'date' => Carbon::today(),
             'status' => 'in_progress',
             'updated_at' => Carbon::now()->subHours(3),

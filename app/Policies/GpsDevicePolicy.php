@@ -13,7 +13,8 @@ class GpsDevicePolicy
      */
     public function viewAny(User $user): bool
     {
-        return true;
+        // Root can see all, Orchard admin can see devices for their farms
+        return $user->hasRole('root') || $user->hasRole('admin');
     }
 
     /**
@@ -21,7 +22,16 @@ class GpsDevicePolicy
      */
     public function view(User $user, GpsDevice $gpsDevice): bool
     {
-        return $user->hasRole('root') || $gpsDevice->user->is($user);
+        if ($user->hasRole('root')) {
+            return true;
+        }
+
+        // Orchard admin can only see devices for their farms
+        if ($user->hasRole('admin') && $gpsDevice->farm_id) {
+            return $user->farms()->where('farms.id', $gpsDevice->farm_id)->exists();
+        }
+
+        return false;
     }
 
     /**
@@ -45,6 +55,6 @@ class GpsDevicePolicy
      */
     public function delete(User $user, GpsDevice $gpsDevice): bool
     {
-        return $user->hasRole('root') && is_null($gpsDevice->vehicle_id);
+        return $user->hasRole('root');
     }
 }

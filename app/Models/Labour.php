@@ -152,5 +152,28 @@ class Labour extends Model
     {
         return $this->hasMany(LabourShiftSchedule::class, 'labour_id');
     }
+
+    /**
+     * Get the GPS device assigned to the Labour
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasOne
+     */
+    public function gpsDevice()
+    {
+        return $this->hasOne(GpsDevice::class, 'labour_id');
+    }
+
+    /**
+     * Scope a query to only include labours with active devices.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeWithActiveDevice($query)
+    {
+        return $query->whereHas('gpsDevice', function ($q) {
+            $q->where('is_active', true);
+        });
+    }
 }
 

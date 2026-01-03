@@ -115,16 +115,15 @@ class LabourTest extends TestCase
     }
 
     /**
-     * Test full name accessor.
+     * Test name field.
      */
     public function test_labour_has_full_name_accessor(): void
     {
         $labour = Labour::factory()->create([
-            'fname' => 'John',
-            'lname' => 'Doe',
+            'name' => 'John Doe',
         ]);
 
-        $this->assertEquals('John Doe', $labour->full_name);
+        $this->assertEquals('John Doe', $labour->name);
     }
 
     /**

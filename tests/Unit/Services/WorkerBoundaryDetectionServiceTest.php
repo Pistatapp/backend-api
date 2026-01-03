@@ -2,12 +2,12 @@
 
 namespace Tests\Unit\Services;
 
-use App\Events\WorkerAttendanceUpdated;
-use App\Models\Employee;
+use App\Events\LabourAttendanceUpdated;
+use App\Models\Labour;
 use App\Models\Farm;
-use App\Models\WorkerAttendanceSession;
-use App\Services\WorkerAttendanceService;
-use App\Services\WorkerBoundaryDetectionService;
+use App\Models\LabourAttendanceSession;
+use App\Services\LabourAttendanceService;
+use App\Services\LabourBoundaryDetectionService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
@@ -17,13 +17,13 @@ class WorkerBoundaryDetectionServiceTest extends TestCase
 {
     use RefreshDatabase;
 
-    private WorkerBoundaryDetectionService $service;
+    private LabourBoundaryDetectionService $service;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new WorkerBoundaryDetectionService(
-            new WorkerAttendanceService()
+        $this->service = new LabourBoundaryDetectionService(
+            new LabourAttendanceService()
         );
     }
 
@@ -45,15 +45,15 @@ class WorkerBoundaryDetectionServiceTest extends TestCase
         ];
         $farm->save();
 
-        $employee = Employee::factory()->create(['farm_id' => $farm->id]);
+        $labour = Labour::factory()->create(['farm_id' => $farm->id]);
 
         // Point inside boundary
         $coordinate = ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200.5];
         $dateTime = Carbon::now();
 
-        $this->service->processGpsPoint($employee, $coordinate, $dateTime);
+        $this->service->processGpsPoint($labour, $coordinate, $dateTime);
 
-        $session = WorkerAttendanceSession::where('employee_id', $employee->id)
+        $session = LabourAttendanceSession::where('labour_id', $labour->id)
             ->where('date', $dateTime->copy()->startOfDay())
             ->first();
 
@@ -61,7 +61,7 @@ class WorkerBoundaryDetectionServiceTest extends TestCase
         $this->assertNotNull($session->entry_time);
         $this->assertEquals('in_progress', $session->status);
 
-        Event::assertDispatched(WorkerAttendanceUpdated::class);
+        Event::assertDispatched(LabourAttendanceUpdated::class);
     }
 
     /**
@@ -81,14 +81,14 @@ class WorkerBoundaryDetectionServiceTest extends TestCase
         ];
         $farm->save();
 
-        $employee = Employee::factory()->create(['farm_id' => $farm->id]);
+        $labour = Labour::factory()->create(['farm_id' => $farm->id]);
 
         $coordinate = ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200.5];
         $dateTime = Carbon::now();
 
-        $this->service->processGpsPoint($employee, $coordinate, $dateTime);
+        $this->service->processGpsPoint($labour, $coordinate, $dateTime);
 
-        $session = WorkerAttendanceSession::where('employee_id', $employee->id)
+        $session = LabourAttendanceSession::where('labour_id', $labour->id)
             ->where('date', $dateTime->copy()->startOfDay())
             ->first();
 
@@ -114,22 +114,22 @@ class WorkerBoundaryDetectionServiceTest extends TestCase
         ];
         $farm->save();
 
-        $employee = Employee::factory()->create(['farm_id' => $farm->id]);
+        $labour = Labour::factory()->create(['farm_id' => $farm->id]);
 
         // Don't create session manually - let processGpsPoint create it
         // First send a point inside boundary 35 minutes ago to create entry
         $inBoundaryCoordinate = ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200.5];
         $entryTime = Carbon::now()->subMinutes(35);
-        $this->service->processGpsPoint($employee, $inBoundaryCoordinate, $entryTime);
+        $this->service->processGpsPoint($labour, $inBoundaryCoordinate, $entryTime);
 
         // Now send point outside boundary (far away) to trigger exit after 35 minutes
         $coordinate = ['lat' => 35.7000, 'lng' => 51.4000, 'altitude' => 1200.5];
         $dateTime = Carbon::now();
 
-        $this->service->processGpsPoint($employee, $coordinate, $dateTime);
+        $this->service->processGpsPoint($labour, $coordinate, $dateTime);
 
         // Get the session that was created
-        $session = WorkerAttendanceSession::where('employee_id', $employee->id)
+        $session = LabourAttendanceSession::where('labour_id', $labour->id)
             ->whereDate('date', Carbon::today())
             ->first();
 
@@ -149,16 +149,16 @@ class WorkerBoundaryDetectionServiceTest extends TestCase
         $farm->coordinates = [];
         $farm->save();
 
-        $employee = Employee::factory()->create(['farm_id' => $farm->id]);
+        $labour = Labour::factory()->create(['farm_id' => $farm->id]);
 
         $coordinate = ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200.5];
         $dateTime = Carbon::now();
 
         // Should not throw exception
-        $this->service->processGpsPoint($employee, $coordinate, $dateTime);
+        $this->service->processGpsPoint($labour, $coordinate, $dateTime);
 
         // Should create session even without valid coordinates (service handles gracefully)
-        $session = WorkerAttendanceSession::where('employee_id', $employee->id)
+        $session = LabourAttendanceSession::where('labour_id', $labour->id)
             ->where('date', $dateTime->copy()->startOfDay())
             ->first();
 
@@ -184,22 +184,22 @@ class WorkerBoundaryDetectionServiceTest extends TestCase
         ];
         $farm->save();
 
-        $employee = Employee::factory()->create(['farm_id' => $farm->id]);
+        $labour = Labour::factory()->create(['farm_id' => $farm->id]);
 
         // Don't create session manually - let processGpsPoint create it
         // First send a point inside boundary to create entry
         $inBoundaryCoordinate = ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200.5];
         $entryTime = Carbon::now()->subMinutes(15);
-        $this->service->processGpsPoint($employee, $inBoundaryCoordinate, $entryTime);
+        $this->service->processGpsPoint($labour, $inBoundaryCoordinate, $entryTime);
 
         // Point outside boundary but only 15 minutes out
         $coordinate = ['lat' => 35.7000, 'lng' => 51.4000, 'altitude' => 1200.5];
         $dateTime = Carbon::now();
 
-        $this->service->processGpsPoint($employee, $coordinate, $dateTime);
+        $this->service->processGpsPoint($labour, $coordinate, $dateTime);
 
         // Get the session that was created
-        $session = WorkerAttendanceSession::where('employee_id', $employee->id)
+        $session = LabourAttendanceSession::where('labour_id', $labour->id)
             ->whereDate('date', Carbon::today())
             ->first();
 

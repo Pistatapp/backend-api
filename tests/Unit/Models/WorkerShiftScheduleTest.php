@@ -2,9 +2,9 @@
 
 namespace Tests\Unit\Models;
 
-use App\Models\Employee;
+use App\Models\Labour;
 use App\Models\WorkShift;
-use App\Models\WorkerShiftSchedule;
+use App\Models\LabourShiftSchedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 use Carbon\Carbon;
@@ -14,15 +14,15 @@ class WorkerShiftScheduleTest extends TestCase
     use RefreshDatabase;
 
     /**
-     * Test that shift schedule belongs to employee.
+     * Test that shift schedule belongs to labour.
      */
     public function test_shift_schedule_belongs_to_employee(): void
     {
-        $employee = Employee::factory()->create();
-        $schedule = WorkerShiftSchedule::factory()->create(['employee_id' => $employee->id]);
+        $labour = Labour::factory()->create();
+        $schedule = LabourShiftSchedule::factory()->create(['labour_id' => $labour->id]);
 
-        $this->assertInstanceOf(Employee::class, $schedule->employee);
-        $this->assertEquals($employee->id, $schedule->employee->id);
+        $this->assertInstanceOf(Labour::class, $schedule->labour);
+        $this->assertEquals($labour->id, $schedule->labour->id);
     }
 
     /**
@@ -31,7 +31,7 @@ class WorkerShiftScheduleTest extends TestCase
     public function test_shift_schedule_belongs_to_work_shift(): void
     {
         $shift = WorkShift::factory()->create();
-        $schedule = WorkerShiftSchedule::factory()->create(['shift_id' => $shift->id]);
+        $schedule = LabourShiftSchedule::factory()->create(['shift_id' => $shift->id]);
 
         $this->assertInstanceOf(WorkShift::class, $schedule->shift);
         $this->assertEquals($shift->id, $schedule->shift->id);
@@ -43,7 +43,7 @@ class WorkerShiftScheduleTest extends TestCase
     public function test_scheduled_date_is_cast_to_date(): void
     {
         $date = Carbon::tomorrow();
-        $schedule = WorkerShiftSchedule::factory()->create(['scheduled_date' => $date]);
+        $schedule = LabourShiftSchedule::factory()->create(['scheduled_date' => $date]);
 
         $this->assertInstanceOf(Carbon::class, $schedule->scheduled_date);
         $this->assertEquals($date->toDateString(), $schedule->scheduled_date->toDateString());
@@ -57,7 +57,7 @@ class WorkerShiftScheduleTest extends TestCase
         $statuses = ['scheduled', 'completed', 'missed', 'cancelled'];
 
         foreach ($statuses as $status) {
-            $schedule = WorkerShiftSchedule::factory()->create(['status' => $status]);
+            $schedule = LabourShiftSchedule::factory()->create(['status' => $status]);
             $this->assertEquals($status, $schedule->status);
         }
     }
@@ -67,20 +67,20 @@ class WorkerShiftScheduleTest extends TestCase
      */
     public function test_shift_schedule_can_be_created(): void
     {
-        $employee = Employee::factory()->create();
+        $labour = Labour::factory()->create();
         $shift = WorkShift::factory()->create();
         $date = Carbon::tomorrow();
 
-        $schedule = WorkerShiftSchedule::factory()->create([
-            'employee_id' => $employee->id,
+        $schedule = LabourShiftSchedule::factory()->create([
+            'labour_id' => $labour->id,
             'shift_id' => $shift->id,
             'scheduled_date' => $date,
             'status' => 'scheduled',
         ]);
 
-        $this->assertDatabaseHas('worker_shift_schedules', [
+        $this->assertDatabaseHas('labour_shift_schedules', [
             'id' => $schedule->id,
-            'employee_id' => $employee->id,
+            'labour_id' => $labour->id,
             'shift_id' => $shift->id,
             'status' => 'scheduled',
         ]);

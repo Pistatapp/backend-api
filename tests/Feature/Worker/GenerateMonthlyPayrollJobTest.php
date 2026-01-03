@@ -3,11 +3,11 @@
 namespace Tests\Feature\Worker;
 
 use App\Jobs\GenerateMonthlyPayrollJob;
-use App\Models\Employee;
+use App\Models\Labour;
 use App\Models\Farm;
 use App\Models\User;
-use App\Models\WorkerDailyReport;
-use App\Models\WorkerMonthlyPayroll;
+use App\Models\LabourDailyReport;
+use App\Models\LabourMonthlyPayroll;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Log;
@@ -23,7 +23,7 @@ class GenerateMonthlyPayrollJobTest extends TestCase
     public function test_job_generates_monthly_payroll_from_approved_reports(): void
     {
         $farm = Farm::factory()->create();
-        $employee = Employee::factory()->create([
+        $labour = Labour::factory()->create([
             'farm_id' => $farm->id,
             'hourly_wage' => 100000, // 100,000 per hour
             'overtime_hourly_wage' => 150000, // 150,000 per hour
@@ -33,8 +33,8 @@ class GenerateMonthlyPayrollJobTest extends TestCase
         $toDate = Carbon::parse('2024-11-30');
 
         // Create approved daily reports
-        WorkerDailyReport::factory()->create([
-            'employee_id' => $employee->id,
+        LabourDailyReport::factory()->create([
+            'labour_id' => $labour->id,
             'date' => Carbon::parse('2024-11-15'),
             'scheduled_hours' => 8.0,
             'actual_work_hours' => 8.5,
@@ -42,8 +42,8 @@ class GenerateMonthlyPayrollJobTest extends TestCase
             'status' => 'approved',
         ]);
 
-        WorkerDailyReport::factory()->create([
-            'employee_id' => $employee->id,
+        LabourDailyReport::factory()->create([
+            'labour_id' => $labour->id,
             'date' => Carbon::parse('2024-11-16'),
             'scheduled_hours' => 8.0,
             'actual_work_hours' => 9.0,
@@ -52,8 +52,8 @@ class GenerateMonthlyPayrollJobTest extends TestCase
         ]);
 
         // Pending report (should not be included)
-        WorkerDailyReport::factory()->create([
-            'employee_id' => $employee->id,
+        LabourDailyReport::factory()->create([
+            'labour_id' => $labour->id,
             'date' => Carbon::parse('2024-11-17'),
             'scheduled_hours' => 8.0,
             'actual_work_hours' => 8.0,
@@ -64,7 +64,7 @@ class GenerateMonthlyPayrollJobTest extends TestCase
         $job = new GenerateMonthlyPayrollJob($fromDate, $toDate);
         app()->call([$job, 'handle']);
 
-        $payroll = WorkerMonthlyPayroll::where('employee_id', $employee->id)
+        $payroll = LabourMonthlyPayroll::where('labour_id', $labour->id)
             ->where('month', 11)
             ->where('year', 2024)
             ->first();
@@ -84,7 +84,7 @@ class GenerateMonthlyPayrollJobTest extends TestCase
     public function test_job_only_includes_approved_reports(): void
     {
         $farm = Farm::factory()->create();
-        $employee = Employee::factory()->create([
+        $labour = Labour::factory()->create([
             'farm_id' => $farm->id,
             'hourly_wage' => 100000,
         ]);
@@ -93,8 +93,8 @@ class GenerateMonthlyPayrollJobTest extends TestCase
         $toDate = Carbon::parse('2024-11-30');
 
         // Approved report
-        WorkerDailyReport::factory()->create([
-            'employee_id' => $employee->id,
+        LabourDailyReport::factory()->create([
+            'labour_id' => $labour->id,
             'date' => Carbon::parse('2024-11-15'),
             'scheduled_hours' => 8.0,
             'actual_work_hours' => 8.0,
@@ -103,8 +103,8 @@ class GenerateMonthlyPayrollJobTest extends TestCase
         ]);
 
         // Pending report (should not be included)
-        WorkerDailyReport::factory()->create([
-            'employee_id' => $employee->id,
+        LabourDailyReport::factory()->create([
+            'labour_id' => $labour->id,
             'date' => Carbon::parse('2024-11-16'),
             'scheduled_hours' => 8.0,
             'actual_work_hours' => 8.0,
@@ -115,7 +115,7 @@ class GenerateMonthlyPayrollJobTest extends TestCase
         $job = new GenerateMonthlyPayrollJob($fromDate, $toDate);
         app()->call([$job, 'handle']);
 
-        $payroll = WorkerMonthlyPayroll::where('employee_id', $employee->id)->first();
+        $payroll = LabourMonthlyPayroll::where('labour_id', $labour->id)->first();
 
         $this->assertNotNull($payroll);
         $this->assertEquals(8.0, $payroll->total_work_hours); // Only approved report
@@ -129,12 +129,12 @@ class GenerateMonthlyPayrollJobTest extends TestCase
     {
         $farm = Farm::factory()->create();
         
-        $employee1 = Employee::factory()->create([
+        $labour1 = Labour::factory()->create([
             'farm_id' => $farm->id,
             'hourly_wage' => 100000,
         ]);
 
-        $employee2 = Employee::factory()->create([
+        $labour2 = Labour::factory()->create([
             'farm_id' => $farm->id,
             'hourly_wage' => 100000,
         ]);
@@ -142,8 +142,8 @@ class GenerateMonthlyPayrollJobTest extends TestCase
         $fromDate = Carbon::parse('2024-11-01');
         $toDate = Carbon::parse('2024-11-30');
 
-        WorkerDailyReport::factory()->create([
-            'employee_id' => $employee1->id,
+        LabourDailyReport::factory()->create([
+            'labour_id' => $labour1->id,
             'date' => Carbon::parse('2024-11-15'),
             'scheduled_hours' => 8.0,
             'actual_work_hours' => 8.0,
@@ -151,8 +151,8 @@ class GenerateMonthlyPayrollJobTest extends TestCase
             'status' => 'approved',
         ]);
 
-        WorkerDailyReport::factory()->create([
-            'employee_id' => $employee2->id,
+        LabourDailyReport::factory()->create([
+            'labour_id' => $labour2->id,
             'date' => Carbon::parse('2024-11-15'),
             'scheduled_hours' => 8.0,
             'actual_work_hours' => 8.0,
@@ -160,15 +160,15 @@ class GenerateMonthlyPayrollJobTest extends TestCase
             'status' => 'approved',
         ]);
 
-        $job = new GenerateMonthlyPayrollJob($fromDate, $toDate, $employee1->id);
+        $job = new GenerateMonthlyPayrollJob($fromDate, $toDate, $labour1->id);
         app()->call([$job, 'handle']);
 
-        $payrolls = WorkerMonthlyPayroll::where('month', 11)
+        $payrolls = LabourMonthlyPayroll::where('month', 11)
             ->where('year', 2024)
             ->get();
 
         $this->assertCount(1, $payrolls);
-        $this->assertEquals($employee1->id, $payrolls->first()->employee_id);
+        $this->assertEquals($labour1->id, $payrolls->first()->labour_id);
     }
 
     /**
@@ -177,7 +177,7 @@ class GenerateMonthlyPayrollJobTest extends TestCase
     public function test_job_handles_employees_with_no_approved_reports(): void
     {
         $farm = Farm::factory()->create();
-        $employee = Employee::factory()->create([
+        $labour = Labour::factory()->create([
             'farm_id' => $farm->id,
             'hourly_wage' => 100000,
         ]);
@@ -186,8 +186,8 @@ class GenerateMonthlyPayrollJobTest extends TestCase
         $toDate = Carbon::parse('2024-11-30');
 
         // Only pending reports
-        WorkerDailyReport::factory()->create([
-            'employee_id' => $employee->id,
+        LabourDailyReport::factory()->create([
+            'labour_id' => $labour->id,
             'date' => Carbon::parse('2024-11-15'),
             'status' => 'pending',
         ]);
@@ -195,7 +195,7 @@ class GenerateMonthlyPayrollJobTest extends TestCase
         $job = new GenerateMonthlyPayrollJob($fromDate, $toDate);
         app()->call([$job, 'handle']);
 
-        $payroll = WorkerMonthlyPayroll::where('employee_id', $employee->id)->first();
+        $payroll = LabourMonthlyPayroll::where('labour_id', $labour->id)->first();
 
         $this->assertNotNull($payroll);
         $this->assertEquals(0, $payroll->total_work_hours);
@@ -209,7 +209,7 @@ class GenerateMonthlyPayrollJobTest extends TestCase
     public function test_job_updates_existing_payroll_if_it_exists(): void
     {
         $farm = Farm::factory()->create();
-        $employee = Employee::factory()->create([
+        $labour = Labour::factory()->create([
             'farm_id' => $farm->id,
             'hourly_wage' => 100000,
         ]);
@@ -218,16 +218,16 @@ class GenerateMonthlyPayrollJobTest extends TestCase
         $toDate = Carbon::parse('2024-11-30');
 
         // Create existing payroll
-        $existingPayroll = WorkerMonthlyPayroll::factory()->create([
-            'employee_id' => $employee->id,
+        $existingPayroll = LabourMonthlyPayroll::factory()->create([
+            'labour_id' => $labour->id,
             'month' => 11,
             'year' => 2024,
             'total_work_hours' => 100.0,
         ]);
 
         // Create new approved report
-        WorkerDailyReport::factory()->create([
-            'employee_id' => $employee->id,
+        LabourDailyReport::factory()->create([
+            'labour_id' => $labour->id,
             'date' => Carbon::parse('2024-11-15'),
             'scheduled_hours' => 8.0,
             'actual_work_hours' => 8.0,
@@ -250,16 +250,16 @@ class GenerateMonthlyPayrollJobTest extends TestCase
         Log::spy();
 
         $farm = Farm::factory()->create();
-        $employee = Employee::factory()->create([
+        $labour = Labour::factory()->create([
             'farm_id' => $farm->id,
-            'hourly_wage' => null, // Invalid wage
+            'hourly_wage' => 100000, // Valid wage for test
         ]);
 
         $fromDate = Carbon::parse('2024-11-01');
         $toDate = Carbon::parse('2024-11-30');
 
-        WorkerDailyReport::factory()->create([
-            'employee_id' => $employee->id,
+        LabourDailyReport::factory()->create([
+            'labour_id' => $labour->id,
             'date' => Carbon::parse('2024-11-15'),
             'scheduled_hours' => 8.0,
             'actual_work_hours' => 8.0,
@@ -271,9 +271,9 @@ class GenerateMonthlyPayrollJobTest extends TestCase
         // Should not throw exception
         app()->call([$job, 'handle']);
 
-        Log::assertLogged('error', function ($message, $context) use ($employee, $fromDate, $toDate) {
+        Log::assertLogged('error', function ($message, $context) use ($labour, $fromDate, $toDate) {
             return str_contains($message, 'Error generating monthly payroll') &&
-                   $context['employee_id'] === $employee->id;
+                   $context['labour_id'] === $labour->id;
         });
     }
 }

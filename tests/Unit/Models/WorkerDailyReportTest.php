@@ -2,9 +2,9 @@
 
 namespace Tests\Unit\Models;
 
-use App\Models\Employee;
+use App\Models\Labour;
 use App\Models\User;
-use App\Models\WorkerDailyReport;
+use App\Models\LabourDailyReport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 use Carbon\Carbon;
@@ -14,15 +14,15 @@ class WorkerDailyReportTest extends TestCase
     use RefreshDatabase;
 
     /**
-     * Test that daily report belongs to employee.
+     * Test that daily report belongs to labour.
      */
     public function test_daily_report_belongs_to_employee(): void
     {
-        $employee = Employee::factory()->create();
-        $report = WorkerDailyReport::factory()->create(['employee_id' => $employee->id]);
+        $labour = Labour::factory()->create();
+        $report = LabourDailyReport::factory()->create(['labour_id' => $labour->id]);
 
-        $this->assertInstanceOf(Employee::class, $report->employee);
-        $this->assertEquals($employee->id, $report->employee->id);
+        $this->assertInstanceOf(Labour::class, $report->labour);
+        $this->assertEquals($labour->id, $report->labour->id);
     }
 
     /**
@@ -31,7 +31,7 @@ class WorkerDailyReportTest extends TestCase
     public function test_daily_report_belongs_to_approver(): void
     {
         $approver = User::factory()->create();
-        $report = WorkerDailyReport::factory()->create([
+        $report = LabourDailyReport::factory()->create([
             'approved_by' => $approver->id,
             'approved_at' => Carbon::now(),
         ]);
@@ -46,7 +46,7 @@ class WorkerDailyReportTest extends TestCase
     public function test_date_is_cast_to_date(): void
     {
         $date = Carbon::today();
-        $report = WorkerDailyReport::factory()->create(['date' => $date]);
+        $report = LabourDailyReport::factory()->create(['date' => $date]);
 
         $this->assertInstanceOf(Carbon::class, $report->date);
         $this->assertEquals($date->toDateString(), $report->date->toDateString());
@@ -57,7 +57,7 @@ class WorkerDailyReportTest extends TestCase
      */
     public function test_numeric_fields_are_cast_to_decimal(): void
     {
-        $report = WorkerDailyReport::factory()->create([
+        $report = LabourDailyReport::factory()->create([
             'scheduled_hours' => 8.0,
             'actual_work_hours' => 8.5,
             'overtime_hours' => 0.5,
@@ -78,7 +78,7 @@ class WorkerDailyReportTest extends TestCase
     public function test_approved_at_is_cast_to_datetime(): void
     {
         $approvedAt = Carbon::now();
-        $report = WorkerDailyReport::factory()->create(['approved_at' => $approvedAt]);
+        $report = LabourDailyReport::factory()->create(['approved_at' => $approvedAt]);
 
         $this->assertInstanceOf(Carbon::class, $report->approved_at);
     }
@@ -88,7 +88,7 @@ class WorkerDailyReportTest extends TestCase
      */
     public function test_daily_report_can_have_pending_status(): void
     {
-        $report = WorkerDailyReport::factory()->create(['status' => 'pending']);
+        $report = LabourDailyReport::factory()->create(['status' => 'pending']);
 
         $this->assertEquals('pending', $report->status);
         $this->assertNull($report->approved_by);
@@ -103,7 +103,7 @@ class WorkerDailyReportTest extends TestCase
         $approver = User::factory()->create();
         $approvedAt = Carbon::now();
 
-        $report = WorkerDailyReport::factory()->create([
+        $report = LabourDailyReport::factory()->create([
             'status' => 'approved',
             'approved_by' => $approver->id,
             'approved_at' => $approvedAt,
