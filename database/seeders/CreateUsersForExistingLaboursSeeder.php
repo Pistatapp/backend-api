@@ -73,7 +73,7 @@ class CreateUsersForExistingLaboursSeeder extends Seeder
 
                 // Assign role based on work_type (sync roles to ensure only one role)
                 $role = $labour->work_type === 'administrative' ? 'employee' : 'labour';
-                $user->syncRoles($role);
+                $user->assignRole($role);
 
                 // Link user to labour
                 $labour->update(['user_id' => $user->id]);
