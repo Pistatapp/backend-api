@@ -15,6 +15,14 @@ use Illuminate\Support\Facades\Storage;
 class LabourController extends Controller
 {
     /**
+     * Create a new controller instance.
+     */
+    public function __construct()
+    {
+        $this->authorizeResource(Labour::class);
+    }
+
+    /**
      * Display a listing of the resource.
      */
     public function index(Farm $farm)

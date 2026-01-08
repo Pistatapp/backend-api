@@ -44,11 +44,11 @@ class LabourPolicy
      */
     public function delete(User $user, Labour $labour): bool
     {
-        if ($labour->irrigations()->exists()) {
+        if ($labour->irrigations()->count() > 0) {
             return false;
         }
 
-        if ($labour->shiftSchedules()->exists()) {
+        if ($labour->shiftSchedules()->count() > 0) {
             return false;
         }
 
