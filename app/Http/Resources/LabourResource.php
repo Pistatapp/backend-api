@@ -29,7 +29,11 @@ class LabourResource extends JsonResource
             'overtime_hourly_wage' => $this->overtime_hourly_wage,
             'image' => $this->when($this->image, fn () => asset('storage/' . $this->image)),
             'is_working' => $this->is_working,
-            'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s')
+            'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),
+            'can' => [
+                'update' => $request->user()->can('update', $this->resource),
+                'delete' => $request->user()->can('delete', $this->resource),
+            ]
         ];
     }
 }

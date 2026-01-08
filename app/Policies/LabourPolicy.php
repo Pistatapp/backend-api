@@ -44,6 +44,14 @@ class LabourPolicy
      */
     public function delete(User $user, Labour $labour): bool
     {
+        if ($labour->irrigations()->exists()) {
+            return false;
+        }
+
+        if ($labour->shiftSchedules()->exists()) {
+            return false;
+        }
+
         return $labour->farm->users->contains($user) && $user->can('edit-worker');
     }
 }

@@ -175,5 +175,15 @@ class Labour extends Model
             $q->where('is_active', true);
         });
     }
+
+    /**
+     * Get labour irrigation programs
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function irrigations()
+    {
+        return $this->hasMany(Irrigation::class, 'labour_id');
+    }
 }
 
