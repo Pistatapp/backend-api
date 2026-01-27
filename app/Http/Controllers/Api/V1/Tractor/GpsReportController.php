@@ -30,14 +30,7 @@ class GpsReportController extends Controller
 
             $deviceImei = $data[0]['imei'];
 
-            // Log raw GPS data
-            $this->logRawGpsData($rawData, $deviceImei);
-
             $tractor = $this->fetchTractorByDeviceImei($deviceImei);
-
-            if (!$tractor) {
-                return response()->json([], 200);
-            }
 
             // Save parsed GPS data to database
             $this->saveGpsData($data, $tractor->id);
@@ -73,34 +66,6 @@ class GpsReportController extends Controller
 
             return $tractor;
         });
-    }
-
-    /**
-     * Log raw GPS data to a text file
-     *
-     * @param string $rawData Raw GPS data content
-     * @param string $deviceImei Device IMEI number
-     * @return void
-     */
-    private function logRawGpsData(string $rawData, string $deviceImei): void
-    {
-        $baseLogDir = storage_path('logs');
-        $imeiDir = $baseLogDir . '/' . $deviceImei;
-
-        // Create logs directory if it doesn't exist
-        if (!is_dir($baseLogDir)) {
-            mkdir($baseLogDir, 0755, true);
-        }
-
-        // Create IMEI-specific directory if it doesn't exist
-        if (!is_dir($imeiDir)) {
-            mkdir($imeiDir, 0755, true);
-        }
-
-        $logFile = $imeiDir . '/gps_raw_data_' . date('Y-m-d') . '.txt';
-        $logEntry = date('Y-m-d H:i:s') . ' - ' . $rawData . PHP_EOL;
-
-        file_put_contents($logFile, $logEntry . '-------------------' . PHP_EOL, FILE_APPEND);
     }
 
     /**

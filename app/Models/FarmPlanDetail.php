@@ -14,7 +14,12 @@ class FarmPlanDetail extends Model
      *
      * @var array<string>
      */
-    protected $guarded = [];
+    protected $fillable = [
+        'farm_plan_id',
+        'treatment_id',
+        'treatable_id',
+        'treatable_type',
+    ];
 
     /**
      * Get all of the owning treatable models.

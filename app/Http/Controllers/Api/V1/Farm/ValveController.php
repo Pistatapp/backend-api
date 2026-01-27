@@ -28,7 +28,7 @@ class ValveController extends Controller
      */
     public function store(Request $request, Plot $plot)
     {
-        $request->validate([
+        $validated = $request->validate([
             'name' => 'required|string|max:255',
             'location' => 'required|array',
             'is_open' => 'boolean',
@@ -37,7 +37,7 @@ class ValveController extends Controller
             'dripper_flow_rate' => 'required|numeric|min:0',
         ]);
 
-        $valve = $plot->valves()->create($request->all());
+        $valve = $plot->valves()->create($validated);
 
         return new ValveResource($valve);
     }
@@ -55,7 +55,7 @@ class ValveController extends Controller
      */
     public function update(Request $request, Valve $valve)
     {
-        $request->validate([
+        $validated = $request->validate([
             'name' => 'required|string|max:255',
             'location' => 'required|array',
             'is_open' => 'boolean',
@@ -64,7 +64,7 @@ class ValveController extends Controller
             'dripper_flow_rate' => 'required|numeric|min:0',
         ]);
 
-        $valve->update($request->all());
+        $valve->update($validated);
 
         return new ValveResource($valve->fresh());
     }

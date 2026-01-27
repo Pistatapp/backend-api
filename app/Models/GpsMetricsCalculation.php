@@ -14,7 +14,20 @@ class GpsMetricsCalculation extends Model
      *
      * @var array<string>
      */
-    protected $guarded = [];
+    protected $fillable = [
+        'tractor_id',
+        'tractor_task_id',
+        'date',
+        'traveled_distance',
+        'work_duration',
+        'stoppage_count',
+        'stoppage_duration',
+        'stoppage_duration_while_on',
+        'stoppage_duration_while_off',
+        'average_speed',
+        'efficiency',
+        'timings',
+    ];
 
     /**
      * The timestamps are disabled.
@@ -31,7 +44,6 @@ class GpsMetricsCalculation extends Model
     protected function casts() {
         return [
             'date' => 'date',
-            'last_activity' => 'datetime',
             'timings' => 'array',
         ];
     }

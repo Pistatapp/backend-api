@@ -28,13 +28,7 @@ class AttachmentController extends Controller
             'attachable_id' => 'required|integer',
         ]);
 
-        try {
-            $attachableModel = app('App\Models\\' . ucfirst($request->attachable_type))->findOrFail($request->attachable_id);
-        } catch (\Exception $e) {
-            throw ValidationException::withMessages([
-                'attachable_type' => 'Attachable model not found.',
-            ]);
-        }
+        $attachableModel = app('App\Models\\' . ucfirst($request->attachable_type))->findOrFail($request->attachable_id);
 
         // Verify user has access to the attachable resource's farm
         $farm = $this->getAttachableFarm($attachableModel, $request->attachable_type);
