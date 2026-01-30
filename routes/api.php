@@ -155,8 +155,8 @@ Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
     Route::apiResource('farms.teams', TeamController::class)->shallow();
     Route::apiResource('farms.labours', LabourController::class)->shallow();
 
-    // Worker Device Management Routes (Orchard Admin)
-    Route::middleware('role:orchard_admin')->group(function () {
+    // Worker Device Management Routes (Farm Admin)
+    Route::middleware('role:admin')->group(function () {
         Route::get('farms/{farm}/worker-devices', [WorkerDeviceController::class, 'index']);
         Route::put('worker-devices/{device}/assign', [WorkerDeviceController::class, 'assign']);
         Route::put('worker-devices/{device}/unassign', [WorkerDeviceController::class, 'unassign']);
