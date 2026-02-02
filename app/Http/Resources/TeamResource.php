@@ -21,13 +21,12 @@ class TeamResource extends JsonResource
             'supervisor' => $this->whenLoaded('supervisor', function () {
                 return [
                     'id' => $this->supervisor->id,
-                    'fname' => $this->supervisor->fname,
-                    'lname' => $this->supervisor->lname,
+                    'name' => $this->supervisor->name,
                 ];
             }),
             'labours_count' => $this->whenCounted('labours'),
             'labours' => LabourResource::collection($this->whenLoaded('labours')),
-            'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s')
+            'created_at' => jdate($this->created_at)->format('Y/m/d')
         ];
     }
 }
