@@ -16,10 +16,10 @@ class LabourResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'teams' => TeamResource::collection($this->whenLoaded('teams')),
             'name' => $this->name,
             'personnel_number' => $this->whenNotNull($this->personnel_number),
             'mobile' => $this->mobile,
+            'personnel_number' => $this->personnel_number,
             'work_type' => $this->work_type,
             'work_days' => $this->whenNotNull($this->work_days),
             'work_hours' => $this->whenNotNull($this->work_hours),
@@ -29,7 +29,9 @@ class LabourResource extends JsonResource
             'overtime_hourly_wage' => $this->overtime_hourly_wage,
             'image' => $this->when($this->image, fn () => asset('storage/' . $this->image)),
             'is_working' => $this->is_working,
-            'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),
+            'shift_schedules' => LabourShiftScheduleResource::collection($this->whenLoaded('shiftSchedules')),
+            'teams' => TeamResource::collection($this->whenLoaded('teams')),
+            'created_at' => jdate($this->created_at)->format('Y/m/d'),
             'can' => [
                 'update' => $request->user()->can('update', $this->resource),
                 'delete' => $request->user()->can('delete', $this->resource),

@@ -18,10 +18,9 @@ class LabourShiftScheduleResource extends JsonResource
             'id' => $this->id,
             'labour' => new LabourResource($this->whenLoaded('labour')),
             'shift' => new WorkShiftResource($this->whenLoaded('shift')),
-            'scheduled_date' => $this->scheduled_date->toDateString(),
+            'scheduled_date' => jdate($this->scheduled_date)->format('Y/m/d'),
             'status' => $this->status,
-            'created_at' => $this->created_at,
-            'updated_at' => $this->updated_at,
+            'created_at' => jdate($this->created_at)->format('Y/m/d'),
         ];
     }
 }

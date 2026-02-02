@@ -70,7 +70,9 @@ class LabourController extends Controller
      */
     public function show(Labour $labour)
     {
-        return new LabourResource($labour->load('teams'));
+        $labour->load('shiftSchedules.shift', 'teams');
+
+        return new LabourResource($labour);
     }
 
     /**
@@ -193,4 +195,3 @@ class LabourController extends Controller
         ];
     }
 }
-
