@@ -10,13 +10,6 @@ class Labour extends Model
     use HasFactory;
 
     /**
-     * The table associated with the model.
-     *
-     * @var string
-     */
-    protected $table = 'labours';
-
-    /**
      * The attributes that are mass assignable.
      *
      * @var array<string>
@@ -151,6 +144,16 @@ class Labour extends Model
     public function shiftSchedules()
     {
         return $this->hasMany(LabourShiftSchedule::class, 'labour_id');
+    }
+
+    /**
+     * Get the current shift schedule for the Labour
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasOne
+     */
+    public function currentShiftSchedule()
+    {
+        return $this->hasOne(LabourShiftSchedule::class, 'labour_id')->whereDate('scheduled_date', '=', now()->toDateString());
     }
 
     /**

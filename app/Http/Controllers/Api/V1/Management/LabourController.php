@@ -33,7 +33,7 @@ class LabourController extends Controller
             $labours = $labours->where('name', 'like', '%' . request()->search . '%')
                 ->get();
         } else {
-            $labours = $labours->simplePaginate();
+            $labours = $labours->with('currentShiftSchedule.shift')->simplePaginate();
         }
 
         return LabourResource::collection($labours);

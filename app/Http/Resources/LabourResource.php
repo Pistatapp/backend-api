@@ -29,6 +29,7 @@ class LabourResource extends JsonResource
             'overtime_hourly_wage' => $this->overtime_hourly_wage,
             'image' => $this->when($this->image, fn () => asset('storage/' . $this->image)),
             'is_working' => $this->is_working,
+            'current_shift' => new WorkShiftResource($this->whenLoaded('currentShiftSchedule.shift')),
             'shift_schedules' => LabourShiftScheduleResource::collection($this->whenLoaded('shiftSchedules')),
             'teams' => TeamResource::collection($this->whenLoaded('teams')),
             'created_at' => jdate($this->created_at)->format('Y/m/d'),
