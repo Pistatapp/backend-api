@@ -21,6 +21,8 @@ class WorkShiftResource extends JsonResource
             'start_time' => $this->start_time->format('H:i'),
             'end_time' => $this->end_time->format('H:i'),
             'work_hours' => $this->work_hours,
+            'labours_count' => $this->whenCounted('labours'),
+            'labours' => LabourResource::collection($this->whenLoaded('labours')),
             'created_at' => jdate($this->created_at)->format('Y/m/d'),
         ];
     }

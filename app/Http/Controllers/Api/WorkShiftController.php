@@ -16,7 +16,7 @@ class WorkShiftController extends Controller
      */
     public function index(Farm $farm)
     {
-        $shifts = $farm->workShifts()->orderBy('start_time')->get();
+        $shifts = $farm->workShifts()->withCount('labours')->get();
         return WorkShiftResource::collection($shifts);
     }
 
@@ -52,6 +52,8 @@ class WorkShiftController extends Controller
      */
     public function show(WorkShift $workShift)
     {
+        $workShift->loadCount('labours');
+        $workShift->load('labours');
         return new WorkShiftResource($workShift);
     }
 

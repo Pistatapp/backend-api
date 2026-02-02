@@ -55,4 +55,21 @@ class WorkShift extends Model
     {
         return $this->hasMany(LabourShiftSchedule::class, 'shift_id');
     }
+
+    /**
+     * Get the labours for the WorkShift
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasManyThrough
+     */
+    public function labours()
+    {
+        return $this->hasManyThrough(
+            Labour::class,
+            LabourShiftSchedule::class,
+            'shift_id',
+            'id',
+            'id',
+            'labour_id'
+        );
+    }
 }
