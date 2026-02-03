@@ -1,56 +1,50 @@
 <?php
 
-namespace App\Http\Controllers\Api\V1\Tractor;
+namespace App\Jobs;
 
-use App\Http\Controllers\Controller;
 use App\Services\ParseDataService;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Queue\Queueable;
 use App\Models\GpsData;
 use App\Models\Tractor;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use App\Events\TractorStatus;
 use App\Events\ReportReceived;
-use App\Jobs\ProcessGpsData;
 
-class GpsReportController extends Controller
+class ProcessGpsData implements ShouldQueue
 {
-    public function __construct(
-        private ParseDataService $parseDataService,
-    ) {}
+    use Queueable;
 
     /**
-     * Store a newly created resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
+     * Create a new job instance.
      */
-    public function __invoke(Request $request)
+    public function __construct(
+        public string $rawData,
+    ) {
+        //
+    }
+
+    /**
+     * Execute the job.
+     */
+    public function handle(ParseDataService $parseDataService): void
     {
-        try {
-            $rawData = $request->getContent();
+        $data = $parseDataService->parse($this->rawData);
 
-            // ProcessGpsData::dispatch($rawData);
+        $deviceImei = $data[0]['imei'];
 
-            $data = $this->parseDataService->parse($rawData);
+        $tractor = $this->fetchTractorByDeviceImei($deviceImei);
 
-            $deviceImei = $data[0]['imei'];
+        // Save parsed GPS data to database
+        $this->saveGpsData($data, $tractor->id);
 
-            $tractor = $this->fetchTractorByDeviceImei($deviceImei);
+        // Update tractor status
+        $lastStatus = end($data)['status'];
+        event(new TractorStatus($tractor, $lastStatus));
 
-            // Save parsed GPS data to database
-            $this->saveGpsData($data, $tractor->id);
-
-            // Update tractor status
-            $lastStatus = end($data)['status'];
-            event(new TractorStatus($tractor, $lastStatus));
-
-            // Get device for ReportReceived event (only fire if device exists)
-            $device = $tractor->gpsDevice;
-            event(new ReportReceived($data, $device));
-        } catch (\Exception $e) {
-            // Log error
-        }
-
-        return response()->json([], 200);
+        // Get device for ReportReceived event (only fire if device exists)
+        $device = $tractor->gpsDevice;
+        event(new ReportReceived($data, $device));
     }
 
     /**

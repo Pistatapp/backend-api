@@ -15,7 +15,6 @@ class WorkerDeviceController extends Controller
     public function __construct(
         private DeviceManagementService $deviceManagementService
     ) {
-        $this->middleware('role:orchard_admin');
     }
 
     /**
