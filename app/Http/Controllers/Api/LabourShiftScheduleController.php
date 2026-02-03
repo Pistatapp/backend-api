@@ -44,7 +44,8 @@ class LabourShiftScheduleController extends Controller
         $validated = $request->validate([
             'labour_id' => 'required|exists:labours,id',
             'shift_id' => 'required|exists:work_shifts,id',
-            'scheduled_date' => 'required|date',
+            'scheduled_dates' => 'required|array|min:1',
+            'scheduled_dates.*' => 'required|shamsi_date',
         ]);
 
         // Validate labour is shift-based
@@ -56,24 +57,34 @@ class LabourShiftScheduleController extends Controller
         }
 
         // Check for overlapping shifts
-        $scheduledDate = Carbon::parse($validated['scheduled_date']);
-        $shift = WorkShift::findOrFail($validated['shift_id']);
+        foreach ($validated['scheduled_dates'] as $scheduledDate) {
+            $scheduledDate = jalali_to_carbon($scheduledDate);
+            $shift = WorkShift::findOrFail($validated['shift_id']);
 
-        $overlapping = $this->checkOverlappingShifts(
-            $labour,
-            $scheduledDate,
-            $shift
-        );
+            $overlapping = $this->checkOverlappingShifts(
+                $labour,
+                $scheduledDate,
+                $shift
+            );
 
-        if ($overlapping) {
-            return response()->json([
-                'error' => 'Shift overlaps with existing schedule'
-            ], 400);
+            if ($overlapping) {
+                return response()->json([
+                    'error' => 'Shift overlaps with existing schedule'
+                ], 400);
+            }
         }
 
-        $schedule = LabourShiftSchedule::create($validated);
+        $schedules = [];
+        foreach ($validated['scheduled_dates'] as $scheduledDate) {
+            $scheduledDate = jalali_to_carbon($scheduledDate);
+            $schedules[] = LabourShiftSchedule::create([
+                'labour_id' => $validated['labour_id'],
+                'shift_id' => $validated['shift_id'],
+                'scheduled_date' => $scheduledDate->toDateString(),
+            ]);
+        }
 
-        return new LabourShiftScheduleResource($schedule->load(['labour', 'shift']));
+        return LabourShiftScheduleResource::collection($schedules);
     }
 
     /**
