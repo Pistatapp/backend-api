@@ -250,6 +250,7 @@ Route::post('/gps/reports', GpsReportController::class)->name('gps.reports');
 
 // Mobile app routes (no authentication required)
 Route::prefix('mobile')->group(function () {
+    Route::post('request-status', [MobileDeviceController::class, 'requestStatus']);
     Route::post('connect', [MobileDeviceController::class, 'connect']);
     Route::post('gps', [MobileGpsController::class, 'store']);
 });

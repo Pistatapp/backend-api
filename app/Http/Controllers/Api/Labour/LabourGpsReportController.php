@@ -29,21 +29,21 @@ class LabourGpsReportController extends Controller
         try {
             // Get authenticated user (labour)
             $user = Auth::user();
-            
+
             if (!$user) {
                 return response()->json(['error' => 'Unauthorized'], 401);
             }
 
             // Find labour associated with this user
             $labour = Labour::where('user_id', $user->id)->first();
-            
+
             if (!$labour) {
                 return response()->json(['error' => 'Labour not found'], 404);
             }
 
             // Parse GPS data from request
             $gpsData = $this->parseGpsData($request);
-            
+
             if (!$gpsData) {
                 return response()->json(['error' => 'Invalid GPS data'], 400);
             }

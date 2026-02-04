@@ -59,5 +59,21 @@ class MobileDeviceController extends Controller
             'request_id' => $connectionRequest->id,
         ]);
     }
-}
 
+    /**
+     * Update the status of a connection request.
+     *
+     * @param Request $request
+     * @return MobileDeviceStatusResource
+     */
+    public function requestStatus(Request $request)
+    {
+        $fingerprint = $request->input('device_fingerprint');
+        $request = DeviceConnectionRequest::where('device_fingerprint', $fingerprint)->first();
+
+        return response()->json([
+            'status' => $request->status ?? 'not_found',
+            'request_id' => $request->id ?? null,
+        ]);
+    }
+}
