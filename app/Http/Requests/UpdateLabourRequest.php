@@ -26,7 +26,12 @@ class UpdateLabourRequest extends FormRequest
             'team_id' => 'nullable|integer|exists:teams,id',
             'name' => 'required|string|max:255',
             'personnel_number' => 'nullable|string|max:255|unique:labours,personnel_number,' . $this->labour->id,
-            'mobile' => 'required|ir_mobile|unique:labours,mobile,' . $this->labour->id,
+            'mobile' => [
+                'required',
+                'ir_mobile:zero',
+                'unique:labours,mobile,' . $this->labour->id,
+                'unique:users,mobile,' . $this->labour->user->id,
+            ],
             'work_type' => 'required|string|in:administrative,shift_based',
             'work_days' => [
                 'nullable',

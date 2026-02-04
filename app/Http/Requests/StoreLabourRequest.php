@@ -26,7 +26,12 @@ class StoreLabourRequest extends FormRequest
             'team_id' => 'nullable|integer|exists:teams,id',
             'name' => 'required|string|max:255',
             'personnel_number' => 'nullable|string|max:255|unique:labours,personnel_number',
-            'mobile' => 'required|ir_mobile|unique:labours,mobile',
+            'mobile' => [
+                'required',
+                'ir_mobile:zero',
+                'unique:labours,mobile',
+                'unique:users,mobile',
+            ],
             'work_type' => 'required|string|in:administrative,shift_based',
             'work_days' => [
                 'nullable',
