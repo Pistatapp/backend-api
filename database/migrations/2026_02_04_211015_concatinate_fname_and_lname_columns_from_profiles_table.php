@@ -14,14 +14,16 @@ return new class extends Migration
     {
         Schema::table('profiles', function (Blueprint $table) {
             $table->string('name')->after('user_id')->nullable();
+        });
 
-            Profile::chunk(100, function ($profiles) {
-                foreach($profiles as $profile) {
-                    $profile->name = $profile->first_name . ' ' . $profile->last_name;
-                    $profile->save();
-                }
-            });
+        Profile::chunk(100, function ($profiles) {
+            foreach($profiles as $profile) {
+                $profile->name = $profile->first_name . ' ' . $profile->last_name;
+                $profile->save();
+            }
+        });
 
+        Schema::table('profiles', function (Blueprint $table) {
             $table->dropColumn('first_name');
             $table->dropColumn('last_name');
         });

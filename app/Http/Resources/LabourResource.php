@@ -27,6 +27,8 @@ class LabourResource extends JsonResource
             'end_work_time' => $this->whenNotNull($this->end_work_time),
             'hourly_wage' => $this->hourly_wage,
             'overtime_hourly_wage' => $this->overtime_hourly_wage,
+            'attendence_tracking_enabled' => $this->attendence_tracking_enabled,
+            'imei' => $this->imei,
             'image' => $this->when($this->image, fn () => asset('storage/' . $this->image)),
             'is_working' => $this->is_working,
             'current_shift' => new WorkShiftResource($this->whenLoaded('currentShiftSchedule.shift')),
