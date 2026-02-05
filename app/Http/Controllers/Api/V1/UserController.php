@@ -59,7 +59,7 @@ class UserController extends Controller
 
         $user->assignRole($request->role);
 
-        $user->profile()->create($request->only('first_name', 'last_name'));
+        $user->profile()->create($request->only('name'));
 
         $user->farms()->attach($request->farms, [
             'role' => $request->role,
@@ -84,7 +84,7 @@ class UserController extends Controller
     {
         $user->update($request->only('mobile'));
 
-        $user->profile->update($request->only('first_name', 'last_name'));
+        $user->profile->update($request->only('name'));
 
         $user->syncRoles($request->role);
 
