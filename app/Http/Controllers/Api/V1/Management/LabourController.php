@@ -103,10 +103,8 @@ class LabourController extends Controller
             }
 
             if (isset($data['name']) && $data['name'] !== $labour->name && $labour->user->profile) {
-                $nameParts = $this->splitName($data['name']);
                 $labour->user->profile->update([
-                    'first_name' => $nameParts['first_name'],
-                    'last_name' => $nameParts['last_name'],
+                    'name' => $data['name'],
                 ]);
             }
         }
@@ -158,16 +156,14 @@ class LabourController extends Controller
             // Create user
             $user = User::create([
                 'mobile' => $labourData['mobile'],
-                'username' => $username,
+                'username' => $labourData['username'],
                 'created_by' => $creator->id,
             ]);
 
             // Create profile with name if it doesn't exist
             if (!$user->profile) {
-                $nameParts = $this->splitName($labourData['name']);
                 $user->profile()->create([
-                    'first_name' => $nameParts['first_name'],
-                    'last_name' => $nameParts['last_name'],
+                    'name' => $labourData['name'],
                 ]);
             }
         }
@@ -177,21 +173,5 @@ class LabourController extends Controller
         $user->syncRoles($role);
 
         return $user;
-    }
-
-    /**
-     * Split a full name into first name and last name
-     *
-     * @param string $fullName
-     * @return array
-     */
-    private function splitName(string $fullName): array
-    {
-        $parts = explode(' ', trim($fullName), 2);
-
-        return [
-            'first_name' => $parts[0] ?? '',
-            'last_name' => $parts[1] ?? '',
-        ];
     }
 }

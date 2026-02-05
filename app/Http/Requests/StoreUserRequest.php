@@ -23,6 +23,7 @@ class StoreUserRequest extends FormRequest
     {
         return [
             'name' => 'required|string|max:255',
+            'username' => 'nullable|string|max:255|unique:users,username',
             'mobile' => 'required|ir_mobile:zero|unique:users,mobile',
             'role' => [
                 'required',

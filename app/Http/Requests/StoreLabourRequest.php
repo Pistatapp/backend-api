@@ -25,6 +25,7 @@ class StoreLabourRequest extends FormRequest
         return [
             'team_id' => 'nullable|integer|exists:teams,id',
             'name' => 'required|string|max:255',
+            'username' => 'nullable|string|max:255|unique:users,username',
             'personnel_number' => 'nullable|string|max:255|unique:labours,personnel_number',
             'mobile' => [
                 'required',
@@ -61,6 +62,8 @@ class StoreLabourRequest extends FormRequest
             'hourly_wage' => 'required|integer|min:1',
             'overtime_hourly_wage' => 'required|integer|min:1',
             'image' => 'nullable|image|max:1024',
+            'attendence_tracking_enabled' => 'required|boolean',
+            'imei' => 'nullable|string|max:255',
         ];
     }
 }

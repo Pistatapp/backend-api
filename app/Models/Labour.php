@@ -26,6 +26,8 @@ class Labour extends Model
         'end_work_time',
         'hourly_wage',
         'overtime_hourly_wage',
+        'attendence_tracking_enabled',
+        'imei',
         'image',
         'is_working',
         'user_id',
@@ -41,6 +43,7 @@ class Labour extends Model
         return [
             'is_working' => 'boolean',
             'work_days' => 'array',
+            'attendence_tracking_enabled' => 'boolean',
         ];
     }
 
