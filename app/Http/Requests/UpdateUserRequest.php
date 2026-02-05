@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateUserRequest extends FormRequest
 {
@@ -21,9 +22,19 @@ class UpdateUserRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
+        $routeUser = $this->route('user');
+        $isLabour = $this->role === 'labour';
+
+        $rules = [
             'name' => 'required|string|max:255',
-            'mobile' => 'required|ir_mobile:zero|unique:users,mobile,' . $this->route('user')->id,
+            'mobile' => $isLabour
+                ? [
+                    'required',
+                    'ir_mobile:zero',
+                    'unique:labours,mobile,' . ($routeUser->labour?->id ?? 'NULL'),
+                    'unique:users,mobile,' . $routeUser->id,
+                ]
+                : 'required|ir_mobile:zero|unique:users,mobile,' . $routeUser->id,
             'role' => [
                 'required',
                 'exists:roles,name',
@@ -44,8 +55,7 @@ class UpdateUserRequest extends FormRequest
                     }
                 },
             ],
-            'farms' => 'required|array|min:1',
-            'farms.*' => [
+            'farm_id' => [
                 'required',
                 'exists:farms,id',
                 function ($attribute, $value, $fail) {
@@ -58,5 +68,47 @@ class UpdateUserRequest extends FormRequest
                 },
             ],
         ];
+
+        // Add labour-specific validation rules
+        if ($isLabour) {
+            $labourId = $routeUser->labour?->id ?? 'NULL';
+            
+            $rules = array_merge($rules, [
+                'personnel_number' => 'nullable|string|max:255|unique:labours,personnel_number,' . $labourId,
+                'work_type' => 'required|string|in:administrative,shift_based',
+                'work_days' => [
+                    'nullable',
+                    'array',
+                    Rule::requiredIf(fn () => $this->work_type === 'administrative'),
+                    Rule::prohibitedIf(fn () => $this->work_type === 'shift_based'),
+                ],
+                'work_hours' => [
+                    'nullable',
+                    'numeric',
+                    'between:1,24',
+                    Rule::requiredIf(fn () => $this->work_type === 'administrative'),
+                ],
+                'start_work_time' => [
+                    'nullable',
+                    'date_format:H:i',
+                    Rule::requiredIf(fn () => $this->work_type === 'administrative'),
+                    Rule::prohibitedIf(fn () => $this->work_type === 'shift_based'),
+                ],
+                'end_work_time' => [
+                    'nullable',
+                    'date_format:H:i',
+                    'after:start_work_time',
+                    Rule::requiredIf(fn () => $this->work_type === 'administrative'),
+                    Rule::prohibitedIf(fn () => $this->work_type === 'shift_based'),
+                ],
+                'hourly_wage' => 'required|integer|min:1',
+                'overtime_hourly_wage' => 'required|integer|min:1',
+                'image' => 'nullable|image|max:1024',
+                'attendence_tracking_enabled' => 'required|boolean',
+                'imei' => 'nullable|string|max:255',
+            ]);
+        }
+
+        return $rules;
     }
 }

@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
 use App\Http\Resources\UserResource;
+use App\Models\Labour;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class UserController extends Controller
 {
@@ -61,10 +63,15 @@ class UserController extends Controller
 
         $user->profile()->create($request->only('name'));
 
-        $user->farms()->attach($request->farms, [
+        $user->farms()->attach($request->farm_id, [
             'role' => $request->role,
             'is_owner' => false,
         ]);
+
+        // Create labour record if role is labour
+        if ($request->role === 'labour') {
+            $this->createLabourForUser($request, $user);
+        }
 
         return new UserResource($user);
     }
@@ -88,10 +95,19 @@ class UserController extends Controller
 
         $user->syncRoles($request->role);
 
-        $user->farms()->sync($request->farms, [
+        $user->farms()->sync([$request->farm_id => [
             'role' => $request->role,
             'is_owner' => false,
-        ]);
+        ]]);
+
+        // Create or update labour record if role is labour
+        if ($request->role === 'labour') {
+            if ($user->labour) {
+                $this->updateLabourForUser($request, $user);
+            } else {
+                $this->createLabourForUser($request, $user);
+            }
+        }
 
         return new UserResource($user->fresh());
     }
@@ -104,5 +120,83 @@ class UserController extends Controller
         $user->delete();
 
         return response()->noContent();
+    }
+
+    /**
+     * Create a labour record for a user
+     *
+     * @param StoreUserRequest|UpdateUserRequest $request
+     * @param User $user
+     * @return Labour
+     */
+    private function createLabourForUser($request, User $user): Labour
+    {
+        $labourData = $request->only([
+            'name',
+            'personnel_number',
+            'mobile',
+            'work_type',
+            'work_days',
+            'work_hours',
+            'start_work_time',
+            'end_work_time',
+            'hourly_wage',
+            'overtime_hourly_wage',
+            'attendence_tracking_enabled',
+            'imei',
+        ]);
+
+        // Handle image upload
+        if ($request->hasFile('image')) {
+            $labourData['image'] = $request->file('image')->store('labours', 'public');
+        }
+
+        // Set user_id
+        $labourData['user_id'] = $user->id;
+
+        // Set farm_id from the request
+        $labourData['farm_id'] = $request->farm_id;
+
+        $labour = Labour::create($labourData);
+
+        return $labour;
+    }
+
+    /**
+     * Update a labour record for a user
+     *
+     * @param UpdateUserRequest $request
+     * @param User $user
+     * @return void
+     */
+    private function updateLabourForUser(UpdateUserRequest $request, User $user): void
+    {
+        $labour = $user->labour;
+
+        $labourData = $request->only([
+            'name',
+            'personnel_number',
+            'mobile',
+            'work_type',
+            'work_days',
+            'work_hours',
+            'start_work_time',
+            'end_work_time',
+            'hourly_wage',
+            'overtime_hourly_wage',
+            'attendence_tracking_enabled',
+            'imei',
+        ]);
+
+        // Handle image upload
+        if ($request->hasFile('image')) {
+            // Delete old image if exists
+            if ($labour->image && Storage::disk('public')->exists($labour->image)) {
+                Storage::disk('public')->delete($labour->image);
+            }
+            $labourData['image'] = $request->file('image')->store('labours', 'public');
+        }
+
+        $labour->update($labourData);
     }
 }
