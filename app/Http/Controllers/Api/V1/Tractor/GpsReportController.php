@@ -8,6 +8,7 @@ use App\Models\GpsData;
 use App\Models\Tractor;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\File;
 use App\Events\TractorStatus;
 use App\Events\ReportReceived;
 use App\Jobs\ProcessGpsData;
@@ -28,11 +29,13 @@ class GpsReportController extends Controller
         try {
             $rawData = $request->getContent();
 
-            // ProcessGpsData::dispatch($rawData);
-
             $data = $this->parseDataService->parse($rawData);
 
             $deviceImei = $data[0]['imei'];
+
+            $this->logRawRequest($rawData, $deviceImei);
+
+            // ProcessGpsData::dispatch($rawData);
 
             $tractor = $this->fetchTractorByDeviceImei($deviceImei);
 
@@ -47,6 +50,9 @@ class GpsReportController extends Controller
             $device = $tractor->gpsDevice;
             event(new ReportReceived($data, $device));
         } catch (\Exception $e) {
+            if (isset($rawData)) {
+                $this->logRawRequest($rawData, 'unknown');
+            }
             // Log error
         }
 
@@ -106,5 +112,28 @@ class GpsReportController extends Controller
             // Insert batch to avoid memory issues and improve performance
             GpsData::insert($gpsDataRecords);
         }
+    }
+
+    /**
+     * Log request raw data to a text file: storage/logs/{imei}/{Y-m-d}.txt
+     *
+     * @param string $rawData Raw request body
+     * @param string $imei Device IMEI (or 'unknown' when parsing fails)
+     * @return void
+     */
+    private function logRawRequest(string $rawData, string $imei): void
+    {
+        $basePath = storage_path('logs');
+        $imeiDir = $basePath . DIRECTORY_SEPARATOR . $imei;
+        $dateFile = now()->format('Y-m-d') . '.txt';
+
+        if (!File::isDirectory($imeiDir)) {
+            File::makeDirectory($imeiDir, 0755, true);
+        }
+
+        $filePath = $imeiDir . DIRECTORY_SEPARATOR . $dateFile;
+        $line = '[' . now()->toIso8601String() . ']' . PHP_EOL . $rawData . PHP_EOL . str_repeat('-', 80) . PHP_EOL;
+
+        File::append($filePath, $line);
     }
 }
