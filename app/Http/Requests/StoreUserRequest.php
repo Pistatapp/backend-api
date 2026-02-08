@@ -26,7 +26,7 @@ class StoreUserRequest extends FormRequest
 
         $rules = [
             'name' => 'required|string|max:255',
-            'mobile' => $isLabour 
+            'mobile' => $isLabour
                 ? [
                     'required',
                     'ir_mobile:zero',
@@ -46,7 +46,7 @@ class StoreUserRequest extends FormRequest
                     } elseif ($user->hasRole('super-admin')) {
                         $allowedRoles = ['admin', 'consultant', 'inspector'];
                     } elseif ($user->hasRole('admin')) {
-                        $allowedRoles = ['operator', 'viewer', 'consultant'];
+                        $allowedRoles = ['operator', 'viewer', 'consultant', 'labour', 'employee'];
                     }
 
                     if (!in_array($value, $allowedRoles)) {

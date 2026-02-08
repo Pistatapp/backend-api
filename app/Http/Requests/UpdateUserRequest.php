@@ -47,7 +47,7 @@ class UpdateUserRequest extends FormRequest
                     } elseif ($user->hasRole('super-admin')) {
                         $allowedRoles = ['admin'];
                     } elseif ($user->hasRole('admin')) {
-                        $allowedRoles = ['operator', 'viewer', 'consultant', 'inspector'];
+                        $allowedRoles = ['operator', 'viewer', 'consultant', 'inspector', 'labour', 'employee'];
                     }
 
                     if (!in_array($value, $allowedRoles)) {
@@ -72,7 +72,7 @@ class UpdateUserRequest extends FormRequest
         // Add labour-specific validation rules
         if ($isLabour) {
             $labourId = $routeUser->labour?->id ?? 'NULL';
-            
+
             $rules = array_merge($rules, [
                 'personnel_number' => 'nullable|string|max:255|unique:labours,personnel_number,' . $labourId,
                 'work_type' => 'required|string|in:administrative,shift_based',
