@@ -10,6 +10,7 @@ use App\Models\Labour;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 
 class UserController extends Controller
 {
@@ -29,6 +30,8 @@ class UserController extends Controller
 
         $workingEnvironment = $user->workingEnvironment();
         $workingEnvironmentId = $workingEnvironment?->id;
+
+        Log::info($workingEnvironmentId);
 
         if (!$user->hasRole('root')) {
             $request->merge(['_working_environment_id' => $workingEnvironmentId]);
