@@ -23,29 +23,29 @@ class UserController extends Controller
      */
     public function index(Request $request)
     {
+        $user = $request->user();
+
         $query = User::query();
 
-        $workingEnvironment = $request->user()->workingEnvironment();
+        $workingEnvironment = $user->workingEnvironment();
         $workingEnvironmentId = $workingEnvironment?->id;
 
-        if (!$request->input('search') && !$request->user()->hasRole('root')) {
+        if (!$user->hasRole('root')) {
             $request->merge(['_working_environment_id' => $workingEnvironmentId]);
         }
 
-        if ($search = $request->input('search')) {
-            $query->search($search, ['mobile'])->withoutRole('super-admin');
-        } elseif ($request->user()->hasAnyRole(['admin', 'super-admin'])) {
-            $query->where('created_by', $request->user()->id);
+        if ($user->hasAnyRole(['admin', 'super-admin'])) {
+            $query->where('created_by', $user->id);
         }
 
-        $query->where('id', '!=', $request->user()->id);
+        $query->where('id', '!=', $user->id);
 
         // Eager-load farms relationship when working environment ID is set to avoid N+1 queries
         if ($workingEnvironmentId) {
             $query->with('farms');
         }
 
-        $users = $search ? $query->get() : $query->simplePaginate();
+        $users = $query->simplePaginate();
 
         return UserResource::collection($users);
     }

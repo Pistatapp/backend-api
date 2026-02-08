@@ -9,14 +9,10 @@ use App\Http\Resources\LabourResource;
 use App\Models\Farm;
 use App\Models\Labour;
 use App\Models\User;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
 class LabourController extends Controller
 {
-    /**
-     * Create a new controller instance.
-     */
     public function __construct()
     {
         $this->authorizeResource(Labour::class);
@@ -27,14 +23,7 @@ class LabourController extends Controller
      */
     public function index(Farm $farm)
     {
-        $labours = $farm->labours();
-
-        if (request()->has('search')) {
-            $labours = $labours->where('name', 'like', '%' . request()->search . '%')
-                ->get();
-        } else {
-            $labours = $labours->with('currentShiftSchedule.shift')->simplePaginate();
-        }
+        $labours = $farm->labours()->with('currentShiftSchedule.shift')->simplePaginate();
 
         return LabourResource::collection($labours);
     }

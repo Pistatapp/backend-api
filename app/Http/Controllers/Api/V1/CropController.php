@@ -5,13 +5,17 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\Crop;
 use App\Http\Resources\CropResource;
+use App\Services\SearchService;
 use Illuminate\Http\Request;
 
 class CropController extends Controller
 {
-    public function __construct()
+    protected SearchService $searchService;
+
+    public function __construct(SearchService $searchService)
     {
         $this->authorizeResource(Crop::class, 'crop');
+        $this->searchService = $searchService;
     }
 
     /**
@@ -25,6 +29,20 @@ class CropController extends Controller
     {
         $user = $request->user();
 
+        // If search parameter is provided, use SearchService
+        if ($request->filled('search')) {
+            $filters = [];
+            
+            // Add active filter if provided
+            if ($request->has('active')) {
+                $filters['active'] = (bool) $request->query('active');
+            }
+            
+            $results = $this->searchService->search($request->query('search'), $user, 'crops', $filters);
+            return CropResource::collection($results);
+        }
+
+        // Otherwise, use regular pagination
         $query = $user->hasRole('root')
             ? Crop::global()
             : Crop::accessibleByUser($user->id)->with('creator');
@@ -33,13 +51,7 @@ class CropController extends Controller
             $q->where('is_active', (bool) $request->query('active'));
         });
 
-        $query->when($request->filled('search'), function ($q) use ($request) {
-            $q->where('name', 'like', '%' . $request->query('search') . '%');
-        });
-
-        $crops = $request->filled('search')
-            ? $query->get()
-            : $query->paginate();
+        $crops = $query->paginate();
 
         return CropResource::collection($crops);
     }

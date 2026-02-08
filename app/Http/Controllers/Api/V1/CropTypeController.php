@@ -8,13 +8,17 @@ use App\Http\Requests\UpdateCropTypeRequest;
 use App\Http\Resources\CropTypeResource;
 use App\Models\Crop;
 use App\Models\CropType;
+use App\Services\SearchService;
 use Illuminate\Http\Request;
 
 class CropTypeController extends Controller
 {
-    public function __construct()
+    protected SearchService $searchService;
+
+    public function __construct(SearchService $searchService)
     {
         $this->authorizeResource(CropType::class, 'crop_type');
+        $this->searchService = $searchService;
     }
 
     /**
@@ -30,6 +34,20 @@ class CropTypeController extends Controller
 
         $user = $request->user();
 
+        // If search parameter is provided, use SearchService
+        if ($request->filled('search')) {
+            $filters = ['crop_id' => $crop->id];
+            
+            // Add active filter if provided
+            if ($request->has('active')) {
+                $filters['active'] = (bool) $request->query('active');
+            }
+            
+            $results = $this->searchService->search($request->query('search'), $user, 'crop_types', $filters);
+            return CropTypeResource::collection($results);
+        }
+
+        // Otherwise, use regular pagination
         $query = $user->hasRole('root')
             ? $crop->cropTypes()->global()
             : $crop->cropTypes()->accessibleByUser($user->id)->with('creator');
@@ -38,13 +56,7 @@ class CropTypeController extends Controller
             $q->where('is_active', (bool) $request->query('active'));
         });
 
-        $query->when($request->filled('search'), function ($q) use ($request) {
-            $q->where('name', 'like', '%' . $request->query('search') . '%');
-        });
-
-        $cropTypes = $request->filled('search')
-            ? $query->get()
-            : $query->paginate();
+        $cropTypes = $query->paginate();
 
         return CropTypeResource::collection($cropTypes);
     }

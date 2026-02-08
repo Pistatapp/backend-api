@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\V1\Management\OprationController;
 use App\Http\Controllers\Api\V1\Tractor\TractorTaskController;
 use App\Http\Controllers\Api\V1\Farm\IrrigationController;
 use App\Http\Controllers\Api\V1\UserController;
+use App\Http\Controllers\Api\V1\SearchController;
 use App\Http\Controllers\Api\V1\GpsDeviceController;
 use App\Http\Controllers\Api\DeviceController;
 use App\Http\Controllers\Api\DeviceConnectionRequestController;
@@ -103,6 +104,9 @@ Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
     });
 
     Route::apiResource('users', UserController::class);
+
+    // Global search endpoint
+    Route::get('search', SearchController::class);
 
     Route::get('/farms/{farm}/set_working_environment', [FarmController::class, 'setWorkingEnvironment']);
     Route::apiResource('farms', FarmController::class);

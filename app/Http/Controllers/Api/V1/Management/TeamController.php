@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 
 class TeamController extends Controller
 {
+
     public function __construct()
     {
         $this->authorizeResource(Team::class, 'team');
@@ -20,14 +21,8 @@ class TeamController extends Controller
      */
     public function index(Farm $farm)
     {
-        $teams = $farm->teams()->withCount('labours');
+        $teams = $farm->teams()->withCount('labours')->with('supervisor')->simplePaginate(10);
 
-        if (request()->has('search')) {
-            $teams = $teams->where('name', 'like', '%' . request()->search . '%')
-                ->get();
-        } else {
-            $teams = $teams->with('supervisor')->simplePaginate(10);
-        }
         return TeamResource::collection($teams);
     }
 
