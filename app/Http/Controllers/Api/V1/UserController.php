@@ -36,7 +36,7 @@ class UserController extends Controller
 
         if ($user->hasAnyRole(['admin', 'super-admin'])) {
             $query->whereHas('farms', function ($query) use ($workingEnvironmentId) {
-                $query->where('farms.id', $workingEnvironmentId);
+                $query->wherePivot('farm_id', $workingEnvironmentId);
             });
         }
 
