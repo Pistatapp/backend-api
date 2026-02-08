@@ -37,7 +37,6 @@ class UserResource extends JsonResource
             'id' => $this->id,
             'username' => $this->username,
             'last_activity_at' => jdate($this->last_activity_at)->format('Y/m/d H:i:s'),
-            'profile' => new ProfileResource($this->whenLoaded('profile')),
             'role' => $role,
             $this->mergeWhen($role === 'labour', [
                 'labour' => new LabourResource($this->whenLoaded('labour')),
