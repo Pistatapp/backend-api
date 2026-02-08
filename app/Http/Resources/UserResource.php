@@ -39,7 +39,7 @@ class UserResource extends JsonResource
             'last_activity_at' => jdate($this->last_activity_at)->format('Y/m/d H:i:s'),
             'profile' => new ProfileResource($this->whenLoaded('profile')),
             'role' => $role,
-            'farms' => new FarmResource($this->whenLoaded('farms')),
+            'farms' => FarmResource::collection($this->whenLoaded('farms')),
         ];
     }
 }
