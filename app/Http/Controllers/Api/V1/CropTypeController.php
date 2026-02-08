@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreCropTypeRequest;
+use App\Http\Requests\UpdateCropTypeRequest;
 use App\Http\Resources\CropTypeResource;
 use App\Models\Crop;
 use App\Models\CropType;
@@ -17,40 +19,62 @@ class CropTypeController extends Controller
 
     /**
      * Display a listing of the resource.
+     *
+     * Query params:
+     * - active (0|1): filter by is_active
+     * - search: when set, search by name and return without pagination; otherwise paginate
      */
-    public function index(Crop $crop)
+    public function index(Request $request, Crop $crop)
     {
-        return CropTypeResource::collection($crop->cropTypes);
+        $this->authorize('view', $crop);
+
+        $user = $request->user();
+
+        $query = $user->hasRole('root')
+            ? $crop->cropTypes()->global()
+            : $crop->cropTypes()->accessibleByUser($user->id)->with('creator');
+
+        $query->when($request->has('active'), function ($q) use ($request) {
+            $q->where('is_active', (bool) $request->query('active'));
+        });
+
+        $query->when($request->filled('search'), function ($q) use ($request) {
+            $q->where('name', 'like', '%' . $request->query('search') . '%');
+        });
+
+        $cropTypes = $request->filled('search')
+            ? $query->get()
+            : $query->paginate();
+
+        return CropTypeResource::collection($cropTypes);
     }
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request, Crop $crop)
+    public function store(StoreCropTypeRequest $request, Crop $crop)
     {
-        $request->validate([
-            'name' => 'required|string|max:255|unique:crop_types,name',
-            'standard_day_degree' => 'nullable|numeric',
-        ]);
+        $this->authorize('view', $crop);
 
-        $cropType = $crop->cropTypes()->create($request->only(['name', 'standard_day_degree']));
+        $data = $request->only(['name', 'standard_day_degree', 'load_estimation_data']);
 
-        return new CropTypeResource($cropType);
+        if ($request->user()->hasRole('admin')) {
+            $data['created_by'] = $request->user()->id;
+        }
+
+        $cropType = $crop->cropTypes()->create($data);
+
+        return new CropTypeResource($cropType->load('creator'));
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, CropType $cropType)
+    public function update(UpdateCropTypeRequest $request, CropType $cropType)
     {
-        $request->validate([
-            'name' => 'required|string|max:255|unique:crop_types,name,' . $cropType->id . ',id',
-            'standard_day_degree' => 'nullable|numeric',
-        ]);
+        $cropType->update($request->only(['name', 'standard_day_degree', 'is_active', 'load_estimation_data']));
 
-        $cropType->update($request->only(['name', 'standard_day_degree']));
-
-        return new CropTypeResource($cropType->fresh());
+        return new CropTypeResource($cropType->fresh()->load('creator'));
     }
 
     /**

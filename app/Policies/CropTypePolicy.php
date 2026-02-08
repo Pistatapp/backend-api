@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Models\CropType;
 use App\Models\User;
+use Illuminate\Auth\Access\Response;
 
 class CropTypePolicy
 {
@@ -20,7 +21,15 @@ class CropTypePolicy
      */
     public function view(?User $user, CropType $cropType): bool
     {
-        return true; // All users can view individual crop types
+        if (!$user) {
+            return false;
+        }
+
+        if ($user->hasRole('root')) {
+            return $cropType->isGlobal();
+        }
+
+        return $cropType->isGlobal() || $cropType->isOwnedBy($user->id);
     }
 
     /**
@@ -28,7 +37,7 @@ class CropTypePolicy
      */
     public function create(User $user): bool
     {
-        return $user->hasRole('root');
+        return $user->hasAnyRole(['root', 'admin']);
     }
 
     /**
@@ -36,7 +45,15 @@ class CropTypePolicy
      */
     public function update(User $user, CropType $cropType): bool
     {
-        return $user->hasRole('root');
+        if ($user->hasRole('root')) {
+            return $cropType->isGlobal();
+        }
+
+        if ($user->hasRole('admin')) {
+            return $cropType->isOwnedBy($user->id);
+        }
+
+        return false;
     }
 
     /**
@@ -44,6 +61,6 @@ class CropTypePolicy
      */
     public function delete(User $user, CropType $cropType): bool
     {
-        return $user->hasRole('root') && $cropType->fields()->count() === 0;
+        return false;
     }
 }

@@ -16,10 +16,32 @@ class CropController extends Controller
 
     /**
      * Display a listing of the resource.
+     *
+     * Query params:
+     * - active (0|1): filter by is_active
+     * - search: when set, search by name and return without pagination; otherwise paginate
      */
-    public function index()
+    public function index(Request $request)
     {
-        return CropResource::collection(Crop::all());
+        $user = $request->user();
+
+        $query = $user->hasRole('root')
+            ? Crop::global()
+            : Crop::accessibleByUser($user->id)->with('creator');
+
+        $query->when($request->has('active'), function ($q) use ($request) {
+            $q->where('is_active', (bool) $request->query('active'));
+        });
+
+        $query->when($request->filled('search'), function ($q) use ($request) {
+            $q->where('name', 'like', '%' . $request->query('search') . '%');
+        });
+
+        $crops = $request->filled('search')
+            ? $query->get()
+            : $query->paginate();
+
+        return CropResource::collection($crops);
     }
 
     /**
@@ -32,9 +54,15 @@ class CropController extends Controller
             'cold_requirement' => 'nullable|integer|min:0',
         ]);
 
-        $crop = Crop::create($request->only('name', 'cold_requirement'));
+        $data = $request->only('name', 'cold_requirement');
 
-        return new CropResource($crop);
+        if ($request->user()->hasRole('admin')) {
+            $data['created_by'] = $request->user()->id;
+        }
+
+        $crop = Crop::create($data);
+
+        return new CropResource($crop->load('creator'));
     }
 
     /**
@@ -53,9 +81,10 @@ class CropController extends Controller
         $request->validate([
             'name' => 'required|string|max:255|unique:crops,name,' . $crop->id . ',id',
             'cold_requirement' => 'nullable|integer|min:0',
+            'is_active' => 'boolean',
         ]);
 
-        $crop->update($request->only('name', 'cold_requirement'));
+        $crop->update($request->only('name', 'cold_requirement', 'is_active'));
 
         return new CropResource($crop->fresh());
     }

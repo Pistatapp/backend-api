@@ -2,11 +2,12 @@
 
 namespace App\Http\Controllers\Api\V1\Farm;
 
-use App\Models\Field;
 use App\Http\Controllers\Controller;
-use App\Models\Farm;
 use App\Http\Resources\FieldResource;
+use App\Models\Farm;
+use App\Models\Field;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class FieldController extends Controller
 {
@@ -41,7 +42,7 @@ class FieldController extends Controller
             'coordinates.*' => 'required|string',
             'center' => 'required|string',
             'area' => 'required|numeric|min:0',
-            'crop_type_id' => 'nullable|exists:crop_types,id',
+            'crop_type_id' => ['nullable', Rule::exists('crop_types', 'id')->where('is_active', true)],
         ]);
 
         $field = $farm->fields()->create([
@@ -88,7 +89,7 @@ class FieldController extends Controller
             'coordinates.*' => 'required|string',
             'center' => 'required|string',
             'area' => 'required|numeric|min:0',
-            'crop_type_id' => 'nullable|exists:crop_types,id',
+            'crop_type_id' => ['nullable', Rule::exists('crop_types', 'id')->where('is_active', true)],
         ]);
 
         $field->update([

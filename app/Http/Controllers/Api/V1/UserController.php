@@ -25,10 +25,10 @@ class UserController extends Controller
     {
         $query = User::query();
 
-        $workingEnvironmentId = null;
+        $workingEnvironment = $request->user()->workingEnvironment();
+        $workingEnvironmentId = $workingEnvironment?->id;
+
         if (!$request->input('search') && !$request->user()->hasRole('root')) {
-            $workingEnvironment = $request->user()->workingEnvironment();
-            $workingEnvironmentId = $workingEnvironment?->id;
             $request->merge(['_working_environment_id' => $workingEnvironmentId]);
         }
 

@@ -2,8 +2,9 @@
 
 namespace App\Http\Requests;
 
-use Illuminate\Foundation\Http\FormRequest;
 use App\Models\Farm;
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreFarmRequest extends FormRequest
 {
@@ -39,7 +40,7 @@ class StoreFarmRequest extends FormRequest
             'center' => 'required|string|regex:/^(\-?\d+(\.\d+)?),\s*(\-?\d+(\.\d+)?)$/',
             'zoom' => 'required|numeric|min:1',
             'area' => 'required|numeric|min:0',
-            'crop_id' => 'required|exists:crops,id',
+            'crop_id' => ['required', Rule::exists('crops', 'id')->where('is_active', true)],
         ];
     }
 }

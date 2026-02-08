@@ -5,7 +5,6 @@ namespace App\Policies;
 use App\Models\Crop;
 use App\Models\User;
 use Illuminate\Auth\Access\Response;
-use Illuminate\Support\Facades\Log;
 
 class CropPolicy
 {
@@ -22,7 +21,15 @@ class CropPolicy
      */
     public function view(?User $user, Crop $crop): bool
     {
-        return true; // All authenticated users can view individual crops
+        if (!$user) {
+            return false;
+        }
+
+        if ($user->hasRole('root')) {
+            return $crop->isGlobal();
+        }
+
+        return $crop->isGlobal() || $crop->isOwnedBy($user->id);
     }
 
     /**
@@ -30,7 +37,7 @@ class CropPolicy
      */
     public function create(User $user): bool
     {
-        return (bool) $user->hasRole('root');
+        return $user->hasAnyRole(['root', 'admin']);
     }
 
     /**
@@ -38,7 +45,15 @@ class CropPolicy
      */
     public function update(User $user, Crop $crop): bool
     {
-        return (bool) $user->hasRole('root');
+        if ($user->hasRole('root')) {
+            return $crop->isGlobal();
+        }
+
+        if ($user->hasRole('admin')) {
+            return $crop->isOwnedBy($user->id);
+        }
+
+        return false;
     }
 
     /**
@@ -46,6 +61,6 @@ class CropPolicy
      */
     public function delete(User $user, Crop $crop): bool
     {
-        return $user->hasRole('root') && $crop->farms()->count() == 0;
+        return false;
     }
 }

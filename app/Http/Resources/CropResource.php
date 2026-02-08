@@ -18,7 +18,17 @@ class CropResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'cold_requirement' => $this->cold_requirement,
+            'is_active' => $this->is_active,
             'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),
+            'is_global' => $this->isGlobal(),
+            'is_owned' => $request->user() && $this->isOwnedBy($request->user()->id),
+            'creator' => $this->whenLoaded('creator', function () {
+                return [
+                    'id' => $this->creator->id,
+                    'username' => $this->creator->username,
+                    'mobile' => $this->creator->mobile,
+                ];
+            }),
             'crop_types' => CropTypeResource::collection($this->whenLoaded('cropTypes')),
             'can' => [
                 'update' => $request->user()->can('update', $this),
