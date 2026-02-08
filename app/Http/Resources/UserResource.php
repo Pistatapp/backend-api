@@ -40,6 +40,9 @@ class UserResource extends JsonResource
             'profile' => new ProfileResource($this->whenLoaded('profile')),
             'role' => $role,
             'farms' => FarmResource::collection($this->whenLoaded('farms')),
+            $this->mergeWhen($role === 'labour', [
+                'labour' => new LabourResource($this->whenLoaded('labour')),
+            ]),
         ];
     }
 }
