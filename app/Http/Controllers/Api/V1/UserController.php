@@ -35,17 +35,14 @@ class UserController extends Controller
         }
 
         if ($user->hasAnyRole(['admin', 'super-admin'])) {
-            $query->where('created_by', $user->id);
+            $query->whereHas('farms', function ($query) use ($workingEnvironmentId) {
+                $query->where('farms.id', $workingEnvironmentId);
+            });
         }
 
         $query->where('id', '!=', $user->id);
 
-        // Eager-load farms relationship when working environment ID is set to avoid N+1 queries
-        if ($workingEnvironmentId) {
-            $query->with('farms');
-        }
-
-        $users = $query->simplePaginate();
+        $users = $query->with('profile', 'farms')->simplePaginate();
 
         return UserResource::collection($users);
     }
