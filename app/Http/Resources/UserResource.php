@@ -35,6 +35,8 @@ class UserResource extends JsonResource
 
         return [
             'id' => $this->id,
+            'name' => $this->profile->name,
+            'mobile' => $this->mobile,
             'username' => $this->username,
             'last_activity_at' => jdate($this->last_activity_at)->format('Y/m/d H:i:s'),
             'role' => $role,
