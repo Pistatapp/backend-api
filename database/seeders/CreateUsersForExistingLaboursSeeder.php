@@ -2,104 +2,122 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use Illuminate\Database\Seeder;
 use App\Models\Labour;
 use App\Models\User;
+use Illuminate\Database\Seeder;
 
 class CreateUsersForExistingLaboursSeeder extends Seeder
 {
     /**
      * Run the database seeds.
+     *
+     * For each labour:
+     * - If labour has no user: create User with Profile, link labour to user, attach user to farm with role labour.
+     * - If labour has user: ensure farm_user pivot exists for the labour's farm with role labour, is_owner false.
      */
     public function run(): void
     {
-        // Get all labours that don't have a user_id
-        $labours = Labour::whereNull('user_id')->get();
+        $labours = Labour::with('farm', 'user', 'user.profile')->get();
 
         if ($labours->isEmpty()) {
-            $this->command->info('No labours without user accounts found.');
+            $this->command->info('No labours found.');
+
             return;
         }
 
-        $this->command->info("Found {$labours->count()} labours without user accounts. Creating user accounts...");
-
         $created = 0;
+        $pivotCreated = 0;
         $skipped = 0;
 
         foreach ($labours as $labour) {
             try {
-                // Check if user with this mobile already exists
-                $user = User::where('mobile', $labour->mobile)->first();
+                $user = $this->resolveOrCreateUser($labour, $created);
 
                 if (!$user) {
-                    // Generate username from mobile (remove country code if exists)
-                    $mobile = preg_replace('/^\+?98|^0/', '', $labour->mobile);
-                    $baseUsername = 'labour_' . $mobile;
-                    $username = $baseUsername;
-                    $counter = 1;
+                    $skipped++;
+                    $this->command->warn("Labour ID {$labour->id}: Skipped (no mobile or invalid data).");
 
-                    // Ensure username is unique
-                    while (User::where('username', $username)->exists()) {
-                        $username = $baseUsername . '_' . $counter;
-                        $counter++;
-                    }
-
-                    // Create user (use system user or first admin as creator, or null)
-                    $creator = User::whereHas('roles', function ($query) {
-                        $query->whereIn('name', ['root', 'super-admin', 'admin']);
-                    })->first();
-
-                    $user = User::create([
-                        'mobile' => $labour->mobile,
-                        'username' => $username,
-                        'created_by' => $creator?->id,
-                    ]);
-
-                    // Create profile with name if it doesn't exist
-                    if (!$user->profile) {
-                        $nameParts = $this->splitName($labour->name);
-                        $user->profile()->create([
-                            'first_name' => $nameParts['first_name'],
-                            'last_name' => $nameParts['last_name'],
-                        ]);
-                    }
-
-                    $created++;
-                    $this->command->info("Created user account for labour ID {$labour->id} ({$labour->name})");
-                } else {
-                    $this->command->info("User with mobile {$labour->mobile} already exists. Syncing role and linking to labour ID {$labour->id}.");
+                    continue;
                 }
 
-                // Assign role based on work_type (sync roles to ensure only one role)
                 $role = $labour->work_type === 'administrative' ? 'employee' : 'labour';
-                $user->assignRole($role);
 
-                // Link user to labour
-                $labour->update(['user_id' => $user->id]);
-
+                // Ensure farm_user pivot exists for the labour's farm
+                $farm = $labour->farm;
+                if ($farm && !$user->farms()->where('farms.id', $farm->id)->exists()) {
+                    $user->farms()->attach($farm->id, [
+                        'role' => $role,
+                        'is_owner' => false,
+                    ]);
+                    $pivotCreated++;
+                }
             } catch (\Exception $e) {
                 $skipped++;
-                $this->command->error("Failed to process labour ID {$labour->id}: {$e->getMessage()}");
+                $this->command->error("Labour ID {$labour->id}: {$e->getMessage()}");
             }
         }
 
-        $this->command->info("Completed! Created: {$created}, Skipped: {$skipped}");
+        $this->command->info("Completed. Users created: {$created}, Pivot records created: {$pivotCreated}, Skipped: {$skipped}");
     }
 
     /**
-     * Split a full name into first name and last name
+     * Get existing user for labour or create a new one.
      *
-     * @param string $fullName
-     * @return array
+     * @return User|null
      */
-    private function splitName(string $fullName): array
+    private function resolveOrCreateUser(Labour $labour, int &$created): ?User
     {
-        $parts = explode(' ', trim($fullName), 2);
+        // Labour has user_id and user exists
+        if ($labour->user_id && $labour->user) {
+            return $labour->user;
+        }
 
-        return [
-            'first_name' => $parts[0] ?? '',
-            'last_name' => $parts[1] ?? '',
-        ];
+        // Look up user by labour's mobile
+        if ($labour->mobile) {
+            $user = User::where('mobile', $labour->mobile)->first();
+            if ($user) {
+                return $user;
+            }
+        }
+
+        // No user exists – create one (requires mobile)
+        if (empty($labour->mobile)) {
+            return null;
+        }
+
+        $user = User::create([
+            'mobile' => $labour->mobile,
+            'username' => $this->generateUniqueUsername($labour->mobile),
+            'created_by' => null,
+        ]);
+
+        $user->assignRole('labour');
+
+        $user->profile()->create([
+            'name' => $labour->name ?? '',
+        ]);
+
+        $created++;
+        $this->command->info("Created user ID {$user->id} for labour ID {$labour->id}.");
+
+        return $user;
+    }
+
+    /**
+     * Generate a unique username from mobile.
+     */
+    private function generateUniqueUsername(string $mobile): string
+    {
+        $sanitized = preg_replace('/^\+?98|^0/', '', $mobile);
+        $base = 'labour_' . $sanitized;
+        $username = $base;
+        $counter = 1;
+
+        while (User::where('username', $username)->exists()) {
+            $username = $base . '_' . $counter;
+            $counter++;
+        }
+
+        return $username;
     }
 }
