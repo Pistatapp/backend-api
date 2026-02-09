@@ -201,4 +201,14 @@ class User extends Authenticatable implements HasMedia
     {
         return $this->hasMany(Payment::class);
     }
+
+    /**
+     * Get the user's labour.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasOne
+     */
+    public function labour()
+    {
+        return $this->hasOne(Labour::class);
+    }
 }
