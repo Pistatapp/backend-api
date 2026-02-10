@@ -51,7 +51,11 @@ class UserController extends Controller
     {
         $creator = $request->user();
 
-        $user = User::create($request->only('mobile') + ['created_by' => $creator->id]);
+        $user = User::create([
+            'mobile' => $request->mobile,
+            'created_by' => $creator->id,
+            'username' => $request->role === 'labour' ? 'labour_' . $request->mobile : null,
+        ]);
 
         $user->assignRole($request->role);
 
