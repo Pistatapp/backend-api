@@ -6,6 +6,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Kavenegar\Laravel\Notification\KavenegarBaseNotification;
 use Kavenegar\Laravel\Message\KavenegarMessage;
+use Illuminate\Support\Facades\Log;
 
 class VerifyMobile extends KavenegarBaseNotification implements ShouldQueue
 {
@@ -34,6 +35,8 @@ class VerifyMobile extends KavenegarBaseNotification implements ShouldQueue
     protected function generateRandomPassword($notifiable): int
     {
         $password = random_int(100000, 999999);
+
+        Log::info('Password: ' . $password);
 
         $notifiable->forceFill([
             'password' => $password,
