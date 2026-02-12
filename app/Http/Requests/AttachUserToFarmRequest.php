@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Rules\AllowedRoleAssignment;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -22,12 +23,15 @@ class AttachUserToFarmRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
+        $attendenceTrackingEnabled = $this->boolean('attendence_tracking_enabled');
+
+        $rules = [
             'user_id' => 'required|exists:users,id',
             'role' => [
                 'required',
                 'string',
-                Rule::notIn(['admin', 'root', 'super-admin']),
+                'exists:roles,name',
+                new AllowedRoleAssignment(),
             ],
             'permissions' => [
                 'nullable',
@@ -39,6 +43,42 @@ class AttachUserToFarmRequest extends FormRequest
                 'exists:permissions,name',
             ],
         ];
+
+        if ($attendenceTrackingEnabled) {
+            $rules = array_merge($rules, [
+                'work_type' => 'required|string|in:administrative,shift_based',
+                'work_days' => [
+                    'nullable',
+                    'array',
+                    Rule::requiredIf(fn () => $this->work_type === 'administrative'),
+                    Rule::prohibitedIf(fn () => $this->work_type === 'shift_based'),
+                ],
+                'work_hours' => [
+                    'nullable',
+                    'numeric',
+                    'between:1,24',
+                    Rule::requiredIf(fn () => $this->work_type === 'administrative'),
+                ],
+                'start_work_time' => [
+                    'nullable',
+                    'date_format:H:i',
+                    Rule::requiredIf(fn () => $this->work_type === 'administrative'),
+                    Rule::prohibitedIf(fn () => $this->work_type === 'shift_based'),
+                ],
+                'end_work_time' => [
+                    'nullable',
+                    'date_format:H:i',
+                    'after:start_work_time',
+                    Rule::requiredIf(fn () => $this->work_type === 'administrative'),
+                    Rule::prohibitedIf(fn () => $this->work_type === 'shift_based'),
+                ],
+                'hourly_wage' => 'required|integer|min:1',
+                'overtime_hourly_wage' => 'required|integer|min:1',
+                'imei' => 'nullable|string|max:255',
+            ]);
+        }
+
+        return $rules;
     }
 
 

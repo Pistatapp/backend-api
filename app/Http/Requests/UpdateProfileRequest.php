@@ -11,7 +11,8 @@ class UpdateProfileRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        // Users can only update their own profile
+        return $this->user() !== null;
     }
 
     /**
@@ -26,7 +27,7 @@ class UpdateProfileRequest extends FormRequest
             'province'   => ['required', 'string', 'max:255'],
             'city'       => ['required', 'string', 'max:255'],
             'company'    => ['required', 'string', 'max:255'],
-            'photo'     => ['nullable', 'image', 'max:1024'],
+            'image'     => ['nullable', 'image', 'max:1024'],
         ];
     }
 }

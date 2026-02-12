@@ -6,10 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
 use App\Http\Resources\UserResource;
-use App\Models\Labour;
+use App\Models\AttendanceTracking;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 
 class UserController extends Controller
 {
@@ -49,11 +48,9 @@ class UserController extends Controller
      */
     public function store(StoreUserRequest $request)
     {
-        $creator = $request->user();
-
         $user = User::create([
             'mobile' => $request->mobile,
-            'created_by' => $creator->id,
+            'created_by' => $request->user()->id,
             'username' => $request->role === 'labour' ? 'labour_' . $request->mobile : null,
         ]);
 
@@ -66,9 +63,9 @@ class UserController extends Controller
             'is_owner' => false,
         ]);
 
-        // Create labour record if role is labour
-        if ($request->role === 'labour') {
-            $this->createLabourForUser($request, $user);
+        // Create or update attendance tracking if enabled
+        if ($request->boolean('attendence_tracking_enabled')) {
+            $this->createOrUpdateAttendanceTracking($request, $user);
         }
 
         return new UserResource($user);
@@ -98,13 +95,9 @@ class UserController extends Controller
             'is_owner' => false,
         ]]);
 
-        // Create or update labour record if role is labour
-        if ($request->role === 'labour') {
-            if ($user->labour) {
-                $this->updateLabourForUser($request, $user);
-            } else {
-                $this->createLabourForUser($request, $user);
-            }
+        // Create or update attendance tracking if enabled
+        if ($request->boolean('attendence_tracking_enabled')) {
+            $this->createOrUpdateAttendanceTracking($request, $user);
         }
 
         return new UserResource($user->fresh());
@@ -115,24 +108,23 @@ class UserController extends Controller
      */
     public function destroy(User $user)
     {
+        $user->attendanceTracking()->delete();
+        $user->profile()->delete();
+        $user->farms()->detach();
         $user->delete();
-
         return response()->noContent();
     }
 
     /**
-     * Create a labour record for a user
+     * Create or update attendance tracking record for a user
      *
      * @param StoreUserRequest|UpdateUserRequest $request
      * @param User $user
-     * @return Labour
+     * @return AttendanceTracking
      */
-    private function createLabourForUser($request, User $user): Labour
+    private function createOrUpdateAttendanceTracking($request, User $user): AttendanceTracking
     {
-        $labourData = $request->only([
-            'name',
-            'personnel_number',
-            'mobile',
+        $attendanceData = $request->only([
             'work_type',
             'work_days',
             'work_hours',
@@ -140,61 +132,31 @@ class UserController extends Controller
             'end_work_time',
             'hourly_wage',
             'overtime_hourly_wage',
-            'attendence_tracking_enabled',
             'imei',
+            'attendence_tracking_enabled',
         ]);
 
-        // Handle image upload
-        if ($request->hasFile('image')) {
-            $labourData['image'] = $request->file('image')->store('labours', 'public');
+        // Set user_id and farm_id
+        $attendanceData['user_id'] = $user->id;
+        $attendanceData['farm_id'] = $request->farm_id;
+
+        // Ensure attendence_tracking_enabled is set to true
+        $attendanceData['attendence_tracking_enabled'] = true;
+
+        // Clear administrative-specific fields when work_type is shift_based
+        if ($attendanceData['work_type'] === 'shift_based') {
+            $attendanceData['work_days'] = null;
+            $attendanceData['work_hours'] = null;
+            $attendanceData['start_work_time'] = null;
+            $attendanceData['end_work_time'] = null;
         }
 
-        // Set user_id
-        $labourData['user_id'] = $user->id;
+        // Use updateOrCreate to handle both create and update scenarios
+        $attendanceTracking = AttendanceTracking::updateOrCreate(
+            ['user_id' => $user->id],
+            $attendanceData
+        );
 
-        // Set farm_id from the request
-        $labourData['farm_id'] = $request->farm_id;
-
-        $labour = Labour::create($labourData);
-
-        return $labour;
-    }
-
-    /**
-     * Update a labour record for a user
-     *
-     * @param UpdateUserRequest $request
-     * @param User $user
-     * @return void
-     */
-    private function updateLabourForUser(UpdateUserRequest $request, User $user): void
-    {
-        $labour = $user->labour;
-
-        $labourData = $request->only([
-            'name',
-            'personnel_number',
-            'mobile',
-            'work_type',
-            'work_days',
-            'work_hours',
-            'start_work_time',
-            'end_work_time',
-            'hourly_wage',
-            'overtime_hourly_wage',
-            'attendence_tracking_enabled',
-            'imei',
-        ]);
-
-        // Handle image upload
-        if ($request->hasFile('image')) {
-            // Delete old image if exists
-            if ($labour->image && Storage::disk('public')->exists($labour->image)) {
-                Storage::disk('public')->delete($labour->image);
-            }
-            $labourData['image'] = $request->file('image')->store('labours', 'public');
-        }
-
-        $labour->update($labourData);
+        return $attendanceTracking;
     }
 }

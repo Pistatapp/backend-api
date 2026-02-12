@@ -211,4 +211,14 @@ class User extends Authenticatable implements HasMedia
     {
         return $this->hasOne(Labour::class);
     }
+
+    /**
+     * Get the user's attendance tracking.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasOne
+     */
+    public function attendanceTracking()
+    {
+        return $this->hasOne(AttendanceTracking::class);
+    }
 }

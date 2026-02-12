@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
+use App\Models\User;
 
 /**
  * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Profile>
@@ -17,11 +18,12 @@ class ProfileFactory extends Factory
     public function definition(): array
     {
         return [
-            'first_name' => $this->faker->firstName,
-            'last_name' => $this->faker->lastName,
+            'name' => $this->faker->name,
             'province' => $this->faker->state,
             'city' => $this->faker->city,
             'company' => $this->faker->company,
+            'personnel_number' => $this->faker->unique()->randomNumber(8),
+            'user_id' => User::factory(),
         ];
     }
 }

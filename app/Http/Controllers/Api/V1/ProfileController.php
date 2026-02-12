@@ -32,17 +32,20 @@ class ProfileController extends Controller
     {
         $profile = $request->user()->profile;
 
-        $profile->update($request->only([
-            'first_name',
-            'last_name',
+        $profileData = $request->only([
+            'name',
             'province',
             'city',
             'company',
-        ]));
+        ]);
 
-        if ($request->hasFile('photo')) {
-            $request->user()->clearMediaCollection('photo');
-            $request->user()->addMediaFromRequest('photo')->toMediaCollection('photo');
+        $profile = $profile
+            ? tap($profile)->update($profileData)
+            : $request->user()->profile()->create($profileData);
+
+        if ($request->hasFile('image')) {
+            $request->user()->clearMediaCollection('image');
+            $request->user()->addMediaFromRequest('image')->toMediaCollection('image');
         }
 
         return new ProfileResource($profile->load('user'));
@@ -57,7 +60,7 @@ class ProfileController extends Controller
     public function setUsername(Request $request)
     {
         $request->validate([
-            'username' => 'required|string|max:255|unique:users,username|regex:/^[a-zA-Z0-9_]+$/',
+            'username' => 'required|string|max:255|unique:users,username|regex:/^[a-zA-Z0-9_\s]+$/',
         ]);
 
         $request->user()->update(['username' => str_replace(' ', '_', $request->username)]);

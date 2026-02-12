@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests;
 
+use App\Rules\AllowedFarmAssignment;
+use App\Rules\AllowedRoleAssignment;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -22,59 +24,18 @@ class UpdateUserRequest extends FormRequest
      */
     public function rules(): array
     {
-        $routeUser = $this->route('user');
-        $isLabour = $this->role === 'labour';
+        $attendenceTrackingEnabled = $this->boolean('attendence_tracking_enabled');
 
         $rules = [
             'name' => 'required|string|max:255',
-            'mobile' => $isLabour
-                ? [
-                    'required',
-                    'ir_mobile:zero',
-                    'unique:labours,mobile,' . ($routeUser->labour?->id ?? 'NULL'),
-                    'unique:users,mobile,' . $routeUser->id,
-                ]
-                : 'required|ir_mobile:zero|unique:users,mobile,' . $routeUser->id,
-            'role' => [
-                'required',
-                'exists:roles,name',
-                function ($attribute, $value, $fail) {
-                    $user = $this->user();
-                    $allowedRoles = [];
-
-                    if ($user->hasRole('root')) {
-                        $allowedRoles = ['super-admin', 'admin'];
-                    } elseif ($user->hasRole('super-admin')) {
-                        $allowedRoles = ['admin'];
-                    } elseif ($user->hasRole('admin')) {
-                        $allowedRoles = ['operator', 'viewer', 'consultant', 'inspector', 'labour', 'employee'];
-                    }
-
-                    if (!in_array($value, $allowedRoles)) {
-                        $fail(__('You do not have permission to assign this role.'));
-                    }
-                },
-            ],
-            'farm_id' => [
-                'required',
-                'exists:farms,id',
-                function ($attribute, $value, $fail) {
-                    $user = $this->user();
-                    $farm = \App\Models\Farm::find($value);
-
-                    if (!$farm || !$farm->users->contains($user)) {
-                        $fail(__('You do not have permission to assign access to this farm.'));
-                    }
-                },
-            ],
+            'mobile' => 'required|ir_mobile:zero|unique:users,mobile,' . $this->route('user')->id,
+            'role' => ['required', 'string', 'exists:roles,name', new AllowedRoleAssignment()],
+            'farm_id' => ['required', 'exists:farms,id', new AllowedFarmAssignment()]
         ];
 
         // Add labour-specific validation rules
-        if ($isLabour) {
-            $labourId = $routeUser->labour?->id ?? 'NULL';
-
+        if ($attendenceTrackingEnabled) {
             $rules = array_merge($rules, [
-                'personnel_number' => 'nullable|string|max:255|unique:labours,personnel_number,' . $labourId,
                 'work_type' => 'required|string|in:administrative,shift_based',
                 'work_days' => [
                     'nullable',
@@ -103,10 +64,10 @@ class UpdateUserRequest extends FormRequest
                 ],
                 'hourly_wage' => 'required|integer|min:1',
                 'overtime_hourly_wage' => 'required|integer|min:1',
-                'image' => 'nullable|image|max:1024',
-                'attendence_tracking_enabled' => 'required|boolean',
                 'imei' => 'nullable|string|max:255',
             ]);
+            $rules['image'] = 'nullable|image|max:1024';
+            $rules['attendence_tracking_enabled'] = 'required|boolean';
         }
 
         return $rules;
