@@ -210,6 +210,11 @@ class SearchService
      */
     protected function scopeLabours(Builder $query, User $user, array $filters): Builder
     {
+        if (!$user->hasRole('root')) {
+            $farmIds = $user->farms()->pluck('farms.id');
+            $query->whereIn('farm_id', $farmIds);
+        }
+
         // Filter by farm_id if provided
         if (isset($filters['farm_id'])) {
             $query->where('farm_id', $filters['farm_id']);
@@ -223,6 +228,11 @@ class SearchService
      */
     protected function scopeTeams(Builder $query, User $user, array $filters): Builder
     {
+        if (!$user->hasRole('root')) {
+            $farmIds = $user->farms()->pluck('farms.id');
+            $query->whereIn('farm_id', $farmIds);
+        }
+
         // Filter by farm_id if provided
         if (isset($filters['farm_id'])) {
             $query->where('farm_id', $filters['farm_id']);
@@ -238,6 +248,11 @@ class SearchService
      */
     protected function scopeMaintenances(Builder $query, User $user, array $filters): Builder
     {
+        if (!$user->hasRole('root')) {
+            $farmIds = $user->farms()->pluck('farms.id');
+            $query->whereIn('farm_id', $farmIds);
+        }
+
         // Filter by farm_id if provided
         if (isset($filters['farm_id'])) {
             $query->where('farm_id', $filters['farm_id']);

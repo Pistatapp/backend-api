@@ -16,6 +16,8 @@ class WorkShiftController extends Controller
      */
     public function index(Farm $farm)
     {
+        $this->authorize('view', $farm);
+
         $shifts = $farm->workShifts()->withCount('labours')->get();
         return WorkShiftResource::collection($shifts);
     }
@@ -25,6 +27,8 @@ class WorkShiftController extends Controller
      */
     public function store(Request $request, Farm $farm)
     {
+        $this->authorize('view', $farm);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'start_time' => 'required|date_format:H:i',
@@ -52,6 +56,8 @@ class WorkShiftController extends Controller
      */
     public function show(WorkShift $workShift)
     {
+        $this->authorize('view', $workShift->farm);
+
         $workShift->loadCount('labours');
         $workShift->load('labours');
         return new WorkShiftResource($workShift);
@@ -62,6 +68,8 @@ class WorkShiftController extends Controller
      */
     public function update(Request $request, WorkShift $workShift)
     {
+        $this->authorize('view', $workShift->farm);
+
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
             'start_time' => 'sometimes|date_format:H:i',
@@ -79,6 +87,8 @@ class WorkShiftController extends Controller
      */
     public function destroy(WorkShift $workShift)
     {
+        $this->authorize('view', $workShift->farm);
+
         // Check if shift has any scheduled workers
         if ($workShift->shiftSchedules()->exists()) {
             return response()->json([

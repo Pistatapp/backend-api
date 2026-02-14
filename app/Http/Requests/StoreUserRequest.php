@@ -24,7 +24,7 @@ class StoreUserRequest extends FormRequest
      */
     public function rules(): array
     {
-        $attendenceTrackingEnabled = $this->boolean('attendence_tracking_enabled');
+        $attendanceTrackingEnabled = $this->boolean('attendance_tracking_enabled');
 
         $rules = [
             'name' => 'required|string|max:255',
@@ -34,7 +34,7 @@ class StoreUserRequest extends FormRequest
         ];
 
         // Add attendence tracking specific validation rules
-        if ($attendenceTrackingEnabled) {
+        if ($attendanceTrackingEnabled) {
             $rules = array_merge($rules, [
                 'work_type' => 'required|string|in:administrative,shift_based',
                 'work_days' => [
@@ -67,7 +67,7 @@ class StoreUserRequest extends FormRequest
                 'imei' => 'nullable|string|max:255',
             ]);
             $rules['image'] = 'nullable|image|max:1024';
-            $rules['attendence_tracking_enabled'] = 'required|boolean';
+            $rules['attendance_tracking_enabled'] = 'required|boolean';
         }
 
         return $rules;

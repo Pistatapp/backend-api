@@ -41,7 +41,7 @@ class GenerateMonthlyPayrollJob implements ShouldQueue
      */
     public function handle(LabourWageCalculationService $wageCalculationService): void
     {
-        $labours = $this->labourId 
+        $labours = $this->labourId
             ? Labour::where('id', $this->labourId)->get()
             : Labour::all();
 

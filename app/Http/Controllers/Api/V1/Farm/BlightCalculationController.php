@@ -14,6 +14,8 @@ class BlightCalculationController extends Controller
      */
     public function __invoke(BlightCalculationRequest $request, Farm $farm)
     {
+        $this->authorize('view', $farm);
+
         $location = $farm->center;
         $data = $this->fetchWeatherData($location, $request->start_dt, $request->end_dt);
         $totalBaseTemp = $this->calculateTotalBaseTemp($data, $request->min_temp);

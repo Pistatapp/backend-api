@@ -21,14 +21,14 @@ class AuthController extends Controller
      *
      * @var int
      */
-    protected $maxAttempts = 3;
+    protected $maxAttempts = 5;
 
     /**
      * The number of minutes to throttle for.
      *
      * @var int
      */
-    protected $decayMinutes = 2;
+    protected $decayMinutes = 15;
 
     /**
      * Send token to user mobile.

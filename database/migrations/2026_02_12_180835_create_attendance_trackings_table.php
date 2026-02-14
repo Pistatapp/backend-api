@@ -22,7 +22,7 @@ return new class extends Migration
             $table->integer('hourly_wage');
             $table->integer('overtime_hourly_wage');
             $table->string('imei')->nullable();
-            $table->boolean('attendence_tracking_enabled')->default(true);
+            $table->boolean('attendance_tracking_enabled')->default(true);
             $table->timestamps();
 
             // Add unique constraint to ensure one record per user

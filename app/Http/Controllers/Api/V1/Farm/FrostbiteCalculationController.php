@@ -18,6 +18,8 @@ class FrostbiteCalculationController extends Controller
      */
     public function estimate(Request $request, Farm $farm)
     {
+        $this->authorize('view', $farm);
+
         $request->validate(['type' => ['required', 'in:normal,radiational']]);
 
         if ($request->type === 'normal') {
@@ -90,6 +92,8 @@ class FrostbiteCalculationController extends Controller
      */
     public function getNotification(Farm $farm)
     {
+        $this->authorize('view', $farm);
+
         request()->validate(['type' => ['required', 'in:normal,radiational']]);
 
         $notification = $farm->frostbitRisks()->where('type', request('type'))->first();
@@ -109,6 +113,8 @@ class FrostbiteCalculationController extends Controller
      */
     public function sendNotification(Request $request, Farm $farm)
     {
+        $this->authorize('view', $farm);
+
         $request->validate([
             'type' => ['required', 'in:normal,radiational'],
             'notify' => ['required', 'boolean'],

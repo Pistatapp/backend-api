@@ -64,7 +64,7 @@ class UserControllerAttendanceTrackingTest extends TestCase
             'mobile' => '09122222222',
             'role' => 'operator',
             'farm_id' => $this->farm->id,
-            'attendence_tracking_enabled' => true,
+            'attendance_tracking_enabled' => true,
             'work_type' => 'administrative',
             'work_days' => ['saturday', 'sunday', 'monday', 'tuesday', 'wednesday'],
             'work_hours' => 8,
@@ -95,7 +95,7 @@ class UserControllerAttendanceTrackingTest extends TestCase
             'hourly_wage' => 150000,
             'overtime_hourly_wage' => 200000,
             'imei' => '123456789012345',
-            'attendence_tracking_enabled' => 1,
+            'attendance_tracking_enabled' => 1,
         ]);
 
         // Verify work_days was stored as JSON array
@@ -114,7 +114,7 @@ class UserControllerAttendanceTrackingTest extends TestCase
             'mobile' => '09123333333',
             'role' => 'operator',
             'farm_id' => $this->farm->id,
-            'attendence_tracking_enabled' => true,
+            'attendance_tracking_enabled' => true,
             'work_type' => 'shift_based',
             'hourly_wage' => 180000,
             'overtime_hourly_wage' => 250000,
@@ -138,7 +138,7 @@ class UserControllerAttendanceTrackingTest extends TestCase
             'hourly_wage' => 180000,
             'overtime_hourly_wage' => 250000,
             'imei' => '987654321098765',
-            'attendence_tracking_enabled' => 1,
+            'attendance_tracking_enabled' => 1,
         ]);
 
         // Verify work_days, work_hours, start_work_time, end_work_time are null for shift_based
@@ -199,7 +199,7 @@ class UserControllerAttendanceTrackingTest extends TestCase
             'mobile' => '09125555555',
             'role' => 'operator',
             'farm_id' => $this->farm->id,
-            'attendence_tracking_enabled' => true,
+            'attendance_tracking_enabled' => true,
             'work_type' => 'administrative',
             'work_days' => ['saturday', 'sunday'],
             'work_hours' => 6,
@@ -226,7 +226,7 @@ class UserControllerAttendanceTrackingTest extends TestCase
             'hourly_wage' => 120000,
             'overtime_hourly_wage' => 180000,
             'imei' => '111111111111111',
-            'attendence_tracking_enabled' => 1,
+            'attendance_tracking_enabled' => 1,
         ]);
     }
 
@@ -259,7 +259,7 @@ class UserControllerAttendanceTrackingTest extends TestCase
             'hourly_wage' => 100000,
             'overtime_hourly_wage' => 150000,
             'imei' => '222222222222222',
-            'attendence_tracking_enabled' => true,
+            'attendance_tracking_enabled' => true,
         ]);
 
         $updateData = [
@@ -267,7 +267,7 @@ class UserControllerAttendanceTrackingTest extends TestCase
             'mobile' => '09126666666',
             'role' => 'operator',
             'farm_id' => $this->farm->id,
-            'attendence_tracking_enabled' => true,
+            'attendance_tracking_enabled' => true,
             'work_type' => 'shift_based',
             'hourly_wage' => 200000,
             'overtime_hourly_wage' => 300000,
@@ -289,8 +289,8 @@ class UserControllerAttendanceTrackingTest extends TestCase
         $this->assertEquals(200000, $attendanceTracking->hourly_wage);
         $this->assertEquals(300000, $attendanceTracking->overtime_hourly_wage);
         $this->assertEquals('333333333333333', $attendanceTracking->imei);
-        $this->assertTrue($attendanceTracking->attendence_tracking_enabled);
-        
+        $this->assertTrue($attendanceTracking->attendance_tracking_enabled);
+
         // Verify administrative fields are cleared for shift_based
         $this->assertNull($attendanceTracking->work_days);
         $this->assertNull($attendanceTracking->work_hours);
@@ -326,7 +326,7 @@ class UserControllerAttendanceTrackingTest extends TestCase
             'hourly_wage' => 150000,
             'overtime_hourly_wage' => 200000,
             'imei' => '444444444444444',
-            'attendence_tracking_enabled' => true,
+            'attendance_tracking_enabled' => true,
         ]);
 
         // Update to shift_based
@@ -335,7 +335,7 @@ class UserControllerAttendanceTrackingTest extends TestCase
             'mobile' => '09127777777',
             'role' => 'operator',
             'farm_id' => $this->farm->id,
-            'attendence_tracking_enabled' => true,
+            'attendance_tracking_enabled' => true,
             'work_type' => 'shift_based',
             'hourly_wage' => 180000,
             'overtime_hourly_wage' => 250000,
@@ -368,7 +368,7 @@ class UserControllerAttendanceTrackingTest extends TestCase
             'mobile' => '09120000000',
             'role' => 'operator',
             'farm_id' => $this->farm->id,
-            'attendence_tracking_enabled' => true,
+            'attendance_tracking_enabled' => true,
             'work_type' => 'administrative',
             'work_days' => ['saturday', 'sunday'],
             'work_hours' => 8,
@@ -424,7 +424,7 @@ class UserControllerAttendanceTrackingTest extends TestCase
             'end_work_time' => '14:00',
             'hourly_wage' => 100000,
             'overtime_hourly_wage' => 150000,
-            'attendence_tracking_enabled' => true,
+            'attendance_tracking_enabled' => true,
         ]);
 
         // Update user with different farm_id
@@ -433,7 +433,7 @@ class UserControllerAttendanceTrackingTest extends TestCase
             'mobile' => '09121111112',
             'role' => 'operator',
             'farm_id' => $secondFarm->id,
-            'attendence_tracking_enabled' => true,
+            'attendance_tracking_enabled' => true,
             'work_type' => 'administrative',
             'work_days' => ['saturday', 'sunday'],
             'work_hours' => 8,
@@ -455,7 +455,7 @@ class UserControllerAttendanceTrackingTest extends TestCase
     }
 
     /**
-     * Test that attendance tracking is not created when attendence_tracking_enabled is false.
+     * Test that attendance tracking is not created when attendance_tracking_enabled is false.
      */
     public function test_attendance_tracking_not_created_when_disabled(): void
     {
@@ -464,7 +464,7 @@ class UserControllerAttendanceTrackingTest extends TestCase
             'mobile' => '09128888888',
             'role' => 'operator',
             'farm_id' => $this->farm->id,
-            'attendence_tracking_enabled' => false,
+            'attendance_tracking_enabled' => false,
         ];
 
         $response = $this->actingAs($this->adminUser, 'sanctum')
@@ -509,7 +509,7 @@ class UserControllerAttendanceTrackingTest extends TestCase
             'hourly_wage' => 100000,
             'overtime_hourly_wage' => 150000,
             'imei' => '666666666666666',
-            'attendence_tracking_enabled' => true,
+            'attendance_tracking_enabled' => true,
         ]);
 
         // Update multiple times
@@ -519,7 +519,7 @@ class UserControllerAttendanceTrackingTest extends TestCase
                 'mobile' => '09129999999',
                 'role' => 'operator',
                 'farm_id' => $this->farm->id,
-                'attendence_tracking_enabled' => true,
+                'attendance_tracking_enabled' => true,
                 'work_type' => 'administrative',
                 'work_days' => ['saturday', 'sunday'],
                 'work_hours' => 8,

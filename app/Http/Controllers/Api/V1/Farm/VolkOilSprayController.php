@@ -17,6 +17,8 @@ class VolkOilSprayController extends Controller
      */
     public function index(Farm $farm)
     {
+        $this->authorize('view', $farm);
+
         $notifications = VolkOilSpray::for($farm)
             ->when(request()->boolean('archived') === true, function ($query) {
                 return $query->onlyTrashed();
@@ -30,6 +32,8 @@ class VolkOilSprayController extends Controller
      */
     public function store(VolkOilSprayRequest $request, Farm $farm)
     {
+        $this->authorize('view', $farm);
+
         $request->merge([
             'farm_id' => $farm->id,
             'created_by' => $request->user()->id,
@@ -45,6 +49,8 @@ class VolkOilSprayController extends Controller
      */
     public function show(VolkOilSpray $volkOilSpray)
     {
+        $this->authorize('view', $volkOilSpray->farm);
+
         return new VolkOilSprayResource($volkOilSpray);
     }
 
@@ -53,6 +59,8 @@ class VolkOilSprayController extends Controller
      */
     public function update(VolkOilSprayRequest $request, VolkOilSpray $volkOilSpray)
     {
+        $this->authorize('view', $volkOilSpray->farm);
+
         $volkOilSpray->update($request->all());
 
         return new VolkOilSprayResource($volkOilSpray->fresh());
@@ -63,6 +71,8 @@ class VolkOilSprayController extends Controller
      */
     public function destroy(VolkOilSpray $volkOilSpray)
     {
+        $this->authorize('view', $volkOilSpray->farm);
+
         $volkOilSpray->delete();
 
         return response()->noContent();

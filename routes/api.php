@@ -67,7 +67,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::controller(AuthController::class)->prefix('auth')->group(function () {
     Route::middleware('guest')->group(function () {
-        Route::post('send', 'sendToken')->middleware('throttle:120,1');
+        Route::post('send', 'sendToken')->middleware('throttle:5,1');
         Route::post('verify', 'verifyToken');
     });
     Route::post('logout', 'logout')->middleware('auth:sanctum');
@@ -166,6 +166,12 @@ Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
         Route::put('worker-devices/{device}/unassign', [WorkerDeviceController::class, 'unassign']);
     });
 
+    Route::prefix('mobile')->group(function () {
+        Route::post('request-status', [MobileDeviceController::class, 'requestStatus']);
+        Route::post('connect', [MobileDeviceController::class, 'connect']);
+        Route::post('gps', [MobileGpsController::class, 'store']);
+    });
+
     // Labour GPS and Attendance Routes
     Route::post('/labours/gps-report', [\App\Http\Controllers\Api\Labour\LabourGpsReportController::class, '__invoke']);
     Route::get('/farms/{farm}/labours/active', [\App\Http\Controllers\Api\ActiveLabourController::class, 'index']);
@@ -251,13 +257,6 @@ Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
 });
 
 Route::post('/gps/reports', GpsReportController::class)->name('gps.reports');
-
-// Mobile app routes (no authentication required)
-Route::prefix('mobile')->group(function () {
-    Route::post('request-status', [MobileDeviceController::class, 'requestStatus']);
-    Route::post('connect', [MobileDeviceController::class, 'connect']);
-    Route::post('gps', [MobileGpsController::class, 'store']);
-});
 
 Route::middleware(['auth:sanctum', 'ensure.username'])->prefix('v1')->group(function () {
     Route::apiResource('warnings', WarningController::class)->only(['index', 'store']);

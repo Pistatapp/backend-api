@@ -47,6 +47,8 @@ class DashboardController extends Controller
      */
     public function getActiveLabours(Farm $farm)
     {
+        $this->authorize('view', $farm);
+
         $activeLabours = $this->activeLabourService->getActiveLabours($farm);
 
         // Format for widget display

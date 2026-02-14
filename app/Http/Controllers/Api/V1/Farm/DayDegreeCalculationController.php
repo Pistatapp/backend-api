@@ -18,6 +18,8 @@ class DayDegreeCalculationController extends Controller
      */
     public function __invoke(DayDegreeCalculationRequest $request, Farm $farm)
     {
+        $this->authorize('view', $farm);
+
         $model = getModel($request->model_type, $request->model_id);
 
         $data = weather_api()->history($farm->center, $request->start_dt, $request->end_dt);

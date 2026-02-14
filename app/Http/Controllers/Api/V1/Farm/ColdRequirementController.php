@@ -18,6 +18,8 @@ class ColdRequirementController extends Controller
      */
     public function __invoke(CalculateColdRequirementRequest $request, Farm $farm)
     {
+        $this->authorize('view', $farm);
+
         $data = weather_api()->history($farm->center, $request->start_dt, $request->end_dt);
 
         $minTemp = $request->input('min_temp', 0);

@@ -56,7 +56,12 @@ class UserController extends Controller
 
         $user->assignRole($request->role);
 
-        $user->profile()->create($request->only('name'));
+        $profile = $user->profile()->create($request->only('name'));
+
+        if ($request->hasFile('image')) {
+            $profile->clearMediaCollection('images');
+            $profile->addMediaFromRequest('image')->toMediaCollection('images');
+        }
 
         $user->farms()->attach($request->farm_id, [
             'role' => $request->role,
@@ -64,7 +69,7 @@ class UserController extends Controller
         ]);
 
         // Create or update attendance tracking if enabled
-        if ($request->boolean('attendence_tracking_enabled')) {
+        if ($request->boolean('attendance_tracking_enabled')) {
             $this->createOrUpdateAttendanceTracking($request, $user);
         }
 
@@ -88,6 +93,11 @@ class UserController extends Controller
 
         $user->profile->update($request->only('name'));
 
+        if ($request->hasFile('image')) {
+            $user->profile->clearMediaCollection('images');
+            $user->profile->addMediaFromRequest('image')->toMediaCollection('images');
+        }
+
         $user->syncRoles($request->role);
 
         $user->farms()->sync([$request->farm_id => [
@@ -96,7 +106,7 @@ class UserController extends Controller
         ]]);
 
         // Create or update attendance tracking if enabled
-        if ($request->boolean('attendence_tracking_enabled')) {
+        if ($request->boolean('attendance_tracking_enabled')) {
             $this->createOrUpdateAttendanceTracking($request, $user);
         }
 
@@ -133,15 +143,15 @@ class UserController extends Controller
             'hourly_wage',
             'overtime_hourly_wage',
             'imei',
-            'attendence_tracking_enabled',
+            'attendance_tracking_enabled',
         ]);
 
         // Set user_id and farm_id
         $attendanceData['user_id'] = $user->id;
         $attendanceData['farm_id'] = $request->farm_id;
 
-        // Ensure attendence_tracking_enabled is set to true
-        $attendanceData['attendence_tracking_enabled'] = true;
+        // Ensure attendance_tracking_enabled is set to true
+        $attendanceData['attendance_tracking_enabled'] = true;
 
         // Clear administrative-specific fields when work_type is shift_based
         if ($attendanceData['work_type'] === 'shift_based') {

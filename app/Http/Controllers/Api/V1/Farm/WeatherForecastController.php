@@ -18,6 +18,8 @@ class WeatherForecastController extends Controller
      */
     public function __invoke(WeatherForecastRequest $request, Farm $farm)
     {
+        $this->authorize('view', $farm);
+
         $location = $farm->center;
 
         $type = $request->input('type', 'current');

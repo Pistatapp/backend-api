@@ -19,6 +19,8 @@ class LabourShiftScheduleController extends Controller
      */
     public function index(Request $request, Farm $farm)
     {
+        $this->authorize('view', $farm);
+
         $month = $request->input('month', Carbon::now()->month);
         $year = $request->input('year', Carbon::now()->year);
 
@@ -50,6 +52,9 @@ class LabourShiftScheduleController extends Controller
 
         // Validate labour is shift-based
         $labour = Labour::findOrFail($validated['labour_id']);
+        $shift = WorkShift::findOrFail($validated['shift_id']);
+        $this->authorize('view', $labour->farm);
+        $this->assertSameFarm($labour, $shift);
         if ($labour->work_type !== 'shift_based') {
             return response()->json([
                 'error' => 'Labour must be shift-based to assign shifts'
@@ -59,8 +64,6 @@ class LabourShiftScheduleController extends Controller
         // Check for overlapping shifts
         foreach ($validated['scheduled_dates'] as $scheduledDate) {
             $scheduledDate = jalali_to_carbon($scheduledDate);
-            $shift = WorkShift::findOrFail($validated['shift_id']);
-
             $overlapping = $this->checkOverlappingShifts(
                 $labour,
                 $scheduledDate,
@@ -92,6 +95,8 @@ class LabourShiftScheduleController extends Controller
      */
     public function show(LabourShiftSchedule $shift_schedule)
     {
+        $this->authorizeScheduleFarm($shift_schedule);
+
         return new LabourShiftScheduleResource($shift_schedule->load(['labour', 'shift']));
     }
 
@@ -100,11 +105,18 @@ class LabourShiftScheduleController extends Controller
      */
     public function update(Request $request, LabourShiftSchedule $shift_schedule)
     {
+        $this->authorizeScheduleFarm($shift_schedule);
+
         $validated = $request->validate([
             'shift_id' => 'sometimes|exists:work_shifts,id',
             'scheduled_date' => 'sometimes|date',
             'status' => 'sometimes|in:scheduled,completed,missed,cancelled',
         ]);
+
+        if (array_key_exists('shift_id', $validated)) {
+            $shift = WorkShift::findOrFail($validated['shift_id']);
+            $this->assertSameFarm($shift_schedule->labour, $shift);
+        }
 
         $shift_schedule->update($validated);
         $shift_schedule->refresh();
@@ -118,6 +130,8 @@ class LabourShiftScheduleController extends Controller
      */
     public function destroy(LabourShiftSchedule $shift_schedule)
     {
+        $this->authorizeScheduleFarm($shift_schedule);
+
         $shift_schedule->delete();
 
         return response()->noContent();
@@ -157,5 +171,26 @@ class LabourShiftScheduleController extends Controller
 
         return false;
     }
-}
 
+    private function authorizeScheduleFarm(LabourShiftSchedule $shiftSchedule): void
+    {
+        $labourFarm = $shiftSchedule->labour?->farm;
+        $shiftFarm = $shiftSchedule->shift?->farm;
+
+        if ($labourFarm && $shiftFarm && $labourFarm->id !== $shiftFarm->id) {
+            abort(422, 'Shift and labour must belong to the same farm.');
+        }
+
+        $farm = $labourFarm ?? $shiftFarm;
+        if ($farm) {
+            $this->authorize('view', $farm);
+        }
+    }
+
+    private function assertSameFarm(Labour $labour, WorkShift $shift): void
+    {
+        if ($labour->farm_id !== $shift->farm_id) {
+            abort(422, 'Shift and labour must belong to the same farm.');
+        }
+    }
+}
