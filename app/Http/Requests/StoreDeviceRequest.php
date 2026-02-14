@@ -27,7 +27,6 @@ class StoreDeviceRequest extends FormRequest
             'imei' => 'required|string|max:255|unique:gps_devices,imei',
             'sim_number' => 'nullable|string|max:255|unique:gps_devices,sim_number',
             'tractor_id' => 'nullable|exists:tractors,id|required_if:device_type,tractor_gps',
-            'farm_id' => 'nullable|exists:farms,id',
         ];
     }
 }

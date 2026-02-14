@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\AttendanceTracking;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -28,6 +29,7 @@ class FarmResource extends JsonResource
             'tractors_count' => $this->whenCounted('tractors'),
             'plans_count' => $this->whenCounted('plans'),
             'is_working_environment' => $this->isWorkingEnvironment(),
+            'attendance_tracking_enabled' => $this->attendanceTrackingEnabledForUser($request),
             'created_at' => jdate($this->created_at)->format('Y/m/d'),
             'users' => $this->whenLoaded('users', function () {
                 return $this->users->map(function ($user) {
@@ -41,5 +43,22 @@ class FarmResource extends JsonResource
                 });
             }),
         ];
+    }
+
+    /**
+     * Whether attendance tracking is enabled for the current user in this farm.
+     */
+    private function attendanceTrackingEnabledForUser(Request $request): bool
+    {
+        $user = $request->user();
+        if (!$user) {
+            return false;
+        }
+
+        $tracking = AttendanceTracking::where('user_id', $user->id)
+            ->where('farm_id', $this->id)
+            ->first();
+
+        return $tracking?->enabled ?? false;
     }
 }

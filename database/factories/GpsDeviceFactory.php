@@ -26,12 +26,6 @@ class GpsDeviceFactory extends Factory
             'sim_number' => $this->faker->numerify('##########'),
             'device_type' => 'tractor_gps',
             'device_fingerprint' => null,
-            'mobile_number' => null,
-            'farm_id' => null,
-            'labour_id' => null,
-            'is_active' => true,
-            'approved_at' => now(),
-            'approved_by' => \App\Models\User::factory(),
         ];
     }
 
@@ -43,7 +37,6 @@ class GpsDeviceFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'device_type' => 'mobile_phone',
             'device_fingerprint' => $this->faker->unique()->sha256,
-            'mobile_number' => $this->faker->phoneNumber,
             'tractor_id' => null,
             'imei' => null,
             'sim_number' => null, // Mobile phones may not have SIM number
@@ -58,29 +51,7 @@ class GpsDeviceFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'device_type' => 'personal_gps',
             'device_fingerprint' => null,
-            'mobile_number' => null,
             'tractor_id' => null,
-        ]);
-    }
-
-    /**
-     * Indicate that the device is inactive.
-     */
-    public function inactive(): static
-    {
-        return $this->state(fn (array $attributes) => [
-            'is_active' => false,
-        ]);
-    }
-
-    /**
-     * Indicate that the device is unapproved.
-     */
-    public function unapproved(): static
-    {
-        return $this->state(fn (array $attributes) => [
-            'approved_at' => null,
-            'approved_by' => null,
         ]);
     }
 }

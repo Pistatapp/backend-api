@@ -19,10 +19,8 @@ class MobileDeviceController extends Controller
         $fingerprint = $request->validated()['device_fingerprint'];
         $mobileNumber = $request->validated()['mobile_number'];
 
-        // Check if device already exists and is approved
-        $existingDevice = GpsDevice::where('device_fingerprint', $fingerprint)
-            ->whereNotNull('approved_at')
-            ->first();
+        // Check if device already exists
+        $existingDevice = GpsDevice::where('device_fingerprint', $fingerprint)->first();
 
         if ($existingDevice) {
             return new MobileDeviceStatusResource([

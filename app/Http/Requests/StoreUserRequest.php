@@ -33,7 +33,7 @@ class StoreUserRequest extends FormRequest
             'farm_id' => ['required', 'exists:farms,id', new AllowedFarmAssignment()],
         ];
 
-        // Add attendence tracking specific validation rules
+        // Add attendance tracking specific validation rules
         if ($attendanceTrackingEnabled) {
             $rules = array_merge($rules, [
                 'work_type' => 'required|string|in:administrative,shift_based',
@@ -64,7 +64,17 @@ class StoreUserRequest extends FormRequest
                 ],
                 'hourly_wage' => 'required|integer|min:1',
                 'overtime_hourly_wage' => 'required|integer|min:1',
-                'imei' => 'nullable|string|max:255',
+                'tracking_device' => 'required|array',
+                'tracking_device.type' => 'required|string|in:mobile_phone,personal_gps',
+                'tracking_device.device_fingerprint' => [
+                    Rule::requiredIf(fn () => ($this->input('tracking_device.type') ?? null) === 'mobile_phone'),
+                    'nullable',
+                    'string',
+                    'min:1',
+                    'max:255',
+                ],
+                'tracking_device.sim_number' => 'required|string|ir_mobile:zero',
+                'tracking_device.imei' => 'required|string|size:15|regex:/^[0-9]{15}$/',
             ]);
             $rules['image'] = 'nullable|image|max:1024';
             $rules['attendance_tracking_enabled'] = 'required|boolean';

@@ -28,8 +28,7 @@ class WorkerDeviceController extends Controller
         }
 
         $devices = GpsDevice::workerDevices()
-            ->forFarm($farm->id)
-            ->with(['labour', 'approver'])
+            ->whereHas('user', fn ($q) => $q->whereHas('farms', fn ($q2) => $q2->where('farms.id', $farm->id)))
             ->simplePaginate();
 
         return WorkerDeviceResource::collection($devices);
@@ -37,53 +36,20 @@ class WorkerDeviceController extends Controller
 
     /**
      * Assign device to worker.
+     * Note: Device–worker assignment (labour_id) has been removed from gps_devices.
      */
     public function assign(AssignWorkerDeviceRequest $request, GpsDevice $device)
     {
-        // Verify device belongs to user's farm
-        $user = $request->user();
-        if (!$device->farm_id || !$user->farms()->where('farms.id', $device->farm_id)->exists()) {
-            abort(403, 'You do not have access to this device');
-        }
-
-        // Verify labour belongs to same farm
-        $labour = \App\Models\Labour::findOrFail($request->validated()['labour_id']);
-        if ($labour->farm_id !== $device->farm_id) {
-            abort(403, 'Labour must belong to the same farm as the device');
-        }
-
-        // If worker already has a device, replace it
-        $oldDevice = $labour->gpsDevice;
-        if ($oldDevice && $oldDevice->id !== $device->id) {
-            $device = $this->deviceManagementService->replaceWorkerDevice(
-                $oldDevice->id,
-                $device->id,
-                $labour->id
-            );
-        } else {
-            $device = $this->deviceManagementService->assignDeviceToWorker(
-                $device->id,
-                $labour->id
-            );
-        }
-
-        return new WorkerDeviceResource($device->load(['labour', 'approver']));
+        abort(501, 'Device-to-worker assignment is no longer supported');
     }
 
     /**
      * Unassign device from worker.
+     * Note: Device–worker assignment (labour_id) has been removed from gps_devices.
      */
     public function unassign(Request $request, GpsDevice $device)
     {
-        // Verify device belongs to user's farm
-        $user = $request->user();
-        if (!$device->farm_id || !$user->farms()->where('farms.id', $device->farm_id)->exists()) {
-            abort(403, 'You do not have access to this device');
-        }
-
-        $device->update(['labour_id' => null]);
-
-        return new WorkerDeviceResource($device->load(['labour', 'approver']));
+        abort(501, 'Device-to-worker unassignment is no longer supported');
     }
 }
 

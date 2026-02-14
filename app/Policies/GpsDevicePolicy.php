@@ -26,9 +26,9 @@ class GpsDevicePolicy
             return true;
         }
 
-        // Orchard admin can only see devices for their farms
-        if ($user->hasRole('admin') && $gpsDevice->farm_id) {
-            return $user->farms()->where('farms.id', $gpsDevice->farm_id)->exists();
+        // Orchard admin can only see devices whose owner belongs to their farms
+        if ($user->hasRole('admin')) {
+            return $user->farms()->whereHas('users', fn ($q) => $q->where('users.id', $gpsDevice->user_id))->exists();
         }
 
         return false;

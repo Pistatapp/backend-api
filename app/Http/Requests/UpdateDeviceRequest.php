@@ -28,8 +28,6 @@ class UpdateDeviceRequest extends FormRequest
             'name' => 'sometimes|string|max:255',
             'imei' => 'sometimes|string|max:255|unique:gps_devices,imei,' . $deviceId,
             'sim_number' => 'nullable|string|max:255|unique:gps_devices,sim_number,' . $deviceId,
-            'farm_id' => 'nullable|exists:farms,id',
-            'is_active' => 'sometimes|boolean',
         ];
     }
 }

@@ -2,29 +2,47 @@
 
 ## Overview
 
-The Users API provides endpoints for managing user accounts in the system. This includes creating, reading, updating, and deleting users, as well as managing labour-specific data for users with the "labour" role.
+The Users API provides endpoints for managing user accounts. It supports creating, reading, updating, and deleting users, and optional **attendance tracking** with a **tracking device** (mobile phone or personal GPS) when enabled.
 
 **Base URL:** `/api/users`
 
-**Authentication:** All endpoints require authentication via Sanctum token (Bearer token).
+**Authentication:** All endpoints require `auth:sanctum` and `ensure.username`. Send the Bearer token in the `Authorization` header.
+
+**Authorization:**  
+- List/Create: user must have `manage-users` permission.  
+- Show/Update/Delete: user must be allowed by policy (e.g. `update` the target user).
+
+---
+
+## Table of Contents
+
+1. [List Users](#1-list-users)
+2. [Create User](#2-create-user)
+3. [Get User](#3-get-user)
+4. [Update User](#4-update-user)
+5. [Delete User](#5-delete-user)
+6. [Request & Response Reference](#6-request--response-reference)
+7. [Farm Resource: attendance_tracking_enabled](#7-farm-resource-attendance_tracking_enabled)
+8. [Errors](#errors)
+9. [Example Usage](#example-usage)
 
 ---
 
 ## 1. List Users
 
-Retrieve a paginated list of users with optional search functionality.
+Returns a paginated list of users. The authenticated user is excluded. Non-root users only see users in their working-environment farm.
 
 ### Endpoint
 
-```
+```http
 GET /api/users
 ```
 
 ### Query Parameters
 
-| Parameter | Type   | Required | Description                                                          |
-|-----------|--------|----------|----------------------------------------------------------------------|
-| search    | string | No       | Search users by mobile number. Returns all matches without pagination |
+| Parameter | Type   | Required | Description |
+|-----------|--------|----------|-------------|
+| page      | integer| No       | Page number (simple pagination). |
 
 ### Response
 
@@ -35,15 +53,41 @@ GET /api/users
   "data": [
     {
       "id": 1,
-      "username": "user123",
-      "last_activity_at": "1402/10/15 14:30:25",
-      "profile": {
-        "name": "John Doe"
-      },
-      "role": "admin",
-      "farms": {
+      "name": "John Doe",
+      "mobile": "09123456789",
+      "username": null,
+      "last_activity_at": "1403/11/25 14:30:00",
+      "role": "operator",
+      "labour": null
+    },
+    {
+      "id": 2,
+      "name": "Jane Smith",
+      "mobile": "09187654321",
+      "username": "labour_09187654321",
+      "last_activity_at": "1403/11/24 08:00:00",
+      "role": "labour",
+      "labour": {
         "id": 1,
-        "name": "Farm Name"
+        "name": "Jane Smith",
+        "personnel_number": "EMP-001",
+        "mobile": "09187654321",
+        "work_type": "administrative",
+        "work_days": ["saturday", "sunday", "monday"],
+        "work_hours": 8,
+        "start_work_time": "08:00",
+        "end_work_time": "16:00",
+        "hourly_wage": 150000,
+        "overtime_hourly_wage": 200000,
+        "attendence_tracking_enabled": true,
+        "imei": null,
+        "image": "http://example.com/storage/...",
+        "is_working": false,
+        "current_shift": null,
+        "shift_schedules": [],
+        "teams": [],
+        "created_at": "1403/11/01",
+        "can": { "update": true, "delete": true }
       }
     }
   ],
@@ -65,68 +109,68 @@ GET /api/users
 
 ### Notes
 
-- Excludes the authenticated user from results
-- If search parameter is provided, excludes super-admin users from results
-- Admin and super-admin users only see users they created
-- Returns simple pagination (no total count)
+- Uses **simple pagination** (no total count).
+- Role in the response reflects the user’s role in the **working environment** farm when applicable.
 
 ---
 
 ## 2. Create User
 
-Create a new user account. If the role is "labour", additional labour-specific data is required and a labour record will be automatically created.
+Creates a new user, assigns a role and farm, and optionally creates **attendance tracking** and a **tracking device** when `attendance_tracking_enabled` is `true`.
 
 ### Endpoint
 
-```
+```http
 POST /api/users
 ```
 
 ### Request Headers
 
-```
-Content-Type: application/json
+```http
 Authorization: Bearer {token}
+Content-Type: application/json
 ```
 
-For labour users with image upload:
-```
-Content-Type: multipart/form-data
-Authorization: Bearer {token}
-```
+For profile image upload use `multipart/form-data` and include an `image` file.
 
 ### Request Body
 
-#### Common Fields (All Users)
+#### Common Fields (all users)
 
-| Field    | Type    | Required | Validation                        | Description                          |
-|----------|---------|----------|-----------------------------------|--------------------------------------|
-| name     | string  | Yes      | max:255                           | User's full name                     |
-| mobile   | string  | Yes      | Iranian mobile format (zero prefix) | User's mobile number                 |
-| role     | string  | Yes      | Must exist in roles table         | User role (admin, operator, etc.)    |
-| farm_id  | integer | Yes      | Must exist in farms table         | Farm ID to assign user to            |
+| Field   | Type    | Required | Validation | Description |
+|---------|---------|----------|------------|-------------|
+| name    | string  | Yes      | max:255    | Full name. |
+| mobile  | string  | Yes      | `ir_mobile:zero`, unique in `users.mobile` | Iranian mobile with leading zero (e.g. `09123456789`). |
+| role    | string  | Yes      | exists in `roles.name`, allowed by assignment rules | User role. |
+| farm_id | integer | Yes      | exists in `farms.id`, allowed for current user | Farm to attach the user to. |
 
-#### Additional Fields for Labour Role
+#### When `attendance_tracking_enabled` is `true`
 
-When `role` is set to `"labour"`, the following fields are also required:
+If `attendance_tracking_enabled` is sent as `true`, the following fields are **required** and a tracking device is created or updated.
 
-| Field                        | Type    | Required | Validation                                    | Description                                |
-|------------------------------|---------|----------|-----------------------------------------------|--------------------------------------------|
-| personnel_number             | string  | No       | max:255, unique in labours                    | Employee personnel number                  |
-| work_type                    | string  | Yes      | `administrative` or `shift_based`             | Type of work schedule                      |
-| work_days                    | array   | Conditional | Required if work_type=administrative        | Working days (e.g., ["saturday", "sunday"]) |
-| work_hours                   | number  | Conditional | 1-24, required if work_type=administrative  | Daily working hours                        |
-| start_work_time              | string  | Conditional | H:i format, required if work_type=administrative | Work start time (e.g., "08:00")           |
-| end_work_time                | string  | Conditional | H:i format, after start_work_time           | Work end time (e.g., "16:00")              |
-| hourly_wage                  | integer | Yes      | min:1                                         | Hourly wage amount                         |
-| overtime_hourly_wage         | integer | Yes      | min:1                                         | Overtime hourly wage amount                |
-| attendence_tracking_enabled  | boolean | Yes      | true/false                                    | Enable attendance tracking                 |
-| image                        | file    | No       | image file, max:1024KB                        | Profile image                              |
-| imei                         | string  | No       | max:255                                       | Device IMEI for tracking                   |
+| Field | Type | Required | Validation | Description |
+|-------|------|----------|------------|-------------|
+| attendance_tracking_enabled | boolean | Yes (when using attendance) | `true` or `false` | Must be `true` to send attendance/tracking fields. |
+| work_type | string | Yes | `administrative` \| `shift_based` | Schedule type. |
+| work_days | array | Conditional | Required if `work_type` = `administrative`. Prohibited if `shift_based`. | e.g. `["saturday", "sunday", "monday"]`. |
+| work_hours | number | Conditional | 1–24, required if `work_type` = `administrative` | Daily work hours. |
+| start_work_time | string | Conditional | `H:i`, required if `work_type` = `administrative`, must be before `end_work_time` | e.g. `"08:00"`. |
+| end_work_time | string | Conditional | `H:i`, after `start_work_time`, required if `work_type` = `administrative` | e.g. `"16:00"`. |
+| hourly_wage | integer | Yes | min:1 | Hourly wage. |
+| overtime_hourly_wage | integer | Yes | min:1 | Overtime hourly wage. |
+| tracking_device | object | Yes | See below | Device used for attendance (mobile or GPS). |
+| image | file | No | image, max 1024 KB | Profile image. |
 
-### Example Requests
+**tracking_device** (required when attendance tracking is enabled):
 
-#### Standard User (Non-Labour)
+| Field | Type | Required | Validation | Description |
+|-------|------|----------|------------|-------------|
+| tracking_device.type | string | Yes | `mobile_phone` \| `personal_gps` | Device type. |
+| tracking_device.device_fingerprint | string | If `type` = `mobile_phone` | 1–255 chars | Unique device fingerprint from client. |
+| tracking_device.sim_number | string | Yes | `ir_mobile:zero` | Iranian SIM number (e.g. `09123456789`). |
+| tracking_device.imei | string | Yes | Exactly 15 digits, `[0-9]{15}` | Device IMEI. |
+
+### Example: Create user without attendance tracking
 
 ```json
 {
@@ -137,7 +181,7 @@ When `role` is set to `"labour"`, the following fields are also required:
 }
 ```
 
-#### Labour User (Administrative Work Type)
+### Example: Create user with attendance tracking (administrative)
 
 ```json
 {
@@ -145,7 +189,7 @@ When `role` is set to `"labour"`, the following fields are also required:
   "mobile": "09187654321",
   "role": "labour",
   "farm_id": 1,
-  "personnel_number": "EMP-001",
+  "attendance_tracking_enabled": true,
   "work_type": "administrative",
   "work_days": ["saturday", "sunday", "monday", "tuesday", "wednesday"],
   "work_hours": 8,
@@ -153,12 +197,16 @@ When `role` is set to `"labour"`, the following fields are also required:
   "end_work_time": "16:00",
   "hourly_wage": 150000,
   "overtime_hourly_wage": 200000,
-  "attendence_tracking_enabled": true,
-  "imei": "123456789012345"
+  "tracking_device": {
+    "type": "mobile_phone",
+    "device_fingerprint": "unique-client-device-fingerprint-string",
+    "sim_number": "09187654321",
+    "imei": "123456789012345"
+  }
 }
 ```
 
-#### Labour User (Shift-Based Work Type)
+### Example: Create user with attendance tracking (shift-based)
 
 ```json
 {
@@ -166,13 +214,19 @@ When `role` is set to `"labour"`, the following fields are also required:
   "mobile": "09191234567",
   "role": "labour",
   "farm_id": 1,
-  "personnel_number": "EMP-002",
+  "attendance_tracking_enabled": true,
   "work_type": "shift_based",
-  "hourly_wage": 150000,
-  "overtime_hourly_wage": 200000,
-  "attendence_tracking_enabled": true
+  "hourly_wage": 180000,
+  "overtime_hourly_wage": 250000,
+  "tracking_device": {
+    "type": "personal_gps",
+    "sim_number": "09191234567",
+    "imei": "987654321098765"
+  }
 }
 ```
+
+**Note:** For `personal_gps`, `tracking_device.device_fingerprint` is optional. For `mobile_phone` it is required.
 
 ### Response
 
@@ -182,43 +236,38 @@ When `role` is set to `"labour"`, the following fields are also required:
 {
   "data": {
     "id": 10,
-    "username": "user_10",
-    "last_activity_at": "1402/10/15 14:35:00",
-    "profile": {
-      "name": "John Doe"
-    },
-    "role": "operator",
-    "farms": {
-      "id": 1,
-      "name": "Farm Name"
-    }
+    "name": "Jane Smith",
+    "mobile": "09187654321",
+    "username": "labour_09187654321",
+    "last_activity_at": null,
+    "role": "labour",
+    "labour": { ... }
   }
 }
 ```
 
-### Important Notes
+### Side effects when `attendance_tracking_enabled` is true
 
-- **Role Permissions**: Users can only assign roles below their own hierarchy level
-- **Farm Access**: Users can only assign farms they have access to
-- **Mobile Number**: Must be unique Iranian mobile with zero prefix (e.g., 09123456789)
+- One **attendance tracking** record is created/updated for the user (linked to the given `farm_id`), with `enabled` set to `true`.
+- One **GPS device** (worker device) is created or updated for the user from `tracking_device` (type, imei, sim_number, device_fingerprint when type is `mobile_phone`).
 
 ---
 
-## 3. Get User Details
+## 3. Get User
 
-Retrieve detailed information about a specific user.
+Returns a single user by ID.
 
 ### Endpoint
 
-```
-GET /api/users/{id}
+```http
+GET /api/users/{user}
 ```
 
-### URL Parameters
+### Path Parameters
 
-| Parameter | Type    | Required | Description |
-|-----------|---------|----------|-------------|
-| id        | integer | Yes      | User ID     |
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| user | integer | Yes | User ID. |
 
 ### Response
 
@@ -228,16 +277,12 @@ GET /api/users/{id}
 {
   "data": {
     "id": 10,
-    "username": "user_10",
-    "last_activity_at": "1402/10/15 14:35:00",
-    "profile": {
-      "name": "John Doe"
-    },
-    "role": "operator",
-    "farms": {
-      "id": 1,
-      "name": "Farm Name"
-    }
+    "name": "Jane Smith",
+    "mobile": "09187654321",
+    "username": "labour_09187654321",
+    "last_activity_at": "1403/11/25 09:00:00",
+    "role": "labour",
+    "labour": { ... }
   }
 }
 ```
@@ -246,97 +291,55 @@ GET /api/users/{id}
 
 ## 4. Update User
 
-Update an existing user's information. If the user has the "labour" role, labour-specific data can also be updated.
+Updates an existing user (profile, mobile, role, farm). If `attendance_tracking_enabled` is `true`, attendance tracking and the tracking device are created or updated using the same rules as create.
 
 ### Endpoint
 
-```
-PUT /api/users/{id}
-PATCH /api/users/{id}
-```
-
-### URL Parameters
-
-| Parameter | Type    | Required | Description |
-|-----------|---------|----------|-------------|
-| id        | integer | Yes      | User ID     |
-
-### Request Headers
-
-```
-Content-Type: application/json
-Authorization: Bearer {token}
+```http
+PUT /api/users/{user}
+PATCH /api/users/{user}
 ```
 
-For labour users with image upload:
-```
-Content-Type: multipart/form-data
-Authorization: Bearer {token}
-```
+### Path Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| user | integer | Yes | User ID. |
 
 ### Request Body
 
-The request body follows the same structure as [Create User](#2-create-user), with the same validation rules.
-
-**Note:** Mobile number uniqueness validation excludes the current user being updated.
-
-### Example Request
-
-```json
-{
-  "name": "John Doe Updated",
-  "mobile": "09123456789",
-  "role": "admin",
-  "farm_id": 2
-}
-```
+Same structure as [Create User](#2-create-user).  
+- **mobile**: uniqueness is checked excluding the user being updated.  
+- When `attendance_tracking_enabled` is `true`, all attendance and `tracking_device` fields listed in Create User are required and validated the same way.
 
 ### Response
 
 **Success (200 OK)**
 
-```json
-{
-  "data": {
-    "id": 10,
-    "username": "user_10",
-    "last_activity_at": "1402/10/15 15:00:00",
-    "profile": {
-      "name": "John Doe Updated"
-    },
-    "role": "admin",
-    "farms": {
-      "id": 2,
-      "name": "New Farm Name"
-    }
-  }
-}
-```
+Same shape as [Get User](#3-get-user) with updated data.
 
 ### Notes
 
-- If updating a non-labour user to labour role, a labour record will be created
-- If updating a labour user, the existing labour record will be updated
-- When updating labour image, the old image is automatically deleted
-- Farm association is synced (replaced) with the new farm_id
+- Role and farm are synced (user is attached only to the provided `farm_id` with the given `role`).
+- If attendance tracking is enabled, the existing worker GPS device for this user is updated, or a new one is created.
 
 ---
 
 ## 5. Delete User
 
-Delete a user account from the system.
+Permanently deletes a user and related attendance tracking, profile, and farm attachments.
 
 ### Endpoint
 
-```
-DELETE /api/users/{id}
+```http
+DELETE /api/users/{user}
 ```
 
-### URL Parameters
+### Path Parameters
 
-| Parameter | Type    | Required | Description |
-|-----------|---------|----------|-------------|
-| id        | integer | Yes      | User ID     |
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| user | integer | Yes | User ID. |
 
 ### Response
 
@@ -346,146 +349,132 @@ No response body.
 
 ### Notes
 
-- This is a soft delete (user record is marked as deleted but not removed from database)
-- Associated labour record (if exists) will also be deleted
-- User's relationships (farms, profile) are preserved in the database
+- Deletes: user’s attendance tracking, profile, and farm pivot rows. The user record itself is removed.
 
 ---
 
-## Data Models
+## 6. Request & Response Reference
 
-### User Resource
+### User resource (response)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | integer | User ID. |
+| name | string | Full name (from profile). |
+| mobile | string | Iranian mobile. |
+| username | string \| null | Set for labour as `labour_{mobile}`. |
+| last_activity_at | string \| null | Jalali datetime. |
+| role | string | Role name (in working-environment context when applicable). |
+| labour | object \| null | Present when role is `labour`; see Labour resource. |
+
+### Work types (attendance)
+
+| Value | Description |
+|-------|-------------|
+| administrative | Fixed days and hours (work_days, work_hours, start_work_time, end_work_time). |
+| shift_based | No fixed schedule; administrative-time fields are cleared. |
+
+### Roles
+
+Roles are enforced by the backend (e.g. `admin`, `operator`, `labour`, etc.). Only roles allowed by the current user’s permissions can be assigned.
+
+---
+
+## 7. Farm Resource: attendance_tracking_enabled
+
+When you fetch a **single farm** (e.g. `GET /api/farms/{farm}`), the response is a **Farm resource**. That resource includes a boolean field that indicates whether **attendance tracking is enabled for the current user in that farm**:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| attendance_tracking_enabled | boolean | `true` if the authenticated user has an attendance tracking record for this farm with `enabled` = true; otherwise `false`. |
+
+This is derived from the `attendance_trackings` table (user_id + farm_id + enabled). Use it on the frontend to show whether the current user has attendance tracking on for the farm they are viewing (e.g. in farm detail or settings).
+
+**Example farm response (relevant part):**
 
 ```json
 {
-  "id": 10,
-  "username": "user_10",
-  "last_activity_at": "1402/10/15 14:35:00",
-  "profile": {
-    "name": "John Doe"
-  },
-  "role": "operator",
-  "farms": {
+  "data": {
     "id": 1,
-    "name": "Farm Name"
+    "name": "Main Farm",
+    "attendance_tracking_enabled": true,
+    ...
   }
 }
 ```
 
-| Field            | Type   | Description                                |
-|------------------|--------|--------------------------------------------|
-| id               | integer| User unique identifier                     |
-| username         | string | Username (unique)                          |
-| last_activity_at | string | Last activity timestamp (Jalali format)    |
-| profile          | object | User profile information                   |
-| profile.name     | string | User's full name                           |
-| role             | string | User's role name                           |
-| farms            | object | Farm the user has access to                |
-| farms.id         | integer| Farm ID                                    |
-| farms.name       | string | Farm name                                  |
-
-### Work Types
-
-| Value          | Description                                        |
-|----------------|----------------------------------------------------|
-| administrative | Fixed schedule with specific days and hours        |
-| shift_based    | Flexible shift-based schedule                      |
-
-### Available Roles
-
-The available roles and their hierarchy:
-
-- `root` (System Administrator)
-- `super-admin` (Super Administrator)
-- `admin` (Farm Administrator)
-- `operator` (Farm Operator)
-- `viewer` (View-only access)
-- `consultant` (Consultant)
-- `inspector` (Inspector)
-- `labour` (Labour/Worker)
-
 ---
 
-## Error Responses
+## Errors
 
-### Common HTTP Status Codes
+### HTTP status codes
 
-| Status Code | Description |
-|-------------|-------------|
-| 200 | Success |
-| 201 | Created successfully |
-| 204 | Deleted successfully (no content) |
-| 401 | Unauthenticated |
-| 403 | Unauthorized action |
-| 404 | Resource not found |
+| Code | Meaning |
+|------|--------|
+| 200 | OK |
+| 201 | Created |
+| 204 | No Content |
+| 401 | Unauthenticated (missing or invalid token) |
+| 403 | Forbidden (e.g. no `manage-users` or policy denial) |
+| 404 | User not found |
 | 422 | Validation error |
 
-### Validation Error Example
+### Validation error (422)
 
 ```json
 {
   "message": "The given data was invalid.",
   "errors": {
     "mobile": ["The mobile has already been taken."],
-    "work_days": ["The work days field is required when work type is administrative."]
+    "tracking_device.device_fingerprint": ["The tracking device.device fingerprint field is required when tracking device.type is mobile_phone."],
+    "tracking_device.imei": ["The tracking device.imei must be 15 digits."]
   }
 }
 ```
 
 ---
 
-## Additional Notes
+## Example Usage
 
-- **Images**: Stored in `storage/app/public/labours`, max 1024 KB
-- **Pagination**: 15 users per page, simple pagination (next/prev only)
-- **Search**: Performed on mobile number only
-- **Timestamps**: Returned in Jalali format (`YYYY/MM/DD HH:MM:SS`)
-- **Farm Association**: One farm per user, replaced on update
-
----
-
-## Example Usage with JavaScript (Axios)
-
-### List Users
+### List users
 
 ```javascript
-const response = await axios.get('/api/users', {
-  headers: {
-    'Authorization': `Bearer ${token}`
-  }
+const { data } = await axios.get('/api/users', {
+  headers: { Authorization: `Bearer ${token}` }
 });
 ```
 
-### Search Users
+### Create user with attendance tracking (JSON)
 
 ```javascript
-const response = await axios.get('/api/users', {
-  params: {
-    search: '0912'
-  },
-  headers: {
-    'Authorization': `Bearer ${token}`
+await axios.post('/api/users', {
+  name: 'Jane Smith',
+  mobile: '09187654321',
+  role: 'labour',
+  farm_id: 1,
+  attendance_tracking_enabled: true,
+  work_type: 'administrative',
+  work_days: ['saturday', 'sunday', 'monday'],
+  work_hours: 8,
+  start_work_time: '08:00',
+  end_work_time: '16:00',
+  hourly_wage: 150000,
+  overtime_hourly_wage: 200000,
+  tracking_device: {
+    type: 'mobile_phone',
+    device_fingerprint: 'device-fingerprint-from-client',
+    sim_number: '09187654321',
+    imei: '123456789012345'
   }
-});
-```
-
-### Create Standard User
-
-```javascript
-const response = await axios.post('/api/users', {
-  name: 'John Doe',
-  mobile: '09123456789',
-  role: 'operator',
-  farm_id: 1
 }, {
   headers: {
-    'Authorization': `Bearer ${token}`,
+    Authorization: `Bearer ${token}`,
     'Content-Type': 'application/json'
   }
 });
 ```
 
-### Create Labour User with Image
+### Create user with image (multipart)
 
 ```javascript
 const formData = new FormData();
@@ -493,53 +482,82 @@ formData.append('name', 'Jane Smith');
 formData.append('mobile', '09187654321');
 formData.append('role', 'labour');
 formData.append('farm_id', '1');
-formData.append('personnel_number', 'EMP-001');
+formData.append('attendance_tracking_enabled', 'true');
 formData.append('work_type', 'administrative');
 formData.append('work_days[]', 'saturday');
 formData.append('work_days[]', 'sunday');
-formData.append('work_days[]', 'monday');
 formData.append('work_hours', '8');
 formData.append('start_work_time', '08:00');
 formData.append('end_work_time', '16:00');
 formData.append('hourly_wage', '150000');
 formData.append('overtime_hourly_wage', '200000');
-formData.append('attendence_tracking_enabled', '1');
-formData.append('image', imageFile); // File object from input
+formData.append('tracking_device[type]', 'mobile_phone');
+formData.append('tracking_device[device_fingerprint]', 'fp-xxx');
+formData.append('tracking_device[sim_number]', '09187654321');
+formData.append('tracking_device[imei]', '123456789012345');
+formData.append('image', imageFile);
 
-const response = await axios.post('/api/users', formData, {
+await axios.post('/api/users', formData, {
   headers: {
-    'Authorization': `Bearer ${token}`,
+    Authorization: `Bearer ${token}`,
     'Content-Type': 'multipart/form-data'
   }
 });
 ```
 
-### Update User
+### Get single user
 
 ```javascript
-const response = await axios.put(`/api/users/${userId}`, {
-  name: 'John Doe Updated',
-  mobile: '09123456789',
-  role: 'admin',
-  farm_id: 2
+const { data } = await axios.get(`/api/users/${userId}`, {
+  headers: { Authorization: `Bearer ${token}` }
+});
+```
+
+### Update user
+
+```javascript
+await axios.put(`/api/users/${userId}`, {
+  name: 'Jane Smith Updated',
+  mobile: '09187654321',
+  role: 'labour',
+  farm_id: 1,
+  attendance_tracking_enabled: true,
+  work_type: 'shift_based',
+  hourly_wage: 200000,
+  overtime_hourly_wage: 250000,
+  tracking_device: {
+    type: 'mobile_phone',
+    device_fingerprint: 'new-fingerprint',
+    sim_number: '09187654321',
+    imei: '123456789012345'
+  }
 }, {
   headers: {
-    'Authorization': `Bearer ${token}`,
+    Authorization: `Bearer ${token}`,
     'Content-Type': 'application/json'
   }
 });
 ```
 
-### Delete User
+### Delete user
 
 ```javascript
-const response = await axios.delete(`/api/users/${userId}`, {
-  headers: {
-    'Authorization': `Bearer ${token}`
-  }
+await axios.delete(`/api/users/${userId}`, {
+  headers: { Authorization: `Bearer ${token}` }
 });
+```
+
+### Check attendance tracking for current user in a farm
+
+```javascript
+// After GET /api/farms/{farmId}
+const farm = response.data.data;
+if (farm.attendance_tracking_enabled) {
+  // Show attendance-related UI for this farm
+}
 ```
 
 ---
 
-**Version:** 1.0 | **Last Updated:** February 2026
+**Version:** 2.0  
+**Last updated:** February 2026

@@ -35,9 +35,11 @@ class MobileGpsController extends Controller
             // Get device
             $device = $this->fingerprintService->getDeviceByFingerprint($fingerprint);
 
-            if (!$device || !$device->labour_id) {
-                return response()->json(['error' => 'Device not assigned to a worker'], 404);
+            if (!$device) {
+                return response()->json(['error' => 'Device not found'], 404);
             }
+
+            $labourId = (int) $request->validated()['labour_id'];
 
             // Parse GPS data
             $gpsData = $this->parseGpsData($request);
@@ -47,10 +49,10 @@ class MobileGpsController extends Controller
             }
 
             // Save GPS data
-            $this->saveGpsData($gpsData, $device->labour_id);
+            $this->saveGpsData($gpsData, $labourId);
 
             // Get labour for boundary detection
-            $labour = \App\Models\Labour::find($device->labour_id);
+            $labour = \App\Models\Labour::findOrFail($labourId);
 
             // Check boundary and update attendance (handle errors gracefully)
             try {

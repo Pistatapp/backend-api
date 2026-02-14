@@ -20,7 +20,7 @@ class DeviceFingerprintService
             return false;
         }
 
-        return $device->is_active && $device->approved_at !== null;
+        return $device !== null;
     }
 
     /**
@@ -44,7 +44,7 @@ class DeviceFingerprintService
     {
         $device = $this->getDeviceByFingerprint($fingerprint);
 
-        return $device && $device->approved_at !== null;
+        return $device !== null;
     }
 }
 

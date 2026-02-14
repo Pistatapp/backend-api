@@ -24,6 +24,7 @@ class MobileGpsDataRequest extends FormRequest
     {
         return [
             'device_fingerprint' => 'required|string|max:255',
+            'labour_id' => 'required|exists:labours,id',
             'mobile_number' => 'nullable|string|max:20',
             'imei' => 'nullable|string|max:255',
             'latitude' => 'required|numeric|between:-90,90',

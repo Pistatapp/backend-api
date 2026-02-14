@@ -7,6 +7,7 @@ use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
 use App\Http\Resources\UserResource;
 use App\Models\AttendanceTracking;
+use App\Models\GpsDevice;
 use App\Models\User;
 use Illuminate\Http\Request;
 
@@ -68,9 +69,10 @@ class UserController extends Controller
             'is_owner' => false,
         ]);
 
-        // Create or update attendance tracking if enabled
+        // Create or update attendance tracking and tracking device if enabled
         if ($request->boolean('attendance_tracking_enabled')) {
             $this->createOrUpdateAttendanceTracking($request, $user);
+            $this->createOrUpdateTrackingDevice($request, $user);
         }
 
         return new UserResource($user);
@@ -105,9 +107,10 @@ class UserController extends Controller
             'is_owner' => false,
         ]]);
 
-        // Create or update attendance tracking if enabled
+        // Create or update attendance tracking and tracking device if enabled
         if ($request->boolean('attendance_tracking_enabled')) {
             $this->createOrUpdateAttendanceTracking($request, $user);
+            $this->createOrUpdateTrackingDevice($request, $user);
         }
 
         return new UserResource($user->fresh());
@@ -142,16 +145,12 @@ class UserController extends Controller
             'end_work_time',
             'hourly_wage',
             'overtime_hourly_wage',
-            'imei',
-            'attendance_tracking_enabled',
         ]);
 
-        // Set user_id and farm_id
+        // Set user_id, farm_id and enabled
         $attendanceData['user_id'] = $user->id;
         $attendanceData['farm_id'] = $request->farm_id;
-
-        // Ensure attendance_tracking_enabled is set to true
-        $attendanceData['attendance_tracking_enabled'] = true;
+        $attendanceData['enabled'] = true;
 
         // Clear administrative-specific fields when work_type is shift_based
         if ($attendanceData['work_type'] === 'shift_based') {
@@ -168,5 +167,39 @@ class UserController extends Controller
         );
 
         return $attendanceTracking;
+    }
+
+    /**
+     * Create or update the user's worker GPS device when attendance tracking is enabled.
+     *
+     * @param StoreUserRequest|UpdateUserRequest $request
+     * @param User $user
+     * @return GpsDevice
+     */
+    private function createOrUpdateTrackingDevice($request, User $user): GpsDevice
+    {
+        $tracking = $request->validated('tracking_device');
+        $type = $tracking['type'];
+        $name = $type === 'mobile_phone'
+            ? 'Mobile Phone - ' . $user->mobile
+            : 'Personal GPS - ' . $user->mobile;
+
+        $deviceData = [
+            'user_id' => $user->id,
+            'device_type' => $type,
+            'name' => $name,
+            'imei' => $tracking['imei'],
+            'sim_number' => $tracking['sim_number'],
+            'device_fingerprint' => $tracking['device_fingerprint'] ?? null,
+        ];
+
+        $device = $user->gpsDevices()->workerDevices()->first();
+
+        if ($device) {
+            $device->update($deviceData);
+            return $device->fresh();
+        }
+
+        return $user->gpsDevices()->create($deviceData);
     }
 }

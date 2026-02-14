@@ -24,8 +24,7 @@ class AttendanceTracking extends Model
         'end_work_time',
         'hourly_wage',
         'overtime_hourly_wage',
-        'imei',
-        'attendance_tracking_enabled',
+        'enabled',
     ];
 
     /**
@@ -38,7 +37,7 @@ class AttendanceTracking extends Model
         return [
             'work_days' => 'array',
             'work_hours' => 'decimal:2',
-            'attendance_tracking_enabled' => 'boolean',
+            'enabled' => 'boolean',
         ];
     }
 

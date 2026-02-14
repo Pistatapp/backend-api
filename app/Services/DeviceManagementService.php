@@ -24,10 +24,6 @@ class DeviceManagementService
             'imei' => $data['imei'],
             'sim_number' => $data['sim_number'] ?? null,
             'tractor_id' => $data['tractor_id'] ?? null,
-            'farm_id' => $data['farm_id'] ?? null,
-            'is_active' => true,
-            'approved_at' => now(),
-            'approved_by' => $userId,
         ]);
     }
 
@@ -58,11 +54,6 @@ class DeviceManagementService
                 'device_type' => 'mobile_phone',
                 'name' => 'Mobile Phone - ' . $request->mobile_number,
                 'device_fingerprint' => $request->device_fingerprint,
-                'mobile_number' => $request->mobile_number,
-                'farm_id' => $farmId,
-                'is_active' => true,
-                'approved_at' => now(),
-                'approved_by' => $userId,
             ]);
 
             return $device;
@@ -70,7 +61,7 @@ class DeviceManagementService
     }
 
     /**
-     * Assign device to worker (by Orchard Admin).
+     * Assign device to worker (no-op: labour_id column removed from gps_devices).
      *
      * @param  int  $deviceId
      * @param  int  $labourId
@@ -78,23 +69,11 @@ class DeviceManagementService
      */
     public function assignDeviceToWorker(int $deviceId, int $labourId): GpsDevice
     {
-        $device = GpsDevice::findOrFail($deviceId);
-
-        // If device was previously assigned to another worker, unassign it
-        if ($device->labour_id && $device->labour_id !== $labourId) {
-            // Old device is automatically deactivated when new one is assigned
-            // (handled in the controller/service that calls this)
-        }
-
-        $device->update([
-            'labour_id' => $labourId,
-        ]);
-
-        return $device->fresh();
+        return GpsDevice::findOrFail($deviceId)->fresh();
     }
 
     /**
-     * Replace worker device (deactivate old, assign new).
+     * Replace worker device (no-op: labour_id column removed from gps_devices).
      *
      * @param  int  $oldDeviceId
      * @param  int  $newDeviceId
@@ -103,31 +82,18 @@ class DeviceManagementService
      */
     public function replaceWorkerDevice(int $oldDeviceId, int $newDeviceId, int $labourId): GpsDevice
     {
-        return DB::transaction(function () use ($oldDeviceId, $newDeviceId, $labourId) {
-            // Deactivate old device
-            if ($oldDeviceId) {
-                $oldDevice = GpsDevice::find($oldDeviceId);
-                if ($oldDevice) {
-                    $oldDevice->update(['is_active' => false, 'labour_id' => null]);
-                }
-            }
-
-            // Assign new device
-            return $this->assignDeviceToWorker($newDeviceId, $labourId);
-        });
+        return GpsDevice::findOrFail($newDeviceId)->fresh();
     }
 
     /**
-     * Deactivate a device.
+     * Deactivate a device (no-op: is_active column removed from gps_devices).
      *
      * @param  int  $deviceId
      * @return GpsDevice
      */
     public function deactivateDevice(int $deviceId): GpsDevice
     {
-        $device = GpsDevice::findOrFail($deviceId);
-        $device->update(['is_active' => false]);
-        return $device->fresh();
+        return GpsDevice::findOrFail($deviceId)->fresh();
     }
 }
 
