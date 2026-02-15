@@ -74,7 +74,7 @@ class StoreUserRequest extends FormRequest
                     'max:255',
                 ],
                 'tracking_device.sim_number' => 'required|string|ir_mobile:zero',
-                'tracking_device.imei' => 'required|string|size:15|regex:/^[0-9]{15}$/',
+                'tracking_device.imei' => 'required|string|size:16|regex:/^[0-9]{16}$/',
             ]);
             $rules['image'] = 'nullable|image|max:1024';
             $rules['attendance_tracking_enabled'] = 'required|boolean';
