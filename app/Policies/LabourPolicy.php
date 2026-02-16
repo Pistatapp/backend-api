@@ -48,7 +48,7 @@ class LabourPolicy
             return false;
         }
 
-        if ($labour->shiftSchedules()->count() > 0) {
+        if ($labour->user && $labour->user->shiftSchedules()->count() > 0) {
             return false;
         }
 

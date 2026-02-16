@@ -2,12 +2,11 @@
 
 namespace App\Jobs;
 
-use App\Models\Labour;
-use App\Models\LabourAttendanceSession;
-use App\Models\LabourDailyReport;
-use App\Models\LabourShiftSchedule;
-use App\Services\LabourProductivityCalculator;
-use App\Services\LabourWageCalculationService;
+use App\Models\User;
+use App\Models\AttendanceSession;
+use App\Models\AttendanceDailyReport;
+use App\Services\AttendanceProductivityCalculator;
+use App\Services\AttendanceWageCalculationService;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -20,64 +19,38 @@ class GenerateDailyAttendanceSummaryJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    /**
-     * The number of times the job may be attempted.
-     *
-     * @var int
-     */
     public $tries = 3;
 
-    /**
-     * Create a new job instance.
-     */
     public function __construct(
         public Carbon $date
     ) {}
 
-    /**
-     * Execute the job.
-     *
-     * @return void
-     */
     public function handle(
-        LabourProductivityCalculator $productivityCalculator,
-        LabourWageCalculationService $wageCalculationService
+        AttendanceProductivityCalculator $productivityCalculator,
+        AttendanceWageCalculationService $wageCalculationService
     ): void {
-        // Get all labours
-        $labours = Labour::all();
+        $users = User::whereHas('attendanceTracking', fn ($q) => $q->where('enabled', true))->get();
 
-        foreach ($labours as $labour) {
+        foreach ($users as $user) {
             try {
-                // Get attendance session for the date
-                $session = LabourAttendanceSession::where('labour_id', $labour->id)
+                $session = AttendanceSession::where('user_id', $user->id)
                     ->whereDate('date', $this->date)
                     ->first();
 
-                if (!$session) {
-                    // No attendance session - labour was absent
-                    $this->createAbsentReport($labour, $this->date);
+                if (! $session) {
+                    $this->createAbsentReport($user, $this->date, $wageCalculationService);
                     continue;
                 }
 
-                // Calculate work time from session (in hours)
                 $actualWorkHours = ($session->total_in_zone_duration + $session->total_out_zone_duration) / 60;
-                
-                // Get required work time based on work type
-                $requiredHours = $wageCalculationService->getRequiredHours($labour, $this->date);
-                
-                // Calculate overtime (if actual > required)
+                $requiredHours = $wageCalculationService->getRequiredHours($user, $this->date);
                 $overtimeHours = max(0, $actualWorkHours - $requiredHours);
-                
-                // Time outside zone (in minutes, convert to hours for display)
                 $timeOutsideZone = $session->total_out_zone_duration;
-                
-                // Calculate productivity score
                 $productivityScore = $productivityCalculator->calculate($session);
 
-                // Create or update daily report
-                LabourDailyReport::updateOrCreate(
+                AttendanceDailyReport::updateOrCreate(
                     [
-                        'labour_id' => $labour->id,
+                        'user_id' => $user->id,
                         'date' => $this->date,
                     ],
                     [
@@ -89,33 +62,23 @@ class GenerateDailyAttendanceSummaryJob implements ShouldQueue
                         'status' => 'pending',
                     ]
                 );
-
             } catch (\Exception $e) {
-                Log::error('Error generating daily report for labour', [
-                    'labour_id' => $labour->id,
+                Log::error('Error generating daily report for user', [
+                    'user_id' => $user->id,
                     'date' => $this->date->toDateString(),
                     'error' => $e->getMessage(),
                 ]);
             }
         }
-
-        // TODO: Send notification to admin about pending reports
     }
 
-    /**
-     * Create absent report for labour
-     *
-     * @param Labour $labour
-     * @param Carbon $date
-     * @return void
-     */
-    private function createAbsentReport(Labour $labour, Carbon $date): void
+    private function createAbsentReport(User $user, Carbon $date, AttendanceWageCalculationService $wageCalculationService): void
     {
-        $requiredHours = app(LabourWageCalculationService::class)->getRequiredHours($labour, $date);
+        $requiredHours = $wageCalculationService->getRequiredHours($user, $date);
 
-        LabourDailyReport::updateOrCreate(
+        AttendanceDailyReport::updateOrCreate(
             [
-                'labour_id' => $labour->id,
+                'user_id' => $user->id,
                 'date' => $date,
             ],
             [

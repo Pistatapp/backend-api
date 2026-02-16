@@ -23,7 +23,7 @@ class LabourController extends Controller
      */
     public function index(Farm $farm)
     {
-        $labours = $farm->labours()->with('currentShiftSchedule.shift')->simplePaginate();
+        $labours = $farm->labours()->with('teams')->simplePaginate();
 
         return LabourResource::collection($labours);
     }
@@ -42,10 +42,11 @@ class LabourController extends Controller
         // Create user account for the labour
         $user = $this->createUserForLabour($data, $request->user());
 
-        // Assign user_id to labour data
+        // Assign user_id to labour data and exclude attendance fields (stored in User/AttendanceTracking)
         $data['user_id'] = $user->id;
+        $labourData = collect($data)->except(['work_type', 'work_days', 'work_hours', 'start_work_time', 'end_work_time', 'hourly_wage', 'overtime_hourly_wage', 'attendence_tracking_enabled', 'imei'])->all();
 
-        $labour = $farm->labours()->create($data);
+        $labour = $farm->labours()->create($labourData);
 
         if ($request->has('team_id')) {
             $labour->teams()->sync($request->team_id);
@@ -59,7 +60,7 @@ class LabourController extends Controller
      */
     public function show(Labour $labour)
     {
-        $labour->load('shiftSchedules.shift', 'teams');
+        $labour->load('teams');
 
         return new LabourResource($labour);
     }
@@ -79,8 +80,8 @@ class LabourController extends Controller
             $data['image'] = $request->file('image')->store('labours', 'public');
         }
 
-        // Update user role if work_type changed
-        if (isset($data['work_type']) && $data['work_type'] !== $labour->work_type && $labour->user) {
+        // Update user role if work_type changed (work_type from request, used for role assignment)
+        if (isset($data['work_type']) && $labour->user) {
             $role = $data['work_type'] === 'administrative' ? 'employee' : 'labour';
             $labour->user->syncRoles($role);
         }
@@ -98,7 +99,8 @@ class LabourController extends Controller
             }
         }
 
-        $labour->update($data);
+        $labourData = collect($data)->except(['work_type', 'work_days', 'work_hours', 'start_work_time', 'end_work_time', 'hourly_wage', 'overtime_hourly_wage', 'attendence_tracking_enabled', 'imei'])->all();
+        $labour->update($labourData);
 
         if ($request->has('team_id')) {
             $labour->teams()->sync($request->team_id);

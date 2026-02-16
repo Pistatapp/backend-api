@@ -2,10 +2,10 @@
 
 namespace App\Jobs;
 
-use App\Models\Labour;
-use App\Models\LabourDailyReport;
-use App\Models\LabourMonthlyPayroll;
-use App\Services\LabourWageCalculationService;
+use App\Models\User;
+use App\Models\AttendanceDailyReport;
+use App\Models\AttendanceMonthlyPayroll;
+use App\Services\AttendanceWageCalculationService;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -18,58 +18,40 @@ class GenerateMonthlyPayrollJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    /**
-     * The number of times the job may be attempted.
-     *
-     * @var int
-     */
     public $tries = 3;
 
-    /**
-     * Create a new job instance.
-     */
     public function __construct(
         public Carbon $fromDate,
         public Carbon $toDate,
-        public ?int $labourId = null
+        public ?int $userId = null
     ) {}
 
-    /**
-     * Execute the job.
-     *
-     * @return void
-     */
-    public function handle(LabourWageCalculationService $wageCalculationService): void
+    public function handle(AttendanceWageCalculationService $wageCalculationService): void
     {
-        $labours = $this->labourId
-            ? Labour::where('id', $this->labourId)->get()
-            : Labour::all();
+        $users = $this->userId
+            ? User::where('id', $this->userId)->whereHas('attendanceTracking')->get()
+            : User::whereHas('attendanceTracking')->get();
 
-        foreach ($labours as $labour) {
+        foreach ($users as $user) {
             try {
-                // Get all approved daily reports for the date range
-                $reports = LabourDailyReport::where('labour_id', $labour->id)
+                $reports = AttendanceDailyReport::where('user_id', $user->id)
                     ->where('status', 'approved')
                     ->whereBetween('date', [$this->fromDate, $this->toDate])
                     ->get();
 
-                // Aggregate totals
                 $totalWorkHours = $reports->sum('actual_work_hours');
                 $totalRequiredHours = $reports->sum('scheduled_hours');
                 $totalOvertimeHours = $reports->sum('overtime_hours');
 
-                // Calculate wages
-                $baseWageTotal = $wageCalculationService->calculateBaseWage($labour, $totalRequiredHours);
-                $overtimeWageTotal = $wageCalculationService->calculateOvertimeWage($labour, $totalOvertimeHours);
+                $baseWageTotal = $wageCalculationService->calculateBaseWage($user, $totalRequiredHours);
+                $overtimeWageTotal = $wageCalculationService->calculateOvertimeWage($user, $totalOvertimeHours);
 
-                // Get month and year from date range (use first date)
                 $month = $this->fromDate->month;
                 $year = $this->fromDate->year;
 
-                // Create or update monthly payroll
-                LabourMonthlyPayroll::updateOrCreate(
+                AttendanceMonthlyPayroll::updateOrCreate(
                     [
-                        'labour_id' => $labour->id,
+                        'user_id' => $user->id,
                         'month' => $month,
                         'year' => $year,
                     ],
@@ -79,16 +61,15 @@ class GenerateMonthlyPayrollJob implements ShouldQueue
                         'total_overtime_hours' => $totalOvertimeHours,
                         'base_wage_total' => $baseWageTotal,
                         'overtime_wage_total' => $overtimeWageTotal,
-                        'additions' => 0, // Can be set manually by admin
-                        'deductions' => 0, // Can be set manually by admin
+                        'additions' => 0,
+                        'deductions' => 0,
                         'final_total' => $baseWageTotal + $overtimeWageTotal,
                         'generated_at' => now(),
                     ]
                 );
-
             } catch (\Exception $e) {
-                Log::error('Error generating monthly payroll for labour', [
-                    'labour_id' => $labour->id,
+                Log::error('Error generating monthly payroll for user', [
+                    'user_id' => $user->id,
                     'from_date' => $this->fromDate->toDateString(),
                     'to_date' => $this->toDate->toDateString(),
                     'error' => $e->getMessage(),

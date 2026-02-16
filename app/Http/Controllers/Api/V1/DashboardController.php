@@ -4,15 +4,16 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ActiveLabourWidgetResource;
+use App\Models\AttendanceSession;
 use App\Models\Farm;
-use App\Services\ActiveLabourService;
+use App\Services\ActiveUserAttendanceService;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
     public function __construct(
-        private ActiveLabourService $activeLabourService
+        private ActiveUserAttendanceService $activeUserAttendanceService
     ) {}
 
     /**
@@ -24,15 +25,20 @@ class DashboardController extends Controller
      */
     public function dashboardWidgets(Request $request, Farm $farm)
     {
-        // Verify user has access to the farm
-        if (!$farm->users->contains($request->user())) {
-            abort(403, 'Unauthorized access to this farm.');
-        }
+        $this->authorize('view', $farm);
+
+        $workingAttendanceCount = AttendanceSession::whereHas('user.attendanceTracking', function ($query) use ($farm) {
+            $query->where('farm_id', $farm->id)->where('enabled', true);
+        })
+            ->whereDate('date', Carbon::today())
+            ->where('status', 'in_progress')
+            ->distinct()
+            ->count('user_id');
 
         $dashboardData = [
             'weather_forecast' => $this->getWeatherData($farm->center),
             'working_tractors' => $farm->tractors()->working()->count(),
-            'working_labours' => $farm->labours()->working()->count(),
+            'working_labours' => $workingAttendanceCount,
             'active_pumps' => $farm->pumps()->active()->count(),
         ];
 
@@ -40,7 +46,7 @@ class DashboardController extends Controller
     }
 
     /**
-     * Get active labours for dashboard widget
+     * Get active users with attendance for dashboard widget
      *
      * @param Farm $farm
      * @return \Illuminate\Http\JsonResponse
@@ -49,12 +55,10 @@ class DashboardController extends Controller
     {
         $this->authorize('view', $farm);
 
-        $activeLabours = $this->activeLabourService->getActiveLabours($farm);
+        $activeUsers = $this->activeUserAttendanceService->getActiveUsers($farm);
 
-        // Format for widget display
-        $formattedLabours = $activeLabours->map(function ($labour) {
-            // Get entry time from today's session
-            $session = \App\Models\LabourAttendanceSession::where('labour_id', $labour['id'])
+        $formatted = $activeUsers->map(function ($userData) {
+            $session = AttendanceSession::where('user_id', $userData['id'])
                 ->where('date', Carbon::today()->toDateString())
                 ->where('status', 'in_progress')
                 ->first();
@@ -63,14 +67,14 @@ class DashboardController extends Controller
             $workingHours = $entryTime ? Carbon::now()->diffInHours($entryTime) : 0;
 
             return [
-                'id' => $labour['id'],
-                'name' => $labour['name'],
+                'id' => $userData['id'],
+                'name' => $userData['name'],
                 'entry_time' => $entryTime?->toIso8601String(),
                 'working_hours' => $workingHours,
             ];
         });
 
-        return response()->json(['data' => ActiveLabourWidgetResource::collection($formattedLabours)]);
+        return response()->json(['data' => ActiveLabourWidgetResource::collection($formatted)]);
     }
 
     /**

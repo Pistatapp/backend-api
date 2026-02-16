@@ -107,10 +107,11 @@ class UserController extends Controller
             'is_owner' => false,
         ]]);
 
-        // Create or update attendance tracking and tracking device if enabled
         if ($request->boolean('attendance_tracking_enabled')) {
             $this->createOrUpdateAttendanceTracking($request, $user);
             $this->createOrUpdateTrackingDevice($request, $user);
+        } elseif ($user->attendanceTracking) {
+            $user->attendanceTracking->update(['enabled' => false]);
         }
 
         return new UserResource($user->fresh());

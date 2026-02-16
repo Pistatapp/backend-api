@@ -5,7 +5,7 @@ namespace Tests\Feature\Management;
 use App\Models\Farm;
 use App\Models\Irrigation;
 use App\Models\Labour;
-use App\Models\LabourShiftSchedule;
+use App\Models\AttendanceShiftSchedule;
 use App\Models\Pump;
 use App\Models\User;
 use App\Models\WorkShift;
@@ -83,17 +83,18 @@ class LabourControllerTest extends TestCase
      */
     public function test_user_cannot_delete_labour_with_shift_schedules(): void
     {
+        $user = User::factory()->create();
         $labour = Labour::factory()->create([
             'farm_id' => $this->farm->id,
-            'work_type' => 'shift_based',
+            'user_id' => $user->id,
         ]);
 
         $shift = WorkShift::factory()->create([
             'farm_id' => $this->farm->id,
         ]);
 
-        LabourShiftSchedule::factory()->create([
-            'labour_id' => $labour->id,
+        AttendanceShiftSchedule::factory()->create([
+            'user_id' => $user->id,
             'shift_id' => $shift->id,
             'scheduled_date' => Carbon::tomorrow(),
         ]);
@@ -112,9 +113,10 @@ class LabourControllerTest extends TestCase
      */
     public function test_user_cannot_delete_labour_with_irrigations_and_shift_schedules(): void
     {
+        $user = User::factory()->create();
         $labour = Labour::factory()->create([
             'farm_id' => $this->farm->id,
-            'work_type' => 'shift_based',
+            'user_id' => $user->id,
         ]);
 
         $pump = Pump::factory()->create([
@@ -132,8 +134,8 @@ class LabourControllerTest extends TestCase
             'farm_id' => $this->farm->id,
         ]);
 
-        LabourShiftSchedule::factory()->create([
-            'labour_id' => $labour->id,
+        AttendanceShiftSchedule::factory()->create([
+            'user_id' => $user->id,
             'shift_id' => $shift->id,
             'scheduled_date' => Carbon::tomorrow(),
         ]);
@@ -186,17 +188,18 @@ class LabourControllerTest extends TestCase
      */
     public function test_can_delete_is_false_when_labour_has_shift_schedules(): void
     {
+        $user = User::factory()->create();
         $labour = Labour::factory()->create([
             'farm_id' => $this->farm->id,
-            'work_type' => 'shift_based',
+            'user_id' => $user->id,
         ]);
 
         $shift = WorkShift::factory()->create([
             'farm_id' => $this->farm->id,
         ]);
 
-        LabourShiftSchedule::factory()->create([
-            'labour_id' => $labour->id,
+        AttendanceShiftSchedule::factory()->create([
+            'user_id' => $user->id,
             'shift_id' => $shift->id,
             'scheduled_date' => Carbon::tomorrow(),
         ]);
@@ -220,9 +223,10 @@ class LabourControllerTest extends TestCase
      */
     public function test_can_delete_is_false_when_labour_has_irrigations_and_shift_schedules(): void
     {
+        $user = User::factory()->create();
         $labour = Labour::factory()->create([
             'farm_id' => $this->farm->id,
-            'work_type' => 'shift_based',
+            'user_id' => $user->id,
         ]);
 
         $pump = Pump::factory()->create([
@@ -240,8 +244,8 @@ class LabourControllerTest extends TestCase
             'farm_id' => $this->farm->id,
         ]);
 
-        LabourShiftSchedule::factory()->create([
-            'labour_id' => $labour->id,
+        AttendanceShiftSchedule::factory()->create([
+            'user_id' => $user->id,
             'shift_id' => $shift->id,
             'scheduled_date' => Carbon::tomorrow(),
         ]);

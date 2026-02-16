@@ -221,4 +221,64 @@ class User extends Authenticatable implements HasMedia
     {
         return $this->hasOne(AttendanceTracking::class);
     }
+
+    /**
+     * Get the user's attendance sessions.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function attendanceSessions()
+    {
+        return $this->hasMany(AttendanceSession::class);
+    }
+
+    /**
+     * Get the user's attendance daily reports.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function dailyReports()
+    {
+        return $this->hasMany(AttendanceDailyReport::class);
+    }
+
+    /**
+     * Get the user's attendance monthly payrolls.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function monthlyPayrolls()
+    {
+        return $this->hasMany(AttendanceMonthlyPayroll::class);
+    }
+
+    /**
+     * Get the user's attendance GPS data.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function attendanceGpsData()
+    {
+        return $this->hasMany(AttendanceGpsData::class);
+    }
+
+    /**
+     * Get the user's attendance shift schedules.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function shiftSchedules()
+    {
+        return $this->hasMany(AttendanceShiftSchedule::class);
+    }
+
+    /**
+     * Get the user's current shift schedule for today.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasOne
+     */
+    public function currentShiftSchedule()
+    {
+        return $this->hasOne(AttendanceShiftSchedule::class)->whereDate('scheduled_date', now());
+    }
 }

@@ -23,10 +23,7 @@ use App\Http\Controllers\Api\V1\Farm\IrrigationController;
 use App\Http\Controllers\Api\V1\UserController;
 use App\Http\Controllers\Api\V1\SearchController;
 use App\Http\Controllers\Api\V1\GpsDeviceController;
-use App\Http\Controllers\Api\DeviceController;
-use App\Http\Controllers\Api\WorkerDeviceController;
 use App\Http\Controllers\Api\Mobile\MobileDeviceController;
-use App\Http\Controllers\Api\Mobile\MobileGpsController;
 use App\Http\Controllers\Api\V1\PestController;
 use App\Http\Controllers\Api\V1\PhonologyGuideFileController;
 use App\Http\Controllers\Api\V1\Farm\ColdRequirementController;
@@ -76,12 +73,6 @@ Route::controller(AuthController::class)->prefix('auth')->group(function () {
 
 Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
 
-    // Device Management Routes (Root only)
-    Route::middleware('role:root')->group(function () {
-        Route::apiResource('devices', DeviceController::class);
-    });
-
-    // Keep old route for backward compatibility (deprecated)
     Route::apiResource('gps_devices', GpsDeviceController::class);
     Route::apiResource('crops', CropController::class);
     Route::apiResource('crops.crop_types', CropTypeController::class)->shallow();
@@ -155,48 +146,36 @@ Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
     Route::apiResource('farms.teams', TeamController::class)->shallow();
     Route::apiResource('farms.labours', LabourController::class)->shallow();
 
-    // Worker Device Management Routes (Farm Admin)
-    Route::middleware('role:admin')->group(function () {
-        Route::get('farms/{farm}/worker-devices', [WorkerDeviceController::class, 'index']);
-        Route::put('worker-devices/{device}/assign', [WorkerDeviceController::class, 'assign']);
-        Route::put('worker-devices/{device}/unassign', [WorkerDeviceController::class, 'unassign']);
-    });
-
-    Route::prefix('mobile')->group(function () {
-        Route::post('gps', [MobileGpsController::class, 'store']);
-    });
-
     Route::prefix('mobile')->group(function () {
         Route::post('connection-status', [MobileDeviceController::class, 'connectionStatus']);
         Route::post('connect', [MobileDeviceController::class, 'connect']);
     });
 
-    // Labour GPS and Attendance Routes
-    Route::post('/labours/gps-report', [\App\Http\Controllers\Api\Labour\LabourGpsReportController::class, '__invoke']);
-    Route::get('/farms/{farm}/labours/active', [\App\Http\Controllers\Api\ActiveLabourController::class, 'index']);
-    Route::get('/labours/{labour}/path', [\App\Http\Controllers\Api\ActiveLabourController::class, 'getPath']);
-    Route::get('/labours/{labour}/current-status', [\App\Http\Controllers\Api\ActiveLabourController::class, 'getCurrentStatus']);
+    // Attendance Tracking Routes
+    Route::prefix('attendance')->group(function () {
+        Route::post('/gps-report', [\App\Http\Controllers\Api\Attendance\AttendanceGpsReportController::class, '__invoke']);
+        Route::get('daily-reports', [\App\Http\Controllers\Api\Attendance\AttendanceDailyReportController::class, 'index']);
+        Route::get('daily-reports/{attendanceDailyReport}', [\App\Http\Controllers\Api\Attendance\AttendanceDailyReportController::class, 'show']);
+        Route::patch('daily-reports/{attendanceDailyReport}', [\App\Http\Controllers\Api\Attendance\AttendanceDailyReportController::class, 'update']);
+        Route::post('daily-reports/{attendanceDailyReport}/approve', [\App\Http\Controllers\Api\Attendance\AttendanceDailyReportController::class, 'approve']);
+        Route::post('payrolls/generate', [\App\Http\Controllers\Api\Attendance\AttendancePayrollController::class, 'generate']);
+        Route::get('payrolls', [\App\Http\Controllers\Api\Attendance\AttendancePayrollController::class, 'index']);
+        Route::get('payrolls/{attendanceMonthlyPayroll}', [\App\Http\Controllers\Api\Attendance\AttendancePayrollController::class, 'show']);
+    });
+
+    Route::get('/farms/{farm}/attendance/active-users', [\App\Http\Controllers\Api\Attendance\ActiveUserAttendanceController::class, 'index']);
+    Route::get('/users/{user}/attendance/path', [\App\Http\Controllers\Api\Attendance\ActiveUserAttendanceController::class, 'getPath']);
+    Route::get('/users/{user}/attendance/status', [\App\Http\Controllers\Api\Attendance\ActiveUserAttendanceController::class, 'getCurrentStatus']);
 
     // Work Shifts Routes
     Route::apiResource('farms.work-shifts', \App\Http\Controllers\Api\WorkShiftController::class)->shallow();
 
-    // Labour Shift Schedules Routes
-    Route::get('/farms/{farm}/shift-schedules', [\App\Http\Controllers\Api\LabourShiftScheduleController::class, 'index']);
-    Route::apiResource('shift-schedules', \App\Http\Controllers\Api\LabourShiftScheduleController::class)->except(['index']);
-
-    // Labour Daily Reports Routes
-    Route::get('/labour-daily-reports', [\App\Http\Controllers\Api\Labour\LabourDailyReportController::class, 'index']);
-    Route::get('/labour-daily-reports/{labourDailyReport}', [\App\Http\Controllers\Api\Labour\LabourDailyReportController::class, 'show']);
-    Route::patch('/labour-daily-reports/{labourDailyReport}', [\App\Http\Controllers\Api\Labour\LabourDailyReportController::class, 'update']);
-    Route::post('/labour-daily-reports/{labourDailyReport}/approve', [\App\Http\Controllers\Api\Labour\LabourDailyReportController::class, 'approve']);
-
-    // Labour Payroll Routes
-    Route::post('/labour-payrolls/generate', [\App\Http\Controllers\Api\Labour\LabourPayrollController::class, 'generate']);
-    Route::get('/labour-payrolls', [\App\Http\Controllers\Api\Labour\LabourPayrollController::class, 'index']);
-    Route::get('/labour-payrolls/{labourMonthlyPayroll}', [\App\Http\Controllers\Api\Labour\LabourPayrollController::class, 'show']);
+    // Attendance Shift Schedules Routes
+    Route::get('/farms/{farm}/shift-schedules', [\App\Http\Controllers\Api\Attendance\AttendanceShiftScheduleController::class, 'index']);
+    Route::apiResource('shift-schedules', \App\Http\Controllers\Api\Attendance\AttendanceShiftScheduleController::class)->except(['index']);
 
     // Human Resources Map Routes
-    Route::get('/farms/{farm}/hr/active-labours', [\App\Http\Controllers\Api\HumanResourcesMapController::class, 'getActiveLabours']);
+    Route::get('/farms/{farm}/hr/active-users', [\App\Http\Controllers\Api\HumanResourcesMapController::class, 'getActiveUsers']);
 
     // Attachments Routes
     Route::apiResource('attachments', AttachmentController::class)->except('show', 'index');

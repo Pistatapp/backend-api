@@ -76,7 +76,7 @@ class UserControllerAttendanceTrackingTest extends TestCase
                 'type' => 'mobile_phone',
                 'device_fingerprint' => 'test-fp-123456789012345',
                 'sim_number' => '09122222222',
-                'imei' => '123456789012345',
+                'imei' => '1234567890123456',
             ],
         ];
 
@@ -126,7 +126,7 @@ class UserControllerAttendanceTrackingTest extends TestCase
                 'type' => 'mobile_phone',
                 'device_fingerprint' => 'test-fp-987654321098765',
                 'sim_number' => '09123333333',
-                'imei' => '987654321098765',
+                'imei' => '9876543210987654',
             ],
         ];
 
@@ -219,7 +219,7 @@ class UserControllerAttendanceTrackingTest extends TestCase
                 'type' => 'mobile_phone',
                 'device_fingerprint' => 'test-fp-111111111111111',
                 'sim_number' => '09125555555',
-                'imei' => '111111111111111',
+                'imei' => '1111111111111111',
             ],
         ];
 
@@ -286,7 +286,7 @@ class UserControllerAttendanceTrackingTest extends TestCase
                 'type' => 'mobile_phone',
                 'device_fingerprint' => 'test-fp-333333333333333',
                 'sim_number' => '09126666666',
-                'imei' => '333333333333333',
+                'imei' => '3333333333333333',
             ],
         ];
 
@@ -357,7 +357,7 @@ class UserControllerAttendanceTrackingTest extends TestCase
                 'type' => 'mobile_phone',
                 'device_fingerprint' => 'test-fp-555555555555555',
                 'sim_number' => '09127777777',
-                'imei' => '555555555555555',
+                'imei' => '5555555555555555',
             ],
         ];
 
@@ -399,7 +399,7 @@ class UserControllerAttendanceTrackingTest extends TestCase
                 'type' => 'mobile_phone',
                 'device_fingerprint' => 'test-fp-farm-id',
                 'sim_number' => '09120000000',
-                'imei' => '123456789012345',
+                'imei' => '1234567890123456',
             ],
         ];
 
@@ -470,7 +470,7 @@ class UserControllerAttendanceTrackingTest extends TestCase
                 'type' => 'mobile_phone',
                 'device_fingerprint' => 'test-fp-farm-change',
                 'sim_number' => '09121111112',
-                'imei' => '123456789012345',
+                'imei' => '1234567890123456',
             ],
         ];
 
@@ -561,7 +561,7 @@ class UserControllerAttendanceTrackingTest extends TestCase
                     'type' => 'mobile_phone',
                     'device_fingerprint' => 'test-fp-777777777777777',
                     'sim_number' => '09129999999',
-                    'imei' => '777777777777777',
+                    'imei' => '7777777777777777',
                 ],
             ];
 
