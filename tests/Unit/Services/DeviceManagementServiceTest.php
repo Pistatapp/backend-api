@@ -2,8 +2,6 @@
 
 namespace Tests\Unit\Services;
 
-use App\Models\DeviceConnectionRequest;
-use App\Models\Farm;
 use App\Models\GpsDevice;
 use App\Models\Labour;
 use App\Models\Tractor;
@@ -30,14 +28,12 @@ class DeviceManagementServiceTest extends TestCase
     public function test_create_personal_gps_device_creates_device_correctly(): void
     {
         $user = User::factory()->create();
-        $farm = Farm::factory()->create();
 
         $data = [
             'device_type' => 'personal_gps',
             'name' => 'Test GPS Device',
             'imei' => '123456789012345',
             'sim_number' => '09123456789',
-            'farm_id' => $farm->id,
         ];
 
         $device = $this->service->createPersonalGpsDevice($data, $user->id);
@@ -45,10 +41,6 @@ class DeviceManagementServiceTest extends TestCase
         $this->assertInstanceOf(GpsDevice::class, $device);
         $this->assertEquals('personal_gps', $device->device_type);
         $this->assertEquals($user->id, $device->user_id);
-        $this->assertEquals($farm->id, $device->farm_id);
-        $this->assertTrue($device->is_active);
-        $this->assertNotNull($device->approved_at);
-        $this->assertEquals($user->id, $device->approved_by);
     }
 
     /**
@@ -73,85 +65,47 @@ class DeviceManagementServiceTest extends TestCase
     }
 
     /**
-     * Test approveConnectionRequest creates device and updates request.
+     * Test assignDeviceToWorker returns device (no-op: labour_id removed from gps_devices).
      */
-    public function test_approve_connection_request_creates_device_and_updates_request(): void
-    {
-        $user = User::factory()->create();
-        $farm = Farm::factory()->create();
-        $request = DeviceConnectionRequest::factory()->create([
-            'mobile_number' => '09123456789',
-            'device_fingerprint' => 'test-fingerprint-123',
-            'status' => 'pending',
-        ]);
-
-        $device = $this->service->approveConnectionRequest($request->id, $farm->id, $user->id);
-
-        $this->assertInstanceOf(GpsDevice::class, $device);
-        $this->assertEquals('mobile_phone', $device->device_type);
-        $this->assertEquals('test-fingerprint-123', $device->device_fingerprint);
-        $this->assertEquals($farm->id, $device->farm_id);
-        $this->assertTrue($device->is_active);
-
-        $request->refresh();
-        $this->assertEquals('approved', $request->status);
-        $this->assertEquals($farm->id, $request->farm_id);
-        $this->assertEquals($user->id, $request->approved_by);
-    }
-
-    /**
-     * Test assignDeviceToWorker assigns device correctly.
-     */
-    public function test_assign_device_to_worker_assigns_device_correctly(): void
+    public function test_assign_device_to_worker_returns_device(): void
     {
         $labour = Labour::factory()->create();
         $device = GpsDevice::factory()->create([
             'device_type' => 'mobile_phone',
             'device_fingerprint' => 'test-fingerprint-123',
-            'mobile_number' => '09123456789',
-            'labour_id' => null,
         ]);
 
         $result = $this->service->assignDeviceToWorker($device->id, $labour->id);
 
-        $this->assertEquals($labour->id, $result->labour_id);
+        $this->assertInstanceOf(GpsDevice::class, $result);
+        $this->assertEquals($device->id, $result->id);
     }
 
     /**
-     * Test replaceWorkerDevice deactivates old and assigns new.
+     * Test replaceWorkerDevice returns new device (no-op: labour/is_active removed from gps_devices).
      */
-    public function test_replace_worker_device_deactivates_old_and_assigns_new(): void
+    public function test_replace_worker_device_returns_new_device(): void
     {
         $labour = Labour::factory()->create();
-        $oldDevice = GpsDevice::factory()->create([
-            'labour_id' => $labour->id,
-            'is_active' => true,
-        ]);
-        $newDevice = GpsDevice::factory()->create([
-            'labour_id' => null,
-            'is_active' => true,
-        ]);
+        $oldDevice = GpsDevice::factory()->create();
+        $newDevice = GpsDevice::factory()->create();
 
         $result = $this->service->replaceWorkerDevice($oldDevice->id, $newDevice->id, $labour->id);
 
-        $this->assertEquals($labour->id, $result->labour_id);
         $this->assertEquals($newDevice->id, $result->id);
-
-        $oldDevice->refresh();
-        $this->assertFalse($oldDevice->is_active);
-        $this->assertNull($oldDevice->labour_id);
     }
 
     /**
-     * Test deactivateDevice deactivates device.
+     * Test deactivateDevice returns device (no-op: is_active removed from gps_devices).
      */
-    public function test_deactivate_device_deactivates_device(): void
+    public function test_deactivate_device_returns_device(): void
     {
-        $device = GpsDevice::factory()->create(['is_active' => true]);
+        $device = GpsDevice::factory()->create();
 
         $result = $this->service->deactivateDevice($device->id);
 
-        $this->assertFalse($result->is_active);
+        $this->assertInstanceOf(GpsDevice::class, $result);
+        $this->assertEquals($device->id, $result->id);
     }
 }
 

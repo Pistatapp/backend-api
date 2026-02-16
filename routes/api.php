@@ -24,7 +24,6 @@ use App\Http\Controllers\Api\V1\UserController;
 use App\Http\Controllers\Api\V1\SearchController;
 use App\Http\Controllers\Api\V1\GpsDeviceController;
 use App\Http\Controllers\Api\DeviceController;
-use App\Http\Controllers\Api\DeviceConnectionRequestController;
 use App\Http\Controllers\Api\WorkerDeviceController;
 use App\Http\Controllers\Api\Mobile\MobileDeviceController;
 use App\Http\Controllers\Api\Mobile\MobileGpsController;
@@ -80,9 +79,6 @@ Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
     // Device Management Routes (Root only)
     Route::middleware('role:root')->group(function () {
         Route::apiResource('devices', DeviceController::class);
-        Route::get('device-connection-requests', [DeviceConnectionRequestController::class, 'index']);
-        Route::post('device-connection-requests/{deviceConnectionRequest}/approve', [DeviceConnectionRequestController::class, 'approve']);
-        Route::post('device-connection-requests/{deviceConnectionRequest}/reject', [DeviceConnectionRequestController::class, 'reject']);
     });
 
     // Keep old route for backward compatibility (deprecated)
@@ -167,9 +163,12 @@ Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
     });
 
     Route::prefix('mobile')->group(function () {
-        Route::post('request-status', [MobileDeviceController::class, 'requestStatus']);
-        Route::post('connect', [MobileDeviceController::class, 'connect']);
         Route::post('gps', [MobileGpsController::class, 'store']);
+    });
+
+    Route::prefix('mobile')->group(function () {
+        Route::post('connection-status', [MobileDeviceController::class, 'connectionStatus']);
+        Route::post('connect', [MobileDeviceController::class, 'connect']);
     });
 
     // Labour GPS and Attendance Routes

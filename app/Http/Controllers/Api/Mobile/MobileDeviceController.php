@@ -3,75 +3,74 @@
 namespace App\Http\Controllers\Api\Mobile;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\MobileConnectRequest;
-use App\Http\Resources\MobileDeviceStatusResource;
-use App\Models\DeviceConnectionRequest;
 use App\Models\GpsDevice;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class MobileDeviceController extends Controller
 {
+
     /**
-     * Create a connection request from mobile app.
+     * Get connection status for a device (by device_fingerprint).
+     *
+     * @return JsonResponse
      */
-    public function connect(MobileConnectRequest $request)
+    public function connectionStatus(Request $request): JsonResponse
     {
-        $fingerprint = $request->validated()['device_fingerprint'];
-        $mobileNumber = $request->validated()['mobile_number'];
-
-        // Check if device already exists
-        $existingDevice = GpsDevice::where('device_fingerprint', $fingerprint)->first();
-
-        if ($existingDevice) {
-            return new MobileDeviceStatusResource([
-                'status' => 'connected',
-                'message' => 'Device is already connected and approved',
-                'device_id' => $existingDevice->id,
-            ]);
-        }
-
-        // Check if there's a pending request
-        $pendingRequest = DeviceConnectionRequest::where('device_fingerprint', $fingerprint)
-            ->where('status', 'pending')
-            ->first();
-
-        if ($pendingRequest) {
-            return new MobileDeviceStatusResource([
-                'status' => 'pending',
-                'message' => 'Connection request is pending approval',
-                'request_id' => $pendingRequest->id,
-            ]);
-        }
-
-        // Create new connection request
-        $connectionRequest = DeviceConnectionRequest::create([
-            'mobile_number' => $mobileNumber,
-            'device_fingerprint' => $fingerprint,
-            'device_info' => $request->validated()['device_info'] ?? null,
-            'status' => 'pending',
+        $request->validate([
+            'device_fingerprint' => 'required|string|max:255'
         ]);
 
-        return new MobileDeviceStatusResource([
-            'status' => 'requested',
-            'message' => 'Connection request submitted successfully',
-            'request_id' => $connectionRequest->id,
+        $fingerprint = $request->input('device_fingerprint');
+        $gpsDevice = GpsDevice::where('device_fingerprint', $fingerprint)->first();
+
+        $status = ($gpsDevice && ! empty($gpsDevice->imei)) ? 'connected' : 'not-connected';
+
+        return response()->json([
+            'status' => $status,
+            'device_fingerprint' => $fingerprint,
         ]);
     }
 
     /**
-     * Update the status of a connection request.
+     * Connect device from mobile app (register/update IMEI for user's GPS device).
      *
-     * @param Request $request
-     * @return MobileDeviceStatusResource
+     *
      */
-    public function requestStatus(Request $request)
+    public function connect(Request $request): JsonResponse
     {
-        $fingerprint = $request->input('device_fingerprint');
-        $request = DeviceConnectionRequest::where('device_fingerprint', $fingerprint)->first();
+        $request->validate([
+            'sim_number' => 'required|ir_mobile:zero',
+            'device_fingerprint' => 'required|string|max:255',
+            'imei' => 'required|string|size:16|regex:/^[0-9]{16}$/',
+        ]);
+
+        $gpsDevice = GpsDevice::where('sim_number', $request->sim_number)->first();
+
+        if (! $gpsDevice) {
+            return response()->json([
+                'status' => 'not-found',
+                'message' => 'No device record found for this user',
+            ], 404);
+        }
+
+        if (! empty($gpsDevice->imei)) {
+            return response()->json([
+                'status' => 'connected',
+                'message' => 'Device is already connected and approved',
+                'device_id' => $gpsDevice->id,
+            ]);
+        }
+
+        $gpsDevice->update([
+            'device_fingerprint' => $request->device_fingerprint,
+            'imei' => $request->imei
+        ]);
 
         return response()->json([
-            'status' => $request->status ?? 'not_found',
-            'request_id' => $request->id ?? null,
+            'status' => 'connected',
+            'message' => 'Device connected successfully',
+            'device_id' => $gpsDevice->id,
         ]);
     }
 }

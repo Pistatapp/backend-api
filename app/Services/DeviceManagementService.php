@@ -2,9 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\DeviceConnectionRequest;
 use App\Models\GpsDevice;
-use Illuminate\Support\Facades\DB;
 
 class DeviceManagementService
 {
@@ -25,39 +23,6 @@ class DeviceManagementService
             'sim_number' => $data['sim_number'] ?? null,
             'tractor_id' => $data['tractor_id'] ?? null,
         ]);
-    }
-
-    /**
-     * Approve a connection request and create a GpsDevice.
-     *
-     * @param  int  $requestId
-     * @param  int  $farmId
-     * @param  int  $userId
-     * @return GpsDevice
-     */
-    public function approveConnectionRequest(int $requestId, int $farmId, int $userId): GpsDevice
-    {
-        return DB::transaction(function () use ($requestId, $farmId, $userId) {
-            $request = DeviceConnectionRequest::findOrFail($requestId);
-
-            // Update request status
-            $request->update([
-                'status' => 'approved',
-                'farm_id' => $farmId,
-                'approved_by' => $userId,
-                'approved_at' => now(),
-            ]);
-
-            // Create GpsDevice
-            $device = GpsDevice::create([
-                'user_id' => $userId,
-                'device_type' => 'mobile_phone',
-                'name' => 'Mobile Phone - ' . $request->mobile_number,
-                'device_fingerprint' => $request->device_fingerprint,
-            ]);
-
-            return $device;
-        });
     }
 
     /**
