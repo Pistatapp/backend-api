@@ -28,7 +28,7 @@ class ActiveUserAttendanceService
                 ->whereHas('attendanceGpsData', function ($query) use ($cutoffTime) {
                     $query->where('date_time', '>=', $cutoffTime);
                 })
-                ->with(['attendanceGpsData' => function ($query) use ($cutoffTime) {
+                ->with(['profile:id,user_id,name', 'attendanceGpsData' => function ($query) use ($cutoffTime) {
                     $query->where('date_time', '>=', $cutoffTime)
                         ->orderBy('date_time', 'desc')
                         ->limit(1);
@@ -38,7 +38,7 @@ class ActiveUserAttendanceService
                     $latestGps = $user->attendanceGpsData->first();
                     return [
                         'id' => $user->id,
-                        'name' => $user->profile?->name ?? $user->mobile,
+                        'name' => $user->profile->name,
                         'coordinate' => $latestGps?->coordinate,
                         'last_update' => $latestGps?->date_time,
                         'is_in_zone' => $this->isUserInZone($user, $farm, $latestGps?->coordinate),
