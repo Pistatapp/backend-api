@@ -8,8 +8,9 @@ use Illuminate\Notifications\Notification;
 use App\Models\TractorTask;
 use App\Notifications\FirebaseMessage;
 use Kavenegar\Laravel\Message\KavenegarMessage;
+use Kavenegar\Laravel\Notification\KavenegarBaseNotification;
 
-class TractorTaskCreated extends Notification implements ShouldQueue
+class TractorTaskCreated extends KavenegarBaseNotification implements Notification, ShouldQueue
 {
     use Queueable;
 
@@ -29,7 +30,7 @@ class TractorTaskCreated extends Notification implements ShouldQueue
      * @param object $notifiable
      * @return array<int, string>
      */
-    public function via(object $notifiable): array
+    public function via($notifiable): array
     {
         // If notifiable is a Driver, send only SMS
         if ($notifiable instanceof \App\Models\Driver) {
@@ -73,7 +74,7 @@ class TractorTaskCreated extends Notification implements ShouldQueue
      * @param object $notifiable
      * @return array<string, mixed>
      */
-    public function toArray(object $notifiable): array
+    public function toArray($notifiable): array
     {
         $tractorName = $this->task->tractor->name;
         $operationName = $this->task->operation->name;
@@ -102,7 +103,7 @@ class TractorTaskCreated extends Notification implements ShouldQueue
      * @param object $notifiable
      * @return KavenegarMessage
      */
-    public function toKavenegar(object $notifiable): KavenegarMessage
+    public function toKavenegar($notifiable): KavenegarMessage
     {
         $operationName = $this->task->operation->name;
         $startTime = $this->task->start_time;

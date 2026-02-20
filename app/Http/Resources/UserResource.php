@@ -21,6 +21,10 @@ class UserResource extends JsonResource
             'username' => $this->username,
             'last_activity_at' => jdate($this->last_activity_at)->format('Y/m/d H:i:s'),
             'role' => $this->resolveRoleForEnvironment($request),
+            'can' => [
+                'update' => $request->user()->can('update', $this->resource),
+                'delete' => $request->user()->can('delete', $this->resource),
+            ]
         ];
     }
 

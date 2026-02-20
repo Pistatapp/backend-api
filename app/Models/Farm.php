@@ -79,6 +79,16 @@ class Farm extends Model
     }
 
     /**
+     * Get the farm owner.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
+    public function owner()
+    {
+        return $this->belongsTo(User::class)->wherePivot('is_owner', true);
+    }
+
+    /**
      * Get fields of the farm.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany

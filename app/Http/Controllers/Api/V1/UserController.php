@@ -39,7 +39,7 @@ class UserController extends Controller
 
         $query->where('id', '!=', $user->id);
 
-        $users = $query->with('farms', 'labour', 'profile')->simplePaginate();
+        $users = $query->with('farms', 'profile')->simplePaginate();
 
         return UserResource::collection($users);
     }
@@ -83,7 +83,7 @@ class UserController extends Controller
      */
     public function show(User $user)
     {
-        return new UserResource($user->load('farms', 'labour', 'profile'));
+        return new UserResource($user->load('farms', 'profile'));
     }
 
     /**

@@ -11,14 +11,19 @@ use Carbon\Carbon;
 
 class WorkShiftController extends Controller
 {
+
+    public function __construct()
+    {
+        $this->authorizeResource(WorkShift::class);
+    }
+
     /**
      * Display a listing of work shifts for a farm
      */
     public function index(Farm $farm)
     {
-        $this->authorize('view', $farm);
 
-        $shifts = $farm->workShifts()->withCount('labours')->get();
+        $shifts = $farm->workShifts()->simplePaginate();
         return WorkShiftResource::collection($shifts);
     }
 
@@ -27,7 +32,6 @@ class WorkShiftController extends Controller
      */
     public function store(Request $request, Farm $farm)
     {
-        $this->authorize('view', $farm);
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -56,10 +60,6 @@ class WorkShiftController extends Controller
      */
     public function show(WorkShift $workShift)
     {
-        $this->authorize('view', $workShift->farm);
-
-        $workShift->loadCount('labours');
-        $workShift->load('labours');
         return new WorkShiftResource($workShift);
     }
 
@@ -68,7 +68,6 @@ class WorkShiftController extends Controller
      */
     public function update(Request $request, WorkShift $workShift)
     {
-        $this->authorize('view', $workShift->farm);
 
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
@@ -87,15 +86,6 @@ class WorkShiftController extends Controller
      */
     public function destroy(WorkShift $workShift)
     {
-        $this->authorize('view', $workShift->farm);
-
-        // Check if shift has any scheduled workers
-        if ($workShift->shiftSchedules()->exists()) {
-            return response()->json([
-                'error' => 'Cannot delete shift with scheduled workers'
-            ], 400);
-        }
-
         $workShift->delete();
 
         return response()->noContent();

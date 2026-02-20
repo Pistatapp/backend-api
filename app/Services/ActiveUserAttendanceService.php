@@ -38,7 +38,7 @@ class ActiveUserAttendanceService
                     $latestGps = $user->attendanceGpsData->first();
                     return [
                         'id' => $user->id,
-                        'name' => $user->profile->name,
+                        'name' => $user->profile?->name ?? 'Unknown',
                         'coordinate' => $latestGps?->coordinate,
                         'last_update' => $latestGps?->date_time,
                         'is_in_zone' => $this->isUserInZone($user, $farm, $latestGps?->coordinate),
