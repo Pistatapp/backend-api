@@ -24,21 +24,16 @@ class ActiveUserAttendanceService
 
             return User::whereHas('attendanceTracking', function ($query) use ($farm) {
                 $query->where('farm_id', $farm->id)->where('enabled', true);
-            })
-                ->whereHas('attendanceGpsData', function ($query) use ($cutoffTime) {
-                    $query->where('date_time', '>=', $cutoffTime);
-                })
-                ->with(['profile:id,user_id,name', 'attendanceGpsData' => function ($query) use ($cutoffTime) {
-                    $query->where('date_time', '>=', $cutoffTime)
-                        ->orderBy('date_time', 'desc')
-                        ->limit(1);
-                }])
-                ->get()
+            })->with(['profile:id,user_id,name', 'attendanceGpsData' => function ($query) use ($cutoffTime) {
+                $query->where('date_time', '>=', $cutoffTime)
+                    ->orderBy('date_time', 'desc')
+                    ->limit(1);
+            }])->get()
                 ->map(function ($user) use ($farm) {
                     $latestGps = $user->attendanceGpsData->first();
                     return [
                         'id' => $user->id,
-                        'name' => $user->profile?->name ?? 'Unknown',
+                        'name' => $user->profile->name,
                         'coordinate' => $latestGps?->coordinate,
                         'last_update' => $latestGps?->date_time,
                         'is_in_zone' => $this->isUserInZone($user, $farm, $latestGps?->coordinate),
