@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Http\Resources\AttendanceTrackingResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -22,6 +23,7 @@ class UserResource extends JsonResource
             'is_active' => $this->is_active,
             'last_activity_at' => jdate($this->last_activity_at)->format('Y/m/d H:i:s'),
             'role' => $this->resolveRoleForEnvironment($request),
+            'attendance_tracking' => new AttendanceTrackingResource($this->whenLoaded('attendanceTracking')),
             'can' => [
                 'update' => $request->user()->can('update', $this->resource),
                 'delete' => $request->user()->can('delete', $this->resource),

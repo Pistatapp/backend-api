@@ -39,7 +39,7 @@ class UserController extends Controller
 
         $query->where('id', '!=', $user->id);
 
-        $users = $query->with('farms', 'profile')->simplePaginate();
+        $users = $query->with('farms', 'profile', 'attendanceTracking')->simplePaginate();
 
         return UserResource::collection($users);
     }
