@@ -176,9 +176,6 @@ Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
     Route::get('/farms/{farm}/shift-schedules', [\App\Http\Controllers\Api\Attendance\AttendanceShiftScheduleController::class, 'index']);
     Route::apiResource('shift-schedules', \App\Http\Controllers\Api\Attendance\AttendanceShiftScheduleController::class)->except(['index']);
 
-    // Human Resources Map Routes
-    Route::get('/farms/{farm}/hr/active-users', [\App\Http\Controllers\Api\HumanResourcesMapController::class, 'getActiveUsers']);
-
     // Attachments Routes
     Route::apiResource('attachments', AttachmentController::class)->except('show', 'index');
     Route::apiResource('farms.operations', OprationController::class)->shallow();
