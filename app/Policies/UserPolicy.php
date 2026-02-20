@@ -62,4 +62,48 @@ class UserPolicy
     {
         return $user->hasAnyRole(['admin', 'super-admin']) && !$model->hasAnyRole(['super-admin', 'root']);
     }
+
+    /**
+     * Determine whether the user can activate another user.
+     */
+    public function activate(User $user, User $model): bool
+    {
+        // Root users can activate anyone
+        if ($user->hasRole('root')) {
+            return true;
+        }
+
+        // Admin can only activate users from their own farms
+        if ($user->hasAnyRole(['admin', 'super-admin']) && !$model->hasAnyRole(['super-admin', 'root'])) {
+            $userFarms = $user->farms()->pluck('farms.id');
+            $modelFarms = $model->farms()->pluck('farms.id');
+
+            // Check if they share at least one farm
+            return $userFarms->intersect($modelFarms)->isNotEmpty();
+        }
+
+        return false;
+    }
+
+    /**
+     * Determine whether the user can deactivate another user.
+     */
+    public function deactivate(User $user, User $model): bool
+    {
+        // Root users can deactivate anyone
+        if ($user->hasRole('root')) {
+            return true;
+        }
+
+        // Admin can only deactivate users from their own farms
+        if ($user->hasAnyRole(['admin', 'super-admin']) && !$model->hasAnyRole(['super-admin', 'root'])) {
+            $userFarms = $user->farms()->pluck('farms.id');
+            $modelFarms = $model->farms()->pluck('farms.id');
+
+            // Check if they share at least one farm
+            return $userFarms->intersect($modelFarms)->isNotEmpty();
+        }
+
+        return false;
+    }
 }

@@ -90,6 +90,8 @@ Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
         Route::apiSingleton('profile', ProfileController::class);
     });
 
+    Route::post('/users/{user}/activate', [UserController::class, 'activate']);
+    Route::post('/users/{user}/deactivate', [UserController::class, 'deactivate']);
     Route::apiResource('users', UserController::class);
 
     // Global search endpoint

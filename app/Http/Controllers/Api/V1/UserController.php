@@ -118,6 +118,45 @@ class UserController extends Controller
     }
 
     /**
+     * Activate a user account.
+     *
+     * @param User $user
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function activate(User $user)
+    {
+        $this->authorize('activate', $user);
+
+        $user->update(['is_active' => true]);
+
+        return response()->json([
+            'message' => __('User account activated successfully.'),
+            'user' => new UserResource($user->fresh()),
+        ]);
+    }
+
+    /**
+     * Deactivate a user account.
+     *
+     * @param User $user
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function deactivate(User $user)
+    {
+        $this->authorize('deactivate', $user);
+
+        $user->update(['is_active' => false]);
+
+        // Logout the user if they are currently logged in
+        $user->tokens()->delete();
+
+        return response()->json([
+            'message' => __('User account deactivated successfully.'),
+            'user' => new UserResource($user->fresh()),
+        ]);
+    }
+
+    /**
      * Remove the specified resource from storage.
      */
     public function destroy(User $user)

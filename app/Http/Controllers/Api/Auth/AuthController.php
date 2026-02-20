@@ -76,7 +76,7 @@ class AuthController extends Controller
         ];
 
         $authenticated = Auth::attemptWhen($credentials, function (User $user) {
-            return $user->passwordNotExpired();
+            return $user->passwordNotExpired() && $user->is_active;
         });
 
         if ($authenticated) {
@@ -101,6 +101,17 @@ class AuthController extends Controller
     private function login(Request $request)
     {
         $user = User::where('mobile', $request->mobile)->first();
+
+        // Double-check if user is active before logging in
+        if (!$user->is_active) {
+            $this->guard()->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            throw ValidationException::withMessages([
+                'token' => __('Your account has been deactivated. Please contact your administrator.'),
+            ]);
+        }
 
         tap($user, function ($user) {
 

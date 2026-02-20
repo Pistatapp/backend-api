@@ -26,6 +26,7 @@ class User extends Authenticatable implements HasMedia
         'mobile',
         'fcm_token',
         'created_by',
+        'is_active',
         'preferences->language',
         'preferences->theme',
         'preferences->notifications_enabled',
@@ -56,6 +57,7 @@ class User extends Authenticatable implements HasMedia
             'password' => 'hashed',
             'password_expires_at' => 'datetime',
             'preferences' => 'array',
+            'is_active' => 'boolean',
         ];
     }
 
