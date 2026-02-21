@@ -8,6 +8,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 
 class ProcessGpsData implements ShouldQueue
@@ -48,6 +49,23 @@ class ProcessGpsData implements ShouldQueue
             new StoreGpsData($data, $tractor->id),
             new BroadcastGpsEvents($data, $tractor->id, $deviceImei),
         ])->onQueue('gps-processing')->dispatch();
+
+        $this->logRawDataToFile($deviceImei);
+    }
+
+    private function logRawDataToFile(string $deviceImei): void
+    {
+        $date = now()->format('Y-m-d');
+        $dir = storage_path('logs/gps-raw/'.$deviceImei);
+        $filename = "{$date}.log";
+        $path = "{$dir}/{$filename}";
+
+        if (!File::isDirectory($dir)) {
+            File::makeDirectory($dir, 0755, true);
+        }
+
+        $line = '[' . now()->toIso8601String() . '] ' . $this->rawData . PHP_EOL;
+        File::append($path, $line);
     }
 
     private function resolveTractor(string $imei): ?Tractor
