@@ -1,14 +1,15 @@
-# Labour Attendance System API Documentation
+# Attendance System API Documentation
 
 ## Overview
 
-The Labour Attendance System API provides comprehensive endpoints for managing labour attendance, GPS tracking, shift scheduling, daily reports, and payroll. The system uses GPS-based boundary detection to automatically track labour presence within farm boundaries.
+The Attendance System API provides endpoints for managing **user** attendance (users with attendance tracking enabled), GPS tracking, shift scheduling, daily reports, and payroll. The system is **user-based**: attendance is tied to **users** and their `AttendanceTracking` settings per farm, not to a separate labour entity. GPS-based boundary detection automatically tracks presence within farm boundaries.
 
 **Base URL:** `/api`
 
 **Authentication:** All endpoints require authentication via Laravel Sanctum. Include the bearer token in the Authorization header:
 ```
 Authorization: Bearer {token}
+Accept: application/json
 ```
 
 ---
@@ -16,13 +17,13 @@ Authorization: Bearer {token}
 ## Table of Contents
 
 1. [GPS & Attendance Tracking](#gps--attendance-tracking)
-2. [Active Labours](#active-labours)
-3. [Labour Path & Status](#labour-path--status)
+2. [Active Users](#active-users)
+3. [User Path & Status](#user-path--status)
 4. [Work Shifts](#work-shifts)
-5. [Labour Shift Schedules](#labour-shift-schedules)
-6. [Labour Daily Reports](#labour-daily-reports)
-7. [Labour Payroll](#labour-payroll)
-8. [Human Resources Map](#human-resources-map)
+5. [Shift Schedules](#shift-schedules)
+6. [Daily Reports](#daily-reports)
+7. [Payroll](#payroll)
+8. [Dashboard Active Users Widget](#dashboard-active-users-widget)
 
 ---
 
@@ -30,11 +31,11 @@ Authorization: Bearer {token}
 
 ### Submit GPS Report
 
-Submit GPS location data from labour mobile app. This endpoint automatically processes boundary detection and updates attendance sessions.
+Submit GPS location data from the authenticated user's mobile app. This endpoint automatically processes boundary detection and updates attendance sessions. The authenticated user must have **attendance tracking enabled** for a farm (via `AttendanceTracking` with `enabled: true`).
 
-**Endpoint:** `POST /labours/gps-report`
+**Endpoint:** `POST /api/attendance/gps-report`
 
-**Authentication:** Required (Labour)
+**Authentication:** Required (Bearer token). User must have an `AttendanceTracking` record with `enabled = true`.
 
 **Request Body:**
 ```json
@@ -74,26 +75,26 @@ Submit GPS location data from labour mobile app. This endpoint automatically pro
 
 **Error Responses:**
 
-- `401 Unauthorized` - User not authenticated
-- `404 Not Found` - Labour not found for authenticated user
-- `400 Bad Request` - Invalid GPS data (missing required fields)
-- `500 Internal Server Error` - Server error
+- `401 Unauthorized` — User not authenticated
+- `403 Forbidden` — Attendance tracking not enabled for the user. Response body: `{"error": "Attendance tracking not enabled"}`
+- `400 Bad Request` — Invalid GPS data (missing `latitude`, `longitude`, or `time`). Response body: `{"error": "Invalid GPS data"}`
+- `500 Internal Server Error` — Server error. Response body: `{"error": "Internal server error"}`
 
 **Notes:**
-- The endpoint automatically creates or updates attendance sessions based on boundary detection
-- GPS data is saved to the database for path tracking
-- Labour status changes are broadcast via events
-- Boundary detection errors are logged but don't fail the request
+- The endpoint creates or updates attendance sessions based on boundary detection
+- GPS data is stored in `attendance_gps_data` for path tracking
+- `UserAttendanceStatusChanged` and `AttendanceUpdated` events may be broadcast
+- Boundary detection or broadcast failures are logged but do not fail the request
 
 ---
 
-## Active Labours
+## Active Users
 
-### Get Active Labours for Farm
+### Get Active Users for Farm
 
-Retrieve list of active labours (labours who sent GPS data in the last 10 minutes) for a specific farm.
+Retrieve list of **users** with attendance tracking enabled for the farm. Each user's current status is derived from their shift schedule and whether they are in the farm boundary (for today).
 
-**Endpoint:** `GET /farms/{farm}/labours/active`
+**Endpoint:** `GET /api/farms/{farm}/attendance/active-users`
 
 **Authentication:** Required
 
@@ -112,15 +113,9 @@ Retrieve list of active labours (labours who sent GPS data in the last 10 minute
     {
       "id": 1,
       "name": "John Doe",
-      "fname": "John",
-      "lname": "Doe",
-      "coordinate": {
-        "lat": 34.052235,
-        "lng": -118.243683,
-        "altitude": 92.4
-      },
-      "last_update": "2024-01-15T10:30:00Z",
-      "is_in_zone": true
+      "status": "present",
+      "entrance_time": "08:15",
+      "total_work_duration": "02:30"
     }
   ]
 }
@@ -130,28 +125,26 @@ Retrieve list of active labours (labours who sent GPS data in the last 10 minute
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `id` | integer | Labour ID |
-| `name` | string | Full name of labour |
-| `fname` | string | First name |
-| `lname` | string | Last name |
-| `coordinate` | object | Latest GPS coordinate with lat, lng, altitude |
-| `last_update` | string | ISO 8601 timestamp of last GPS update |
-| `is_in_zone` | boolean | Whether labour is currently within farm boundary |
+| `id` | integer | User ID |
+| `name` | string | Display name (from profile or empty) |
+| `status` | string \| null | `present` (in zone during shift), `absent` (outside zone during shift), `resting` (outside shift time), or `null` if no shift scheduled |
+| `entrance_time` | string \| null | First GPS time inside shift window, in `H:i` format |
+| `total_work_duration` | string \| null | Duration from entrance to now (or shift end), in `H:i` format |
 
 **Notes:**
-- Results are cached for 1 minute
-- Only labours with GPS data in the last 10 minutes are included
-- `is_in_zone` is calculated based on farm boundary polygon
+- Only users with `AttendanceTracking` for this farm and `enabled = true` are included
+- Status is calculated from today's shift schedule and latest GPS position relative to farm boundary
+- For map display or latest coordinates, use `GET /api/users/{user}/attendance/status` to get `latest_gps` per user
 
 ---
 
-## Labour Path & Status
+## User Path & Status
 
-### Get Labour Path
+### Get User Attendance Path
 
-Retrieve the complete GPS path for a labour on a specific date.
+Retrieve the GPS path for a user on a specific date.
 
-**Endpoint:** `GET /labours/{labour}/path`
+**Endpoint:** `GET /api/users/{user}/attendance/path`
 
 **Authentication:** Required
 
@@ -159,7 +152,7 @@ Retrieve the complete GPS path for a labour on a specific date.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `labour` | integer | Yes | Labour ID |
+| `user` | integer | Yes | User ID |
 
 **Query Parameters:**
 
@@ -184,7 +177,7 @@ Retrieve the complete GPS path for a labour on a specific date.
       "bearing": 0.0,
       "accuracy": 5.1,
       "provider": "gps",
-      "date_time": "2024-01-15T10:30:00Z"
+      "date_time": "2024-01-15T10:30:00+00:00"
     }
   ]
 }
@@ -198,7 +191,7 @@ Retrieve the complete GPS path for a labour on a specific date.
 | `coordinate` | object | GPS coordinate (lat, lng, altitude) |
 | `speed` | float | Speed in m/s |
 | `bearing` | float | Bearing/heading in degrees |
-| `accuracy` | float | GPS accuracy in meters |
+| `accuracy` | float \| null | GPS accuracy in meters |
 | `provider` | string | GPS provider type |
 | `date_time` | string | ISO 8601 timestamp |
 
@@ -208,11 +201,11 @@ Retrieve the complete GPS path for a labour on a specific date.
 
 ---
 
-### Get Labour Current Status
+### Get User Current Attendance Status
 
-Get the current status of a labour including latest GPS position and active attendance session.
+Get the current attendance status of a user: latest GPS point and today's in-progress attendance session.
 
-**Endpoint:** `GET /labours/{labour}/current-status`
+**Endpoint:** `GET /api/users/{user}/attendance/status`
 
 **Authentication:** Required
 
@@ -220,38 +213,40 @@ Get the current status of a labour including latest GPS position and active atte
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `labour` | integer | Yes | Labour ID |
+| `user` | integer | Yes | User ID |
 
 **Response:**
 
 **Success (200 OK):**
 ```json
 {
-  "labour": {
-    "id": 1,
-    "name": "John Doe"
-  },
-  "latest_gps": {
-    "id": 123,
-    "coordinate": {
-      "lat": 34.052235,
-      "lng": -118.243683,
-      "altitude": 92.4
+  "data": {
+    "user": {
+      "id": 1,
+      "name": "John Doe"
     },
-    "speed": 0.0,
-    "bearing": 0.0,
-    "accuracy": 5.1,
-    "provider": "gps",
-    "date_time": "2024-01-15T10:30:00Z"
-  },
-  "attendance_session": {
-    "id": 45,
-    "date": "2024-01-15",
-    "entry_time": "2024-01-15T08:00:00Z",
-    "exit_time": null,
-    "total_in_zone_duration": 120,
-    "total_out_zone_duration": 30,
-    "status": "in_progress"
+    "latest_gps": {
+      "id": 123,
+      "coordinate": {
+        "lat": 34.052235,
+        "lng": -118.243683,
+        "altitude": 92.4
+      },
+      "speed": 0.0,
+      "bearing": 0.0,
+      "accuracy": 5.1,
+      "provider": "gps",
+      "date_time": "2024-01-15T10:30:00+00:00"
+    },
+    "attendance_session": {
+      "id": 45,
+      "date": "2024-01-15",
+      "entry_time": "2024-01-15T08:00:00+00:00",
+      "exit_time": null,
+      "total_in_zone_duration": 120,
+      "total_out_zone_duration": 30,
+      "status": "in_progress"
+    }
   }
 }
 ```
@@ -260,9 +255,9 @@ Get the current status of a labour including latest GPS position and active atte
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `labour` | object | Labour information (id, name) |
-| `latest_gps` | object\|null | Latest GPS data point (same structure as path endpoint) |
-| `attendance_session` | object\|null | Active attendance session for today (if exists) |
+| `user` | object | User id and name (from profile or mobile) |
+| `latest_gps` | object \| null | Latest GPS data point (same structure as path); null if none |
+| `attendance_session` | object \| null | Today's in-progress attendance session (if exists) |
 
 **Attendance Session Fields:**
 
@@ -270,11 +265,11 @@ Get the current status of a labour including latest GPS position and active atte
 |-------|------|-------------|
 | `id` | integer | Session ID |
 | `date` | string | Date in YYYY-MM-DD format |
-| `entry_time` | string\|null | ISO 8601 timestamp of entry |
-| `exit_time` | string\|null | ISO 8601 timestamp of exit |
+| `entry_time` | string \| null | ISO 8601 timestamp of entry |
+| `exit_time` | string \| null | ISO 8601 timestamp of exit |
 | `total_in_zone_duration` | integer | Total minutes spent in zone |
 | `total_out_zone_duration` | integer | Total minutes spent outside zone |
-| `status` | string | Session status: `in_progress` or `completed` |
+| `status` | string | `in_progress` or `completed` |
 
 ---
 
@@ -284,7 +279,7 @@ Get the current status of a labour including latest GPS position and active atte
 
 Get all work shifts for a farm.
 
-**Endpoint:** `GET /farms/{farm}/work-shifts`
+**Endpoint:** `GET /api/farms/{farm}/work-shifts`
 
 **Authentication:** Required
 
@@ -333,7 +328,7 @@ Get all work shifts for a farm.
 
 Create a new work shift for a farm.
 
-**Endpoint:** `POST /farms/{farm}/work-shifts`
+**Endpoint:** `POST /api/farms/{farm}/work-shifts`
 
 **Authentication:** Required
 
@@ -390,7 +385,7 @@ Create a new work shift for a farm.
 
 Get a specific work shift.
 
-**Endpoint:** `GET /work-shifts/{workShift}`
+**Endpoint:** `GET /api/work-shifts/{workShift}`
 
 **Authentication:** Required
 
@@ -424,7 +419,7 @@ Get a specific work shift.
 
 Update an existing work shift.
 
-**Endpoint:** `PUT /work-shifts/{workShift}` or `PATCH /work-shifts/{workShift}`
+**Endpoint:** `PUT /api/work-shifts/{workShift}` or `PATCH /api/work-shifts/{workShift}`
 
 **Authentication:** Required
 
@@ -477,7 +472,7 @@ Update an existing work shift.
 
 Delete a work shift.
 
-**Endpoint:** `DELETE /work-shifts/{workShift}`
+**Endpoint:** `DELETE /api/work-shifts/{workShift}`
 
 **Authentication:** Required
 
@@ -493,17 +488,17 @@ Delete a work shift.
 
 **Error Responses:**
 
-- `400 Bad Request` - Cannot delete shift with scheduled labours
+- `400 Bad Request` - Cannot delete shift with scheduled users (existing shift schedules)
 
 ---
 
-## Labour Shift Schedules
+## Shift Schedules
 
 ### List Shift Schedules (Calendar View)
 
-Get shift schedules for a farm in calendar format, grouped by date.
+Get shift schedules for a farm in calendar format, grouped by date. Only includes **users** who have attendance tracking enabled for this farm.
 
-**Endpoint:** `GET /farms/{farm}/shift-schedules`
+**Endpoint:** `GET /api/farms/{farm}/shift-schedules`
 
 **Authentication:** Required
 
@@ -531,11 +526,16 @@ Get shift schedules for a farm in calendar format, grouped by date.
       "schedules": [
         {
           "id": 1,
-          "labour": {
+          "user": {
             "id": 1,
-            "fname": "John",
-            "lname": "Doe",
-            "full_name": "John Doe"
+            "name": "John Doe",
+            "mobile": "09123456789",
+            "username": "john",
+            "is_active": true,
+            "last_activity_at": "1402/11/25 14:30:00",
+            "role": "worker",
+            "attendance_tracking": { ... },
+            "can": { ... }
           },
           "shift": {
             "id": 1,
@@ -567,29 +567,28 @@ Get shift schedules for a farm in calendar format, grouped by date.
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | integer | Schedule ID |
-| `labour` | object | Labour information |
-| `shift` | object | Work shift information |
-| `scheduled_date` | string | Scheduled date in YYYY-MM-DD format |
+| `user` | object | User resource (id, name, mobile, etc.) |
+| `shift` | object | Work shift resource |
+| `scheduled_date` | string | Scheduled date (Jalali Y/m/d in response) |
 | `status` | string | Status: `scheduled`, `completed`, `missed`, `cancelled` |
-| `created_at` | string | ISO 8601 timestamp |
-| `updated_at` | string | ISO 8601 timestamp |
+| `created_at` | string | Jalali date (Y/m/d) |
 
 ---
 
-### Create Shift Schedule
+### Create Shift Schedule(s)
 
-Assign a work shift to a labour for a specific date.
+Assign a work shift to a **user** for one or more dates. Can create multiple schedules in one request.
 
-**Endpoint:** `POST /shift-schedules`
+**Endpoint:** `POST /api/shift-schedules`
 
 **Authentication:** Required
 
 **Request Body:**
 ```json
 {
-  "labour_id": 1,
+  "user_id": 1,
   "shift_id": 1,
-  "scheduled_date": "2024-01-15"
+  "scheduled_dates": ["1402/11/01", "1402/11/02"]
 }
 ```
 
@@ -597,47 +596,26 @@ Assign a work shift to a labour for a specific date.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `labour_id` | integer | Yes | Labour ID (must exist) |
+| `user_id` | integer | Yes | User ID (must exist) |
 | `shift_id` | integer | Yes | Work Shift ID (must exist) |
-| `scheduled_date` | string | Yes | Date in YYYY-MM-DD format |
+| `scheduled_dates` | array | Yes | Array of **Shamsi (Jalali)** date strings |
 
 **Response:**
 
-**Success (201 Created):**
-```json
-{
-  "data": {
-    "id": 1,
-    "labour": {
-      "id": 1,
-      "fname": "John",
-      "lname": "Doe",
-      "full_name": "John Doe"
-    },
-    "shift": {
-      "id": 1,
-      "name": "Morning Shift",
-      "start_time": "08:00",
-      "end_time": "16:00",
-      "work_hours": 8.00
-    },
-    "scheduled_date": "2024-01-15",
-    "status": "scheduled",
-    "created_at": "2024-01-01T00:00:00Z",
-    "updated_at": "2024-01-01T00:00:00Z"
-  }
-}
-```
+**Success (200 OK):** Returns a **collection** of created schedule resources (one per date in `scheduled_dates`).
 
 **Error Responses:**
 
-- `400 Bad Request` - Labour must be shift-based to assign shifts
-- `400 Bad Request` - Shift overlaps with existing schedule
+- `400 Bad Request` — `{"error": "User must have attendance tracking enabled"}`
+- `400 Bad Request` — `{"error": "User must be shift-based to assign shifts"}`
+- `400 Bad Request` — `{"error": "User and shift must belong to the same farm"}`
+- `400 Bad Request` — `{"error": "Shift overlaps with existing schedule"}`
 
 **Notes:**
-- Only labours with `work_type` = `shift_based` can be assigned shifts
-- Overlapping shifts on the same date are not allowed
-- Status defaults to `scheduled`
+- User must have `AttendanceTracking` with `enabled = true` and `work_type = shift_based`
+- User's attendance farm and shift's farm must match
+- Overlapping shifts on the same date for the same user are not allowed
+- `scheduled_dates` use **Shamsi (Jalali)** date format
 
 ---
 
@@ -645,7 +623,7 @@ Assign a work shift to a labour for a specific date.
 
 Get a specific shift schedule.
 
-**Endpoint:** `GET /shift-schedules/{shift_schedule}`
+**Endpoint:** `GET /api/shift-schedules/{shift_schedule}`
 
 **Authentication:** Required
 
@@ -662,23 +640,11 @@ Get a specific shift schedule.
 {
   "data": {
     "id": 1,
-    "labour": {
-      "id": 1,
-      "fname": "John",
-      "lname": "Doe",
-      "full_name": "John Doe"
-    },
-    "shift": {
-      "id": 1,
-      "name": "Morning Shift",
-      "start_time": "08:00",
-      "end_time": "16:00",
-      "work_hours": 8.00
-    },
-    "scheduled_date": "2024-01-15",
+    "user": { "id": 1, "name": "John Doe", ... },
+    "shift": { "id": 1, "name": "Morning Shift", "start_time": "08:00", "end_time": "16:00", "work_hours": 8.00, ... },
+    "scheduled_date": "1402/11/25",
     "status": "scheduled",
-    "created_at": "2024-01-01T00:00:00Z",
-    "updated_at": "2024-01-01T00:00:00Z"
+    "created_at": "1402/10/01"
   }
 }
 ```
@@ -689,7 +655,7 @@ Get a specific shift schedule.
 
 Update a shift schedule.
 
-**Endpoint:** `PUT /shift-schedules/{shift_schedule}` or `PATCH /shift-schedules/{shift_schedule}`
+**Endpoint:** `PUT /api/shift-schedules/{shift_schedule}` or `PATCH /api/shift-schedules/{shift_schedule}`
 
 **Authentication:** Required
 
@@ -712,8 +678,8 @@ Update a shift schedule.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `shift_id` | integer | No | Work Shift ID (must exist) |
-| `scheduled_date` | string | No | Date in YYYY-MM-DD format |
+| `shift_id` | integer | No | Work Shift ID (must exist; must belong to same farm as user) |
+| `scheduled_date` | string | No | Date (Y-m-d) |
 | `status` | string | No | Status: `scheduled`, `completed`, `missed`, `cancelled` |
 
 **Response:**
@@ -723,23 +689,11 @@ Update a shift schedule.
 {
   "data": {
     "id": 1,
-    "labour": {
-      "id": 1,
-      "fname": "John",
-      "lname": "Doe",
-      "full_name": "John Doe"
-    },
-    "shift": {
-      "id": 2,
-      "name": "Evening Shift",
-      "start_time": "16:00",
-      "end_time": "00:00",
-      "work_hours": 8.00
-    },
-    "scheduled_date": "2024-01-16",
+    "user": { "id": 1, "name": "John Doe", ... },
+    "shift": { "id": 2, "name": "Evening Shift", "start_time": "16:00", "end_time": "00:00", "work_hours": 8.00, ... },
+    "scheduled_date": "1402/11/26",
     "status": "completed",
-    "created_at": "2024-01-01T00:00:00Z",
-    "updated_at": "2024-01-15T10:30:00Z"
+    "created_at": "1402/10/01"
   }
 }
 ```
@@ -750,7 +704,7 @@ Update a shift schedule.
 
 Delete a shift schedule.
 
-**Endpoint:** `DELETE /shift-schedules/{shift_schedule}`
+**Endpoint:** `DELETE /api/shift-schedules/{shift_schedule}`
 
 **Authentication:** Required
 
@@ -766,13 +720,13 @@ Delete a shift schedule.
 
 ---
 
-## Labour Daily Reports
+## Daily Reports
 
 ### List Daily Reports
 
-Get a list of labour daily reports (inbox view).
+Get a list of **user** daily reports (inbox view). Default filter is `status=pending`.
 
-**Endpoint:** `GET /labour-daily-reports`
+**Endpoint:** `GET /api/attendance/daily-reports`
 
 **Authentication:** Required
 
@@ -782,8 +736,8 @@ Get a list of labour daily reports (inbox view).
 |-----------|------|----------|-------------|
 | `from_date` | string | No | Filter from date (YYYY-MM-DD) |
 | `to_date` | string | No | Filter to date (YYYY-MM-DD) |
-| `labour_id` | integer | No | Filter by labour ID |
-| `status` | string | No | Filter by status: `pending`, `approved`, `rejected` |
+| `user_id` | integer | No | Filter by user ID |
+| `status` | string | No | Filter by status: `pending`, `approved`, `rejected` (default list is `pending` only) |
 
 **Response:**
 
@@ -793,11 +747,16 @@ Get a list of labour daily reports (inbox view).
   "data": [
     {
       "id": 1,
-      "labour": {
+      "user": {
         "id": 1,
-        "fname": "John",
-        "lname": "Doe",
-        "full_name": "John Doe"
+        "name": "John Doe",
+        "mobile": "09123456789",
+        "username": "john",
+        "is_active": true,
+        "last_activity_at": "1402/11/25 14:30:00",
+        "role": "worker",
+        "attendance_tracking": { ... },
+        "can": { ... }
       },
       "date": "2024-01-15",
       "scheduled_hours": 8.00,
@@ -838,7 +797,7 @@ Get a list of labour daily reports (inbox view).
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | integer | Report ID |
-| `labour` | object | Labour information |
+| `user` | object | User resource |
 | `date` | string | Report date in YYYY-MM-DD format |
 | `scheduled_hours` | decimal | Scheduled work hours |
 | `actual_work_hours` | decimal | Actual work hours worked |
@@ -865,7 +824,7 @@ Get a list of labour daily reports (inbox view).
 
 Get a specific daily report.
 
-**Endpoint:** `GET /labour-daily-reports/{labourDailyReport}`
+**Endpoint:** `GET /api/attendance/daily-reports/{attendanceDailyReport}`
 
 **Authentication:** Required
 
@@ -873,7 +832,7 @@ Get a specific daily report.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `labourDailyReport` | integer | Yes | Labour Daily Report ID |
+| `attendanceDailyReport` | integer | Yes | Attendance Daily Report ID |
 
 **Response:**
 
@@ -882,12 +841,7 @@ Get a specific daily report.
 {
   "data": {
     "id": 1,
-    "labour": {
-      "id": 1,
-      "fname": "John",
-      "lname": "Doe",
-      "full_name": "John Doe"
-    },
+    "user": { "id": 1, "name": "John Doe", ... },
     "date": "2024-01-15",
     "scheduled_hours": 8.00,
     "actual_work_hours": 7.50,
@@ -912,7 +866,7 @@ Get a specific daily report.
 
 Update a daily report (admin edits).
 
-**Endpoint:** `PATCH /labour-daily-reports/{labourDailyReport}`
+**Endpoint:** `PATCH /api/attendance/daily-reports/{attendanceDailyReport}`
 
 **Authentication:** Required
 
@@ -920,7 +874,7 @@ Update a daily report (admin edits).
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `labourDailyReport` | integer | Yes | Labour Daily Report ID |
+| `attendanceDailyReport` | integer | Yes | Attendance Daily Report ID |
 
 **Request Body:**
 ```json
@@ -943,45 +897,15 @@ Update a daily report (admin edits).
 
 **Response:**
 
-**Success (200 OK):**
-```json
-{
-  "data": {
-    "id": 1,
-    "labour": {
-      "id": 1,
-      "fname": "John",
-      "lname": "Doe",
-      "full_name": "John Doe"
-    },
-    "date": "2024-01-15",
-    "scheduled_hours": 8.00,
-    "actual_work_hours": 7.50,
-    "overtime_hours": 0.00,
-    "time_outside_zone": 30,
-    "productivity_score": 93.75,
-    "status": "approved",
-    "admin_added_hours": 0.5,
-    "admin_reduced_hours": 0.0,
-    "notes": "Good performance",
-    "approver": {
-      "id": 2,
-      "name": "Admin User"
-    },
-    "approved_at": "2024-01-15T10:30:00Z",
-    "created_at": "2024-01-15T08:00:00Z",
-    "updated_at": "2024-01-15T10:30:00Z"
-  }
-}
-```
+**Success (200 OK):** Same structure as Get Daily Report (with updated fields and loaded `user`, `approver`).
 
 ---
 
 ### Approve Daily Report
 
-Approve a daily report.
+Approve a daily report. Sets status to `approved`, records the authenticated user as approver, and recalculates `actual_work_hours` using `admin_added_hours` and `admin_reduced_hours`.
 
-**Endpoint:** `POST /labour-daily-reports/{labourDailyReport}/approve`
+**Endpoint:** `POST /api/attendance/daily-reports/{attendanceDailyReport}/approve`
 
 **Authentication:** Required
 
@@ -989,7 +913,7 @@ Approve a daily report.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `labourDailyReport` | integer | Yes | Labour Daily Report ID |
+| `attendanceDailyReport` | integer | Yes | Attendance Daily Report ID |
 
 **Response:**
 
@@ -999,12 +923,7 @@ Approve a daily report.
   "message": "Report approved successfully",
   "report": {
     "id": 1,
-    "labour": {
-      "id": 1,
-      "fname": "John",
-      "lname": "Doe",
-      "full_name": "John Doe"
-    },
+    "user": { "id": 1, "name": "John Doe", ... },
     "date": "2024-01-15",
     "scheduled_hours": 8.00,
     "actual_work_hours": 7.50,
@@ -1015,10 +934,7 @@ Approve a daily report.
     "admin_added_hours": null,
     "admin_reduced_hours": null,
     "notes": null,
-    "approver": {
-      "id": 2,
-      "name": "Admin User"
-    },
+    "approver": { "id": 2, "name": "Admin User", ... },
     "approved_at": "2024-01-15T10:30:00Z",
     "created_at": "2024-01-15T08:00:00Z",
     "updated_at": "2024-01-15T10:30:00Z"
@@ -1027,19 +943,18 @@ Approve a daily report.
 ```
 
 **Notes:**
-- Sets status to `approved`
-- Records approver and approval timestamp
-- Uses authenticated user as approver
+- Sets status to `approved` and records authenticated user as approver
+- Recalculates `actual_work_hours` from base + admin_added_hours - admin_reduced_hours
 
 ---
 
-## Labour Payroll
+## Payroll
 
 ### Generate Payroll
 
 Generate payroll reports for a date range. This queues a background job to process payroll calculations.
 
-**Endpoint:** `POST /labour-payrolls/generate`
+**Endpoint:** `POST /api/attendance/payrolls/generate`
 
 **Authentication:** Required
 
@@ -1048,7 +963,7 @@ Generate payroll reports for a date range. This queues a background job to proce
 {
   "from_date": "2024-01-01",
   "to_date": "2024-01-31",
-  "labour_id": 1
+  "user_id": 1
 }
 ```
 
@@ -1058,7 +973,7 @@ Generate payroll reports for a date range. This queues a background job to proce
 |-----------|------|----------|-------------|
 | `from_date` | string | Yes | Start date in YYYY-MM-DD format |
 | `to_date` | string | Yes | End date in YYYY-MM-DD format (must be >= from_date) |
-| `labour_id` | integer | No | Specific labour ID (optional, generates for all if omitted) |
+| `user_id` | integer | No | Specific user ID (optional; generates for all eligible users if omitted) |
 
 **Response:**
 
@@ -1071,11 +986,11 @@ Generate payroll reports for a date range. This queues a background job to proce
 
 **Error Responses:**
 
-- `422 Unprocessable Entity` - Validation errors (invalid dates, date range issues)
+- `422 Unprocessable Entity` — Validation errors (invalid dates, date range)
 
 **Notes:**
-- Payroll generation runs asynchronously in a background job
-- Monthly payrolls are created for each labour in the date range
+- Payroll generation runs asynchronously (`GenerateMonthlyPayrollJob`)
+- Monthly payrolls are created for each user in the date range (or the specified user)
 - Calculations include base wages, overtime, additions, and deductions
 
 ---
@@ -1084,7 +999,7 @@ Generate payroll reports for a date range. This queues a background job to proce
 
 Get a list of monthly payroll reports.
 
-**Endpoint:** `GET /labour-payrolls`
+**Endpoint:** `GET /api/attendance/payrolls`
 
 **Authentication:** Required
 
@@ -1094,7 +1009,7 @@ Get a list of monthly payroll reports.
 |-----------|------|----------|-------------|
 | `from_date` | string | No | Filter from creation date (YYYY-MM-DD) |
 | `to_date` | string | No | Filter to creation date (YYYY-MM-DD) |
-| `labour_id` | integer | No | Filter by labour ID |
+| `user_id` | integer | No | Filter by user ID |
 | `month` | integer | No | Filter by month (1-12) |
 | `year` | integer | No | Filter by year (4 digits) |
 
@@ -1106,12 +1021,7 @@ Get a list of monthly payroll reports.
   "data": [
     {
       "id": 1,
-      "labour": {
-        "id": 1,
-        "fname": "John",
-        "lname": "Doe",
-        "full_name": "John Doe"
-      },
+      "user": { "id": 1, "name": "John Doe", ... },
       "month": 1,
       "year": 2024,
       "total_work_hours": 160.00,
@@ -1150,7 +1060,7 @@ Get a list of monthly payroll reports.
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | integer | Payroll ID |
-| `labour` | object | Labour information |
+| `user` | object | User resource |
 | `month` | integer | Month (1-12) |
 | `year` | integer | Year (4 digits) |
 | `total_work_hours` | decimal | Total hours worked |
@@ -1175,7 +1085,7 @@ Get a list of monthly payroll reports.
 
 Get a specific monthly payroll report.
 
-**Endpoint:** `GET /labour-payrolls/{labourMonthlyPayroll}`
+**Endpoint:** `GET /api/attendance/payrolls/{attendanceMonthlyPayroll}`
 
 **Authentication:** Required
 
@@ -1183,7 +1093,7 @@ Get a specific monthly payroll report.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `labourMonthlyPayroll` | integer | Yes | Labour Monthly Payroll ID |
+| `attendanceMonthlyPayroll` | integer | Yes | Attendance Monthly Payroll ID |
 
 **Response:**
 
@@ -1192,12 +1102,7 @@ Get a specific monthly payroll report.
 {
   "data": {
     "id": 1,
-    "labour": {
-      "id": 1,
-      "fname": "John",
-      "lname": "Doe",
-      "full_name": "John Doe"
-    },
+    "user": { "id": 1, "name": "John Doe", ... },
     "month": 1,
     "year": 2024,
     "total_work_hours": 160.00,
@@ -1217,15 +1122,15 @@ Get a specific monthly payroll report.
 
 ---
 
-## Human Resources Map
+## Dashboard Active Users Widget
 
-### Get Active Labours for HR Map
+### Get Active Users for Dashboard Widget
 
-Get active labours with GPS data formatted for map display in HR dashboard.
+Returns a compact list of active users (with attendance tracking for the farm) for dashboard widgets: id, name, entry time, and working hours. Uses the same underlying service as [Get Active Users for Farm](#get-active-users-for-farm) but with a different response shape (no `status` / `entrance_time` / `total_work_duration`; instead `entry_time` and `working_hours`).
 
-**Endpoint:** `GET /farms/{farm}/hr/active-labours`
+**Endpoint:** `GET /api/farms/{farm}/dashboard/active-labours`
 
-**Authentication:** Required
+**Authentication:** Required (must be allowed to view the farm)
 
 **URL Parameters:**
 
@@ -1242,15 +1147,8 @@ Get active labours with GPS data formatted for map display in HR dashboard.
     {
       "id": 1,
       "name": "John Doe",
-      "fname": "John",
-      "lname": "Doe",
-      "coordinate": {
-        "lat": 34.052235,
-        "lng": -118.243683,
-        "altitude": 92.4
-      },
-      "last_update": "2024-01-15T10:30:00Z",
-      "is_in_zone": true
+      "entry_time": "2024-01-15T08:15:00+00:00",
+      "working_hours": 2
     }
   ]
 }
@@ -1258,11 +1156,16 @@ Get active labours with GPS data formatted for map display in HR dashboard.
 
 **Response Fields:**
 
-Same as [Get Active Labours for Farm](#get-active-labours-for-farm) endpoint.
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | integer | User ID |
+| `name` | string | Display name |
+| `entry_time` | string \| null | ISO 8601 timestamp of session entry (if in-progress session exists) |
+| `working_hours` | number | Hours from entry to now (integer; 0 if no entry) |
 
 **Notes:**
-- This endpoint uses the same service as the active labours endpoint but returns data in a resource collection format
-- Optimized for HR map dashboard display
+- For map display with coordinates, use `GET /api/users/{user}/attendance/status` per user to obtain `latest_gps`
+- The deprecated endpoint `GET /api/farms/{farm}/hr/active-labours` is no longer available; use this or the attendance active-users endpoint instead
 
 ---
 
@@ -1309,49 +1212,48 @@ All error responses follow this format:
 
 4. **Overlapping Shifts**
    - Status: `400 Bad Request`
-   - Solution: Ensure shifts don't overlap on the same date for the same labour
+   - Solution: Ensure shifts don't overlap on the same date for the same user
 
-5. **Invalid Labour Type**
+5. **Invalid User / Shift**
    - Status: `400 Bad Request`
-   - Solution: Only shift-based labours can be assigned shifts
+   - Solution: User must have attendance tracking enabled and be shift-based to assign shifts; user and shift must belong to the same farm
 
 ---
 
 ## Data Models
 
-### Labour
+Attendance is **user-based**. Users have an optional `AttendanceTracking` record per farm. Sessions, reports, schedules, and payrolls reference `user_id`.
+
+### Attendance Tracking
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `id` | integer | Labour ID |
+| `id` | integer | Record ID |
+| `user_id` | integer | User ID |
 | `farm_id` | integer | Farm ID |
-| `fname` | string | First name |
-| `lname` | string | Last name |
-| `national_id` | string | National ID |
-| `mobile` | string | Mobile number |
-| `work_type` | string | Work type: `shift_based` or `hourly_based` |
+| `work_type` | string | `shift_based` or `hourly_based` |
 | `work_days` | array | Array of work days |
 | `work_hours` | decimal | Work hours |
 | `start_work_time` | time | Start work time |
 | `end_work_time` | time | End work time |
-| `monthly_salary` | decimal | Monthly salary |
 | `hourly_wage` | decimal | Hourly wage |
 | `overtime_hourly_wage` | decimal | Overtime hourly wage |
-| `user_id` | integer | Associated user ID |
-| `is_working` | boolean | Whether labour is currently working |
+| `enabled` | boolean | Whether tracking is enabled |
 
-### Labour Attendance Session
+### Attendance Session
+
+Table: `attendance_sessions`
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | integer | Session ID |
-| `labour_id` | integer | Labour ID |
+| `user_id` | integer | User ID |
 | `date` | date | Session date |
 | `entry_time` | datetime | Entry time |
 | `exit_time` | datetime | Exit time |
 | `total_in_zone_duration` | integer | Total minutes in zone |
 | `total_out_zone_duration` | integer | Total minutes outside zone |
-| `status` | string | Status: `in_progress` or `completed` |
+| `status` | string | `in_progress` or `completed` |
 
 ### Work Shift
 
@@ -1364,41 +1266,47 @@ All error responses follow this format:
 | `end_time` | time | End time (HH:mm) |
 | `work_hours` | decimal | Work hours |
 
-### Labour Shift Schedule
+### Attendance Shift Schedule
+
+Table: `attendance_shift_schedules`
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | integer | Schedule ID |
-| `labour_id` | integer | Labour ID |
+| `user_id` | integer | User ID |
 | `shift_id` | integer | Work Shift ID |
 | `scheduled_date` | date | Scheduled date |
-| `status` | string | Status: `scheduled`, `completed`, `missed`, `cancelled` |
+| `status` | string | `scheduled`, `completed`, `missed`, `cancelled` |
 
-### Labour Daily Report
+### Attendance Daily Report
+
+Table: `attendance_daily_reports`
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | integer | Report ID |
-| `labour_id` | integer | Labour ID |
+| `user_id` | integer | User ID |
 | `date` | date | Report date |
 | `scheduled_hours` | decimal | Scheduled work hours |
 | `actual_work_hours` | decimal | Actual work hours |
 | `overtime_hours` | decimal | Overtime hours |
 | `time_outside_zone` | integer | Minutes outside zone |
 | `productivity_score` | decimal | Productivity score |
-| `status` | string | Status: `pending`, `approved`, `rejected` |
+| `status` | string | `pending`, `approved`, `rejected` |
 | `admin_added_hours` | decimal | Admin added hours |
 | `admin_reduced_hours` | decimal | Admin reduced hours |
-| `notes` | string | Admin notes |
+| `notes` | string | Admin notes (max 300) |
 | `approved_by` | integer | Approver user ID |
 | `approved_at` | datetime | Approval timestamp |
 
-### Labour Monthly Payroll
+### Attendance Monthly Payroll
+
+Table: `attendance_monthly_payrolls`
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | integer | Payroll ID |
-| `labour_id` | integer | Labour ID |
+| `user_id` | integer | User ID |
 | `month` | integer | Month (1-12) |
 | `year` | integer | Year |
 | `total_work_hours` | decimal | Total work hours |
@@ -1425,7 +1333,7 @@ All error responses follow this format:
 ### Shift Scheduling
 
 1. **Overlap Prevention**: Always check for overlapping shifts before creating schedules
-2. **Labour Type**: Verify labour is shift-based before assigning shifts
+2. **User Type**: User must have attendance tracking enabled and `work_type = shift_based` to assign shifts
 3. **Status Management**: Update shift status appropriately (`completed`, `missed`, `cancelled`)
 
 ### Daily Reports
@@ -1454,12 +1362,12 @@ API endpoints may be subject to rate limiting. Check response headers for rate l
 
 ## Webhooks & Events
 
-The system broadcasts the following events:
+The system may broadcast the following events (Laravel broadcasting):
 
-- `LabourStatusChanged`: When labour GPS status changes
-- `LabourAttendanceUpdated`: When attendance session is updated
+- **`UserAttendanceStatusChanged`**: When the user submits a GPS report (payload includes user and GPS data)
+- **`AttendanceUpdated`**: When an attendance session is created or updated by boundary detection (payload includes user and session)
 
-These events can be subscribed to via Laravel's broadcasting system.
+Subscribe via Laravel Echo / broadcasting channels as configured in the application.
 
 ---
 
@@ -1469,7 +1377,9 @@ For API support, please contact the development team or refer to the main projec
 
 ---
 
-**Document Version:** 1.0  
-**Last Updated:** 2024-01-15  
-**API Version:** v1
+**Document Version:** 2.0  
+**Last Updated:** 2025-02-21  
+**API Version:** v1  
+
+**Changelog (v2.0):** Attendance system is now **user-based**. All endpoints use `/api/attendance/` or user/farm paths as listed. Labour-specific paths and `labour_id` have been replaced with **users** and `user_id`. Shift schedule create uses `user_id` and `scheduled_dates` (array of Shamsi dates). Response shapes use `user` instead of `labour`. Added Dashboard Active Users Widget; deprecated HR Map endpoint removed.
 

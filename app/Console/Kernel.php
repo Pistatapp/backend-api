@@ -65,9 +65,6 @@ class Kernel extends ConsoleKernel
 
         // Close stale attendance sessions every hour
         $schedule->job(new CloseAttendanceSessionsJob)->hourly();
-
-        // Prune Telescope entries older than 24 hours
-        $schedule->command('telescope:prune')->daily();
     }
 
     /**
