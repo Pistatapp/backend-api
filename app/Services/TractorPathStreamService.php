@@ -33,7 +33,7 @@ class TractorPathStreamService
      *
      * @var bool
      */
-    private bool $enablePathCorrection = true;
+    private bool $enablePathCorrection = false;
 
     /**
      * Retrieves the tractor movement path for a specific date using GPS data analysis.

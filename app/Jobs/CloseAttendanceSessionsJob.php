@@ -9,7 +9,6 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Log;
 
 class CloseAttendanceSessionsJob implements ShouldQueue
 {
@@ -30,11 +29,6 @@ class CloseAttendanceSessionsJob implements ShouldQueue
                 'exit_time' => $session->updated_at,
                 'status' => 'completed',
             ]);
-
-            Log::info('Closed stale attendance session', [
-                'session_id' => $session->id,
-                'user_id' => $session->user_id,
-            ]);
         }
 
         $previousDaysSessions = AttendanceSession::where('status', 'in_progress')
@@ -46,12 +40,6 @@ class CloseAttendanceSessionsJob implements ShouldQueue
             $session->update([
                 'exit_time' => $endOfDay,
                 'status' => 'completed',
-            ]);
-
-            Log::info('Closed previous day attendance session', [
-                'session_id' => $session->id,
-                'user_id' => $session->user_id,
-                'date' => $session->date->toDateString(),
             ]);
         }
     }

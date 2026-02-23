@@ -37,7 +37,7 @@ class ActiveUserAttendanceService
         return User::whereHas('attendanceTracking', function ($query) use ($farm) {
             $query->where('farm_id', $farm->id)->where('enabled', true);
         })->with([
-            'profile:id,user_id,name',
+            'profile',
             'attendanceGpsData' => function ($query) {
                 $query->orderBy('date_time', 'desc')->limit(1);
             },
@@ -67,10 +67,11 @@ class ActiveUserAttendanceService
 
         return [
             'id' => $user->id,
-            'name' => $user->profile?->name ?? '',
+            'name' => $user->profile->name,
             'status' => $status,
             'entrance_time' => $entranceTime,
             'total_work_duration' => $totalWorkDuration,
+            'image' => $user->profile->media_url,
         ];
     }
 
