@@ -22,8 +22,8 @@ class AttendanceSessionFactory extends Factory
             'date' => $date,
             'entry_time' => $entryTime,
             'exit_time' => $exitTime,
-            'total_in_zone_duration' => $this->faker->numberBetween(400, 480),
-            'total_out_zone_duration' => $this->faker->numberBetween(0, 60),
+            'in_zone_duration' => $this->faker->numberBetween(400, 480),
+            'outside_zone_duration' => $this->faker->numberBetween(0, 60),
             'status' => $this->faker->randomElement(['in_progress', 'completed']),
         ];
     }

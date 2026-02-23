@@ -25,9 +25,6 @@ class AttendanceGpsData extends Model
         'user_id',
         'coordinate',
         'speed',
-        'bearing',
-        'accuracy',
-        'provider',
         'date_time',
     ];
 
@@ -42,8 +39,6 @@ class AttendanceGpsData extends Model
             'coordinate' => 'array',
             'date_time' => 'datetime',
             'speed' => 'decimal:2',
-            'bearing' => 'decimal:2',
-            'accuracy' => 'decimal:2',
         ];
     }
 

@@ -65,13 +65,13 @@ class ActiveUserAttendanceServiceTest extends TestCase
         AttendanceGpsData::factory()->create([
             'user_id' => $user1->id,
             'date_time' => Carbon::now()->subMinutes(5),
-            'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
+            'coordinate' => [35.6895, 51.3895],
         ]);
 
         AttendanceGpsData::factory()->create([
             'user_id' => $user2->id,
             'date_time' => Carbon::now()->subHours(2),
-            'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
+            'coordinate' => [35.6895, 51.3895],
         ]);
 
         $activeUsers = $this->service->getActiveUsers($farm);
@@ -81,8 +81,8 @@ class ActiveUserAttendanceServiceTest extends TestCase
         $this->assertArrayHasKey('id', $activeUsers->first());
         $this->assertArrayHasKey('name', $activeUsers->first());
         $this->assertArrayHasKey('status', $activeUsers->first());
-        $this->assertArrayHasKey('entrance_time', $activeUsers->first());
-        $this->assertArrayHasKey('total_work_duration', $activeUsers->first());
+        $this->assertArrayHasKey('entry_time', $activeUsers->first());
+        $this->assertArrayHasKey('work_duration', $activeUsers->first());
     }
 
     /**
@@ -137,13 +137,13 @@ class ActiveUserAttendanceServiceTest extends TestCase
         AttendanceGpsData::factory()->create([
             'user_id' => $enabledUser->id,
             'date_time' => Carbon::now()->subMinutes(5),
-            'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
+            'coordinate' => [35.6895, 51.3895],
         ]);
 
         AttendanceGpsData::factory()->create([
             'user_id' => $disabledUser->id,
             'date_time' => Carbon::now()->subMinutes(5),
-            'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
+            'coordinate' => [35.6895, 51.3895],
         ]);
 
         $activeUsers = $this->service->getActiveUsers($farm);
@@ -197,7 +197,7 @@ class ActiveUserAttendanceServiceTest extends TestCase
         AttendanceGpsData::factory()->create([
             'user_id' => $user->id,
             'date_time' => Carbon::now()->subMinutes(5),
-            'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
+            'coordinate' => [35.6895, 51.3895],
         ]);
 
         $activeUsers = $this->service->getActiveUsers($farm);
@@ -209,9 +209,9 @@ class ActiveUserAttendanceServiceTest extends TestCase
     }
 
     /**
-     * Test entrance_time calculation
+     * Test entry_time and work_duration from attendance session
      */
-    public function test_entrance_time_calculation(): void
+    public function test_entry_time_and_work_duration_from_attendance_session(): void
     {
         Carbon::setTestNow(Carbon::parse('2024-01-15 10:00:00'));
 
@@ -249,17 +249,24 @@ class ActiveUserAttendanceServiceTest extends TestCase
             'status' => 'scheduled',
         ]);
 
-        // First GPS during shift
+        \App\Models\AttendanceSession::factory()->create([
+            'user_id' => $user->id,
+            'date' => Carbon::today(),
+            'entry_time' => Carbon::parse('2024-01-15 08:30:00'),
+            'in_zone_duration' => 90,
+        ]);
+
         AttendanceGpsData::factory()->create([
             'user_id' => $user->id,
-            'date_time' => Carbon::parse('2024-01-15 08:30:00'),
-            'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
+            'date_time' => Carbon::now()->subMinutes(5),
+            'coordinate' => [35.6895, 51.3895],
         ]);
 
         $activeUsers = $this->service->getActiveUsers($farm);
 
         $this->assertCount(1, $activeUsers);
-        $this->assertEquals('08:30', $activeUsers->first()['entrance_time']);
+        $this->assertEquals('08:30:00', $activeUsers->first()['entry_time']);
+        $this->assertEquals(90, $activeUsers->first()['work_duration']);
 
         Carbon::setTestNow();
     }

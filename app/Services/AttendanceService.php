@@ -9,28 +9,30 @@ use Carbon\Carbon;
 class AttendanceService
 {
     /**
-     * Get or create attendance session for user on a specific date
+     * Get or create attendance session for user on a specific date.
+     * Session is only created when the first GPS point inside the farm boundary is received;
+     * entry_time is set to that GPS time.
      *
      * @param User $user
-     * @param Carbon $date
+     * @param Carbon $dateTime
+     * @param bool $isInBoundary
      * @return AttendanceSession
      */
-    public function getOrCreateSession(User $user, Carbon $date): AttendanceSession
+    public function getOrCreateSession(User $user, Carbon $dateTime, bool $isInBoundary): AttendanceSession
     {
-        $session = AttendanceSession::where('user_id', $user->id)
-            ->whereDate('date', $date)
-            ->first();
+        $entryTime = $isInBoundary ? $dateTime->format('H:i:s') : null;
+        $status = $isInBoundary ? 'in_progress' : 'pending';
 
-        if ($session) {
-            return $session;
-        }
-
-        return AttendanceSession::create([
-            'user_id' => $user->id,
-            'date' => $date->toDateString(),
-            'entry_time' => $date->copy()->startOfDay(),
-            'status' => 'in_progress',
-        ]);
+        return AttendanceSession::firstOrCreate(
+            [
+                'user_id' => $user->id,
+                'date' => $dateTime->toDateString(),
+            ],
+            [
+                'entry_time' => $entryTime,
+                'status' => $status,
+            ]
+        );
     }
 
     /**
@@ -56,10 +58,8 @@ class AttendanceService
      */
     public function closeSession(AttendanceSession $session, ?Carbon $exitTime = null): void
     {
-        $session->update([
-            'exit_time' => $exitTime ?? Carbon::now(),
-            'status' => 'completed',
-        ]);
+        $exitTime = $exitTime ? $exitTime->format('H:i:s') : now()->toTimeString();
+        $session->update(['exit_time' => $exitTime, 'status' => 'completed']);
     }
 
     /**

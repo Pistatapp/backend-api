@@ -42,10 +42,10 @@ class GenerateDailyAttendanceSummaryJob implements ShouldQueue
                     continue;
                 }
 
-                $actualWorkHours = ($session->total_in_zone_duration + $session->total_out_zone_duration) / 60;
+                $actualWorkHours = ($session->in_zone_duration + $session->outside_zone_duration) / 60;
                 $requiredHours = $wageCalculationService->getRequiredHours($user, $this->date);
                 $overtimeHours = max(0, $actualWorkHours - $requiredHours);
-                $timeOutsideZone = $session->total_out_zone_duration;
+                $timeOutsideZone = $session->outside_zone_duration;
                 $productivityScore = $productivityCalculator->calculate($session);
 
                 AttendanceDailyReport::updateOrCreate(

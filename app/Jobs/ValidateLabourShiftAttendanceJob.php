@@ -65,21 +65,12 @@ class ValidateLabourShiftAttendanceJob implements ShouldQueue
             } else {
                 $shiftDurationMinutes = $shiftStart->diffInMinutes($shiftEnd);
                 $requiredPresenceMinutes = $shiftDurationMinutes * 0.5;
+                $timePresent = $this->calculateTimePresent($gpsData, $shiftStart, $shiftEnd);
 
-                $validGpsPoints = $gpsData->filter(function ($point) {
-                    return $point->accuracy && $point->accuracy < 20;
-                });
-
-                if ($validGpsPoints->isEmpty()) {
-                    $this->sendUnreliableGpsNotification($user, $this->shift, $this->date);
+                if ($timePresent < $requiredPresenceMinutes) {
+                    $this->sendInsufficientPresenceNotification($user, $this->shift, $this->date, $timePresent, $requiredPresenceMinutes);
                 } else {
-                    $timePresent = $this->calculateTimePresent($validGpsPoints, $shiftStart, $shiftEnd);
-
-                    if ($timePresent < $requiredPresenceMinutes) {
-                        $this->sendInsufficientPresenceNotification($user, $this->shift, $this->date, $timePresent, $requiredPresenceMinutes);
-                    } else {
-                        $schedule->update(['status' => 'completed']);
-                    }
+                    $schedule->update(['status' => 'completed']);
                 }
             }
         }
@@ -100,15 +91,6 @@ class ValidateLabourShiftAttendanceJob implements ShouldQueue
     private function sendAbsentNotification(User $user, WorkShift $shift, Carbon $date): void
     {
         Log::warning('User absent from shift', [
-            'user_id' => $user->id,
-            'shift_id' => $shift->id,
-            'date' => $date->toDateString(),
-        ]);
-    }
-
-    private function sendUnreliableGpsNotification(User $user, WorkShift $shift, Carbon $date): void
-    {
-        Log::warning('GPS accuracy unreliable', [
             'user_id' => $user->id,
             'shift_id' => $shift->id,
             'date' => $date->toDateString(),

@@ -2,9 +2,9 @@
 
 namespace App\Services;
 
-use App\Models\User;
+use App\Models\AttendanceSession;
 use App\Models\Farm;
-use App\Models\AttendanceGpsData;
+use App\Models\User;
 use Carbon\Carbon;
 
 class ActiveUserAttendanceService
@@ -38,11 +38,17 @@ class ActiveUserAttendanceService
             $query->where('farm_id', $farm->id)->where('enabled', true);
         })->with([
             'profile',
-            'attendanceGpsData' => function ($query) {
-                $query->orderBy('date_time', 'desc')->limit(1);
+            'attendanceTracking' => function ($query) use ($farm) {
+                $query->where('farm_id', $farm->id);
+            },
+            'attendanceGpsData' => function ($query) use ($date) {
+                $query->whereDate('date_time', $date)->orderBy('date_time', 'desc')->limit(1);
             },
             'shiftSchedules' => function ($query) use ($date) {
                 $query->whereDate('scheduled_date', $date)->with('shift');
+            },
+            'attendanceSessions' => function ($query) use ($date) {
+                $query->whereDate('date', $date)->limit(1);
             }
         ])->get();
     }
@@ -61,39 +67,20 @@ class ActiveUserAttendanceService
         $isInZone = $this->isUserInZone($user, $farm, $latestGps?->coordinate);
         $status = $this->calculateStatus($user, $farm, $date, $isInZone);
 
-        $entranceGps = $this->getEntranceGps($user, $date);
-        $entranceTime = $entranceGps ? $entranceGps->date_time->format('H:i') : null;
-        $totalWorkDuration = $this->getTotalWorkDuration($user, $date, $entranceGps);
+        $attendanceSession = $user->attendanceSessions->first();
+        $entryTime = $attendanceSession && $attendanceSession->entry_time
+            ? $attendanceSession->entry_time->format('H:i:s')
+            : '00:00:00';
+        $workDuration = $attendanceSession ? $attendanceSession->in_zone_duration : 0;
 
         return [
             'id' => $user->id,
             'name' => $user->profile->name,
             'status' => $status,
-            'entrance_time' => $entranceTime,
-            'total_work_duration' => $totalWorkDuration,
+            'entry_time' => $entryTime,
+            'work_duration' => $workDuration,
             'image' => $user->profile->media_url,
         ];
-    }
-
-    /**
-     * Get the first GPS point during the scheduled shift
-     *
-     * @param User $user
-     * @param Carbon $date
-     * @return AttendanceGpsData|null
-     */
-    private function getEntranceGps(User $user, Carbon $date): ?AttendanceGpsData
-    {
-        $shiftRange = $this->getShiftTimeRange($user, $date);
-
-        if (! $shiftRange['start'] || ! $shiftRange['end']) {
-            return null;
-        }
-
-        return AttendanceGpsData::where('user_id', $user->id)
-            ->whereBetween('date_time', [$shiftRange['start'], $shiftRange['end']])
-            ->orderBy('date_time', 'asc')
-            ->first();
     }
 
     /**
@@ -101,7 +88,7 @@ class ActiveUserAttendanceService
      *
      * @param User $user
      * @param Farm $farm
-     * @param array|null $coordinate
+     * @param array|null $coordinate [(float)lat, (float)long]
      * @return bool
      */
     public function isUserInZone(User $user, Farm $farm, ?array $coordinate): bool
@@ -114,12 +101,18 @@ class ActiveUserAttendanceService
             return false;
         }
 
-        $point = [$coordinate['lng'], $coordinate['lat']];
+        $lat = $coordinate[0];
+        $lng = $coordinate[1];
+
+        $point = [$lng, $lat];
         return is_point_in_polygon($point, $farm->coordinates);
     }
 
     /**
-     * Calculate attendance status for a user based on shift schedule and location
+     * Calculate attendance status for a user based on work type, schedule and location.
+     *
+     * - Administrative: present/absent during start_work_time–end_work_time by farm boundary; resting outside.
+     * - Shift-based: present/absent during scheduled shift by farm boundary; resting if no shift or outside shift.
      *
      * @param User $user
      * @param Farm $farm
@@ -129,63 +122,79 @@ class ActiveUserAttendanceService
      */
     private function calculateStatus(User $user, Farm $farm, Carbon $date, bool $isInZone): ?string
     {
-        // Get today's shift schedule for the user (already filtered in the query)
-        $shiftSchedule = $user->shiftSchedules->first();
+        $tracking = $user->attendanceTracking;
 
-        // If no shift schedule exists, return null
-        if (! $shiftSchedule || ! $shiftSchedule->shift) {
+        if (! $tracking) {
             return null;
         }
 
-        $shift = $shiftSchedule->shift;
+        $workType = $tracking->work_type;
         $now = Carbon::now();
 
-        // Calculate shift start and end times for the scheduled date
-        $shiftStart = $date->copy()->setTime(
-            $shift->start_time->hour,
-            $shift->start_time->minute,
-            $shift->start_time->second
-        );
-        $shiftEnd = $date->copy()->setTime(
-            $shift->end_time->hour,
-            $shift->end_time->minute,
-            $shift->end_time->second
-        );
-
-        // Handle midnight crossing (e.g., 22:00 - 02:00)
-        if ($shiftEnd->lt($shiftStart)) {
-            $shiftEnd->addDay();
+        if ($workType === 'administrative') {
+            return $this->calculateStatusAdministrative($tracking, $date, $now, $isInZone);
         }
 
-        // Check if current time is within the shift schedule
-        $isWithinShift = $now->gte($shiftStart) && $now->lt($shiftEnd);
+        if ($workType === 'shift_based') {
+            return $this->calculateStatusShiftBased($user, $date, $now, $isInZone);
+        }
 
-        if ($isWithinShift) {
-            // During shift time: present if in zone, absent if not
-            return $isInZone ? 'present' : 'absent';
-        } else {
-            // Outside shift time: resting
+        return null;
+    }
+
+    /**
+     * Status for administrative work: within work time → present/absent by zone; outside → resting.
+     *
+     * @param \App\Models\AttendanceTracking $tracking
+     * @param Carbon $date
+     * @param Carbon $now
+     * @param bool $isInZone
+     * @return string
+     */
+    private function calculateStatusAdministrative($tracking, Carbon $date, Carbon $now, bool $isInZone): string
+    {
+        $startWorkTime = $tracking->start_work_time;
+        $endWorkTime = $tracking->end_work_time;
+
+        if (! $startWorkTime || ! $endWorkTime) {
             return 'resting';
         }
+
+        $timeStr = fn ($t) => $t instanceof \DateTimeInterface ? $t->format('H:i:s') : (string) $t;
+        $workStart = Carbon::parse($date->format('Y-m-d') . ' ' . $timeStr($startWorkTime));
+        $workEnd = Carbon::parse($date->format('Y-m-d') . ' ' . $timeStr($endWorkTime));
+
+        if ($workEnd->lte($workStart)) {
+            $workEnd->addDay();
+        }
+
+        $isWithinWorkTime = $now->gte($workStart) && $now->lt($workEnd);
+
+        if (! $isWithinWorkTime) {
+            return 'resting';
+        }
+
+        return $isInZone ? 'present' : 'absent';
     }
 
     /**
-     * Get shift time range (start and end) for a user's scheduled shift
+     * Status for shift-based work: present/absent during scheduled shift by zone; no shift or outside shift → resting.
      *
      * @param User $user
      * @param Carbon $date
-     * @return array{start: Carbon|null, end: Carbon|null}
+     * @param Carbon $now
+     * @param bool $isInZone
+     * @return string
      */
-    private function getShiftTimeRange(User $user, Carbon $date): array
+    private function calculateStatusShiftBased(User $user, Carbon $date, Carbon $now, bool $isInZone): string
     {
         $shiftSchedule = $user->shiftSchedules->first();
 
         if (! $shiftSchedule || ! $shiftSchedule->shift) {
-            return ['start' => null, 'end' => null];
+            return 'resting';
         }
 
         $shift = $shiftSchedule->shift;
-
         $shiftStart = $date->copy()->setTime(
             $shift->start_time->hour,
             $shift->start_time->minute,
@@ -197,50 +206,81 @@ class ActiveUserAttendanceService
             $shift->end_time->second
         );
 
-        // Handle midnight crossing (e.g., 22:00 - 02:00)
         if ($shiftEnd->lt($shiftStart)) {
             $shiftEnd->addDay();
         }
 
-        return ['start' => $shiftStart, 'end' => $shiftEnd];
+        $isWithinShift = $now->gte($shiftStart) && $now->lt($shiftEnd);
+
+        if (! $isWithinShift) {
+            return 'resting';
+        }
+
+        return $isInZone ? 'present' : 'absent';
     }
 
     /**
-     * Calculate total work duration from entrance time to present (or shift end if shift ended)
+     * Get performance data for the user's attendance session(s) on the specified date.
+     * Farm is the user's current working environment; when null, returns empty collection.
      *
      * @param User $user
+     * @param Farm $farm
      * @param Carbon $date
-     * @param AttendanceGpsData|null $entranceGps First GPS point during shift
-     * @return string|null Duration in "H:i" format or null if no entrance GPS
+     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
      */
-    private function getTotalWorkDuration(User $user, Carbon $date, ?AttendanceGpsData $entranceGps): ?string
+    public function getPerformance(User $user, Farm $farm, Carbon $date)
     {
-        if (! $entranceGps) {
-            return null;
+        $tracking = $user->attendanceTracking()->where('farm_id', $farm->id)->first();
+
+        if (! $tracking) {
+            return response()->json([
+                'success' => false,
+                'message' => __('User does not have attendance tracking enabled for this farm.'),
+            ], 404);
         }
 
-        $shiftRange = $this->getShiftTimeRange($user, $date);
+        $attendanceSession = $user->attendanceSessions()->whereDate('date', $date)->first();
 
-        if (! $shiftRange['start'] || ! $shiftRange['end']) {
-            return null;
+        return $this->buildPerformanceDetails($attendanceSession);
+    }
+
+    /**
+     * Build a single performance row from an attendance session.
+     *
+     * @param AttendanceSession|null $session
+     * @return array<string, mixed>
+     */
+    private function buildPerformanceDetails(?AttendanceSession $session): array
+    {
+        $user = $session->user;
+
+        if (! $session) {
+            return [
+                'id' => $user->id,
+                'name' => $user->profile->name,
+                'image' => $user->profile->media_url,
+                'entry_time' => '00:00:00',
+                'exit_time' => '00:00:00',
+                'required_work_duration' => 0,
+                'extra_work_duration' => 0,
+                'outside_zone_duration' => 0,
+                'efficiency' => 0,
+                'task_based_efficiency' => 0,
+            ];
         }
 
-        $entranceDateTime = $entranceGps->date_time;
-
-        // Use current time if within shift, otherwise use shift end
-        $now = Carbon::now();
-        $endTime = ($now->gte($shiftRange['start']) && $now->lt($shiftRange['end']))
-            ? $now
-            : $shiftRange['end'];
-
-        // Calculate duration in minutes
-        $durationMinutes = $entranceDateTime->diffInMinutes($endTime);
-
-        // Convert to hours and minutes
-        $hours = intval($durationMinutes / 60);
-        $minutes = $durationMinutes % 60;
-
-        return sprintf('%02d:%02d', $hours, $minutes);
+        return [
+            'id' => $user->id,
+            'name' => $user->profile->name,
+            'image' => $user->profile->media_url,
+            'entry_time' => $session->entry_time?->format('H:i:s') ?? '00:00:00',
+            'exit_time' => $session->exit_time?->format('H:i:s') ?? '00:00:00',
+            'required_work_duration' => 0,
+            'extra_work_duration' => 0,
+            'outside_zone_duration' => $session->outside_zone_duration,
+            'efficiency' => $session->efficiency,
+            'task_based_efficiency' => 0,
+        ];
     }
 
 }

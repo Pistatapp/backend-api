@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api\Attendance;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\UserAttendanceStatusResource;
 use App\Models\Farm;
 use App\Models\User;
 use App\Services\ActiveUserAttendanceService;
@@ -32,29 +31,30 @@ class ActiveUserAttendanceController extends Controller
      */
     public function getPath(User $user, Request $request)
     {
-        $date = $request->input('date', Carbon::today()->toDateString());
-        $carbonDate = Carbon::parse($date);
+        $request->validate([
+            'date' => 'required|shamsi_date',
+        ]);
 
-        $path = $this->pathService->getUserPath($user, $carbonDate);
+        $date = jalali_to_carbon($request->date);
+
+        $path = $this->pathService->getUserPath($user, $date);
         return response()->json(['data' => $path]);
     }
 
     /**
-     * Get current attendance status of a user
+     * Get user attendance performance for a specific date.
+     * Uses the user's current working environment (farm).
      */
-    public function getCurrentStatus(User $user)
+    public function getPerformance(User $user, Request $request)
     {
-        $latestPoint = $this->pathService->getLatestPoint($user);
+        $request->validate([
+            'date' => 'required|shamsi_date',
+        ]);
 
-        $user->setRelation('activeAttendanceSession',
-            $user->attendanceSessions()
-                ->whereDate('date', Carbon::today())
-                ->where('status', 'in_progress')
-                ->first()
-        );
+        $date = jalali_to_carbon($request->date);
+        $farm = $user->workingEnvironment();
 
-        $user->setAttribute('latest_gps', $latestPoint);
-
-        return new UserAttendanceStatusResource($user);
+        $performance = $this->activeUserService->getPerformance($user, $farm, $date);
+        return response()->json(['data' => $performance]);
     }
 }

@@ -146,5 +146,7 @@
     "On :date, tractor :tractor_name did not complete the assigned task and did not enter :taskable_type :taskable_name for :operation operation at the scheduled time.": "در تاریخ :date تراکتور :tractor_name وظیفه تعیین شده را انجام نداده و برای عملیات :operation در ساعت تعیین شده وارد :taskable_type :taskable_name نگردیده است.",
     "farm": "مزرعه",
     "plot": "کرت",
-    "area": "منطقه"
+    "area": "منطقه",
+    "Attendance tracking not enabled for this user.": "تعیین وضعیت حضور و غیاب برای این کاربر غیرفعال است.",
+    "User does not have attendance tracking enabled for this farm.": "کاربر دارای تعیین وضعیت حضور و غیاب برای این مزرعه غیرفعال است."
 }

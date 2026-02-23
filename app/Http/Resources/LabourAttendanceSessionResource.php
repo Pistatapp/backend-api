@@ -19,8 +19,8 @@ class LabourAttendanceSessionResource extends JsonResource
             'date' => $this->when($this->date, fn() => $this->date->toDateString()),
             'entry_time' => $this->when($this->entry_time, fn() => $this->entry_time->toIso8601String()),
             'exit_time' => $this->when($this->exit_time, fn() => $this->exit_time->toIso8601String()),
-            'total_in_zone_duration' => $this->total_in_zone_duration ?: 0,
-            'total_out_zone_duration' => $this->total_out_zone_duration ?: 0,
+            'in_zone_duration' => $this->in_zone_duration ?: 0,
+            'outside_zone_duration' => $this->outside_zone_duration ?: 0,
             'status' => $this->status,
         ];
     }

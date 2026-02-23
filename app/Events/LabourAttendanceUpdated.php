@@ -53,8 +53,8 @@ class LabourAttendanceUpdated implements ShouldBroadcast
                 'date' => $this->session->date->toDateString(),
                 'entry_time' => $this->session->entry_time?->toIso8601String(),
                 'exit_time' => $this->session->exit_time?->toIso8601String(),
-                'total_in_zone_duration' => $this->session->total_in_zone_duration,
-                'total_out_zone_duration' => $this->session->total_out_zone_duration,
+                'in_zone_duration' => $this->session->in_zone_duration,
+                'outside_zone_duration' => $this->session->outside_zone_duration,
                 'status' => $this->session->status,
             ],
         ];

@@ -55,7 +55,7 @@ class AttendanceBoundaryDetectionServiceTest extends TestCase
             'enabled' => true,
         ]);
 
-        $coordinate = ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200.5];
+        $coordinate = [35.6895, 51.3895];
         $dateTime = Carbon::now();
 
         $this->service->processGpsPoint($user, $coordinate, $dateTime);
@@ -98,7 +98,7 @@ class AttendanceBoundaryDetectionServiceTest extends TestCase
             'enabled' => true,
         ]);
 
-        $coordinate = ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200.5];
+        $coordinate = [35.6895, 51.3895];
         $dateTime = Carbon::now();
 
         $this->service->processGpsPoint($user, $coordinate, $dateTime);
@@ -108,11 +108,11 @@ class AttendanceBoundaryDetectionServiceTest extends TestCase
             ->first();
 
         $this->assertNotNull($session);
-        $this->assertGreaterThanOrEqual(0, $session->total_in_zone_duration);
+        $this->assertGreaterThanOrEqual(0, $session->in_zone_duration);
     }
 
     /**
-     * Test process GPS point closes session when user exits for >30 minutes.
+     * Test process GPS point closes session when client sends exit=true.
      */
     public function test_process_gps_point_closes_session_when_user_exits_for_long_time(): void
     {
@@ -138,13 +138,13 @@ class AttendanceBoundaryDetectionServiceTest extends TestCase
             'enabled' => true,
         ]);
 
-        $inBoundaryCoordinate = ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200.5];
+        $inBoundaryCoordinate = [35.6895, 51.3895];
         $entryTime = Carbon::now()->subMinutes(35);
         $this->service->processGpsPoint($user, $inBoundaryCoordinate, $entryTime);
 
-        $coordinate = ['lat' => 35.7000, 'lng' => 51.4000, 'altitude' => 1200.5];
+        $coordinate = [35.7000, 51.4000];
         $dateTime = Carbon::now();
-        $this->service->processGpsPoint($user, $coordinate, $dateTime);
+        $this->service->processGpsPoint($user, $coordinate, $dateTime, true);
 
         $session = AttendanceSession::where('user_id', $user->id)
             ->whereDate('date', Carbon::today())
@@ -175,7 +175,7 @@ class AttendanceBoundaryDetectionServiceTest extends TestCase
             'enabled' => true,
         ]);
 
-        $coordinate = ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200.5];
+        $coordinate = [35.6895, 51.3895];
         $dateTime = Carbon::now();
 
         $this->service->processGpsPoint($user, $coordinate, $dateTime);
@@ -210,11 +210,11 @@ class AttendanceBoundaryDetectionServiceTest extends TestCase
             'enabled' => true,
         ]);
 
-        $inBoundaryCoordinate = ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200.5];
+        $inBoundaryCoordinate = [35.6895, 51.3895];
         $entryTime = Carbon::now()->subMinutes(15);
         $this->service->processGpsPoint($user, $inBoundaryCoordinate, $entryTime);
 
-        $coordinate = ['lat' => 35.7000, 'lng' => 51.4000, 'altitude' => 1200.5];
+        $coordinate = [35.7000, 51.4000];
         $dateTime = Carbon::now();
         $this->service->processGpsPoint($user, $coordinate, $dateTime);
 
@@ -235,7 +235,7 @@ class AttendanceBoundaryDetectionServiceTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $coordinate = ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200.5];
+        $coordinate = [35.6895, 51.3895];
         $dateTime = Carbon::now();
 
         $this->service->processGpsPoint($user, $coordinate, $dateTime);

@@ -243,8 +243,8 @@ Get the current attendance status of a user: latest GPS point and today's in-pro
       "date": "2024-01-15",
       "entry_time": "2024-01-15T08:00:00+00:00",
       "exit_time": null,
-      "total_in_zone_duration": 120,
-      "total_out_zone_duration": 30,
+      "in_zone_duration": 120,
+      "outside_zone_duration": 30,
       "status": "in_progress"
     }
   }
@@ -267,8 +267,8 @@ Get the current attendance status of a user: latest GPS point and today's in-pro
 | `date` | string | Date in YYYY-MM-DD format |
 | `entry_time` | string \| null | ISO 8601 timestamp of entry |
 | `exit_time` | string \| null | ISO 8601 timestamp of exit |
-| `total_in_zone_duration` | integer | Total minutes spent in zone |
-| `total_out_zone_duration` | integer | Total minutes spent outside zone |
+| `in_zone_duration` | integer | Total minutes spent in zone |
+| `outside_zone_duration` | integer | Total minutes spent outside zone |
 | `status` | string | `in_progress` or `completed` |
 
 ---
@@ -1251,8 +1251,8 @@ Table: `attendance_sessions`
 | `date` | date | Session date |
 | `entry_time` | datetime | Entry time |
 | `exit_time` | datetime | Exit time |
-| `total_in_zone_duration` | integer | Total minutes in zone |
-| `total_out_zone_duration` | integer | Total minutes outside zone |
+| `in_zone_duration` | integer | Total minutes in zone |
+| `outside_zone_duration` | integer | Total minutes outside zone |
 | `status` | string | `in_progress` or `completed` |
 
 ### Work Shift

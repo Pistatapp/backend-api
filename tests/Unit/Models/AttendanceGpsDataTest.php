@@ -29,7 +29,7 @@ class AttendanceGpsDataTest extends TestCase
      */
     public function test_coordinate_is_cast_to_array(): void
     {
-        $coordinate = ['lat' => 35.6892, 'lng' => 51.3890, 'altitude' => 1200.5];
+        $coordinate = [35.6892, 51.3890];
         $gpsData = AttendanceGpsData::factory()->create(['coordinate' => $coordinate]);
 
         $this->assertIsArray($gpsData->coordinate);
@@ -49,22 +49,16 @@ class AttendanceGpsDataTest extends TestCase
     }
 
     /**
-     * Test that speed, bearing, and accuracy are cast to decimal.
+     * Test that speed is cast to decimal.
      */
-    public function test_numeric_fields_are_cast_to_decimal(): void
+    public function test_speed_is_cast_to_decimal(): void
     {
         $gpsData = AttendanceGpsData::factory()->create([
             'speed' => 5.5,
-            'bearing' => 90.25,
-            'accuracy' => 10.75,
         ]);
 
         $this->assertIsNumeric($gpsData->speed);
-        $this->assertIsNumeric($gpsData->bearing);
-        $this->assertIsNumeric($gpsData->accuracy);
         $this->assertEquals(5.5, $gpsData->speed);
-        $this->assertEquals(90.25, $gpsData->bearing);
-        $this->assertEquals(10.75, $gpsData->accuracy);
     }
 
     /**
@@ -73,23 +67,19 @@ class AttendanceGpsDataTest extends TestCase
     public function test_gps_data_can_be_created(): void
     {
         $user = User::factory()->create();
-        $coordinate = ['lat' => 35.6892, 'lng' => 51.3890, 'altitude' => 1200.5];
+        $coordinate = [35.6892, 51.3890];
         $dateTime = Carbon::now();
 
         $gpsData = AttendanceGpsData::factory()->create([
             'user_id' => $user->id,
             'coordinate' => $coordinate,
             'speed' => 0.0,
-            'bearing' => 0.0,
-            'accuracy' => 5.0,
-            'provider' => 'gps',
             'date_time' => $dateTime,
         ]);
 
         $this->assertDatabaseHas('attendance_gps_data', [
             'id' => $gpsData->id,
             'user_id' => $user->id,
-            'provider' => 'gps',
         ]);
     }
 }

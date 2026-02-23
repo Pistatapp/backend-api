@@ -25,8 +25,8 @@ class AttendanceProductivityCalculatorTest extends TestCase
     public function test_calculate_productivity_score_from_session(): void
     {
         $session = AttendanceSession::factory()->create([
-            'total_in_zone_duration' => 480,
-            'total_out_zone_duration' => 120,
+            'in_zone_duration' => 480,
+            'outside_zone_duration' => 120,
         ]);
 
         $score = $this->calculator->calculate($session);
@@ -41,8 +41,8 @@ class AttendanceProductivityCalculatorTest extends TestCase
     public function test_calculate_returns_100_percent_when_all_time_in_zone(): void
     {
         $session = AttendanceSession::factory()->create([
-            'total_in_zone_duration' => 480,
-            'total_out_zone_duration' => 0,
+            'in_zone_duration' => 480,
+            'outside_zone_duration' => 0,
         ]);
 
         $score = $this->calculator->calculate($session);
@@ -56,8 +56,8 @@ class AttendanceProductivityCalculatorTest extends TestCase
     public function test_calculate_returns_0_percent_when_all_time_out_of_zone(): void
     {
         $session = AttendanceSession::factory()->create([
-            'total_in_zone_duration' => 0,
-            'total_out_zone_duration' => 480,
+            'in_zone_duration' => 0,
+            'outside_zone_duration' => 480,
         ]);
 
         $score = $this->calculator->calculate($session);
@@ -71,8 +71,8 @@ class AttendanceProductivityCalculatorTest extends TestCase
     public function test_calculate_returns_null_when_no_attendance_time(): void
     {
         $session = AttendanceSession::factory()->create([
-            'total_in_zone_duration' => 0,
-            'total_out_zone_duration' => 0,
+            'in_zone_duration' => 0,
+            'outside_zone_duration' => 0,
         ]);
 
         $score = $this->calculator->calculate($session);
@@ -86,8 +86,8 @@ class AttendanceProductivityCalculatorTest extends TestCase
     public function test_calculate_rounds_to_2_decimal_places(): void
     {
         $session = AttendanceSession::factory()->create([
-            'total_in_zone_duration' => 333,
-            'total_out_zone_duration' => 167,
+            'in_zone_duration' => 333,
+            'outside_zone_duration' => 167,
         ]);
 
         $score = $this->calculator->calculate($session);
@@ -122,8 +122,8 @@ class AttendanceProductivityCalculatorTest extends TestCase
     public function test_calculate_handles_fractional_percentages_correctly(): void
     {
         $session = AttendanceSession::factory()->create([
-            'total_in_zone_duration' => 1,
-            'total_out_zone_duration' => 3,
+            'in_zone_duration' => 1,
+            'outside_zone_duration' => 3,
         ]);
 
         $score = $this->calculator->calculate($session);

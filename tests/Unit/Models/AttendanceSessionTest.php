@@ -68,8 +68,8 @@ class AttendanceSessionTest extends TestCase
             'date' => $date,
             'entry_time' => $entryTime,
             'exit_time' => $exitTime,
-            'total_in_zone_duration' => 420,
-            'total_out_zone_duration' => 60,
+            'in_zone_duration' => 420,
+            'outside_zone_duration' => 60,
             'status' => 'completed',
         ]);
 
@@ -79,8 +79,8 @@ class AttendanceSessionTest extends TestCase
             'status' => 'completed',
         ]);
 
-        $this->assertEquals(420, $session->total_in_zone_duration);
-        $this->assertEquals(60, $session->total_out_zone_duration);
+        $this->assertEquals(420, $session->in_zone_duration);
+        $this->assertEquals(60, $session->outside_zone_duration);
     }
 
     /**

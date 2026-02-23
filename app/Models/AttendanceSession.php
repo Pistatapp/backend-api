@@ -19,8 +19,9 @@ class AttendanceSession extends Model
         'date',
         'entry_time',
         'exit_time',
-        'total_in_zone_duration',
-        'total_out_zone_duration',
+        'in_zone_duration',
+        'outside_zone_duration',
+        'efficiency',
         'status',
     ];
 
@@ -35,6 +36,7 @@ class AttendanceSession extends Model
             'date' => 'date',
             'entry_time' => 'datetime',
             'exit_time' => 'datetime',
+            'efficiency' => 'decimal:2',
         ];
     }
 

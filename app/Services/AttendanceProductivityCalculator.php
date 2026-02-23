@@ -15,8 +15,8 @@ class AttendanceProductivityCalculator
      */
     public function calculate(AttendanceSession $session): ?float
     {
-        $totalInZone = $session->total_in_zone_duration;
-        $totalOutZone = $session->total_out_zone_duration;
+        $totalInZone = $session->in_zone_duration;
+        $totalOutZone = $session->outside_zone_duration;
         $totalAttendance = $totalInZone + $totalOutZone;
 
         if ($totalAttendance <= 0) {

@@ -28,13 +28,15 @@ class AttendanceServiceTest extends TestCase
     {
         $user = User::factory()->create();
         $date = Carbon::today();
+        $entryTime = $date->copy()->setTime(8, 0, 0);
 
-        $session = $this->service->getOrCreateSession($user, $date);
+        $session = $this->service->getOrCreateSession($user, $date, $entryTime);
 
         $this->assertInstanceOf(AttendanceSession::class, $session);
         $this->assertEquals($user->id, $session->user_id);
         $this->assertEquals($date->toDateString(), $session->date->toDateString());
         $this->assertEquals('in_progress', $session->status);
+        $this->assertEquals($entryTime->format('Y-m-d H:i:s'), $session->entry_time->format('Y-m-d H:i:s'));
     }
 
     /**
@@ -44,6 +46,7 @@ class AttendanceServiceTest extends TestCase
     {
         $user = User::factory()->create();
         $date = Carbon::today();
+        $entryTime = $date->copy()->setTime(8, 0, 0);
 
         $existingSession = AttendanceSession::factory()->create([
             'user_id' => $user->id,
@@ -51,7 +54,7 @@ class AttendanceServiceTest extends TestCase
             'status' => 'completed',
         ]);
 
-        $session = $this->service->getOrCreateSession($user, $date);
+        $session = $this->service->getOrCreateSession($user, $date, $entryTime);
 
         $this->assertEquals($existingSession->id, $session->id);
         $this->assertEquals('completed', $session->status);

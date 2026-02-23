@@ -32,19 +32,19 @@ class AttendancePathServiceTest extends TestCase
         $gpsData1 = AttendanceGpsData::factory()->create([
             'user_id' => $user->id,
             'date_time' => $date->copy()->setTime(8, 0, 0),
-            'coordinate' => ['lat' => 35.6892, 'lng' => 51.3890, 'altitude' => 1200],
+            'coordinate' => [35.6892, 51.3890],
         ]);
 
         $gpsData2 = AttendanceGpsData::factory()->create([
             'user_id' => $user->id,
             'date_time' => $date->copy()->setTime(12, 0, 0),
-            'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
+            'coordinate' => [35.6895, 51.3895],
         ]);
 
         AttendanceGpsData::factory()->create([
             'user_id' => $user->id,
             'date_time' => $date->copy()->addDay()->setTime(8, 0, 0),
-            'coordinate' => ['lat' => 35.6892, 'lng' => 51.3890, 'altitude' => 1200],
+            'coordinate' => [35.6892, 51.3890],
         ]);
 
         $path = $this->service->getUserPath($user, $date);
@@ -78,19 +78,19 @@ class AttendancePathServiceTest extends TestCase
         $gpsData3 = AttendanceGpsData::factory()->create([
             'user_id' => $user->id,
             'date_time' => $date->copy()->setTime(16, 0, 0),
-            'coordinate' => ['lat' => 35.6900, 'lng' => 51.3900, 'altitude' => 1200],
+            'coordinate' => [35.6900, 51.3900],
         ]);
 
         $gpsData1 = AttendanceGpsData::factory()->create([
             'user_id' => $user->id,
             'date_time' => $date->copy()->setTime(8, 0, 0),
-            'coordinate' => ['lat' => 35.6892, 'lng' => 51.3890, 'altitude' => 1200],
+            'coordinate' => [35.6892, 51.3890],
         ]);
 
         $gpsData2 = AttendanceGpsData::factory()->create([
             'user_id' => $user->id,
             'date_time' => $date->copy()->setTime(12, 0, 0),
-            'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
+            'coordinate' => [35.6895, 51.3895],
         ]);
 
         $path = $this->service->getUserPath($user, $date);
@@ -111,11 +111,8 @@ class AttendancePathServiceTest extends TestCase
         $gpsData = AttendanceGpsData::factory()->create([
             'user_id' => $user->id,
             'date_time' => $date->copy()->setTime(8, 0, 0),
-            'coordinate' => ['lat' => 35.6892, 'lng' => 51.3890, 'altitude' => 1200],
+            'coordinate' => [35.6892, 51.3890],
             'speed' => 5.5,
-            'bearing' => 90.25,
-            'accuracy' => 10.75,
-            'provider' => 'gps',
         ]);
 
         $path = $this->service->getUserPath($user, $date);
@@ -124,12 +121,8 @@ class AttendancePathServiceTest extends TestCase
         $this->assertArrayHasKey('id', $point);
         $this->assertArrayHasKey('coordinate', $point);
         $this->assertArrayHasKey('speed', $point);
-        $this->assertArrayHasKey('bearing', $point);
-        $this->assertArrayHasKey('accuracy', $point);
-        $this->assertArrayHasKey('provider', $point);
         $this->assertArrayHasKey('date_time', $point);
         $this->assertEquals($gpsData->id, $point['id']);
-        $this->assertEquals('gps', $point['provider']);
     }
 
     /**
@@ -142,13 +135,13 @@ class AttendancePathServiceTest extends TestCase
         $oldGpsData = AttendanceGpsData::factory()->create([
             'user_id' => $user->id,
             'date_time' => Carbon::now()->subHours(2),
-            'coordinate' => ['lat' => 35.6892, 'lng' => 51.3890, 'altitude' => 1200],
+            'coordinate' => [35.6892, 51.3890],
         ]);
 
         $latestGpsData = AttendanceGpsData::factory()->create([
             'user_id' => $user->id,
             'date_time' => Carbon::now()->subMinutes(5),
-            'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
+            'coordinate' => [35.6895, 51.3895],
         ]);
 
         $latestPoint = $this->service->getLatestPoint($user);

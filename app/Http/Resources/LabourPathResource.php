@@ -18,9 +18,6 @@ class LabourPathResource extends JsonResource
             'id' => $this->id,
             'coordinate' => $this->coordinate,
             'speed' => $this->speed,
-            'bearing' => $this->bearing,
-            'accuracy' => $this->accuracy,
-            'provider' => $this->provider,
             'date_time' => $this->date_time,
         ];
     }

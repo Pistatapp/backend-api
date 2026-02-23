@@ -3,6 +3,7 @@
 namespace Tests\Feature\Attendance;
 
 use App\Models\AttendanceGpsData;
+use App\Models\AttendanceSession;
 use App\Models\AttendanceShiftSchedule;
 use App\Models\AttendanceTracking;
 use App\Models\Farm;
@@ -65,7 +66,7 @@ class ActiveUserAttendanceServiceTest extends TestCase
         AttendanceGpsData::factory()->create([
             'user_id' => $activeUser->id,
             'date_time' => Carbon::now()->subMinutes(5),
-            'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
+            'coordinate' => [35.6895, 51.3895],
         ]);
 
         $response = $this->actingAs($this->user, 'sanctum')
@@ -74,7 +75,7 @@ class ActiveUserAttendanceServiceTest extends TestCase
         $response->assertStatus(200);
         $response->assertJsonStructure([
             'data' => [
-                '*' => ['id', 'name', 'status', 'entrance_time', 'total_work_duration']
+                '*' => ['id', 'name', 'status', 'entry_time', 'work_duration']
             ]
         ]);
     }
@@ -111,13 +112,13 @@ class ActiveUserAttendanceServiceTest extends TestCase
         AttendanceGpsData::factory()->create([
             'user_id' => $enabledUser->id,
             'date_time' => Carbon::now()->subMinutes(5),
-            'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
+            'coordinate' => [35.6895, 51.3895],
         ]);
 
         AttendanceGpsData::factory()->create([
             'user_id' => $disabledUser->id,
             'date_time' => Carbon::now()->subMinutes(5),
-            'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
+            'coordinate' => [35.6895, 51.3895],
         ]);
 
         $response = $this->actingAs($this->user, 'sanctum')
@@ -163,13 +164,13 @@ class ActiveUserAttendanceServiceTest extends TestCase
         AttendanceGpsData::factory()->create([
             'user_id' => $userInFarm->id,
             'date_time' => Carbon::now()->subMinutes(5),
-            'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
+            'coordinate' => [35.6895, 51.3895],
         ]);
 
         AttendanceGpsData::factory()->create([
             'user_id' => $userInOtherFarm->id,
             'date_time' => Carbon::now()->subMinutes(5),
-            'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
+            'coordinate' => [35.6895, 51.3895],
         ]);
 
         $response = $this->actingAs($this->user, 'sanctum')
@@ -239,7 +240,7 @@ class ActiveUserAttendanceServiceTest extends TestCase
         AttendanceGpsData::factory()->create([
             'user_id' => $activeUser->id,
             'date_time' => Carbon::now()->subMinutes(5),
-            'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
+            'coordinate' => [35.6895, 51.3895],
         ]);
 
         $response = $this->actingAs($this->user, 'sanctum')
@@ -289,7 +290,7 @@ class ActiveUserAttendanceServiceTest extends TestCase
         AttendanceGpsData::factory()->create([
             'user_id' => $activeUser->id,
             'date_time' => Carbon::now()->subMinutes(5),
-            'coordinate' => ['lat' => 35.7000, 'lng' => 51.4000, 'altitude' => 1200],
+            'coordinate' => [35.7000, 51.4000],
         ]);
 
         $response = $this->actingAs($this->user, 'sanctum')
@@ -338,7 +339,7 @@ class ActiveUserAttendanceServiceTest extends TestCase
         AttendanceGpsData::factory()->create([
             'user_id' => $activeUser->id,
             'date_time' => Carbon::now()->subMinutes(5),
-            'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
+            'coordinate' => [35.6895, 51.3895],
         ]);
 
         $response = $this->actingAs($this->user, 'sanctum')
@@ -353,9 +354,9 @@ class ActiveUserAttendanceServiceTest extends TestCase
     }
 
     /**
-     * Test status is null when user has no shift schedule
+     * Test status is resting when shift_based user has no shift schedule for the date
      */
-    public function test_status_is_null_when_user_has_no_shift_schedule(): void
+    public function test_status_is_resting_when_shift_based_user_has_no_shift_schedule(): void
     {
         $activeUser = User::factory()->create();
         $activeUser->profile()->create(['name' => 'No Schedule User']);
@@ -372,7 +373,7 @@ class ActiveUserAttendanceServiceTest extends TestCase
         AttendanceGpsData::factory()->create([
             'user_id' => $activeUser->id,
             'date_time' => Carbon::now()->subMinutes(5),
-            'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
+            'coordinate' => [35.6895, 51.3895],
         ]);
 
         $response = $this->actingAs($this->user, 'sanctum')
@@ -381,15 +382,15 @@ class ActiveUserAttendanceServiceTest extends TestCase
         $response->assertStatus(200);
         $data = $response->json('data');
         $this->assertCount(1, $data);
-        $this->assertNull($data[0]['status']);
-        $this->assertNull($data[0]['entrance_time']);
-        $this->assertNull($data[0]['total_work_duration']);
+        $this->assertEquals('resting', $data[0]['status']);
+        $this->assertEquals('00:00:00', $data[0]['entry_time']);
+        $this->assertEquals(0, $data[0]['work_duration']);
     }
 
     /**
-     * Test entrance_time is calculated correctly from first GPS during shift
+     * Test entry_time and work_duration come from attendance session
      */
-    public function test_entrance_time_is_calculated_from_first_gps_during_shift(): void
+    public function test_entry_time_and_work_duration_from_attendance_session(): void
     {
         Carbon::setTestNow(Carbon::parse('2024-01-15 10:00:00'));
 
@@ -418,26 +419,17 @@ class ActiveUserAttendanceServiceTest extends TestCase
             'status' => 'scheduled',
         ]);
 
-        // First GPS during shift (entrance)
-        $entranceTime = Carbon::parse('2024-01-15 08:30:00');
-        AttendanceGpsData::factory()->create([
+        AttendanceSession::factory()->create([
             'user_id' => $activeUser->id,
-            'date_time' => $entranceTime,
-            'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
+            'date' => Carbon::today(),
+            'entry_time' => Carbon::parse('2024-01-15 08:30:00'),
+            'in_zone_duration' => 90,
         ]);
 
-        // Later GPS during shift
-        AttendanceGpsData::factory()->create([
-            'user_id' => $activeUser->id,
-            'date_time' => Carbon::parse('2024-01-15 09:00:00'),
-            'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
-        ]);
-
-        // Latest GPS
         AttendanceGpsData::factory()->create([
             'user_id' => $activeUser->id,
             'date_time' => Carbon::now()->subMinutes(5),
-            'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
+            'coordinate' => [35.6895, 51.3895],
         ]);
 
         $response = $this->actingAs($this->user, 'sanctum')
@@ -446,20 +438,21 @@ class ActiveUserAttendanceServiceTest extends TestCase
         $response->assertStatus(200);
         $data = $response->json('data');
         $this->assertCount(1, $data);
-        $this->assertEquals('08:30', $data[0]['entrance_time']);
+        $this->assertEquals('08:30:00', $data[0]['entry_time']);
+        $this->assertEquals(90, $data[0]['work_duration']);
 
         Carbon::setTestNow();
     }
 
     /**
-     * Test entrance_time is null when no GPS data during shift
+     * Test entry_time is 00:00:00 and work_duration 0 when no attendance session
      */
-    public function test_entrance_time_is_null_when_no_gps_during_shift(): void
+    public function test_entry_time_and_work_duration_default_when_no_session(): void
     {
         Carbon::setTestNow(Carbon::parse('2024-01-15 10:00:00'));
 
         $activeUser = User::factory()->create();
-        $activeUser->profile()->create(['name' => 'No GPS User']);
+        $activeUser->profile()->create(['name' => 'No Session User']);
 
         AttendanceTracking::create([
             'user_id' => $activeUser->id,
@@ -483,12 +476,7 @@ class ActiveUserAttendanceServiceTest extends TestCase
             'status' => 'scheduled',
         ]);
 
-        // GPS data before shift
-        AttendanceGpsData::factory()->create([
-            'user_id' => $activeUser->id,
-            'date_time' => Carbon::parse('2024-01-15 07:00:00'),
-            'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
-        ]);
+        // No AttendanceSession for this user/date
 
         $response = $this->actingAs($this->user, 'sanctum')
             ->getJson("/api/farms/{$this->farm->id}/attendance/active-users");
@@ -496,18 +484,18 @@ class ActiveUserAttendanceServiceTest extends TestCase
         $response->assertStatus(200);
         $data = $response->json('data');
         $this->assertCount(1, $data);
-        $this->assertNull($data[0]['entrance_time']);
-        $this->assertNull($data[0]['total_work_duration']);
+        $this->assertEquals('00:00:00', $data[0]['entry_time']);
+        $this->assertEquals(0, $data[0]['work_duration']);
 
         Carbon::setTestNow();
     }
 
     /**
-     * Test total_work_duration is calculated correctly during shift
+     * Test work_duration from attendance session during shift
      */
-    public function test_total_work_duration_is_calculated_during_shift(): void
+    public function test_work_duration_from_attendance_session_during_shift(): void
     {
-        Carbon::setTestNow(Carbon::parse('2024-01-15 10:30:00')); // 2.5 hours after entrance
+        Carbon::setTestNow(Carbon::parse('2024-01-15 10:30:00'));
 
         $activeUser = User::factory()->create();
         $activeUser->profile()->create(['name' => 'Duration Test User']);
@@ -534,18 +522,17 @@ class ActiveUserAttendanceServiceTest extends TestCase
             'status' => 'scheduled',
         ]);
 
-        // Entrance at 08:00
-        AttendanceGpsData::factory()->create([
+        AttendanceSession::factory()->create([
             'user_id' => $activeUser->id,
-            'date_time' => Carbon::parse('2024-01-15 08:00:00'),
-            'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
+            'date' => Carbon::today(),
+            'entry_time' => Carbon::parse('2024-01-15 08:00:00'),
+            'in_zone_duration' => 145,
         ]);
 
-        // Latest GPS
         AttendanceGpsData::factory()->create([
             'user_id' => $activeUser->id,
             'date_time' => Carbon::now()->subMinutes(5),
-            'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
+            'coordinate' => [35.6895, 51.3895],
         ]);
 
         $response = $this->actingAs($this->user, 'sanctum')
@@ -554,20 +541,18 @@ class ActiveUserAttendanceServiceTest extends TestCase
         $response->assertStatus(200);
         $data = $response->json('data');
         $this->assertCount(1, $data);
-        $this->assertEquals('08:00', $data[0]['entrance_time']);
-        // Duration should be approximately 02:25 (2 hours 25 minutes from 08:00 to 10:25)
-        $this->assertNotNull($data[0]['total_work_duration']);
-        $this->assertMatchesRegularExpression('/^\d{2}:\d{2}$/', $data[0]['total_work_duration']);
+        $this->assertEquals('08:00:00', $data[0]['entry_time']);
+        $this->assertEquals(145, $data[0]['work_duration']);
 
         Carbon::setTestNow();
     }
 
     /**
-     * Test total_work_duration uses shift end when shift has ended
+     * Test work_duration from attendance session when shift ended
      */
-    public function test_total_work_duration_uses_shift_end_when_shift_ended(): void
+    public function test_work_duration_from_attendance_session_when_shift_ended(): void
     {
-        Carbon::setTestNow(Carbon::parse('2024-01-15 17:00:00')); // After shift ends at 16:00
+        Carbon::setTestNow(Carbon::parse('2024-01-15 17:00:00'));
 
         $activeUser = User::factory()->create();
         $activeUser->profile()->create(['name' => 'Shift Ended User']);
@@ -594,18 +579,17 @@ class ActiveUserAttendanceServiceTest extends TestCase
             'status' => 'scheduled',
         ]);
 
-        // Entrance at 08:00
-        AttendanceGpsData::factory()->create([
+        AttendanceSession::factory()->create([
             'user_id' => $activeUser->id,
-            'date_time' => Carbon::parse('2024-01-15 08:00:00'),
-            'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
+            'date' => Carbon::today(),
+            'entry_time' => Carbon::parse('2024-01-15 08:00:00'),
+            'in_zone_duration' => 480,
         ]);
 
-        // Latest GPS
         AttendanceGpsData::factory()->create([
             'user_id' => $activeUser->id,
             'date_time' => Carbon::now()->subMinutes(5),
-            'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
+            'coordinate' => [35.6895, 51.3895],
         ]);
 
         $response = $this->actingAs($this->user, 'sanctum')
@@ -614,9 +598,8 @@ class ActiveUserAttendanceServiceTest extends TestCase
         $response->assertStatus(200);
         $data = $response->json('data');
         $this->assertCount(1, $data);
-        $this->assertEquals('08:00', $data[0]['entrance_time']);
-        // Duration should be 08:00 (8 hours from 08:00 to 16:00)
-        $this->assertEquals('08:00', $data[0]['total_work_duration']);
+        $this->assertEquals('08:00:00', $data[0]['entry_time']);
+        $this->assertEquals(480, $data[0]['work_duration']);
 
         Carbon::setTestNow();
     }
@@ -642,7 +625,7 @@ class ActiveUserAttendanceServiceTest extends TestCase
         AttendanceGpsData::factory()->create([
             'user_id' => $activeUser->id,
             'date_time' => Carbon::now()->subHours(2),
-            'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
+            'coordinate' => [35.6895, 51.3895],
         ]);
 
         $response = $this->actingAs($this->user, 'sanctum')
@@ -691,14 +674,21 @@ class ActiveUserAttendanceServiceTest extends TestCase
         AttendanceGpsData::factory()->create([
             'user_id' => $activeUser->id,
             'date_time' => Carbon::parse('2024-01-15 22:00:00'),
-            'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
+            'coordinate' => [35.6895, 51.3895],
         ]);
 
         // Latest GPS
         AttendanceGpsData::factory()->create([
             'user_id' => $activeUser->id,
             'date_time' => Carbon::now()->subMinutes(5),
-            'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
+            'coordinate' => [35.6895, 51.3895],
+        ]);
+
+        AttendanceSession::factory()->create([
+            'user_id' => $activeUser->id,
+            'date' => Carbon::today(),
+            'entry_time' => Carbon::parse('2024-01-15 22:00:00'),
+            'in_zone_duration' => 120,
         ]);
 
         $response = $this->actingAs($this->user, 'sanctum')
@@ -708,8 +698,8 @@ class ActiveUserAttendanceServiceTest extends TestCase
         $data = $response->json('data');
         $this->assertCount(1, $data);
         $this->assertEquals('present', $data[0]['status']);
-        $this->assertEquals('22:00', $data[0]['entrance_time']);
-        $this->assertNotNull($data[0]['total_work_duration']);
+        $this->assertEquals('22:00:00', $data[0]['entry_time']);
+        $this->assertEquals(120, $data[0]['work_duration']);
 
         Carbon::setTestNow();
     }
@@ -746,7 +736,13 @@ class ActiveUserAttendanceServiceTest extends TestCase
         AttendanceGpsData::factory()->create([
             'user_id' => $presentUser->id,
             'date_time' => Carbon::now()->subMinutes(5),
-            'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
+            'coordinate' => [35.6895, 51.3895],
+        ]);
+        AttendanceSession::factory()->create([
+            'user_id' => $presentUser->id,
+            'date' => Carbon::today(),
+            'entry_time' => Carbon::parse('2024-01-15 08:00:00'),
+            'in_zone_duration' => 120,
         ]);
 
         // Absent user
@@ -768,10 +764,16 @@ class ActiveUserAttendanceServiceTest extends TestCase
         AttendanceGpsData::factory()->create([
             'user_id' => $absentUser->id,
             'date_time' => Carbon::now()->subMinutes(5),
-            'coordinate' => ['lat' => 35.7000, 'lng' => 51.4000, 'altitude' => 1200],
+            'coordinate' => [35.7000, 51.4000],
+        ]);
+        AttendanceSession::factory()->create([
+            'user_id' => $absentUser->id,
+            'date' => Carbon::today(),
+            'entry_time' => Carbon::parse('2024-01-15 08:15:00'),
+            'in_zone_duration' => 30,
         ]);
 
-        // No schedule user
+        // No schedule user (no session)
         $noScheduleUser = User::factory()->create();
         $noScheduleUser->profile()->create(['name' => 'No Schedule User']);
         AttendanceTracking::create([
@@ -785,7 +787,7 @@ class ActiveUserAttendanceServiceTest extends TestCase
         AttendanceGpsData::factory()->create([
             'user_id' => $noScheduleUser->id,
             'date_time' => Carbon::now()->subMinutes(5),
-            'coordinate' => ['lat' => 35.6895, 'lng' => 51.3895, 'altitude' => 1200],
+            'coordinate' => [35.6895, 51.3895],
         ]);
 
         $response = $this->actingAs($this->user, 'sanctum')
@@ -800,8 +802,16 @@ class ActiveUserAttendanceServiceTest extends TestCase
         $noScheduleData = collect($data)->firstWhere('id', $noScheduleUser->id);
 
         $this->assertEquals('present', $presentData['status']);
+        $this->assertEquals('08:00:00', $presentData['entry_time']);
+        $this->assertEquals(120, $presentData['work_duration']);
+
         $this->assertEquals('absent', $absentData['status']);
-        $this->assertNull($noScheduleData['status']);
+        $this->assertEquals('08:15:00', $absentData['entry_time']);
+        $this->assertEquals(30, $absentData['work_duration']);
+
+        $this->assertEquals('resting', $noScheduleData['status']);
+        $this->assertEquals('00:00:00', $noScheduleData['entry_time']);
+        $this->assertEquals(0, $noScheduleData['work_duration']);
 
         Carbon::setTestNow();
     }

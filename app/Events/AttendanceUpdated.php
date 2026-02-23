@@ -29,20 +29,18 @@ class AttendanceUpdated implements ShouldBroadcast
 
     public function broadcastWith(): array
     {
-        $farmId = $this->user->attendanceTracking?->farm_id;
-
         return [
             'user' => [
                 'id' => $this->user->id,
-                'name' => $this->user->profile?->name ?? $this->user->mobile,
+                'name' => $this->user->profile->name,
             ],
             'session' => [
                 'id' => $this->session->id,
                 'date' => $this->session->date->toDateString(),
-                'entry_time' => $this->session->entry_time?->toIso8601String(),
-                'exit_time' => $this->session->exit_time?->toIso8601String(),
-                'total_in_zone_duration' => $this->session->total_in_zone_duration,
-                'total_out_zone_duration' => $this->session->total_out_zone_duration,
+                'entry_time' => $this->session->entry_time?->format('H:i:s'),
+                'exit_time' => $this->session->exit_time?->format('H:i:s'),
+                'in_zone_duration' => $this->session->in_zone_duration,
+                'outside_zone_duration' => $this->session->outside_zone_duration,
                 'status' => $this->session->status,
             ],
         ];
@@ -50,7 +48,7 @@ class AttendanceUpdated implements ShouldBroadcast
 
     public function broadcastOn(): array
     {
-        $farmId = $this->user->attendanceTracking?->farm_id ?? 0;
+        $farmId = $this->user->attendanceTracking->farm_id;
 
         return [
             new Channel('attendance'),

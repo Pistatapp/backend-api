@@ -16,10 +16,8 @@ class UserAttendanceStatusChanged implements ShouldBroadcast
 
     public function __construct(
         public User $user,
-        public array $gpsData
-    ) {
-        //
-    }
+        public array $gpsData,
+    ) {}
 
     public function broadcastAs(): string
     {
@@ -31,16 +29,16 @@ class UserAttendanceStatusChanged implements ShouldBroadcast
         return [
             'user' => [
                 'id' => $this->user->id,
-                'name' => $this->user->profile?->name ?? $this->user->mobile,
+                'name' => $this->user->profile->name,
             ],
-            'coordinate' => $this->gpsData['coordinate'] ?? null,
+            'coordinate' => $this->gpsData['coordinate'],
             'date_time' => now()->toIso8601String(),
         ];
     }
 
     public function broadcastOn(): array
     {
-        $farmId = $this->user->attendanceTracking?->farm_id ?? 0;
+        $farmId = $this->user->attendanceTracking->farm_id;
 
         return [
             new Channel('attendance.status'),

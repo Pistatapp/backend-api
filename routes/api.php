@@ -167,7 +167,7 @@ Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
 
     Route::get('/farms/{farm}/attendance/active-users', [\App\Http\Controllers\Api\Attendance\ActiveUserAttendanceController::class, 'index']);
     Route::get('/users/{user}/attendance/path', [\App\Http\Controllers\Api\Attendance\ActiveUserAttendanceController::class, 'getPath']);
-    Route::get('/users/{user}/attendance/status', [\App\Http\Controllers\Api\Attendance\ActiveUserAttendanceController::class, 'getCurrentStatus']);
+    Route::get('/users/{user}/attendance/performance', [\App\Http\Controllers\Api\Attendance\ActiveUserAttendanceController::class, 'getPerformance']);
 
     // Work Shifts Routes
     Route::apiResource('farms.work-shifts', \App\Http\Controllers\Api\WorkShiftController::class)->shallow();
