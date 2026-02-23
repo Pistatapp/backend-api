@@ -55,17 +55,26 @@ class ProcessGpsData implements ShouldQueue
 
     private function logRawDataToFile(string $deviceImei): void
     {
-        $date = now()->format('Y-m-d');
-        $dir = storage_path('logs/gps-raw/'.$deviceImei);
-        $filename = "{$date}.log";
-        $path = "{$dir}/{$filename}";
+        try {
+            $date = now()->format('Y-m-d');
+            $dir = storage_path('logs/gps-raw/' . $deviceImei);
+            $filename = "{$date}.log";
+            $path = "{$dir}/{$filename}";
 
-        if (!File::isDirectory($dir)) {
-            File::makeDirectory($dir, 0755, true);
+            if (!File::isDirectory($dir)) {
+                File::makeDirectory($dir, 0755, true);
+            }
+
+            $line = '[' . now()->toIso8601String() . '] ' . $this->rawData . PHP_EOL;
+            File::append($path, $line);
+        } catch (\Exception $e) {
+            Log::error('ProcessGpsData: failed to log raw data to file', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'device_imei' => $deviceImei,
+                'raw_data' => $this->rawData,
+            ]);
         }
-
-        $line = '[' . now()->toIso8601String() . '] ' . $this->rawData . PHP_EOL;
-        File::append($path, $line);
     }
 
     private function resolveTractor(string $imei): ?Tractor
