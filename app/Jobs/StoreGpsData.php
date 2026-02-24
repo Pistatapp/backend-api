@@ -45,14 +45,20 @@ class StoreGpsData implements ShouldQueue
         }
     }
 
+    private function getConnection(): \Illuminate\Database\Connection
+    {
+        return DB::connection('mysql_gps');
+    }
+
     private function insertWithDeadlockRetry(array $records, int $batchIndex): void
     {
         $lastException = null;
+        $connection = $this->getConnection();
 
         for ($attempt = 1; $attempt <= self::DEADLOCK_MAX_RETRIES; $attempt++) {
             try {
-                DB::transaction(function () use ($records) {
-                    DB::table('gps_data')->insert($records);
+                $connection->transaction(function () use ($connection, $records) {
+                    $connection->table('gps_data')->insert($records);
                 }, 3);
 
                 return;

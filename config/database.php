@@ -60,8 +60,34 @@ return [
             'engine' => null,
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
-                PDO::ATTR_PERSISTENT => true, // Enable connection pooling
-                PDO::MYSQL_ATTR_USE_BUFFERED_QUERY => false, // For large result sets
+                PDO::ATTR_PERSISTENT => true,
+                PDO::MYSQL_ATTR_USE_BUFFERED_QUERY => false,
+            ]) : [],
+        ],
+
+        'mysql_gps' => [
+            'driver' => 'mysql',
+            'url' => env('DATABASE_URL'),
+            'host' => env('DB_GPS_HOST', env('DB_HOST', '127.0.0.1')),
+            'port' => env('DB_GPS_PORT', env('DB_PORT', '3306')),
+            'database' => env('DB_GPS_DATABASE', env('DB_DATABASE', 'forge')),
+            'username' => env('DB_GPS_USERNAME', env('DB_USERNAME', 'forge')),
+            'password' => env('DB_GPS_PASSWORD', env('DB_PASSWORD', '')),
+            'unix_socket' => env('DB_SOCKET', ''),
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => true,
+            'engine' => null,
+            'pool' => [
+                'min_connections' => env('DB_GPS_POOL_MIN', 2),
+                'max_connections' => env('DB_GPS_POOL_MAX', 20),
+            ],
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+                PDO::ATTR_PERSISTENT => true,
+                PDO::ATTR_EMULATE_PREPARES => true,
             ]) : [],
         ],
 
