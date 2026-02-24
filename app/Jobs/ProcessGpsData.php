@@ -46,7 +46,7 @@ class ProcessGpsData implements ShouldQueue
         StoreGpsData::dispatch($data, $tractor->id);
         BroadcastGpsEvents::dispatch($data, $tractor->id, $deviceImei);
 
-        $this->logRawDataToFile($deviceImei);
+        // $this->logRawDataToFile($deviceImei);
     }
 
     private function logRawDataToFile(string $deviceImei): void
