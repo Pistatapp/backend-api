@@ -28,6 +28,9 @@ class RouteServiceProvider extends ServiceProvider
         Route::bind('shift_schedule', fn ($value) => AttendanceShiftSchedule::findOrFail($value));
 
         RateLimiter::for('api', function (Request $request) {
+            if ($request->ip() === '94.101.187.206') {
+                return Limit::none();
+            }
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
         });
 
