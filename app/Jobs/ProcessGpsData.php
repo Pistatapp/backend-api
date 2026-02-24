@@ -6,9 +6,7 @@ use App\Models\Tractor;
 use App\Services\ParseDataService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 
 class ProcessGpsData implements ShouldQueue
@@ -45,35 +43,73 @@ class ProcessGpsData implements ShouldQueue
             return;
         }
 
-        Bus::chain([
-            new StoreGpsData($data, $tractor->id),
-            new BroadcastGpsEvents($data, $tractor->id, $deviceImei),
-        ])->onQueue('gps-processing')->dispatch();
+        StoreGpsData::dispatch($data, $tractor->id);
+        BroadcastGpsEvents::dispatch($data, $tractor->id, $deviceImei);
 
         $this->logRawDataToFile($deviceImei);
     }
 
     private function logRawDataToFile(string $deviceImei): void
     {
-        try {
-            $date = now()->format('Y-m-d');
-            $dir = storage_path('logs/gps-raw/' . $deviceImei);
-            $filename = "{$date}.log";
-            $path = "{$dir}/{$filename}";
+        $maxRetries = 3;
+        $retryDelay = 10000; // microseconds
 
-            if (!File::isDirectory($dir)) {
-                File::makeDirectory($dir, 0755, true);
+        for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
+            try {
+                $date = now()->format('Y-m-d');
+                $dir = storage_path('logs/gps-raw/' . $deviceImei);
+                $filename = "{$date}.log";
+                $path = "{$dir}/{$filename}";
+
+                if (!is_dir($dir)) {
+                    @mkdir($dir, 0755, true);
+                }
+
+                $line = '[' . now()->toIso8601String() . '] ' . $this->rawData . PHP_EOL;
+
+                $handle = @fopen($path, 'a');
+                if ($handle === false) {
+                    throw new \RuntimeException("Failed to open file: {$path}");
+                }
+
+                try {
+                    if (flock($handle, LOCK_EX | LOCK_NB)) {
+                        fwrite($handle, $line);
+                        fflush($handle);
+                        flock($handle, LOCK_UN);
+                        fclose($handle);
+                        return;
+                    }
+
+                    fclose($handle);
+
+                    if ($attempt < $maxRetries) {
+                        usleep($retryDelay * $attempt);
+                        continue;
+                    }
+
+                    $handle = @fopen($path, 'a');
+                    if ($handle !== false) {
+                        flock($handle, LOCK_EX);
+                        fwrite($handle, $line);
+                        fflush($handle);
+                        flock($handle, LOCK_UN);
+                        fclose($handle);
+                        return;
+                    }
+                } catch (\Throwable $e) {
+                    @fclose($handle);
+                    throw $e;
+                }
+            } catch (\Exception $e) {
+                if ($attempt === $maxRetries) {
+                    Log::warning('ProcessGpsData: failed to log raw data to file after retries', [
+                        'error' => $e->getMessage(),
+                        'device_imei' => $deviceImei,
+                        'attempts' => $attempt,
+                    ]);
+                }
             }
-
-            $line = '[' . now()->toIso8601String() . '] ' . $this->rawData . PHP_EOL;
-            File::append($path, $line);
-        } catch (\Exception $e) {
-            Log::error('ProcessGpsData: failed to log raw data to file', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'device_imei' => $deviceImei,
-                'raw_data' => $this->rawData,
-            ]);
         }
     }
 

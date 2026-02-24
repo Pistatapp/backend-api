@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Database\DeadlockException;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -19,6 +20,9 @@ class StoreGpsData implements ShouldQueue
 
     public array $backoff = [1, 3, 5, 10, 20];
 
+    private const DEADLOCK_MAX_RETRIES = 3;
+    private const DEADLOCK_RETRY_DELAY_MS = 50;
+
     public function __construct(
         public array $data,
         public int $tractorId,
@@ -32,14 +36,78 @@ class StoreGpsData implements ShouldQueue
             return;
         }
 
-        $batchSize = 500;
+        $batchSize = 100;
         $batches = array_chunk($this->data, $batchSize);
 
-        foreach ($batches as $batch) {
+        foreach ($batches as $batchIndex => $batch) {
             $records = $this->prepareBatch($batch);
-
-            DB::table('gps_data')->insert($records);
+            $this->insertWithDeadlockRetry($records, $batchIndex);
         }
+    }
+
+    private function insertWithDeadlockRetry(array $records, int $batchIndex): void
+    {
+        $lastException = null;
+
+        for ($attempt = 1; $attempt <= self::DEADLOCK_MAX_RETRIES; $attempt++) {
+            try {
+                DB::transaction(function () use ($records) {
+                    DB::table('gps_data')->insert($records);
+                }, 3);
+
+                return;
+            } catch (DeadlockException $e) {
+                $lastException = $e;
+                Log::warning('StoreGpsData: deadlock detected, retrying', [
+                    'tractor_id' => $this->tractorId,
+                    'batch_index' => $batchIndex,
+                    'attempt' => $attempt,
+                    'record_count' => count($records),
+                ]);
+
+                if ($attempt < self::DEADLOCK_MAX_RETRIES) {
+                    $jitter = random_int(0, 20);
+                    usleep((self::DEADLOCK_RETRY_DELAY_MS + $jitter) * 1000 * $attempt);
+                }
+            } catch (\PDOException $e) {
+                if ($this->isDeadlockException($e)) {
+                    $lastException = $e;
+                    Log::warning('StoreGpsData: PDO deadlock detected, retrying', [
+                        'tractor_id' => $this->tractorId,
+                        'batch_index' => $batchIndex,
+                        'attempt' => $attempt,
+                        'error_code' => $e->getCode(),
+                    ]);
+
+                    if ($attempt < self::DEADLOCK_MAX_RETRIES) {
+                        $jitter = random_int(0, 20);
+                        usleep((self::DEADLOCK_RETRY_DELAY_MS + $jitter) * 1000 * $attempt);
+                    }
+                    continue;
+                }
+                throw $e;
+            }
+        }
+
+        if ($lastException !== null) {
+            Log::error('StoreGpsData: failed after deadlock retries', [
+                'tractor_id' => $this->tractorId,
+                'batch_index' => $batchIndex,
+                'record_count' => count($records),
+            ]);
+            throw $lastException;
+        }
+    }
+
+    private function isDeadlockException(\PDOException $e): bool
+    {
+        $code = $e->getCode();
+        $message = strtolower($e->getMessage());
+
+        return $code === '40001'
+            || $code === 1213
+            || str_contains($message, 'deadlock')
+            || str_contains($message, 'lock wait timeout');
     }
 
     private function prepareBatch(array $batch): array

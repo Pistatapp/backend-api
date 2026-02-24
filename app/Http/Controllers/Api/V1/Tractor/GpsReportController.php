@@ -17,7 +17,7 @@ class GpsReportController extends Controller
             return response()->json([], 422);
         }
 
-        ProcessGpsData::dispatch($rawData)->afterCommit();
+        ProcessGpsData::dispatch($rawData);
 
         return response()->json([], 200);
     }
