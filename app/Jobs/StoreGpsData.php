@@ -57,7 +57,8 @@ class StoreGpsData implements ShouldQueue
     private function prepareBatch(array $batch): array
     {
         return array_map(function ($item) {
-            $item = json_decode($item, true);
+            Log::info('Preparing batch', ['item' => $item]);
+            $item = (array) $item;
             return array_merge($item, [
                 'tractor_id' => $this->tractorId,
             ]);
