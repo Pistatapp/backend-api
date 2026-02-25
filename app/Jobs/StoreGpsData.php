@@ -38,7 +38,7 @@ class StoreGpsData implements ShouldQueue
      */
     public function handle(): void
     {
-        $batches = array_chunk(array_values($this->data), self::BATCH_SIZE);
+        $batches = array_chunk($this->data, self::BATCH_SIZE);
 
         foreach ($batches as $batch) {
             $records = $this->prepareBatch($batch);
