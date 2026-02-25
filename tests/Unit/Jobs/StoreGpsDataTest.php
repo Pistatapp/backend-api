@@ -268,6 +268,66 @@ class StoreGpsDataTest extends TestCase
     }
 
     /**
+     * Test job stores sample payload format correctly (coordinate, directions, date_time, imei).
+     */
+    public function test_stores_sample_payload_format_correctly(): void
+    {
+        $this->skipIfMysqlNotAvailable();
+        $this->setUpTractor();
+
+        $data = [
+            [
+                'coordinate' => [35.937893, 50.065403],
+                'speed' => 0,
+                'status' => 0,
+                'directions' => ['ew' => 3, 'ns' => 1],
+                'date_time' => '2026-02-25 18:49:45',
+                'imei' => '863070046120282',
+            ],
+            [
+                'coordinate' => [35.969272, 50.120115],
+                'speed' => 0,
+                'status' => 0,
+                'directions' => ['ew' => 3, 'ns' => 1],
+                'date_time' => '2026-02-25 18:42:58',
+                'imei' => '863070043373009',
+            ],
+        ];
+
+        $job = new StoreGpsData($data, $this->tractor->id);
+        $job->handle();
+
+        $count = DB::connection('mysql_gps')->table('gps_data')->count();
+        $this->assertEquals(2, $count);
+
+        $records = DB::connection('mysql_gps')->table('gps_data')
+            ->orderBy('date_time')
+            ->get();
+
+        $this->assertCount(2, $records);
+        $first = $records[0];
+        $this->assertEquals($this->tractor->id, $first->tractor_id);
+        $this->assertEquals('2026-02-25 18:42:58', $first->date_time);
+        $this->assertEquals(0, (int) $first->speed);
+        $this->assertEquals(0, (int) $first->status);
+        $this->assertEquals('863070043373009', $first->imei);
+        $coordinate = json_decode($first->coordinate, true);
+        $this->assertIsArray($coordinate);
+        $this->assertEqualsWithDelta(35.969272, $coordinate[0], 0.0001);
+        $this->assertEqualsWithDelta(50.120115, $coordinate[1], 0.0001);
+        $directions = json_decode($first->directions, true);
+        $this->assertEquals(['ew' => 3, 'ns' => 1], $directions);
+
+        $second = $records[1];
+        $this->assertEquals($this->tractor->id, $second->tractor_id);
+        $this->assertEquals('2026-02-25 18:49:45', $second->date_time);
+        $this->assertEquals('863070046120282', $second->imei);
+        $coordinate2 = json_decode($second->coordinate, true);
+        $this->assertEqualsWithDelta(35.937893, $coordinate2[0], 0.0001);
+        $this->assertEqualsWithDelta(50.065403, $coordinate2[1], 0.0001);
+    }
+
+    /**
      * Test failed method logs error correctly.
      */
     public function test_failed_method_logs_error(): void
@@ -281,7 +341,7 @@ class StoreGpsDataTest extends TestCase
             ->once()
             ->with('StoreGpsData failed', \Mockery::on(function ($context) {
                 return $context['tractor_id'] === 1
-                    && $context['record_count'] === 5
+                    && isset($context['record']) && count($context['record']) === 5
                     && $context['error'] === 'Test failure';
             }));
 
