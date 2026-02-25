@@ -49,3 +49,5 @@ Schedule::call(function () {
         }
     });
 })->dailyAt('23:00:00');
+
+Schedule::command('telescope:prune --hours=24')->daily();
