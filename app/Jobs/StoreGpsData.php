@@ -38,6 +38,10 @@ class StoreGpsData implements ShouldQueue
      */
     public function handle(): void
     {
+        if (empty($this->data)) {
+            return;
+        }
+
         $batches = array_chunk($this->data, self::BATCH_SIZE);
 
         foreach ($batches as $batch) {
@@ -56,21 +60,42 @@ class StoreGpsData implements ShouldQueue
      */
     private function prepareBatch(array $batch): array
     {
-        return array_map(function (array $item): array {
-            return [
-                'tractor_id' => $this->tractorId,
-                'coordinate' => is_array($item['coordinate'])
-                    ? json_encode($item['coordinate'])
-                    : $item['coordinate'],
-                'speed' => $item['speed'],
-                'status' => $item['status'],
-                'directions' => is_array($item['directions'])
-                    ? json_encode($item['directions'])
-                    : $item['directions'],
-                'imei' => $item['imei'],
-                'date_time' => $item['date_time'],
+        $prepared = [];
+
+        foreach ($batch as $item) {
+            $coordinate = $item['coordinate'] ?? null;
+            $directions = $item['directions'] ?? null;
+
+            if (is_array($coordinate)) {
+                $coordinate = json_encode($coordinate, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+            } elseif (is_string($coordinate)) {
+                $decoded = json_decode($coordinate, true);
+                if (is_array($decoded)) {
+                    $coordinate = json_encode($decoded, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+                }
+            }
+
+            if (is_array($directions)) {
+                $directions = json_encode($directions, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+            } elseif (is_string($directions)) {
+                $decoded = json_decode($directions, true);
+                if (is_array($decoded)) {
+                    $directions = json_encode($decoded, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+                }
+            }
+
+            $prepared[] = [
+                'tractor_id' => (int) $this->tractorId,
+                'coordinate' => (string) $coordinate,
+                'speed' => (int) ($item['speed'] ?? 0),
+                'status' => (int) ($item['status'] ?? 0),
+                'directions' => (string) $directions,
+                'imei' => (string) ($item['imei'] ?? ''),
+                'date_time' => $item['date_time'] ?? now()->format('Y-m-d H:i:s'),
             ];
-        }, $batch);
+        }
+
+        return $prepared;
     }
 
     /**
