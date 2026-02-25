@@ -80,7 +80,7 @@ class AuthController extends Controller
         });
 
         // logout other devices
-        Auth::logoutOtherDevices($request->password);
+        Auth::logoutOtherDevices($request->token);
 
         if ($authenticated) {
             $this->clearLoginAttempts($request);
