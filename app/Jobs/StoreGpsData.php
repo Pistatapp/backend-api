@@ -57,7 +57,7 @@ class StoreGpsData implements ShouldQueue
     private function prepareBatch(array $batch): array
     {
         return array_map(function ($item): array {
-            $item = json_decode($item, true);
+            $item = is_array($item) ? $item : json_decode($item, true);
             return array_merge($item, [
                 'tractor_id' => $this->tractorId,
             ]);
@@ -74,7 +74,7 @@ class StoreGpsData implements ShouldQueue
     {
         Log::error('StoreGpsData failed', [
             'tractor_id' => $this->tractorId,
-            'record_count' => count($this->data),
+            'record' => $this->data,
             'error' => $exception->getMessage(),
         ]);
     }
