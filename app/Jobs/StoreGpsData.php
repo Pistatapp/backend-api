@@ -40,6 +40,8 @@ class StoreGpsData implements ShouldQueue
     {
         $batches = array_chunk($this->data, self::BATCH_SIZE);
 
+        Log::info('Batches', ['batches' => $batches]);
+
         foreach ($batches as $batch) {
             $records = $this->prepareBatch($batch);
             DB::transaction(function () use ($records) {
