@@ -34,9 +34,10 @@ class StoreGpsData implements ShouldQueue
     public function handle(): void
     {
         $records = $this->prepareBatch($this->data);
-        DB::connection('mysql_gps')->transaction(function () use ($records) {
-            DB::connection('mysql_gps')->table('gps_data')->insert($records);
-        }, 3);
+        Log::info('StoreGpsData: Records', ['records' => $records]);
+        // DB::connection('mysql_gps')->transaction(function () use ($records) {
+        //     DB::table('gps_data')->insert($records);
+        // }, 3);
     }
 
     /**
