@@ -3,12 +3,14 @@
 namespace App\Services;
 
 use App\Models\Tractor;
+use App\Traits\GpsReadConnection;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class TractorPathStreamService
 {
+    use GpsReadConnection;
     // Stoppage detection constants
     private const MIN_STOPPAGE_SECONDS = 60;
 
@@ -61,7 +63,8 @@ class TractorPathStreamService
             $endOfDay = $date->copy()->endOfDay()->format('Y-m-d H:i:s');
 
             // Fast existence check with range-based query (uses composite index)
-            $hasData = DB::table('gps_data')
+            // Uses read-optimized connection with READ UNCOMMITTED isolation
+            $hasData = $this->gpsReadTable('gps_data')
                 ->where('tractor_id', $tractorId)
                 ->where('date_time', '>=', $startOfDay)
                 ->where('date_time', '<=', $endOfDay)
@@ -95,13 +98,12 @@ class TractorPathStreamService
     /**
      * Stream path points using raw PDO for maximum performance.
      * Bypasses Eloquent hydration entirely.
+     * Uses read-optimized connection with READ UNCOMMITTED isolation
+     * to prevent write operations from blocking reads.
      */
     private function streamPathPointsRaw(int $tractorId, string $startOfDay, string $endOfDay): \Generator
     {
-        $pdo = DB::connection()->getPdo();
-
-        // Use unbuffered query for true streaming with minimal memory
-        $pdo->setAttribute(\PDO::MYSQL_ATTR_USE_BUFFERED_QUERY, false);
+        $pdo = $this->getGpsReadPdo();
 
         // Fetch as associative array (faster than FETCH_OBJ)
         // Select only required columns in optimal order
@@ -118,7 +120,7 @@ class TractorPathStreamService
         yield from $this->processStreamOptimized($stmt);
 
         // Restore buffered query mode
-        $pdo->setAttribute(\PDO::MYSQL_ATTR_USE_BUFFERED_QUERY, true);
+        $this->restoreBufferedQueryMode();
     }
 
     /**
@@ -142,10 +144,11 @@ class TractorPathStreamService
 
     /**
      * Get the last point from previous date using raw query.
+     * Uses read-optimized connection with READ UNCOMMITTED isolation.
      */
     private function getLastPointFromPreviousDateRaw(int $tractorId, string $startOfDay): ?object
     {
-        return DB::table('gps_data')
+        return $this->gpsReadTable('gps_data')
             ->select(['id', 'coordinate', 'speed', 'status', 'directions', 'date_time'])
             ->where('tractor_id', $tractorId)
             ->where('date_time', '<', $startOfDay)

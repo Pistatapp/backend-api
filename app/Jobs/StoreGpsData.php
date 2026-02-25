@@ -23,6 +23,19 @@ class StoreGpsData implements ShouldQueue
     private const DEADLOCK_MAX_RETRIES = 3;
     private const DEADLOCK_RETRY_DELAY_MS = 50;
 
+    /**
+     * Batch size for INSERT operations.
+     * Larger batches = fewer transactions = less lock contention.
+     * 500 is optimal for balancing memory usage and lock duration.
+     */
+    private const BATCH_SIZE = 500;
+
+    /**
+     * Delay between batches in milliseconds.
+     * Gives read operations a chance to execute between write batches.
+     */
+    private const INTER_BATCH_DELAY_MS = 10;
+
     public function __construct(
         public array $data,
         public int $tractorId,
@@ -36,18 +49,44 @@ class StoreGpsData implements ShouldQueue
             return;
         }
 
-        $batchSize = 100;
-        $batches = array_chunk($this->data, $batchSize);
+        $batches = array_chunk($this->data, self::BATCH_SIZE);
+        $totalBatches = count($batches);
 
         foreach ($batches as $batchIndex => $batch) {
             $records = $this->prepareBatch($batch);
             $this->insertWithDeadlockRetry($records, $batchIndex);
+
+            // Add small delay between batches to reduce sustained write pressure
+            // Skip delay for the last batch
+            if ($batchIndex < $totalBatches - 1 && self::INTER_BATCH_DELAY_MS > 0) {
+                usleep(self::INTER_BATCH_DELAY_MS * 1000);
+            }
         }
     }
 
+    private ?\Illuminate\Database\Connection $writeConnection = null;
+
     private function getConnection(): \Illuminate\Database\Connection
     {
-        return DB::connection('mysql_gps');
+        if ($this->writeConnection === null) {
+            $this->writeConnection = DB::connection('mysql_gps');
+            $this->optimizeWriteConnection($this->writeConnection);
+        }
+
+        return $this->writeConnection;
+    }
+
+    /**
+     * Apply session-level optimizations for bulk write operations.
+     */
+    private function optimizeWriteConnection(\Illuminate\Database\Connection $connection): void
+    {
+        // Reduce lock wait timeout to fail fast and retry, rather than blocking
+        $connection->statement('SET SESSION innodb_lock_wait_timeout = 5');
+
+        // Use READ COMMITTED for writes to reduce lock duration
+        // (rows are unlocked after the statement, not after the transaction)
+        $connection->statement('SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED');
     }
 
     private function insertWithDeadlockRetry(array $records, int $batchIndex): void

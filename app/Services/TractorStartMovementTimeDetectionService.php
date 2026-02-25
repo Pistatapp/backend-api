@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Tractor;
+use App\Traits\GpsReadConnection;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -11,6 +12,7 @@ use Illuminate\Support\Facades\Log;
 
 class TractorStartMovementTimeDetectionService
 {
+    use GpsReadConnection;
     private const CACHE_TTL = 3600; // 1 hour
     private const REQUIRED_CONSECUTIVE_POINTS = 3;
     private const GPS_DATA_CHUNK_SIZE = 500;
@@ -90,6 +92,8 @@ class TractorStartMovementTimeDetectionService
     /**
      * Find start movement time using optimized chunked SQL query.
      * Only considers GPS data AFTER the work start time.
+     * Uses read-optimized connection with READ UNCOMMITTED isolation
+     * to prevent write operations from blocking reads.
      *
      * @param int $tractorId
      * @param Carbon $date
@@ -104,7 +108,7 @@ class TractorStartMovementTimeDetectionService
         $firstMovementTime = null;
 
         for ($offset = 0; ; $offset += self::GPS_DATA_CHUNK_SIZE) {
-            $chunk = DB::select("
+            $chunk = $this->gpsReadSelect("
                 SELECT status, speed, date_time
                 FROM gps_data
                 WHERE tractor_id = ? AND date_time >= ? AND date_time < ?
@@ -163,7 +167,8 @@ class TractorStartMovementTimeDetectionService
         $placeholders = implode(',', array_fill(0, count($tractorIds), '?'));
 
         // Fetch all GPS data for the day (we'll filter by work start time per tractor)
-        $allGpsData = DB::select("
+        // Uses read-optimized connection with READ UNCOMMITTED isolation
+        $allGpsData = $this->gpsReadSelect("
             SELECT tractor_id, status, speed, date_time
             FROM gps_data
             WHERE tractor_id IN ({$placeholders}) AND date_time >= ? AND date_time < ?
