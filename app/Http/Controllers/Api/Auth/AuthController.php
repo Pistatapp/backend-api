@@ -222,4 +222,33 @@ class AuthController extends Controller
     {
         return 'mobile';
     }
+
+     /**
+     * Refresh user token.
+     *
+     * @param \Illuminate\Http\Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function refreshToken(Request $request)
+    {
+        $request->validate([
+            'fcm_token' => 'nullable|string',
+        ]);
+
+        $user = $request->user();
+
+        $user->update([
+            'fcm_token' => $request->fcm_token,
+        ]);
+
+        $user->tokens()->delete();
+
+        [$roleName, $permissions] = $this->getUserRoleAndPermissions($user);
+
+        return response()->json([
+            'token' => $user->createToken('mobile')->plainTextToken,
+            'role' => $roleName,
+            'permissions' => $permissions,
+        ]);
+    }
 }
