@@ -328,6 +328,63 @@ class StoreGpsDataTest extends TestCase
     }
 
     /**
+     * Test stores user-provided sample API payload format (Feb 2026).
+     */
+    public function test_stores_user_sample_api_payload(): void
+    {
+        $this->skipIfMysqlNotAvailable();
+        $this->setUpTractor();
+
+        $data = [
+            [
+                'coordinate' => [35.937853, 50.065273],
+                'speed' => 0,
+                'status' => 0,
+                'directions' => ['ew' => 3, 'ns' => 1],
+                'date_time' => '2026-02-26 00:02:11',
+                'imei' => '863070046119607',
+            ],
+            [
+                'coordinate' => [35.937853, 50.065273],
+                'speed' => 0,
+                'status' => 0,
+                'directions' => ['ew' => 3, 'ns' => 1],
+                'date_time' => '2026-02-26 00:02:11',
+                'imei' => '863070046119607',
+            ],
+            [
+                'coordinate' => [35.937853, 50.065273],
+                'speed' => 0,
+                'status' => 0,
+                'directions' => ['ew' => 3, 'ns' => 1],
+                'date_time' => '2026-02-26 00:02:11',
+                'imei' => '863070046119607',
+            ],
+        ];
+
+        $job = new StoreGpsData($data, $this->tractor->id);
+        $job->handle();
+
+        $count = DB::connection('mysql_gps')->table('gps_data')->count();
+        $this->assertEquals(3, $count);
+
+        $record = DB::connection('mysql_gps')->table('gps_data')->first();
+        $this->assertEquals($this->tractor->id, $record->tractor_id);
+        $this->assertEquals('2026-02-26 00:02:11', $record->date_time);
+        $this->assertEquals('863070046119607', $record->imei);
+        $this->assertEquals(0, (int) $record->speed);
+        $this->assertEquals(0, (int) $record->status);
+
+        $coordinate = json_decode($record->coordinate, true);
+        $this->assertIsArray($coordinate);
+        $this->assertEqualsWithDelta(35.937853, $coordinate[0], 0.0001);
+        $this->assertEqualsWithDelta(50.065273, $coordinate[1], 0.0001);
+
+        $directions = json_decode($record->directions, true);
+        $this->assertEquals(['ew' => 3, 'ns' => 1], $directions);
+    }
+
+    /**
      * Test failed method logs error correctly.
      */
     public function test_failed_method_logs_error(): void
