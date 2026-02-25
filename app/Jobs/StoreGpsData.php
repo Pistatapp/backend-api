@@ -67,11 +67,21 @@ class StoreGpsData implements ShouldQueue
             $directions = $item['directions'];
 
             if (is_array($coordinate)) {
-                $coordinate = json_encode($coordinate);
+                $coordinate = json_encode($coordinate, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+            } elseif (is_string($coordinate)) {
+                $decoded = json_decode($coordinate, true);
+                if (is_array($decoded)) {
+                    $coordinate = json_encode($decoded, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+                }
             }
 
             if (is_array($directions)) {
-                $directions = json_encode($directions);
+                $directions = json_encode($directions, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+            } elseif (is_string($directions)) {
+                $decoded = json_decode($directions, true);
+                if (is_array($decoded)) {
+                    $directions = json_encode($decoded, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+                }
             }
 
             $prepared[] = [
