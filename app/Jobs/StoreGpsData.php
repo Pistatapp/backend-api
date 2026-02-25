@@ -38,7 +38,7 @@ class StoreGpsData implements ShouldQueue
      */
     public function handle(): void
     {
-        $batches = array_chunk($this->data, self::BATCH_SIZE);
+        $batches = array_chunk(array_values($this->data), self::BATCH_SIZE);
 
         foreach ($batches as $batch) {
             $records = $this->prepareBatch($batch);
@@ -56,8 +56,8 @@ class StoreGpsData implements ShouldQueue
      */
     private function prepareBatch(array $batch): array
     {
-        return array_map(function ($item) {
-            array_merge($item, [
+        return array_map(function (array $item): array {
+            return array_merge($item, [
                 'tractor_id' => $this->tractorId,
             ]);
         }, $batch);
