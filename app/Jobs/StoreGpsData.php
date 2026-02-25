@@ -31,24 +31,20 @@ class StoreGpsData implements ShouldQueue
         $this->onQueue('gps-storage');
     }
 
+    /**
+     * Handle the job execution.
+     *
+     * @return void
+     */
     public function handle(): void
     {
         $batches = array_chunk($this->data, self::BATCH_SIZE);
 
         foreach ($batches as $batch) {
             $records = $this->prepareBatch($batch);
-            try {
-                DB::transaction(function () use ($records) {
-                    DB::table('gps_data')->insert($records);
-                }, 3);
-
-                return;
-            } catch (\Throwable $e) {
-                Log::error('StoreGpsData: failed to insert records', [
-                    'tractor_id' => $this->tractorId,
-                    'error' => $e->getMessage(),
-                ]);
-            }
+            DB::transaction(function () use ($records) {
+                DB::table('gps_data')->insert($records);
+            }, 3);
         }
     }
 
@@ -67,6 +63,12 @@ class StoreGpsData implements ShouldQueue
         }, $batch);
     }
 
+    /**
+     * Handle the job failure.
+     *
+     * @param \Throwable $exception The exception that caused the failure.
+     * @return void
+     */
     public function failed(\Throwable $exception): void
     {
         Log::error('StoreGpsData failed', [

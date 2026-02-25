@@ -79,9 +79,6 @@ class AuthController extends Controller
             return $user->passwordNotExpired() && $user->is_active;
         });
 
-        // logout other devices
-        Auth::logoutOtherDevices($request->token);
-
         if ($authenticated) {
             $this->clearLoginAttempts($request);
             return $this->login($request);
@@ -123,10 +120,6 @@ class AuthController extends Controller
         $request->session()->regenerate();
 
         $user->load('profile');
-
-        $token = $user->createToken('mobile')->plainTextToken;
-
-        $user->token = $token;
 
         return new AuthenticatedUserResource($user);
     }
