@@ -22,20 +22,14 @@ class ProcessGpsData implements ShouldQueue
     public array $backoff = [2, 5, 10];
 
     public function __construct(
-        public string $rawData,
+        public array $data,
     ) {
         $this->onQueue('gps-processing');
     }
 
     public function handle(ParseDataService $parseDataService): void
     {
-        $data = $parseDataService->parse($this->rawData);
-
-        if (empty($data)) {
-            return;
-        }
-
-        $deviceImei = $data[0]['imei'];
+        $deviceImei = $this->data[0]['imei'];
         $tractor = $this->resolveTractor($deviceImei);
 
         if ($tractor === null) {
@@ -43,10 +37,10 @@ class ProcessGpsData implements ShouldQueue
             return;
         }
 
-        StoreGpsData::dispatch($data, $tractor->id);
-        BroadcastGpsEvents::dispatch($data, $tractor->id, $deviceImei);
+        StoreGpsData::dispatch($this->data, $tractor->id);
+        BroadcastGpsEvents::dispatch($this->data, $tractor->id, $deviceImei);
 
-        // $this->logRawDataToFile($deviceImei);
+        $this->logRawDataToFile($deviceImei);
     }
 
     private function logRawDataToFile(string $deviceImei): void
@@ -65,7 +59,7 @@ class ProcessGpsData implements ShouldQueue
                     @mkdir($dir, 0755, true);
                 }
 
-                $line = '[' . now()->toIso8601String() . '] ' . $this->rawData . PHP_EOL;
+                $line = '[' . now()->toIso8601String() . '] ' . json_encode($this->data) . PHP_EOL;
 
                 $handle = @fopen($path, 'a');
                 if ($handle === false) {
@@ -125,7 +119,7 @@ class ProcessGpsData implements ShouldQueue
     public function failed(\Throwable $exception): void
     {
         Log::error('ProcessGpsData failed', [
-            'raw_data_length' => strlen($this->rawData),
+            'data_count' => count($this->data),
             'error' => $exception->getMessage(),
         ]);
     }

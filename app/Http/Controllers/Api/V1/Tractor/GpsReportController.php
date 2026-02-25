@@ -11,17 +11,11 @@ class GpsReportController extends Controller
 {
     public function __invoke(Request $request): JsonResponse
     {
-        $rawData = $request->getContent();
+        $data = $request->json('data');
 
-        if (empty($rawData)) {
-            return response()->json([], 422);
-        }
+        ProcessGpsData::dispatch($data);
 
-        $rawData = $this->sanitizeUtf8($rawData);
-
-        ProcessGpsData::dispatch($rawData);
-
-        return response()->json([], 200);
+        return response()->json(['success' => true], 200);
     }
 
     private function sanitizeUtf8(string $data): string
