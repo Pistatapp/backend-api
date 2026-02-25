@@ -79,6 +79,9 @@ class AuthController extends Controller
             return $user->passwordNotExpired() && $user->is_active;
         });
 
+        // logout other devices
+        Auth::logoutOtherDevices($request->password);
+
         if ($authenticated) {
             $this->clearLoginAttempts($request);
             return $this->login($request);
@@ -101,9 +104,6 @@ class AuthController extends Controller
     private function login(Request $request)
     {
         $user = User::where('mobile', $request->mobile)->first();
-
-        // logout other devices
-        Auth::logoutOtherDevices($user);
 
         tap($user, function ($user) {
 
