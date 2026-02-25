@@ -94,9 +94,6 @@ return [
         'mysql_gps_read' => [
             'driver' => 'mysql',
             'url' => env('DATABASE_URL'),
-            'read' => [
-                'host' => env('DB_GPS_READ_HOST', env('DB_GPS_HOST', env('DB_HOST', '127.0.0.1'))),
-            ],
             'host' => env('DB_GPS_READ_HOST', env('DB_GPS_HOST', env('DB_HOST', '127.0.0.1'))),
             'port' => env('DB_GPS_READ_PORT', env('DB_GPS_PORT', env('DB_PORT', '3306'))),
             'database' => env('DB_GPS_DATABASE', env('DB_DATABASE', 'forge')),
@@ -110,11 +107,13 @@ return [
             'strict' => false,
             'engine' => null,
             'sticky' => false,
-            'options' => extension_loaded('pdo_mysql') ? array_filter([
-                PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
-                PDO::ATTR_PERSISTENT => true,
-                PDO::MYSQL_ATTR_USE_BUFFERED_QUERY => false,
-            ]) : [],
+            'options' => extension_loaded('pdo_mysql') ? (
+                array_filter([PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA')], fn($v) => $v !== null)
+                + [
+                    PDO::ATTR_PERSISTENT => true,
+                    PDO::MYSQL_ATTR_USE_BUFFERED_QUERY => false,
+                ]
+            ) : [],
         ],
 
         'pgsql' => [
