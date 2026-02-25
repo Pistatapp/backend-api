@@ -70,7 +70,7 @@ Route::controller(AuthController::class)->prefix('auth')->group(function () {
     Route::get('permissions', 'permissions')->middleware('auth:sanctum');
 });
 
-Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
+Route::middleware(['auth:sanctum', 'ensure.username', 'auth.session'])->group(function () {
 
     Route::apiResource('gps_devices', GpsDeviceController::class);
     Route::apiResource('crops', CropController::class);
