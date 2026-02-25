@@ -42,8 +42,8 @@ class StoreGpsData implements ShouldQueue
 
         foreach ($batches as $batch) {
             $records = $this->prepareBatch($batch);
-            DB::transaction(function () use ($records) {
-                DB::table('gps_data')->insert($records);
+            DB::connection('mysql_gps')->transaction(function () use ($records) {
+                DB::connection('mysql_gps')->table('gps_data')->insert($records);
             }, 3);
         }
     }
