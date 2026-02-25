@@ -58,19 +58,12 @@ class StoreGpsData implements ShouldQueue
      */
     private function prepareBatch(array $batch): array
     {
-        return array_map(function ($item): array {
-            $item = is_array($item) ? $item : json_decode($item, true);
-            $record = array_merge($item, [
-                'tractor_id' => $this->tractorId,
-            ]);
-            // Ensure coordinate and directions are stored as JSON strings for string columns
-            if (isset($record['coordinate']) && is_array($record['coordinate'])) {
-                $record['coordinate'] = json_encode($record['coordinate']);
-            }
-            if (isset($record['directions']) && (is_array($record['directions']) || is_object($record['directions']))) {
-                $record['directions'] = json_encode($record['directions']);
-            }
-            return $record;
+        return array_map(function ($items): array {
+            return array_map(function ($item): array {
+                return array_merge($item, [
+                    'tractor_id' => $this->tractorId,
+                ]);
+            }, $items);
         }, $batch);
     }
 
