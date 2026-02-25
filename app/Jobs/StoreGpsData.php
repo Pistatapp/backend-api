@@ -56,12 +56,10 @@ class StoreGpsData implements ShouldQueue
      */
     private function prepareBatch(array $batch): array
     {
-        return array_map(function ($items): array {
-            return array_map(function ($item): array {
-                return array_merge($item, [
-                    'tractor_id' => $this->tractorId,
-                ]);
-            }, $items);
+        return array_map(function (array $item): array {
+            return array_merge($item, [
+                'tractor_id' => $this->tractorId,
+            ]);
         }, $batch);
     }
 
