@@ -21,7 +21,7 @@ class MaintenanceReportController extends Controller
     public function index(Request $request)
     {
         $workingEnvironment = $request->user()->workingEnvironment();
-        $maintenanceReports = $workingEnvironment->maintenanceReports()->latest()->simplePaginate();
+        $maintenanceReports = $workingEnvironment->maintenanceReports()->latest()->paginate();
 
         return MaintenanceReportResource::collection($maintenanceReports);
     }

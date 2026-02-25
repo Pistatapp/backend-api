@@ -102,16 +102,8 @@ class AuthController extends Controller
     {
         $user = User::where('mobile', $request->mobile)->first();
 
-        // Double-check if user is active before logging in
-        if (!$user->is_active) {
-            $this->guard()->logout();
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
-
-            throw ValidationException::withMessages([
-                'token' => __('Your account has been deactivated. Please contact your administrator.'),
-            ]);
-        }
+        // logout other devices
+        Auth::logoutOtherDevices($user);
 
         tap($user, function ($user) {
 
@@ -132,36 +124,11 @@ class AuthController extends Controller
 
         $user->load('profile');
 
+        $token = $user->createToken('mobile')->plainTextToken;
+
+        $user->token = $token;
+
         return new AuthenticatedUserResource($user);
-    }
-
-    /**
-     * Refresh user token.
-     *
-     * @param \Illuminate\Http\Request $request
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function refreshToken(Request $request)
-    {
-        $request->validate([
-            'fcm_token' => 'nullable|string',
-        ]);
-
-        $user = $request->user();
-
-        $user->update([
-            'fcm_token' => $request->fcm_token,
-        ]);
-
-        $user->tokens()->delete();
-
-        [$roleName, $permissions] = $this->getUserRoleAndPermissions($user);
-
-        return response()->json([
-            'token' => $user->createToken('mobile')->plainTextToken,
-            'role' => $roleName,
-            'permissions' => $permissions,
-        ]);
     }
 
     /**

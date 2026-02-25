@@ -46,7 +46,7 @@ class CompositionalNutrientDiagnosisController extends Controller
                 $query->where('user_id', Auth::id());
             })
             ->latest()
-            ->simplePaginate();
+            ->paginate();
 
         return NutrientDiagnosisRequestResource::collection($requests);
     }

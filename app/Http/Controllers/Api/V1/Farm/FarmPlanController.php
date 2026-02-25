@@ -30,7 +30,7 @@ class FarmPlanController extends Controller
                 return $query->where('status', request('status'));
             })
             ->with('creator:id,username')
-            ->latest()->simplePaginate(10);
+            ->latest()->paginate(10);
         return FarmPlanResource::collection($plans);
     }
 
@@ -65,7 +65,7 @@ class FarmPlanController extends Controller
             });
         }
 
-        $plans = $query->simplePaginate();
+        $plans = $query->paginate();
 
         return FilteredFarmPlanResource::collection($plans);
     }

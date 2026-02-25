@@ -21,7 +21,7 @@ class TeamController extends Controller
      */
     public function index(Farm $farm)
     {
-        $teams = $farm->teams()->withCount('labours')->with('supervisor')->simplePaginate(10);
+        $teams = $farm->teams()->withCount('labours')->with('supervisor')->paginate(10);
 
         return TeamResource::collection($teams);
     }

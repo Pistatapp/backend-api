@@ -18,9 +18,8 @@ class AuthenticatedUserResource extends JsonResource
             'id' => $this->id,
             'username' => $this->username,
             'mobile' => $this->mobile,
-            'last_activity_at' => jdate($this->last_activity_at)->format('Y/m/d H:i:s'),
             'photo' => $this->profile->media_url,
-            'token' => $this->createToken('mobile', expiresAt: now()->addDay())->plainTextToken,
+            'token' => $this->whenNotNull($this->token),
             'new_user' => is_null($this->username),
         ];
     }

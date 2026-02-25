@@ -25,7 +25,7 @@ class GpsDeviceController extends Controller
             $query->where('user_id', $request->user()->id);
         }
 
-        $devices = $query->simplePaginate();
+        $devices = $query->paginate();
         return GpsDeviceResource::collection($devices);
     }
 

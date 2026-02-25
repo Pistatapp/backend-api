@@ -21,7 +21,7 @@ class DriverController extends Controller
      */
     public function index(Farm $farm)
     {
-        $drivers = $farm->drivers()->simplePaginate(25);
+        $drivers = $farm->drivers()->paginate(25);
         return DriverResource::collection($drivers);
     }
 

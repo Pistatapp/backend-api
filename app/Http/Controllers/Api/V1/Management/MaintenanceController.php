@@ -23,7 +23,7 @@ class MaintenanceController extends Controller
         $maintenances = Maintenance::query()
             ->where('farm_id', $farm->id)
             ->latest()
-            ->simplePaginate();
+            ->paginate();
 
         return MaintenanceResource::collection($maintenances);
     }

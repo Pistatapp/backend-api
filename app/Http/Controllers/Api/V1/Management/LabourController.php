@@ -23,7 +23,7 @@ class LabourController extends Controller
      */
     public function index(Farm $farm)
     {
-        $labours = $farm->labours()->with('teams')->simplePaginate();
+        $labours = $farm->labours()->with('teams')->paginate();
 
         return LabourResource::collection($labours);
     }

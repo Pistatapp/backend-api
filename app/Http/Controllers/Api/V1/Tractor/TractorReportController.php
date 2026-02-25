@@ -26,7 +26,7 @@ class TractorReportController extends Controller
         $reports = $tractor->reports()
             ->with(['operation', 'field'])
             ->latest()
-            ->simplePaginate();
+            ->paginate();
         return TractorReportResource::collection($reports);
     }
 

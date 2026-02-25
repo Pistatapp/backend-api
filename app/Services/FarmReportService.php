@@ -221,6 +221,6 @@ class FarmReportService
     {
         return $farm->reports()
             ->latest()
-            ->simplePaginate($perPage);
+            ->paginate($perPage);
     }
 }

@@ -21,7 +21,7 @@ class UserResource extends JsonResource
             'mobile' => $this->mobile,
             'username' => $this->username,
             'is_active' => $this->is_active,
-            'last_activity_at' => jdate($this->last_activity_at)->format('Y/m/d H:i:s'),
+            'last_activity_at' => jdate($this->last_activity_at)->ago(),
             'role' => $this->resolveRoleForEnvironment($request),
             'attendance_tracking' => new AttendanceTrackingResource($this->whenLoaded('attendanceTracking')),
             'can' => [

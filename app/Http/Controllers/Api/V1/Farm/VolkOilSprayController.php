@@ -22,7 +22,7 @@ class VolkOilSprayController extends Controller
         $notifications = VolkOilSpray::for($farm)
             ->when(request()->boolean('archived') === true, function ($query) {
                 return $query->onlyTrashed();
-            })->simplePaginate(10);
+            })->paginate(10);
 
         return VolkOilSprayResource::collection($notifications);
     }

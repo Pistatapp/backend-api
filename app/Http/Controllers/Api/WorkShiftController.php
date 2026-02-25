@@ -23,7 +23,7 @@ class WorkShiftController extends Controller
     public function index(Farm $farm)
     {
 
-        $shifts = $farm->workShifts()->simplePaginate();
+        $shifts = $farm->workShifts()->paginate();
         return WorkShiftResource::collection($shifts);
     }
 
