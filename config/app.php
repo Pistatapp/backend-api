@@ -161,6 +161,11 @@ return [
          */
         Kavenegar\Laravel\ServiceProvider::class,
         /*
+         * Telescope (package provider registers EntriesRepository etc.; required when queue runs Telescope jobs).
+         * We use dont-discover for telescope, so this must be registered manually.
+         */
+        \Laravel\Telescope\TelescopeServiceProvider::class,
+        /*
          * Application Service Providers...
          */
         App\Providers\AppServiceProvider::class,
