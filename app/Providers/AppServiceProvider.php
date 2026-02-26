@@ -31,7 +31,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton('weather-api', fn($app) => $app->make(WeatherApi::class));
 
         Gate::before(function ($user, $ability) {
-            return true;
+            return $user->hasRole('root') ? true : null;
         });
     }
 }

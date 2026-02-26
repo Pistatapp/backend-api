@@ -94,6 +94,7 @@ return [
 
     'middleware' => [
         'web',
+        'telescope.guest',
         Authorize::class,
     ],
 
