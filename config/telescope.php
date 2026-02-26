@@ -20,6 +20,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Record entries in production
+    |--------------------------------------------------------------------------
+    |
+    | When false (default), in production Telescope only stores exceptions,
+    | failed requests/jobs, scheduled tasks, and entries with monitored tags.
+    | Set TELESCOPE_RECORD_IN_PRODUCTION=true to record all entries so the
+    | dashboard shows data. Increases storage and queue load.
+    |
+    */
+    'record_in_production' => env('TELESCOPE_RECORD_IN_PRODUCTION', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Telescope Domain
     |--------------------------------------------------------------------------
     |
