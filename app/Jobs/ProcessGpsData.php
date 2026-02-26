@@ -3,11 +3,14 @@
 namespace App\Jobs;
 
 use App\Models\Tractor;
+use App\Events\ReportReceived;
+use App\Events\TractorStatus;
 use App\Services\ParseDataService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class ProcessGpsData implements ShouldQueue
 {
@@ -31,16 +34,48 @@ class ProcessGpsData implements ShouldQueue
     {
         $deviceImei = $this->data[0]['imei'];
         $tractor = $this->resolveTractor($deviceImei);
+        $lastStatus = end($this->data)['status'];
 
         if ($tractor === null) {
             Log::warning('ProcessGpsData: no tractor found for IMEI', ['imei' => $deviceImei]);
             return;
         }
 
-        StoreGpsData::dispatch($this->data, $tractor->id);
-        BroadcastGpsEvents::dispatch($this->data, $tractor->id, $deviceImei);
+        $records = $this->prepareBatch($this->data, $tractor);
+        DB::connection('mysql_gps')->transaction(function () use ($records) {
+            DB::table('gps_data')->insert($records);
+        }, 3);
 
-        $this->logRawDataToFile($deviceImei);
+        $device = $tractor->gpsDevice;
+        event(new TractorStatus($tractor, $lastStatus));
+        event(new ReportReceived($this->data, $device));
+
+        // StoreGpsData::dispatch($this->data, $tractor->id);
+        // BroadcastGpsEvents::dispatch($this->data, $tractor->id, $deviceImei);
+
+        // $this->logRawDataToFile($deviceImei);
+    }
+
+    /**
+     * Prepare the batch for insertion.
+     *
+     * @param array $data The batch of data to prepare.
+     * @param Tractor $tractor The tractor to prepare the batch for.
+     * @return array The prepared batch.
+     */
+    private function prepareBatch(array $data, Tractor $tractor): array
+    {
+        return array_map(function (array $item) use ($tractor) {
+            return array_merge($item, [
+                'tractor_id' => $tractor->id,
+                'coordinate' => json_encode($item['coordinate']),
+                'speed' => $item['speed'],
+                'status' => $item['status'],
+                'directions' => json_encode($item['directions']),
+                'imei' => $item['imei'],
+                'date_time' => $item['date_time'],
+            ]);
+        }, $data);
     }
 
     private function logRawDataToFile(string $deviceImei): void
