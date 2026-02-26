@@ -252,7 +252,7 @@ class ActiveUserAttendanceService
      */
     private function buildPerformanceDetails(?AttendanceSession $session): array
     {
-        $user = $session->user;
+        $user = $session?->user;
 
         if (! $session) {
             return [
