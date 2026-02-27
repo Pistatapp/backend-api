@@ -7,6 +7,7 @@ use App\Events\TractorTaskStatusChanged;
 use App\Models\Tractor;
 use App\Models\TractorTask;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 
 class TractorTaskService
 {
@@ -23,12 +24,14 @@ class TractorTaskService
     {
         $date = $timestamp->toDateString();
 
-        $currentTask = TractorTask::where('tractor_id', $tractor->id)
-            ->whereDate('date', $date)
-            ->where('start_time', '<=', $timestamp->format('H:i:s'))
-            ->where('end_time', '>=', $timestamp->format('H:i:s'))
-            ->with('taskable')
-            ->first();
+        $currentTask = Cache::remember("tractor_task_{$tractor->id}_{$date}", 60, function () use ($tractor, $date, $timestamp) {
+            return TractorTask::where('tractor_id', $tractor->id)
+                ->whereDate('date', $date)
+                ->where('start_time', '<=', $timestamp->format('H:i:s'))
+                ->where('end_time', '>=', $timestamp->format('H:i:s'))
+                ->with('taskable')
+                ->first();
+        });
 
         return $currentTask;
     }
