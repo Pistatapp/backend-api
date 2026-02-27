@@ -4,13 +4,12 @@ namespace App\Notifications;
 
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Notifications\Notification;
 use App\Models\TractorTask;
 use App\Notifications\FirebaseMessage;
 use Kavenegar\Laravel\Message\KavenegarMessage;
 use Kavenegar\Laravel\Notification\KavenegarBaseNotification;
 
-class TractorTaskCreated extends KavenegarBaseNotification implements Notification, ShouldQueue
+class TractorTaskCreated extends KavenegarBaseNotification implements ShouldQueue
 {
     use Queueable;
 

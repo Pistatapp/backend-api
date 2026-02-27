@@ -256,9 +256,9 @@ class ActiveUserAttendanceService
 
         if (! $session) {
             return [
-                'id' => $user->id,
-                'name' => $user->profile->name,
-                'image' => $user->profile->media_url,
+                'id' => request()->user()->id,
+                'name' => request()->user()->profile->name,
+                'image' => request()->user()->profile->media_url,
                 'entry_time' => '00:00:00',
                 'exit_time' => '00:00:00',
                 'required_work_duration' => 0,
