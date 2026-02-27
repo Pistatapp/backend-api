@@ -40,21 +40,11 @@ class ProcessGpsData implements ShouldQueue
      */
     public function middleware(): array
     {
-        if (empty($this->data) || !isset($this->data[0]['imei'])) {
-            return [];
-        }
-
-        // Prevent race conditions by serializing jobs for the same device
-        // This helps reduce database deadlocks and processing conflicts
         return [(new WithoutOverlapping($this->data[0]['imei']))->dontRelease()->expireAfter(30)];
     }
 
     public function handle(): void
     {
-        if (empty($this->data)) {
-            return;
-        }
-
         $deviceImei = $this->data[0]['imei'];
         $tractor = $this->resolveTractor($deviceImei);
 
@@ -66,15 +56,12 @@ class ProcessGpsData implements ShouldQueue
 
         $records = $this->prepareBatch($this->data, $tractor);
 
-        // Use transaction for data integrity
         DB::connection('mysql_gps')->transaction(function () use ($records) {
-            // Chunk inserts to handle large batches efficiently
             foreach (array_chunk($records, 1000) as $chunk) {
                 DB::table('gps_data')->insert($chunk);
             }
         });
 
-        // Events are fired after successful insertion
         $device = $tractor->gpsDevice;
         event(new TractorStatus($tractor, $lastStatus));
         event(new ReportReceived($this->data, $device));
@@ -113,12 +100,9 @@ class ProcessGpsData implements ShouldQueue
     private function resolveTractor(string $imei): ?Tractor
     {
         return Cache::remember("tractor_by_device_imei_{$imei}", 3600, function () use ($imei) {
-            // Optimized query: Find device first, then tractor
-            // This avoids a potentially slow subquery on the tractors table
             $device = GpsDevice::where('imei', $imei)->with('tractor')->first();
 
             if ($device && $device->tractor) {
-                // Set the relation manually to avoid an extra query when accessing $tractor->gpsDevice
                 $device->tractor->setRelation('gpsDevice', $device);
                 return $device->tractor;
             }
