@@ -77,8 +77,8 @@ class StoreUserRequest extends FormRequest
                 'tracking_device.imei' => [
                     Rule::requiredIf(fn () => ($this->input('tracking_device.type') ?? null) === 'personal_gps'),
                     'nullable',
-                    'numeric',
-                    'digits:15',
+                    'string',
+                    'digits:16',
                 ],
             ]);
             $rules['image'] = 'nullable|image|max:1024';

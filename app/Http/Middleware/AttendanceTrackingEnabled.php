@@ -20,9 +20,7 @@ class AttendanceTrackingEnabled
         $workingEnvironment = $user->workingEnvironment();
 
         if (!$workingEnvironment) {
-            return response()->json([
-                'message' => __('You do not have a working environment.'),
-            ], 403);
+            abort(403, __('You do not have a working environment.'));
         }
 
         $attendanceTracking = AttendanceTracking::where('farm_id', $workingEnvironment->id)
@@ -30,9 +28,7 @@ class AttendanceTrackingEnabled
             ->first();
 
         if (!$attendanceTracking || !$attendanceTracking->enabled) {
-            return response()->json([
-                'message' => __('Attendance tracking not enabled for this user.'),
-            ], 403);
+            abort(403, __('Attendance tracking not enabled for this user.'));
         }
 
         return $next($request);

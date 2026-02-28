@@ -42,7 +42,7 @@ class MobileDeviceController extends Controller
         $request->validate([
             'sim_number' => 'required|ir_mobile:zero',
             'device_fingerprint' => 'required|string|max:255',
-            'imei' => 'required|numeric|digits:15',
+            'imei' => 'required|string|digits:16',
         ]);
 
         $gpsDevice = GpsDevice::where('sim_number', $request->sim_number)->first();
