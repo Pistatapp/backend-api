@@ -17,6 +17,16 @@ Authorization: Bearer {your-token}
 
 Tractor tasks represent scheduled operations that tractors perform on various agricultural areas (fields, farms, plots, or rows). The API supports polymorphic relationships, allowing tasks to be associated with different types of agricultural areas.
 
+### Multiple task areas (`taskable_ids`)
+
+A single task can cover **more than one** area of the same type (for example, several fields in one assignment). Use **`taskable_ids`** as a non-empty array of distinct integer IDs. The server stores each link in **`tractor_task_taskables`** (polymorphic `taskable_type` / `taskable_id` on that pivot only). The **`tractor_tasks`** table no longer stores taskable columns. **All** linked polygons are used for GPS zone checks and task metrics.
+
+**Backward compatibility:** clients may still send only **`taskable_id`** (single integer). It is treated as a one-element `taskable_ids` array before validation.
+
+Responses include:
+
+- **`taskables`** — ordered list of all areas with `id`, `name`, and `coordinates`.
+
 ### Taskable Types
 - **Field** (`field`): Agricultural fields
 - **Farm** (`farm`): Farms
@@ -24,9 +34,13 @@ Tractor tasks represent scheduled operations that tractors perform on various ag
 - **Row** (`row`): Rows within fields
 
 ### Task Statuses
-- `pending`: Task is scheduled but not started
-- `started`: Task is currently in progress
-- `finished`: Task has been completed
+- `not_started`: Scheduled; start time not reached
+- `in_progress`: Tractor is inside a task zone during the window
+- `stopped`: Within the time window but outside all task zones
+- `done`: Work window ended with sufficient in-zone time (or metrics completed)
+- `not_done`: Window ended without valid in-zone work (e.g. no GPS in zones)
+
+(Older clients may still refer to “pending/started/finished” in documentation; the API values above are canonical.)
 
 ---
 
@@ -64,14 +78,22 @@ curl -X GET "https://api.pistatapp.com/api/tractors/1/tractor_tasks?date=1403/12
         "id": 1,
         "name": "سم پاشی"
       },
-      "taskable": {
-        "id": 1,
-        "name": "Field A"
-      },
+      "taskables": [
+        {
+          "id": 1,
+          "name": "Field A",
+          "coordinates": []
+        },
+        {
+          "id": 2,
+          "name": "Field B",
+          "coordinates": []
+        }
+      ],
       "date": "1403/12/07",
-      "start_time": "08:00",
-      "end_time": "12:00",
-      "status": "pending",
+      "start_time": "08:00:00",
+      "end_time": "12:00:00",
+      "status": "not_started",
       "data": {
         "consumed_water": 100,
         "consumed_fertilizer": 50,
@@ -114,12 +136,12 @@ Create a new task for a tractor.
 **Parameters:**
 - `tractor` (integer, required): The ID of the tractor
 
-**Request Body:**
+**Request Body (recommended — multiple areas):**
 ```json
 {
   "operation_id": 1,
   "taskable_type": "field",
-  "taskable_id": 1,
+  "taskable_ids": [1, 2],
   "date": "1403/12/07",
   "start_time": "08:00",
   "end_time": "12:00",
@@ -127,10 +149,23 @@ Create a new task for a tractor.
 }
 ```
 
+**Request Body (legacy — single area):**
+```json
+{
+  "operation_id": 1,
+  "taskable_type": "field",
+  "taskable_id": 1,
+  "date": "1403/12/07",
+  "start_time": "08:00",
+  "end_time": "12:00"
+}
+```
+
 **Field Descriptions:**
 - `operation_id` (integer, required): ID of the operation to be performed
 - `taskable_type` (string, required): Type of agricultural area. Options: `field`, `farm`, `plot`, `row`
-- `taskable_id` (integer, required): ID of the specific agricultural area
+- `taskable_ids` (array of integers, required unless using legacy `taskable_id`): At least one distinct ID; all IDs must exist for the given `taskable_type`
+- `taskable_id` (integer, optional): Legacy single-area input; normalized to `taskable_ids` with one element if `taskable_ids` is omitted
 - `date` (string, required): Task date in Jalali format (YYYY/MM/DD)
 - `start_time` (string, required): Start time in 24-hour format (HH:MM)
 - `end_time` (string, required): End time in 24-hour format (HH:MM)
@@ -144,11 +179,11 @@ curl -X POST "https://api.pistatapp.com/api/tractors/1/tractor_tasks" \
   -d '{
     "operation_id": 1,
     "taskable_type": "field",
-    "taskable_id": 1,
+    "taskable_ids": [1, 2],
     "date": "1403/12/07",
     "start_time": "08:00",
     "end_time": "12:00",
-    "description": "Spraying pesticides on Field A"
+    "description": "Spraying pesticides on fields 1 and 2"
   }'
 ```
 
@@ -161,14 +196,22 @@ curl -X POST "https://api.pistatapp.com/api/tractors/1/tractor_tasks" \
       "id": 1,
       "name": "سم پاشی"
     },
-    "taskable": {
-      "id": 1,
-      "name": "Field A"
-    },
+    "taskables": [
+      {
+        "id": 1,
+        "name": "Field A",
+        "coordinates": []
+      },
+      {
+        "id": 2,
+        "name": "Field B",
+        "coordinates": []
+      }
+    ],
     "date": "1403/12/07",
-    "start_time": "08:00",
-    "end_time": "12:00",
-    "status": "pending",
+    "start_time": "08:00:00",
+    "end_time": "12:00:00",
+    "status": "not_started",
     "data": {
       "consumed_water": null,
       "consumed_fertilizer": null,
@@ -192,7 +235,8 @@ curl -X POST "https://api.pistatapp.com/api/tractors/1/tractor_tasks" \
   "errors": {
     "operation_id": ["The operation id field is required."],
     "taskable_type": ["The selected taskable type is invalid."],
-    "taskable_id": ["The selected taskable does not exist."],
+    "taskable_ids": ["The taskable ids field is required."],
+    "taskable_ids.0": ["The selected taskable does not exist."],
     "date": ["The date field is required."],
     "start_time": ["The start time field is required."],
     "end_time": ["The end time must be after the start time."]
@@ -226,14 +270,22 @@ curl -X GET "https://api.pistatapp.com/api/tractor_tasks/1" \
       "id": 1,
       "name": "سم پاشی"
     },
-    "taskable": {
-      "id": 1,
-      "name": "Field A"
-    },
+    "taskables": [
+      {
+        "id": 1,
+        "name": "Field A",
+        "coordinates": []
+      },
+      {
+        "id": 2,
+        "name": "Field B",
+        "coordinates": []
+      }
+    ],
     "date": "1403/12/07",
-    "start_time": "08:00",
-    "end_time": "12:00",
-    "status": "started",
+    "start_time": "08:00:00",
+    "end_time": "12:00:00",
+    "status": "in_progress",
     "data": {
       "consumed_water": 100,
       "consumed_fertilizer": 50,
@@ -273,7 +325,7 @@ Update an existing tractor task.
 {
   "operation_id": 2,
   "taskable_type": "plot",
-  "taskable_id": 3,
+  "taskable_ids": [3, 4],
   "date": "1403/12/08",
   "start_time": "09:00",
   "end_time": "13:00",
@@ -290,7 +342,8 @@ Update an existing tractor task.
 **Field Descriptions:**
 - `operation_id` (integer, required): ID of the operation to be performed
 - `taskable_type` (string, required): Type of agricultural area. Options: `field`, `farm`, `plot`, `row`
-- `taskable_id` (integer, required): ID of the specific agricultural area
+- `taskable_ids` (array of integers, required unless using legacy `taskable_id`): Distinct IDs for all areas (same rules as create)
+- `taskable_id` (integer, optional): Legacy single-area input when `taskable_ids` is omitted
 - `date` (string, required): Task date in Jalali format (YYYY/MM/DD)
 - `start_time` (string, required): Start time in 24-hour format (HH:MM)
 - `end_time` (string, required): End time in 24-hour format (HH:MM)
@@ -309,7 +362,7 @@ curl -X PUT "https://api.pistatapp.com/api/tractor_tasks/1" \
   -d '{
     "operation_id": 2,
     "taskable_type": "plot",
-    "taskable_id": 3,
+    "taskable_ids": [3, 4],
     "date": "1403/12/08",
     "start_time": "09:00",
     "end_time": "13:00",
@@ -332,14 +385,22 @@ curl -X PUT "https://api.pistatapp.com/api/tractor_tasks/1" \
       "id": 2,
       "name": "کوددهی"
     },
-    "taskable": {
-      "id": 3,
-      "name": "Plot B"
-    },
+    "taskables": [
+      {
+        "id": 3,
+        "name": "Plot B",
+        "coordinates": []
+      },
+      {
+        "id": 4,
+        "name": "Plot C",
+        "coordinates": []
+      }
+    ],
     "date": "1403/12/08",
-    "start_time": "09:00",
-    "end_time": "13:00",
-    "status": "pending",
+    "start_time": "09:00:00",
+    "end_time": "13:00:00",
+    "status": "not_started",
     "data": {
       "consumed_water": 150,
       "consumed_fertilizer": 75,
@@ -408,14 +469,22 @@ curl -X PATCH "https://api.pistatapp.com/api/tractor_tasks/1/data" \
       "id": 1,
       "name": "سم پاشی"
     },
-    "taskable": {
-      "id": 1,
-      "name": "Field A"
-    },
+    "taskables": [
+      {
+        "id": 1,
+        "name": "Field A",
+        "coordinates": []
+      },
+      {
+        "id": 2,
+        "name": "Field B",
+        "coordinates": []
+      }
+    ],
     "date": "1403/12/07",
-    "start_time": "08:00",
-    "end_time": "12:00",
-    "status": "started",
+    "start_time": "08:00:00",
+    "end_time": "12:00:00",
+    "status": "in_progress",
     "data": {
       "consumed_water": 200,
       "consumed_fertilizer": 100,
@@ -583,9 +652,7 @@ curl -X POST "https://api.pistatapp.com/api/tractors/filter_reports" \
 - **DateTime**: Jalali format with time (YYYY/MM/DD HH:MM:SS)
 
 ### Status Values
-- `pending`: Task is scheduled but not started
-- `started`: Task is currently in progress
-- `finished`: Task has been completed
+- `not_started`, `in_progress`, `stopped`, `done`, `not_done` (see **Task Statuses** above)
 
 ---
 
@@ -645,7 +712,7 @@ curl -X POST "https://api.pistatapp.com/api/tractors/1/tractor_tasks" \
   -d '{
     "operation_id": 1,
     "taskable_type": "field",
-    "taskable_id": 1,
+    "taskable_ids": [1, 2],
     "date": "1403/12/07",
     "start_time": "08:00",
     "end_time": "12:00"

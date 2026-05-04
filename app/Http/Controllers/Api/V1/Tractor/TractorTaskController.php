@@ -3,18 +3,20 @@
 namespace App\Http\Controllers\Api\V1\Tractor;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\FilterTractorTaskRequest;
 use App\Http\Requests\StoreTractorTaskRequest;
 use App\Http\Requests\UpdateTractorTaskRequest;
-use App\Http\Requests\FilterTractorTaskRequest;
 use App\Http\Resources\TractorTaskResource;
+use App\Jobs\CalculateTaskGpsMetricsJob;
+use App\Models\Field;
 use App\Models\Tractor;
 use App\Models\TractorTask;
-use Illuminate\Http\Request;
+use App\Notifications\TractorTaskCreated;
 use App\Services\TractorReportFilterService;
 use App\Services\TractorTaskService;
+use Carbon\Carbon;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Notification;
-use App\Notifications\TractorTaskCreated;
-use App\Jobs\CalculateTaskGpsMetricsJob;
 
 class TractorTaskController extends Controller
 {
@@ -31,7 +33,7 @@ class TractorTaskController extends Controller
     public function index(Request $request, Tractor $tractor)
     {
         $request->validate([
-            'date' => 'required|shamsi_date'
+            'date' => 'required|shamsi_date',
         ]);
 
         $date = jalali_to_carbon($request->query('date'));
@@ -49,13 +51,13 @@ class TractorTaskController extends Controller
 
         $task = $tractor->tasks()->create([
             'operation_id' => $validated['operation_id'],
-            'taskable_type' => $validated['taskable_type'],
-            'taskable_id' => $validated['taskable_id'],
             'date' => $validated['date'],
             'start_time' => $validated['start_time'],
             'end_time' => $validated['end_time'],
             'created_by' => $request->user()->id,
         ]);
+
+        $task->syncTaskableItems($validated['taskable_type'], $validated['taskable_ids']);
 
         $farmAdmins = $tractor->farm->admins;
         $driver = $tractor->driver;
@@ -72,7 +74,9 @@ class TractorTaskController extends Controller
 
         CalculateTaskGpsMetricsJob::dispatchIf($isTaskPassed, $task);
 
-        return new TractorTaskResource($task);
+        return new TractorTaskResource(
+            $task->refresh()->load(['taskableItems.taskable', 'operation'])
+        );
     }
 
     /**
@@ -80,7 +84,8 @@ class TractorTaskController extends Controller
      */
     public function show(TractorTask $tractorTask)
     {
-        $tractorTask->load('tractor.driver', 'taskable', 'operation', 'creator');
+        $tractorTask->load('tractor.driver', 'taskableItems.taskable', 'operation', 'creator');
+
         return new TractorTaskResource($tractorTask);
     }
 
@@ -91,30 +96,94 @@ class TractorTaskController extends Controller
     {
         $validated = $request->validated();
 
-        $updateData = [
+        $gpsMetricsInputsChanged = $this->tractorTaskGpsMetricsInputsChanged($tractorTask, $validated);
+
+        $tractorTask->update($this->tractorTaskUpdateAttributesFromValidated($validated));
+        $tractorTask->syncTaskableItems($validated['taskable_type'], $validated['taskable_ids']);
+        $this->syncTractorTaskValidatedData($tractorTask, $validated);
+
+        if ($gpsMetricsInputsChanged) {
+            $this->dispatchCalculateTaskGpsMetricsIfTaskEnded($tractorTask);
+        }
+
+        return new TractorTaskResource($tractorTask->fresh([
+            'taskableItems.taskable',
+            'operation',
+        ]));
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function tractorTaskGpsMetricsInputsChanged(TractorTask $tractorTask, array $validated): bool
+    {
+        return ! $this->taskableSelectionMatches($tractorTask, $validated)
+            || ! $tractorTask->date->isSameDay($validated['date'])
+            || $tractorTask->start_time->format('H:i:s') !== Carbon::parse($validated['start_time'])->format('H:i:s')
+            || $tractorTask->end_time->format('H:i:s') !== Carbon::parse($validated['end_time'])->format('H:i:s');
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array<string, mixed>
+     */
+    private function tractorTaskUpdateAttributesFromValidated(array $validated): array
+    {
+        return [
             'operation_id' => $validated['operation_id'],
-            'taskable_type' => $validated['taskable_type'],
-            'taskable_id' => $validated['taskable_id'],
             'date' => $validated['date'],
             'start_time' => $validated['start_time'],
             'end_time' => $validated['end_time'],
         ];
+    }
 
-        // Apply base updates first
-        $tractorTask->update($updateData);
-
-        // Apply JSON data fields using dot-notation so it respects fillable keys
-        if (array_key_exists('data', $validated) && is_array($validated['data'])) {
-            $dataUpdates = [];
-            foreach ($validated['data'] as $key => $value) {
-                $dataUpdates["data->{$key}"] = $value;
-            }
-            if (!empty($dataUpdates)) {
-                $tractorTask->update($dataUpdates);
-            }
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function taskableSelectionMatches(TractorTask $task, array $validated): bool
+    {
+        $existingType = $task->taskableItems()->value('taskable_type');
+        if ($existingType !== $validated['taskable_type']) {
+            return false;
         }
 
-        return new TractorTaskResource($tractorTask->fresh());
+        $existing = $task->taskableItems()->pluck('taskable_id')->map(fn ($id) => (int) $id)->sort()->values()->all();
+        $incoming = collect($validated['taskable_ids'])->map(fn ($id) => (int) $id)->sort()->values()->all();
+
+        return $existing === $incoming;
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function syncTractorTaskValidatedData(TractorTask $tractorTask, array $validated): void
+    {
+        if (! array_key_exists('data', $validated) || ! is_array($validated['data'])) {
+            return;
+        }
+
+        $dataUpdates = [];
+        foreach ($validated['data'] as $key => $value) {
+            $dataUpdates["data->{$key}"] = $value;
+        }
+
+        if (! empty($dataUpdates)) {
+            $tractorTask->update($dataUpdates);
+        }
+    }
+
+    private function dispatchCalculateTaskGpsMetricsIfTaskEnded(TractorTask $tractorTask): void
+    {
+        $tractorTask->refresh();
+
+        $taskEndDateTime = $tractorTask->date->copy()->setTimeFromTimeString(
+            $tractorTask->end_time->format('H:i:s')
+        );
+
+        CalculateTaskGpsMetricsJob::dispatchIf(
+            now()->greaterThan($taskEndDateTime),
+            $tractorTask
+        );
     }
 
     /**
@@ -139,7 +208,7 @@ class TractorTaskController extends Controller
         }
         $tractorTask->update($dataUpdates);
 
-        return new TractorTaskResource($tractorTask->fresh());
+        return new TractorTaskResource($tractorTask->fresh(['taskableItems.taskable', 'operation']));
     }
 
     /**
@@ -161,35 +230,36 @@ class TractorTaskController extends Controller
 
         // Verify user has access to the tractor's farm
         $tractor = Tractor::findOrFail($validated['tractor_id']);
-        if (!$tractor->farm->users->contains($request->user())) {
+        if (! $tractor->farm->users->contains($request->user())) {
             abort(403, 'Unauthorized access to this tractor.');
         }
 
         $query = TractorTask::query()
-            ->with(['operation', 'taskable', 'creator', 'tractor.driver', 'operation'])
+            ->with(['operation', 'taskableItems.taskable', 'creator', 'tractor.driver', 'operation'])
             ->where('tractor_id', $validated['tractor_id'])
             ->whereBetween('date', [$validated['start_date'], $validated['end_date']]);
 
         // Filter by fields if provided
-        if (!empty($validated['fields'])) {
-            $query->where(function ($q) use ($validated) {
+        if (! empty($validated['fields'])) {
+            $fieldModel = Field::class;
+            $query->where(function ($q) use ($validated, $fieldModel) {
                 foreach ($validated['fields'] as $fieldId) {
-                    $q->orWhere(function ($subQ) use ($fieldId) {
-                        $subQ->where('taskable_type', 'App\Models\Field')
-                             ->where('taskable_id', $fieldId);
+                    $q->orWhereHas('taskableItems', function ($subQ) use ($fieldId, $fieldModel) {
+                        $subQ->where('taskable_type', $fieldModel)
+                            ->where('taskable_id', $fieldId);
                     });
                 }
             });
         }
 
         // Filter by operations if provided
-        if (!empty($validated['operations'])) {
+        if (! empty($validated['operations'])) {
             $query->whereIn('operation_id', $validated['operations']);
         }
 
         $tasks = $query->orderBy('date', 'asc')
-                      ->orderBy('start_time', 'asc')
-                      ->paginate($request->input('per_page', 50));
+            ->orderBy('start_time', 'asc')
+            ->paginate($request->input('per_page', 50));
 
         return TractorTaskResource::collection($tasks);
     }
@@ -205,12 +275,12 @@ class TractorTaskController extends Controller
             'period' => 'required_without:date|in:month,year,specific_month,persian_year',
             'month' => 'required_if:period,specific_month|shamsi_date',
             'year' => 'required_if:period,persian_year|regex:/^\d{4}$/',
-            'operation' => 'nullable|exists:operations,id'
+            'operation' => 'nullable|exists:operations,id',
         ]);
 
         // Verify user has access to the tractor's farm
         $tractor = Tractor::findOrFail($validated['tractor_id']);
-        if (!$tractor->farm->users->contains($request->user())) {
+        if (! $tractor->farm->users->contains($request->user())) {
             abort(403, 'Unauthorized access to this tractor.');
         }
 

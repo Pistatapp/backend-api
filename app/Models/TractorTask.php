@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Casts\Time;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TractorTask extends Model
 {
@@ -18,8 +19,6 @@ class TractorTask extends Model
     protected $fillable = [
         'tractor_id',
         'operation_id',
-        'taskable_type',
-        'taskable_id',
         'date',
         'start_time',
         'end_time',
@@ -78,6 +77,14 @@ class TractorTask extends Model
     }
 
     /**
+     * Farm for the tractor this task is assigned to (used by policies and notifications).
+     */
+    public function getFarmAttribute(): ?Farm
+    {
+        return $this->tractor?->farm;
+    }
+
+    /**
      * Get the operation that owns the TractorTask
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
@@ -88,23 +95,54 @@ class TractorTask extends Model
     }
 
     /**
-     * Get the taskable model (field, farm, plot, etc.)
+     * Ordered pivot rows for all locations (fields, plots, etc.) covered by this task.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\MorphTo
+     * @return HasMany<TractorTaskTaskable, TractorTask>
      */
-    public function taskable()
+    public function taskableItems(): HasMany
     {
-        return $this->morphTo();
+        return $this->hasMany(TractorTaskTaskable::class)->orderBy('sort_order');
     }
 
     /**
-     * Get the field that owns the TractorTask (for backward compatibility)
+     * Replace linked taskables on the pivot table.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     * @param  array<int>  $taskableIds
      */
-    public function field()
+    public function syncTaskableItems(string $taskableType, array $taskableIds): void
     {
-        return $this->belongsTo(Field::class, 'taskable_id')->where('taskable_type', Field::class);
+        $ids = array_values(array_unique(array_map('intval', $taskableIds)));
+        $this->taskableItems()->delete();
+
+        foreach ($ids as $order => $id) {
+            $this->taskableItems()->create([
+                'taskable_type' => $taskableType,
+                'taskable_id' => $id,
+                'sort_order' => $order,
+            ]);
+        }
+    }
+
+    /**
+     * Human-readable list of all taskable names (for notifications, SMS).
+     */
+    public function taskableNamesLabel(): string
+    {
+        $this->loadMissing('taskableItems.taskable');
+
+        $names = $this->taskableItems
+            ->map(function (TractorTaskTaskable $item) {
+                $m = $item->taskable;
+
+                return $m ? ($m->name ?? $m->title ?? null) : null;
+            })
+            ->filter()
+            ->values()
+            ->all();
+
+        return $names !== []
+            ? implode(', ', $names)
+            : (string) __('Unknown');
     }
 
     /**

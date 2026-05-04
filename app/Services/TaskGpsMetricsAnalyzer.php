@@ -183,24 +183,25 @@ class TaskGpsMetricsAnalyzer
     }
 
     /**
-     * Analyze GPS data within task zone and calculate metrics
+     * Analyze GPS data within task zone(s) and calculate metrics
      *
      * This is the main entry point. It segments the data by zone presence
      * and analyzes each segment independently.
      *
-     * @param array $polygon Task zone polygon coordinates
+     * @param array<int, mixed> $polygonOrPolygons One polygon ring [[lat,lon],...] or multiple rings for disjoint fields
      * @return array Analysis results
      */
-    public function analyze(array $polygon = []): array
+    public function analyze(array $polygonOrPolygons = []): array
     {
         $dataCount = count($this->data);
+        $polygons = $this->normalizeTaskPolygons($polygonOrPolygons);
 
-        if ($dataCount === 0 || empty($polygon)) {
+        if ($dataCount === 0 || $polygons === []) {
             return $this->getEmptyResults();
         }
 
-        // Identify continuous segments where tractor is inside the zone
-        $segments = $this->identifyZoneSegments($polygon);
+        // Identify continuous segments where tractor is inside any zone
+        $segments = $this->identifyZoneSegments($polygons);
 
         if (empty($segments)) {
             return $this->getEmptyResults();
@@ -211,15 +212,46 @@ class TaskGpsMetricsAnalyzer
     }
 
     /**
+     * @param array<int, mixed> $input
+     * @return array<int, array<mixed>>
+     */
+    private function normalizeTaskPolygons(array $input): array
+    {
+        if ($input === []) {
+            return [];
+        }
+
+        if ($this->isMultiPolygonInput($input)) {
+            return array_values(array_filter($input));
+        }
+
+        return [$input];
+    }
+
+    /**
+     * @param array<int, mixed> $input
+     */
+    private function isMultiPolygonInput(array $input): bool
+    {
+        $first = $input[0] ?? null;
+        if (! is_array($first)) {
+            return false;
+        }
+        $inner = $first[0] ?? null;
+
+        return is_array($inner) && isset($inner[0]) && is_numeric($inner[0]);
+    }
+
+    /**
      * Identify continuous presence segments within the task zone
      *
      * A segment is a continuous period where the tractor is inside the zone.
      * Returns array of segments, each containing start and end indices.
      *
-     * @param array $polygon Task zone polygon
+     * @param array<int, array<mixed>> $polygons
      * @return array Array of segments [['start' => idx, 'end' => idx], ...]
      */
-    private function identifyZoneSegments(array $polygon): array
+    private function identifyZoneSegments(array $polygons): array
     {
         $segments = [];
         $inZone = false;
@@ -228,9 +260,9 @@ class TaskGpsMetricsAnalyzer
 
         for ($i = 0; $i < $dataCount; $i++) {
             $point = $this->data[$i];
-            $pointInZone = is_point_in_polygon(
+            $pointInZone = $this->isPointInAnyPolygon(
                 [$point[self::IDX_LAT], $point[self::IDX_LON]],
-                $polygon
+                $polygons
             );
 
             if ($pointInZone && !$inZone) {
@@ -257,6 +289,21 @@ class TaskGpsMetricsAnalyzer
         }
 
         return $segments;
+    }
+
+    /**
+     * @param array{0: float, 1: float} $point
+     * @param array<int, array<mixed>> $polygons
+     */
+    private function isPointInAnyPolygon(array $point, array $polygons): bool
+    {
+        foreach ($polygons as $polygon) {
+            if ($polygon !== [] && is_point_in_polygon($point, $polygon)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

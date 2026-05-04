@@ -23,12 +23,19 @@ class TractorTaskResource extends JsonResource
                     'name' => $this->operation->name,
                 ];
             }),
-            'taskable' => $this->whenLoaded('taskable', function () {
-                return [
-                    'id' => $this->taskable->id,
-                    'name' => $this->taskable->name,
-                    'coordinates' => $this->taskable->coordinates,
-                ];
+            'taskables' => $this->whenLoaded('taskableItems', function () {
+                return $this->taskableItems->map(function ($item) {
+                    $model = $item->taskable;
+                    if (! $model) {
+                        return null;
+                    }
+
+                    return [
+                        'id' => $model->id,
+                        'name' => $model->name ?? $model->title,
+                        'coordinates' => $model->coordinates,
+                    ];
+                })->filter()->values();
             }),
             'driver' => $this->whenLoaded('tractor.driver', function () {
                 return [

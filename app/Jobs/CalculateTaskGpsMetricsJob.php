@@ -49,11 +49,11 @@ class CalculateTaskGpsMetricsJob implements ShouldQueue
         $this->task->load('tractor');
         $tractor = $this->task->tractor;
 
-        $taskZone = $tractorTaskService->getTaskZone($this->task);
+        $taskZones = $tractorTaskService->getTaskZones($this->task);
 
-        // Analyze GPS data with task time window
+        // Analyze GPS data with task time window (multiple disjoint polygons supported)
         $results = $gpsDataAnalyzer->loadRecordsFor($tractor, $taskStartTime, $taskEndTime)
-            ->analyze($taskZone);
+            ->analyze($taskZones);
 
         // Check if there's any valid GPS data
         if ($results['movement_duration_seconds'] <= 0) {

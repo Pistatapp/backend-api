@@ -7,6 +7,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use App\Notifications\FirebaseMessage;
 use Illuminate\Notifications\Notification;
 use App\Models\TractorTask;
+use App\Models\TractorTaskTaskable;
 use App\Models\GpsMetricsCalculation;
 
 class TractorTaskStatusNotification extends Notification implements ShouldQueue
@@ -42,8 +43,9 @@ class TractorTaskStatusNotification extends Notification implements ShouldQueue
 
         $date = jdate($this->task->date)->format('Y/m/d');
 
-        // Get the taskable name (field, farm, plot, etc.)
-        $taskableName = $this->task->taskable->name ?? $this->task->taskable->title ?? 'Unknown';
+        $this->task->loadMissing('tractor', 'operation');
+
+        $taskableNamesList = $this->allTaskableNamesForMessage();
 
         $this->success = $taskCompleted;
         $this->message = $taskCompleted
@@ -52,28 +54,60 @@ class TractorTaskStatusNotification extends Notification implements ShouldQueue
                 'tractor_name' => $this->task->tractor->name,
                 'duration' => $duration,
                 'taskable_type' => $this->getTaskableTypeName(),
-                'taskable_name' => $taskableName,
+                'taskable_name' => $taskableNamesList,
                 'operation' => $this->task->operation->name
             ])
             : __('On :date, tractor :tractor_name did not complete the assigned task and did not enter :taskable_type :taskable_name for :operation operation at the scheduled time.', [
                 'date' => $date,
                 'tractor_name' => $this->task->tractor->name,
                 'taskable_type' => $this->getTaskableTypeName(),
-                'taskable_name' => $taskableName,
+                'taskable_name' => $taskableNamesList,
                 'operation' => $this->task->operation->name
             ]);
     }
 
     /**
-     * Get a human-readable name for the taskable type
+     * Comma-separated names for every linked taskable (fresh query for queued jobs).
+     */
+    private function allTaskableNamesForMessage(): string
+    {
+        $labels = $this->task->taskableItems()
+            ->orderBy('sort_order')
+            ->with('taskable')
+            ->get()
+            ->map(function (TractorTaskTaskable $row) {
+                $m = $row->taskable;
+
+                return $m ? ($m->name ?? $m->title ?? null) : null;
+            })
+            ->filter()
+            ->unique()
+            ->values();
+
+        return $labels->isNotEmpty()
+            ? $labels->implode(', ')
+            : (string) __('Unknown');
+    }
+
+    /**
+     * Human-readable taskable type (pluralized for fields when multiple areas).
      */
     private function getTaskableTypeName(): string
     {
-        return match ($this->task->taskable_type) {
-            'App\\Models\\Field' => 'field',
-            'App\\Models\\Farm' => 'farm',
-            'App\\Models\\Plot' => 'plot',
-            default => 'area'
+        $items = $this->task->taskableItems()->orderBy('sort_order')->get();
+        if ($items->isEmpty()) {
+            return (string) __('area');
+        }
+
+        $plural = $items->count() > 1;
+        $type = $items->first()->taskable_type;
+
+        return match ($type) {
+            'App\\Models\\Field' => $plural ? (string) __('fields') : (string) __('field'),
+            'App\\Models\\Farm' => (string) __('farm'),
+            'App\\Models\\Plot' => (string) __('plot'),
+            'App\\Models\\Row' => (string) __('row'),
+            default => (string) __('area'),
         };
     }
 

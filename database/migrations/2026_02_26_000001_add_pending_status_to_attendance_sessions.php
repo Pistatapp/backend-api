@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
+
         DB::statement("ALTER TABLE attendance_sessions MODIFY COLUMN status ENUM('pending', 'in_progress', 'completed') NOT NULL DEFAULT 'in_progress'");
     }
 
@@ -19,6 +23,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
+
         // Optionally convert any 'pending' back to 'in_progress' before reverting enum
         DB::table('attendance_sessions')->where('status', 'pending')->update(['status' => 'in_progress']);
         DB::statement("ALTER TABLE attendance_sessions MODIFY COLUMN status ENUM('in_progress', 'completed') NOT NULL DEFAULT 'in_progress'");

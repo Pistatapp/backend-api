@@ -25,20 +25,20 @@ class UpdateTractorTaskRequest extends FormRequest
         return [
             'operation_id' => 'required|integer|exists:operations,id',
             'taskable_type' => 'required|string|in:App\Models\Field,App\Models\Farm,App\Models\Plot,App\Models\Row',
-            'taskable_id' => [
-                'required',
+            'taskable_ids' => ['required', 'array', 'min:1'],
+            'taskable_ids.*' => [
                 'integer',
+                'distinct',
                 function ($attribute, $value, $fail) {
                     $taskableType = $this->input('taskable_type');
-                    if (!class_exists($taskableType)) {
-                        $fail('The selected taskable type is invalid.');
+                    if (! $taskableType || ! class_exists($taskableType)) {
+                        $fail(__('The selected taskable type is invalid.'));
+
                         return;
                     }
 
-                    $model = $taskableType::find($value);
-                    if (!$model) {
-                        $fail('The selected taskable does not exist.');
-                        return;
+                    if (! $taskableType::find($value)) {
+                        $fail(__('The selected taskable does not exist.'));
                     }
                 },
             ],
@@ -84,9 +84,15 @@ class UpdateTractorTaskRequest extends FormRequest
         $taskableType = $this->input('taskable_type');
         $modelClass = $taskableTypeMap[$taskableType] ?? $taskableType;
 
-        $this->merge([
+        $merge = [
             'date' => jalali_to_carbon($this->date),
             'taskable_type' => $modelClass,
-        ]);
+        ];
+
+        if (! $this->filled('taskable_ids') && $this->filled('taskable_id')) {
+            $merge['taskable_ids'] = [(int) $this->input('taskable_id')];
+        }
+
+        $this->merge($merge);
     }
 }

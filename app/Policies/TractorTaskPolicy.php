@@ -4,7 +4,6 @@ namespace App\Policies;
 
 use App\Models\TractorTask;
 use App\Models\User;
-use Illuminate\Auth\Access\Response;
 
 class TractorTaskPolicy
 {
@@ -26,13 +25,38 @@ class TractorTaskPolicy
 
     public function update(User $user, TractorTask $tractorTask): bool
     {
-        return $tractorTask->creator->is($user) && $tractorTask->status === 'not_started'
-            && $user->can('assign-tractor-task');
+        $creator = $tractorTask->creator;
+        $farmAdmin = $tractorTask->farm->admins->contains($user);
+        $createdAtDiff = $tractorTask->created_at->diffInHours(now());
+
+        // If user is creator and 24 hours have passed since tractor task creation, return false
+        if ($user->is($creator) && $createdAtDiff >= 24) {
+            return false;
+        }
+
+        // If user is farm admin and 48 hours have passed since tractor task creation, return false
+        if ($farmAdmin && $createdAtDiff >= 48) {
+            return false;
+        }
+
+        return $user->can('assign-tractor-task');
     }
 
     public function delete(User $user, TractorTask $tractorTask): bool
     {
-        return $tractorTask->creator->is($user) && $tractorTask->status === 'not_started'
-            && $user->can('assign-tractor-task');
+        $creator = $tractorTask->creator;
+        $farmAdmin = $tractorTask->farm->admins->contains($user);
+        $createdAtDiff = $tractorTask->created_at->diffInHours(now());
+        // If user is creator and 24 hours have passed since tractor task creation, return false
+        if ($user->is($creator) && $createdAtDiff >= 24) {
+            return false;
+        }
+
+        // If user is farm admin and 48 hours have passed since tractor task creation, return false
+        if ($farmAdmin && $createdAtDiff >= 48) {
+            return false;
+        }
+
+        return $user->can('assign-tractor-task');
     }
 }

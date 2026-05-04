@@ -29,7 +29,7 @@ class TractorTaskService
                 ->whereDate('date', $date)
                 ->where('start_time', '<=', $timestamp->format('H:i:s'))
                 ->where('end_time', '>=', $timestamp->format('H:i:s'))
-                ->with('taskable')
+                ->with(['taskableItems.taskable'])
                 ->first();
         });
 
@@ -37,39 +37,39 @@ class TractorTaskService
     }
 
     /**
-     * Get the zone coordinates for a task.
+     * Zone polygons for the task (one ring per selected field/plot/etc.).
      *
-     * @param TractorTask $task
-     * @return array|null
+     * @return array<int, array<mixed>>
      */
-    public function getTaskZone(TractorTask $task): ?array
+    public function getTaskZones(TractorTask $task): array
     {
-        if (!$task->taskable) {
-            return null;
+        $task->loadMissing('taskableItems.taskable');
+
+        $zones = [];
+        foreach ($task->taskableItems as $item) {
+            $model = $item->taskable;
+            if ($model && ! empty($model->coordinates)) {
+                $zones[] = $model->coordinates;
+            }
         }
 
-        $task->loadMissing('taskable');
-
-        // Get coordinates from taskable (Field, Plot, etc.)
-        return $task->taskable->coordinates;
+        return $zones;
     }
 
     /**
-     * Check if a GPS point is within the task zone.
+     * Check if a GPS point is within any of the task zones.
      *
-     * @param array $point [latitude, longitude]
-     * @param TractorTask $task
-     * @return bool
+     * @param array{0: float, 1: float} $point [latitude, longitude]
      */
     public function isPointInTaskZone(array $point, TractorTask $task): bool
     {
-        $zone = $this->getTaskZone($task);
-
-        if (!$zone) {
-            return false;
+        foreach ($this->getTaskZones($task) as $zone) {
+            if (is_point_in_polygon($point, $zone)) {
+                return true;
+            }
         }
 
-        return is_point_in_polygon($point, $zone);
+        return false;
     }
 
     /**
@@ -83,7 +83,7 @@ class TractorTaskService
     {
         return TractorTask::where('tractor_id', $tractor->id)
             ->whereDate('date', $date)
-            ->with(['taskable', 'operation'])
+            ->with(['taskableItems.taskable', 'operation'])
             ->latest()
             ->get();
     }

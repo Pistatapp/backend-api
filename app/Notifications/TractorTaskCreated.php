@@ -20,7 +20,7 @@ class TractorTaskCreated extends KavenegarBaseNotification implements ShouldQueu
         public TractorTask $task
     ) {
         // Eager load necessary relationships
-        $this->task->load('tractor', 'operation', 'taskable');
+        $this->task->load('tractor', 'operation', 'taskableItems.taskable');
     }
 
     /**
@@ -53,7 +53,7 @@ class TractorTaskCreated extends KavenegarBaseNotification implements ShouldQueu
         $startTime = $this->task->start_time->format('H:i');
         $endTime = $this->task->end_time->format('H:i');
         $taskDate = jdate($this->task->date)->format('Y/m/d');
-        $taskableName = $this->task->taskable->name ?? 'نامشخص';
+        $taskableName = $this->task->taskableNamesLabel();
 
         return (new FirebaseMessage)
             ->title(__('notifications.tractor_task_created.title', ['tractor_name' => $tractorName]))
@@ -80,7 +80,7 @@ class TractorTaskCreated extends KavenegarBaseNotification implements ShouldQueu
         $startTime = $this->task->start_time->format('H:i');
         $endTime = $this->task->end_time->format('H:i');
         $taskDate = jdate($this->task->date)->format('Y/m/d');
-        $taskableName = $this->task->taskable->name ?? 'نامشخص';
+        $taskableName = $this->task->taskableNamesLabel();
 
         return [
             'title' => __('notifications.tractor_task_created.title', ['tractor_name' => $tractorName]),

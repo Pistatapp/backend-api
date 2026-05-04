@@ -21,7 +21,10 @@ class TractorReportFilterService
         // Find the tractor or fail
         $tractor = Tractor::findOrFail($filters['tractor_id']);
         // Start query from GpsMetricsCalculation, eager loading related task, operation, and taskable
-        $query = $tractor->gpsMetricsCalculations()->with(['tractorTask.operation', 'tractorTask.taskable']);
+        $query = $tractor->gpsMetricsCalculations()->with([
+            'tractorTask.operation',
+            'tractorTask.taskableItems.taskable',
+        ]);
 
         // Apply date/period filters
         $this->applyDateFilters($query, $filters);
@@ -201,11 +204,20 @@ class TractorReportFilterService
                         'id' => $task->operation->id,
                         'name' => $task->operation->name,
                     ] : null,
-                    'taskable' => $task->taskable ? [
-                        'id' => $task->taskable->id,
-                        'name' => $task->taskable->name,
-                        'type' => class_basename($task->taskable_type),
+                    'taskable' => ($first = $task->taskableItems->first()) && $first->taskable ? [
+                        'id' => $first->taskable->id,
+                        'name' => $first->taskable->name,
+                        'type' => class_basename($first->taskable_type),
                     ] : null,
+                    'taskables' => $task->relationLoaded('taskableItems') ? $task->taskableItems->map(function ($item) {
+                        $m = $item->taskable;
+
+                        return $m ? [
+                            'id' => $m->id,
+                            'name' => $m->name,
+                            'type' => class_basename($item->taskable_type),
+                        ] : null;
+                    })->filter()->values() : [],
                     'consumed_water' => $this->formatVolume(data_get($task->data, 'consumed_water', 0)),
                     'consumed_fertilizer' => $this->formatWeight(data_get($task->data, 'consumed_fertilizer', 0)),
                     'consumed_poison' => $this->formatVolume(data_get($task->data, 'consumed_poison', 0)),

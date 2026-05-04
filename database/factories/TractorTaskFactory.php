@@ -2,6 +2,8 @@
 
 namespace Database\Factories;
 
+use App\Models\Field;
+use App\Models\TractorTask;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -9,6 +11,23 @@ use Illuminate\Database\Eloquent\Factories\Factory;
  */
 class TractorTaskFactory extends Factory
 {
+    /**
+     * @return static
+     */
+    public function configure(): static
+    {
+        return $this->afterCreating(function (TractorTask $task) {
+            if ($task->taskableItems()->exists()) {
+                return;
+            }
+
+            $field = Field::factory()->create([
+                'farm_id' => $task->tractor->farm_id,
+            ]);
+            $task->syncTaskableItems(Field::class, [$field->id]);
+        });
+    }
+
     /**
      * Define the model's default state.
      *
@@ -21,8 +40,6 @@ class TractorTaskFactory extends Factory
             'start_time' => $this->faker->time('H:i'),
             'end_time' => $this->faker->time('H:i'),
             'tractor_id' => \App\Models\Tractor::factory(),
-            'taskable_type' => \App\Models\Field::class,
-            'taskable_id' => \App\Models\Field::factory(),
             'operation_id' => \App\Models\Operation::factory(),
             'created_by' => \App\Models\User::factory(),
             'status' => 'not_started'

@@ -4,7 +4,6 @@ namespace App\Policies;
 
 use App\Models\Irrigation;
 use App\Models\User;
-use Illuminate\Auth\Access\Response;
 
 class IrrigationPolicy
 {
@@ -37,14 +36,21 @@ class IrrigationPolicy
      */
     public function update(User $user, Irrigation $irrigation): bool
     {
-        // Combine date with end_time (H:i:s format) to create full datetime
-        $irrigationEndTimeDiff = $irrigation->end_time->diffInHours(now());
-        // If 72 hours have passed since irrigation end_time, return false
-        if ($irrigationEndTimeDiff > 72) {
+        $creator = $irrigation->creator;
+        $farmAdmin = $irrigation->farm->admins->contains($user);
+        $createdAtDiff = $irrigation->created_at->diffInHours(now());
+        $endTimeDiff = $irrigation->end_time->diffInHours(now());
+
+        // If user is creator and 24 hours have passed since irrigation creation, return false
+        if ($user->is($creator) && $createdAtDiff >= 24) {
             return false;
         }
 
-        // Must have permission to edit irrigation
+        // If user is farm admin and 24 hours have passed since irrigation end_time, return false
+        if ($farmAdmin && $endTimeDiff >= 24) {
+            return false;
+        }
+
         return $user->can('edit-irrigation-program');
     }
 
@@ -53,11 +59,22 @@ class IrrigationPolicy
      */
     public function delete(User $user, Irrigation $irrigation): bool
     {
-        // Allow delete if irrigation status is pending AND (user is creator OR farm admin)
-        return $irrigation->status === 'pending' && (
-            $irrigation->creator->is($user) ||
-            $irrigation->farm->admins->contains($user)
-        );
+        $creator = $irrigation->creator;
+        $farmAdmin = $irrigation->farm->admins->contains($user);
+        $createdAtDiff = $irrigation->created_at->diffInHours(now());
+        $endTimeDiff = $irrigation->end_time->diffInHours(now());
+
+        // If user is creator and 24 hours have passed since irrigation creation, return false
+        if ($user->is($creator) && $createdAtDiff >= 24) {
+            return false;
+        }
+
+        // If user is farm admin and 24 hours have passed since irrigation end_time, return false
+        if ($farmAdmin && $endTimeDiff >= 24) {
+            return false;
+        }
+
+        return $user->can('delete-irrigation-program');
     }
 
     /**
@@ -68,7 +85,7 @@ class IrrigationPolicy
         // Check if irrigation was verified by admin and if enough time has passed
         if ($irrigation->is_verified_by_admin) {
             $passedTimeSinceLastVerification = $irrigation->updated_at->diffInHours(now());
-            if ($passedTimeSinceLastVerification <= 72) {
+            if ($passedTimeSinceLastVerification >= 24) {
                 return false;
             }
         }
