@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\MaintenanceReportResource;
 use App\Models\MaintenanceReport;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class MaintenanceReportController extends Controller
@@ -38,6 +39,9 @@ class MaintenanceReportController extends Controller
             'maintained_by' => 'required|integer|exists:labours,id',
             'date' => 'required|shamsi_date',
             'description' => 'required|string|max:500',
+            'repair_shop_entered_at' => 'nullable|date',
+            'repair_shop_exited_at' => 'nullable|date',
+            'next_maintenance_km' => 'nullable|numeric|min:0',
         ]);
 
         $maintainableType = getModelClass($request->maintainable_type);
@@ -50,6 +54,13 @@ class MaintenanceReportController extends Controller
             'maintained_by' => $request->maintained_by,
             'date' => jalali_to_carbon($request->date),
             'description' => $request->description,
+            'repair_shop_entered_at' => $request->repair_shop_entered_at
+                ? Carbon::parse($request->repair_shop_entered_at)
+                : null,
+            'repair_shop_exited_at' => $request->repair_shop_exited_at
+                ? Carbon::parse($request->repair_shop_exited_at)
+                : null,
+            'next_maintenance_km' => $request->next_maintenance_km,
         ]);
 
         return new MaintenanceReportResource($maintenanceReport);
@@ -73,14 +84,35 @@ class MaintenanceReportController extends Controller
             'maintained_by' => 'required|integer|exists:labours,id',
             'date' => 'required|shamsi_date',
             'description' => 'required|string|max:500',
+            'repair_shop_entered_at' => 'nullable|date',
+            'repair_shop_exited_at' => 'nullable|date',
+            'next_maintenance_km' => 'nullable|numeric|min:0',
         ]);
 
-        $maintenanceReport->update([
+        $data = [
             'maintenance_id' => $request->maintenance_id,
             'maintained_by' => $request->maintained_by,
             'date' => jalali_to_carbon($request->date),
             'description' => $request->description,
-        ]);
+        ];
+
+        if ($request->has('repair_shop_entered_at')) {
+            $data['repair_shop_entered_at'] = $request->repair_shop_entered_at
+                ? Carbon::parse($request->repair_shop_entered_at)
+                : null;
+        }
+
+        if ($request->has('repair_shop_exited_at')) {
+            $data['repair_shop_exited_at'] = $request->repair_shop_exited_at
+                ? Carbon::parse($request->repair_shop_exited_at)
+                : null;
+        }
+
+        if ($request->has('next_maintenance_km')) {
+            $data['next_maintenance_km'] = $request->input('next_maintenance_km');
+        }
+
+        $maintenanceReport->update($data);
 
         return new MaintenanceReportResource($maintenanceReport->fresh());
     }

@@ -36,6 +36,18 @@ class MaintenanceReportResource extends JsonResource
             }),
             'date' => jdate($this->date)->format('Y/m/d'),
             'description' => $this->description,
+            'repair_shop_entered_at' => $this->repair_shop_entered_at
+                ? jdate($this->repair_shop_entered_at)->format('Y/m/d H:i:s')
+                : null,
+            'repair_shop_exited_at' => $this->repair_shop_exited_at
+                ? jdate($this->repair_shop_exited_at)->format('Y/m/d H:i:s')
+                : null,
+            'repair_duration_hours' => $this->repair_shop_entered_at && $this->repair_shop_exited_at
+                ? round($this->repair_shop_entered_at->diffInSeconds($this->repair_shop_exited_at) / 3600, 2)
+                : null,
+            'next_maintenance_km' => $this->next_maintenance_km !== null
+                ? (float) $this->next_maintenance_km
+                : null,
             'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),
         ];
     }

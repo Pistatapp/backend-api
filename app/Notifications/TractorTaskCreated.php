@@ -83,8 +83,8 @@ class TractorTaskCreated extends KavenegarBaseNotification implements ShouldQueu
         $taskableName = $this->task->taskableNamesLabel();
 
         return [
-            'title' => __('notifications.tractor_task_created.title', ['tractor_name' => $tractorName]),
-            'message' => __('notifications.tractor_task_created.body', [
+            'title' => __('New task created for tractor :tractor_name', ['tractor_name' => $tractorName]),
+            'message' => __('Operation :operation_name must be performed from :start_time to :end_time on :task_date at :taskable_name.', [
                 'operation_name' => $operationName,
                 'start_time' => $startTime,
                 'end_time' => $endTime,

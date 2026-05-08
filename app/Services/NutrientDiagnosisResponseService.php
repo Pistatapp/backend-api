@@ -23,7 +23,7 @@ class NutrientDiagnosisResponseService
 
         // Update the request
         $request->update([
-            'status' => 'completed',
+            'status' => 'approved',
             'response_description' => $description,
             'response_attachment' => $path
         ]);

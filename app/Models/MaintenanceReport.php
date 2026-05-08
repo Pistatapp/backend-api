@@ -20,7 +20,23 @@ class MaintenanceReport extends Model
         'maintained_by',
         'date',
         'description',
+        'repair_shop_entered_at',
+        'repair_shop_exited_at',
+        'next_maintenance_km',
     ];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'date' => 'date',
+            'repair_shop_entered_at' => 'datetime',
+            'repair_shop_exited_at' => 'datetime',
+            'next_maintenance_km' => 'decimal:2',
+        ];
+    }
 
     /**
      * The relationships that should always be loaded.

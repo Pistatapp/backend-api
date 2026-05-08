@@ -88,7 +88,8 @@ class LoadEstimationController extends Controller
         $estimatedYields = $this->loadEstimationService->calculateEstimatedYields(
             $request->average_bud_count,
             $request->tree_count,
-            $loadEstimationTable->rows
+            $loadEstimationTable->rows,
+            $request->input('cluster_weight')
         );
 
         return response()->json(['data' => $estimatedYields]);
@@ -106,6 +107,7 @@ class LoadEstimationController extends Controller
             'field_id' => 'required|integer|exists:fields,id',
             'average_bud_count' => 'required|integer|min:0',
             'tree_count' => 'required|integer|min:0',
+            'cluster_weight' => 'nullable|numeric|min:0',
         ]);
     }
 }

@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api\V1\Farm;
 
 use App\Http\Controllers\Controller;
 use App\Models\Farm;
+use App\Models\Field;
 use App\Models\NutrientDiagnosisRequest;
 use App\Http\Requests\StoreNutrientDiagnosisRequest;
+use App\Http\Requests\UpdateNutrientDiagnosisRequest;
 use App\Http\Resources\NutrientDiagnosisRequestResource;
 use App\Services\NutrientDiagnosisResponseService;
 use App\Services\NutrientDiagnosisNotificationService;
@@ -96,6 +98,32 @@ class CompositionalNutrientDiagnosisController extends Controller
     }
 
     /**
+     * Update the specified nutrient diagnosis request.
+     */
+    public function update(UpdateNutrientDiagnosisRequest $httpRequest, Farm $farm, NutrientDiagnosisRequest $request)
+    {
+        if ($request->status === 'approved') {
+            return response()->json([
+                'message' => __('Approved requests cannot be edited.'),
+            ], 422);
+        }
+
+        $samples = $httpRequest->validated()['samples'];
+        $request->samples()->delete();
+        foreach ($samples as $sample) {
+            $field = Field::find($sample['field_id']);
+            $sample['field_area'] = $sample['field_area'] ?? (
+                $field && $field->coordinates
+                    ? calculate_polygon_area($field->coordinates)
+                    : 0
+            );
+            $request->samples()->create($sample);
+        }
+
+        return new NutrientDiagnosisRequestResource($request->fresh(['samples.field', 'user']));
+    }
+
+    /**
      * Submit a response to a nutrient diagnosis request.
      * Only root users can respond to requests.
      *
@@ -107,6 +135,12 @@ class CompositionalNutrientDiagnosisController extends Controller
     public function sendResponse(Request $httpRequest, Farm $farm, NutrientDiagnosisRequest $request)
     {
         $this->authorize('respond', $request);
+
+        if ($request->status !== 'approved') {
+            return response()->json([
+                'message' => __('Only approved requests can receive a response file.'),
+            ], 422);
+        }
 
         $httpRequest->validate([
             'description' => 'required|string',
@@ -120,6 +154,36 @@ class CompositionalNutrientDiagnosisController extends Controller
         );
 
         return response()->json(['message' => 'Response sent successfully']);
+    }
+
+    /**
+     * Approve a nutrient diagnosis request.
+     */
+    public function approve(Farm $farm, NutrientDiagnosisRequest $request)
+    {
+        $this->authorize('respond', $request);
+
+        $request->update([
+            'status' => 'approved',
+            'approved_at' => now(),
+        ]);
+
+        return new NutrientDiagnosisRequestResource($request->fresh(['samples.field', 'user']));
+    }
+
+    /**
+     * Reject a nutrient diagnosis request.
+     */
+    public function reject(Farm $farm, NutrientDiagnosisRequest $request)
+    {
+        $this->authorize('respond', $request);
+
+        $request->update([
+            'status' => 'rejected',
+            'approved_at' => null,
+        ]);
+
+        return new NutrientDiagnosisRequestResource($request->fresh(['samples.field', 'user']));
     }
 
     /**

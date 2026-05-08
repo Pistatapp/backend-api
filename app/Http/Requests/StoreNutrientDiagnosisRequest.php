@@ -27,7 +27,7 @@ class StoreNutrientDiagnosisRequest extends FormRequest
         return [
             'samples' => 'required|array|min:1',
             'samples.*.field_id' => 'required|exists:fields,id',
-            'samples.*.field_area' => 'required|numeric|min:0',
+            'samples.*.field_area' => 'nullable|numeric|min:0',
             'samples.*.load_amount' => 'required|numeric|min:0',
             'samples.*.nitrogen' => 'required|numeric|min:0',
             'samples.*.phosphorus' => 'required|numeric|min:0',

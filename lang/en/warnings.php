@@ -4,6 +4,7 @@ return [
     // Warning messages
     'tractor_stoppage' => 'Tractor name :tractor_name has been stopped for more than :hours hours on :date. Please check the reason.',
     'tractor_inactivity' => 'Tractor name :tractor_name has been inactive for more than :days days. Please check the reason.',
+    'tractor_periodic_service' => 'Periodic service alert for tractor :tractor_name. :interval_hours hours or :interval_km km threshold has been reached since last service.',
     'irrigation_start_end' => 'Irrigation operation started on :start_date at :start_time in plot :plot and ended at :end_time.',
     'frost_warning' => 'There is a risk of frost in your farm in the next :days days. Take precautions.',
     'radiative_frost_warning' => 'There is a risk of radiative frost on :date. Take precautions.',
@@ -15,6 +16,7 @@ return [
     'settings' => [
         'tractor_stoppage' => 'Warn me if a tractor stops for more than :hours hours.',
         'tractor_inactivity' => 'Warn me if no data is received from a tractor for more than :days days.',
+        'tractor_periodic_service' => 'Warn me every :interval_hours hours or :interval_km km for periodic tractor service.',
         'irrigation_start_end' => 'Warn me at the start and end of irrigation.',
         'frost_warning' => 'Warn me :days days before a potential frost event.',
         'radiative_frost_warning' => 'Warn me about radiative frost risk.',

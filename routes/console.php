@@ -8,6 +8,7 @@ use App\Models\Tractor;
 use App\Jobs\CalculateColdRequirementJob;
 use App\Jobs\CalculateFrostbiteRiskJob;
 use App\Jobs\CalculateGpsMetricsJob;
+use App\Jobs\CheckMaintenanceKmThresholdsJob;
 use Carbon\Carbon;
 
 /*
@@ -49,5 +50,11 @@ Schedule::call(function () {
         }
     });
 })->dailyAt('23:00:00');
+
+Schedule::call(function () {
+    CheckMaintenanceKmThresholdsJob::dispatch();
+})->dailyAt('01:15:00');
+
+Schedule::command('tractor:check-service-alerts')->daily();
 
 Schedule::command('telescope:prune --hours=24')->daily();

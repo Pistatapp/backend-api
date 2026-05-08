@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Farm;
+use App\Models\Field;
 use App\Models\NutrientDiagnosisRequest;
 use Illuminate\Support\Facades\Auth;
 
@@ -24,6 +25,13 @@ class NutrientDiagnosisRequestService
         ]);
 
         foreach ($samples as $sample) {
+            $field = Field::find($sample['field_id']);
+            $sample['field_area'] = $sample['field_area'] ?? (
+                $field && $field->coordinates
+                    ? calculate_polygon_area($field->coordinates)
+                    : 0
+            );
+
             $diagnosisRequest->samples()->create($sample);
         }
 

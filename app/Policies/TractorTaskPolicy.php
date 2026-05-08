@@ -27,15 +27,15 @@ class TractorTaskPolicy
     {
         $creator = $tractorTask->creator;
         $farmAdmin = $tractorTask->farm->admins->contains($user);
-        $createdAtDiff = $tractorTask->created_at->diffInHours(now());
+        $elapsedSinceCompletion = $this->elapsedHoursSinceCompletion($tractorTask);
 
-        // If user is creator and 24 hours have passed since tractor task creation, return false
-        if ($user->is($creator) && $createdAtDiff >= 24) {
+        // If user is creator and 24 hours have passed since tractor task completion, return false
+        if ($user->is($creator) && $elapsedSinceCompletion >= 24) {
             return false;
         }
 
-        // If user is farm admin and 48 hours have passed since tractor task creation, return false
-        if ($farmAdmin && $createdAtDiff >= 48) {
+        // If user is farm admin and 48 hours have passed since tractor task completion, return false
+        if ($farmAdmin && $elapsedSinceCompletion >= 48) {
             return false;
         }
 
@@ -46,17 +46,29 @@ class TractorTaskPolicy
     {
         $creator = $tractorTask->creator;
         $farmAdmin = $tractorTask->farm->admins->contains($user);
-        $createdAtDiff = $tractorTask->created_at->diffInHours(now());
-        // If user is creator and 24 hours have passed since tractor task creation, return false
-        if ($user->is($creator) && $createdAtDiff >= 24) {
+        $elapsedSinceCompletion = $this->elapsedHoursSinceCompletion($tractorTask);
+        // If user is creator and 24 hours have passed since tractor task completion, return false
+        if ($user->is($creator) && $elapsedSinceCompletion >= 24) {
             return false;
         }
 
-        // If user is farm admin and 48 hours have passed since tractor task creation, return false
-        if ($farmAdmin && $createdAtDiff >= 48) {
+        // If user is farm admin and 48 hours have passed since tractor task completion, return false
+        if ($farmAdmin && $elapsedSinceCompletion >= 48) {
             return false;
         }
 
         return $user->can('assign-tractor-task');
+    }
+
+    private function elapsedHoursSinceCompletion(TractorTask $tractorTask): int
+    {
+        $taskEndDateTime = $tractorTask->date->copy()
+            ->setTimeFromTimeString($tractorTask->end_time->format('H:i:s'));
+
+        if ($taskEndDateTime->isFuture()) {
+            return 0;
+        }
+
+        return $taskEndDateTime->diffInHours(now());
     }
 }

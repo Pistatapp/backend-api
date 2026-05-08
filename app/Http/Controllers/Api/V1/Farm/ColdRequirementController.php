@@ -62,12 +62,12 @@ class ColdRequirementController extends Controller
      * Calculate the cold requirement for the farm.
      *
      * @param array $data
-     * @param int $minTemp
-     * @param int $maxTemp
+     * @param float $minTemp
+     * @param float $maxTemp
      * @param string $method
      * @return int
      */
-    private function calculateColdRequirement(array $data, int $minTemp, int $maxTemp, string $method): int
+    private function calculateColdRequirement(array $data, float $minTemp, float $maxTemp, string $method): int
     {
         return $method === 'method1'
             ? $this->calculateColdRequirementMethod1($data, $minTemp, $maxTemp)
@@ -78,11 +78,11 @@ class ColdRequirementController extends Controller
      * Calculate the cold requirement for the farm using method 1.
      *
      * @param array $data
-     * @param int $minTemp
-     * @param int $maxTemp
+     * @param float $minTemp
+     * @param float $maxTemp
      * @return int
      */
-    private function calculateColdRequirementMethod1(array $data, int $minTemp, int $maxTemp): int
+    private function calculateColdRequirementMethod1(array $data, float $minTemp, float $maxTemp): int
     {
         return collect($data['forecast']['forecastday'])->sum(function ($day) use ($minTemp, $maxTemp) {
             return collect($day['hour'])->filter(function ($hour) use ($minTemp, $maxTemp) {

@@ -27,12 +27,16 @@ class NutrientDiagnosisRequestResource extends JsonResource
             }),
             'farm_id' => $this->farm_id,
             'status' => $this->status,
+            'approved_at' => $this->approved_at
+                ? jdate($this->approved_at)->format('Y/m/d H:i:s')
+                : null,
             'response_description' => $this->response_description,
             'response_attachment' => $this->response_attachment,
             'samples' => NutrientSampleResource::collection($this->whenLoaded('samples')),
             'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),
             'can' => [
                 'respond' => $request->user()->can('respond', $this->resource),
+                'update' => $request->user()->can('update', $this->resource),
                 'delete' => $request->user()->can('delete', $this->resource),
             ],
         ];

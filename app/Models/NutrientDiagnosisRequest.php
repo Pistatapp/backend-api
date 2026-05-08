@@ -20,6 +20,7 @@ class NutrientDiagnosisRequest extends Model
         'user_id',
         'farm_id',
         'status',
+        'approved_at',
         'response_description',
         'response_attachment',
     ];
@@ -34,6 +35,7 @@ class NutrientDiagnosisRequest extends Model
         return [
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
+            'approved_at' => 'datetime',
             'status' => 'string',
         ];
     }

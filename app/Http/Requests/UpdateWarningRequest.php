@@ -119,6 +119,14 @@ class UpdateWarningRequest extends FormRequest
             return ['integer', 'min:1'];
         }
 
+        if ($param === 'interval_hours') {
+            return ['numeric', 'min:0.1'];
+        }
+
+        if ($param === 'interval_km') {
+            return ['numeric', 'min:0.1'];
+        }
+
         // Numeric parameters
         if ($param === 'degree_days') {
             return ['numeric', 'min:0'];
@@ -185,6 +193,11 @@ class UpdateWarningRequest extends FormRequest
                     if (in_array($param, ['hours', 'days'])) {
                         $messages["parameters.$param.integer"] = "The parameter '{$param}' must be an integer.";
                         $messages["parameters.$param.min"] = "The parameter '{$param}' must be at least 1.";
+                    }
+
+                    if (in_array($param, ['interval_hours', 'interval_km'])) {
+                        $messages["parameters.$param.numeric"] = "The parameter '{$param}' must be numeric.";
+                        $messages["parameters.$param.min"] = "The parameter '{$param}' must be greater than 0.";
                     }
 
                     if ($param === 'degree_days') {

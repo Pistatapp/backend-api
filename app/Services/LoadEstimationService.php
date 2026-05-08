@@ -27,9 +27,15 @@ class LoadEstimationService
      * @param int $averageBudCount
      * @param int $treeCount
      * @param array $loadEstimationTableRows
+     * @param float|null $clusterWeightOverride
      * @return array
      */
-    public function calculateEstimatedYields(int $averageBudCount, int $treeCount, array $loadEstimationTableRows): array
+    public function calculateEstimatedYields(
+        int $averageBudCount,
+        int $treeCount,
+        array $loadEstimationTableRows,
+        ?float $clusterWeightOverride = null
+    ): array
     {
         $conditions = ['excellent', 'good', 'normal', 'bad'];
         $estimatedYields = [];
@@ -40,7 +46,8 @@ class LoadEstimationService
                     $estimatedYields[$condition] = $this->calculateEstimatedYield(
                         $averageBudCount,
                         $treeCount,
-                        $row
+                        $row,
+                        $clusterWeightOverride
                     );
                     break;
                 }
@@ -56,11 +63,19 @@ class LoadEstimationService
      * @param int $averageBudCount
      * @param int $treeCount
      * @param array $conditionRow
+     * @param float|null $clusterWeightOverride
      * @return array
      */
-    private function calculateEstimatedYield(int $averageBudCount, int $treeCount, array $conditionRow): array
+    private function calculateEstimatedYield(
+        int $averageBudCount,
+        int $treeCount,
+        array $conditionRow,
+        ?float $clusterWeightOverride = null
+    ): array
     {
-        $estimatedYieldForSingleTreeGrams = $averageBudCount * $conditionRow['fruit_cluster_weight']
+        $clusterWeight = $clusterWeightOverride ?? $conditionRow['fruit_cluster_weight'];
+
+        $estimatedYieldForSingleTreeGrams = $averageBudCount * $clusterWeight
             * $conditionRow['bud_to_fruit_conversion']
             * $conditionRow['estimated_to_actual_yield_ratio'];
 

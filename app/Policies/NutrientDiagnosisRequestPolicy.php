@@ -40,7 +40,11 @@ class NutrientDiagnosisRequestPolicy
      */
     public function update(User $user, NutrientDiagnosisRequest $nutrientDiagnosisRequest): bool
     {
-        return $user->hasRole('root');
+        if ($nutrientDiagnosisRequest->status === 'approved') {
+            return false;
+        }
+
+        return $user->hasRole('root') || $nutrientDiagnosisRequest->user_id === $user->id;
     }
 
     /**
@@ -49,9 +53,11 @@ class NutrientDiagnosisRequestPolicy
      */
     public function delete(User $user, NutrientDiagnosisRequest $nutrientDiagnosisRequest): bool
     {
-        return $user->hasRole('root') ||
-               ($nutrientDiagnosisRequest->user_id === $user->id &&
-                $nutrientDiagnosisRequest->status === 'pending');
+        if ($nutrientDiagnosisRequest->status === 'approved') {
+            return false;
+        }
+
+        return $user->hasRole('root') || $nutrientDiagnosisRequest->user_id === $user->id;
     }
 
     /**

@@ -47,6 +47,7 @@ use App\Http\Controllers\Api\V1\UserPreferenceController;
 use App\Http\Controllers\Api\V1\Tractor\TractorReportController;
 use App\Http\Controllers\Api\V1\WarningController;
 use App\Http\Controllers\Api\V1\PaymentController;
+use App\Http\Controllers\Api\V1\AppReleaseController;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 
@@ -119,6 +120,9 @@ Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
     Route::get('/farms/{farm}/tractors/available', [TractorController::class, 'getAvailableTractors']);
     Route::get('/farms/{farm}/drivers/available', [DriverController::class, 'getAvailableDrivers']);
     Route::post('/tractors/{tractor}/assignments', [TractorController::class, 'assignments']);
+    Route::post('/tractors/{tractor}/repair-shop/enter', [TractorController::class, 'enterRepairShop']);
+    Route::post('/tractors/{tractor}/repair-shop/exit', [TractorController::class, 'exitRepairShop']);
+    Route::post('/tractors/{tractor}/service-reset', [TractorController::class, 'resetServiceInterval']);
 
     // Active Tractors Routes
     Route::get('/farms/{farm}/tractors/active', [ActiveTractorController::class, 'index'])->can('view', 'farm');
@@ -206,7 +210,10 @@ Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
         Route::get('/nutrient_diagnosis', [CompositionalNutrientDiagnosisController::class, 'index']);
         Route::get('/nutrient_diagnosis/{request}', [CompositionalNutrientDiagnosisController::class, 'show']);
         Route::post('/nutrient_diagnosis', [CompositionalNutrientDiagnosisController::class, 'store']);
+        Route::put('/nutrient_diagnosis/{request}', [CompositionalNutrientDiagnosisController::class, 'update']);
         Route::delete('/nutrient_diagnosis/{request}', [CompositionalNutrientDiagnosisController::class, 'destroy']);
+        Route::post('/nutrient_diagnosis/{request}/approve', [CompositionalNutrientDiagnosisController::class, 'approve']);
+        Route::post('/nutrient_diagnosis/{request}/reject', [CompositionalNutrientDiagnosisController::class, 'reject']);
         Route::post('/nutrient_diagnosis/{request}/response', [CompositionalNutrientDiagnosisController::class, 'sendResponse']);
         Route::get('/nutrient_diagnosis/export', [CompositionalNutrientDiagnosisController::class, 'export']);
 
@@ -221,6 +228,10 @@ Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
         Route::post('/{id}/mark_as_read', 'markAsRead');
         Route::post('/mark_all_as_read', 'markAllAsRead');
     });
+
+    Route::get('app-releases/latest', [AppReleaseController::class, 'latest']);
+    Route::get('app-releases/{appRelease}/download', [AppReleaseController::class, 'download'])->name('app-releases.download');
+    Route::post('app-releases', [AppReleaseController::class, 'store']);
 
 
     // User Preferences Routes

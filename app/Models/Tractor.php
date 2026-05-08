@@ -24,7 +24,10 @@ class Tractor extends Model
         'expected_monthly_work_time',
         'expected_yearly_work_time',
         'is_working',
+        'is_in_repair_shop',
         'last_activity',
+        'last_service_at',
+        'last_service_notified_at',
     ];
 
     /**
@@ -36,7 +39,10 @@ class Tractor extends Model
     {
         return [
             'is_working' => 'boolean',
+            'is_in_repair_shop' => 'boolean',
             'last_activity' => 'datetime',
+            'last_service_at' => 'datetime',
+            'last_service_notified_at' => 'datetime',
         ];
     }
 
@@ -47,6 +53,7 @@ class Tractor extends Model
      */
     protected $attributes = [
         'is_working' => false,
+        'is_in_repair_shop' => false,
     ];
 
     /**
@@ -162,6 +169,8 @@ class Tractor extends Model
      */
     public function scopeActive($query)
     {
-        return $query->whereHas('gpsDevice')->whereHas('driver');
+        return $query->whereHas('gpsDevice')
+            ->whereHas('driver')
+            ->where('is_in_repair_shop', false);
     }
 }

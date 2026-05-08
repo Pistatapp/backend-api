@@ -10,6 +10,10 @@ use Illuminate\Auth\Access\Response;
 
 class TractorPolicy
 {
+    private function canManageTractor(User $user, Tractor $tractor): bool
+    {
+        return $user->can('define-tractor') && $tractor->farm->users->contains($user);
+    }
 
     public function viewAny(User $user): bool
     {
@@ -28,13 +32,7 @@ class TractorPolicy
 
     public function update(User $user, Tractor $tractor): bool
     {
-        // User must have permission to define tractors
-        if (!$user->can('define-tractor')) {
-            return false;
-        }
-
-        // User must be in tractor farm users list
-        if (!$tractor->farm->users->contains($user)) {
+        if (!$this->canManageTractor($user, $tractor)) {
             return false;
         }
 
@@ -48,13 +46,7 @@ class TractorPolicy
 
     public function delete(User $user, Tractor $tractor): bool
     {
-        // User must have permission to define tractors
-        if (!$user->can('define-tractor')) {
-            return false;
-        }
-
-        // User must be in tractor farm users list
-        if (!$tractor->farm->users->contains($user)) {
+        if (!$this->canManageTractor($user, $tractor)) {
             return false;
         }
 
@@ -92,5 +84,20 @@ class TractorPolicy
         }
 
         return Response::allow();
+    }
+
+    public function enterRepairShop(User $user, Tractor $tractor): bool
+    {
+        return $this->canManageTractor($user, $tractor);
+    }
+
+    public function exitRepairShop(User $user, Tractor $tractor): bool
+    {
+        return $this->canManageTractor($user, $tractor);
+    }
+
+    public function resetServiceInterval(User $user, Tractor $tractor): bool
+    {
+        return $this->canManageTractor($user, $tractor);
     }
 }

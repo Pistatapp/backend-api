@@ -6,10 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\TractorResource;
 use App\Models\Farm;
 use App\Models\GpsDevice;
+use App\Models\Maintenance;
+use App\Models\MaintenanceReport;
 use App\Models\Tractor;
 use App\Models\Driver;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 
 class TractorController extends Controller
 {
@@ -182,5 +184,107 @@ class TractorController extends Controller
         $device->update(['tractor_id' => $tractor->id]);
 
         return response()->noContent();
+    }
+
+    public function enterRepairShop(Request $request, Tractor $tractor)
+    {
+        $this->authorize('enterRepairShop', $tractor);
+
+        if ($tractor->is_in_repair_shop) {
+            return response()->json([
+                'message' => __('This tractor is already in the repair shop.'),
+            ], 422);
+        }
+
+        $maintainedBy = $request->input('maintained_by');
+        if ($maintainedBy === null) {
+            $maintainedBy = $tractor->farm->labours()->value('id');
+        }
+
+        if (!$maintainedBy) {
+            return response()->json([
+                'message' => __('No labour found to assign this repair report.'),
+            ], 422);
+        }
+
+        $maintenance = Maintenance::firstOrCreate([
+            'farm_id' => $tractor->farm_id,
+            'name' => __('Repair Shop'),
+        ]);
+
+        $tractor->update(['is_in_repair_shop' => true]);
+
+        $report = MaintenanceReport::create([
+            'maintenance_id' => $maintenance->id,
+            'maintainable_type' => Tractor::class,
+            'maintainable_id' => $tractor->id,
+            'created_by' => $request->user()->id,
+            'maintained_by' => (int) $maintainedBy,
+            'date' => today(),
+            'description' => $request->input('description', __('Tractor :name entered repair shop.', ['name' => $tractor->name])),
+            'repair_shop_entered_at' => Carbon::now(),
+            'repair_shop_exited_at' => null,
+        ]);
+
+        return response()->json([
+            'message' => __('Tractor :name entered repair shop at :datetime', [
+                'name' => $tractor->name,
+                'datetime' => jdate(now())->format('Y/m/d H:i:s'),
+            ]),
+            'data' => [
+                'tractor' => new TractorResource($tractor->fresh()),
+                'maintenance_report_id' => $report->id,
+            ],
+        ]);
+    }
+
+    public function exitRepairShop(Request $request, Tractor $tractor)
+    {
+        $this->authorize('exitRepairShop', $tractor);
+
+        if (!$tractor->is_in_repair_shop) {
+            return response()->json([
+                'message' => __('This tractor is not in the repair shop.'),
+            ], 422);
+        }
+
+        $openReport = $tractor->maintenanceReports()
+            ->whereNotNull('repair_shop_entered_at')
+            ->whereNull('repair_shop_exited_at')
+            ->latest('repair_shop_entered_at')
+            ->first();
+
+        if ($openReport) {
+            $openReport->update([
+                'repair_shop_exited_at' => Carbon::now(),
+            ]);
+        }
+
+        $tractor->update(['is_in_repair_shop' => false]);
+
+        return response()->json([
+            'message' => __('Tractor :name exited repair shop at :datetime', [
+                'name' => $tractor->name,
+                'datetime' => jdate(now())->format('Y/m/d H:i:s'),
+            ]),
+            'data' => new TractorResource($tractor->fresh()),
+        ]);
+    }
+
+    public function resetServiceInterval(Request $request, Tractor $tractor)
+    {
+        $this->authorize('resetServiceInterval', $tractor);
+
+        $tractor->update([
+            'last_service_at' => now(),
+            'last_service_notified_at' => null,
+        ]);
+
+        return response()->json([
+            'message' => __('Tractor :name service interval has been reset.', [
+                'name' => $tractor->name,
+            ]),
+            'data' => new TractorResource($tractor->fresh()),
+        ]);
     }
 }

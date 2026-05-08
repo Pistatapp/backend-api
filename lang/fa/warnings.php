@@ -4,6 +4,7 @@ return [
     // Warning messages
     'tractor_stoppage' => 'تراکتور با نام :tractor_name بیش از :hours ساعت در تاریخ :date متوقف بوده است. لطفا دلیل آن را بررسی کنید.',
     'tractor_inactivity' => 'تراکتور با نام :tractor_name بیش از :days روز غیرفعال بوده است. لطفا دلیل آن را بررسی کنید.',
+    'tractor_periodic_service' => 'هشدار سرویس دوره‌ای برای تراکتور :tractor_name. آستانه :interval_hours ساعت یا :interval_km کیلومتر از آخرین سرویس عبور کرده است.',
     'irrigation_start_end' => 'عملیات آبیاری در تاریخ :start_date ساعت :start_time در قطعه :plot شروع شد و در ساعت :end_time به پایان رسید.',
     'frost_warning' => 'تا :days روز آینده احتمال سرمازدگی در باغ شما وجود دارد. اقدامات لازم را انجام دهید.',
     'radiative_frost_warning' => 'احتمال سرمازدگی تشعشعی در تاریخ :date وجود دارد. اقدامات لازم را انجام دهید.',
@@ -15,6 +16,7 @@ return [
     'settings' => [
         'tractor_stoppage' => 'در صورتی که تراکتور بیش از :hours ساعت متوقف باشد، به من هشدار بده.',
         'tractor_inactivity' => 'در صورتی که بیش از :days روز از تراکتور اطلاعاتی دریافت نشود، به من هشدار بده.',
+        'tractor_periodic_service' => 'برای سرویس دوره‌ای تراکتور هر :interval_hours ساعت یا :interval_km کیلومتر به من هشدار بده.',
         'irrigation_start_end' => 'در شروع و پایان آبیاری به من هشدار بده.',
         'frost_warning' => ':days روز قبل از احتمال سرمازدگی به من هشدار بده.',
         'radiative_frost_warning' => 'در مورد خطر سرمازدگی تشعشعی به من هشدار بده.',

@@ -41,13 +41,13 @@ class IrrigationPolicy
         $createdAtDiff = $irrigation->created_at->diffInHours(now());
         $endTimeDiff = $irrigation->end_time->diffInHours(now());
 
-        // If user is creator and 24 hours have passed since irrigation creation, return false
-        if ($user->is($creator) && $createdAtDiff >= 24) {
+        // If user is creator and 72 hours have passed since irrigation creation, return false
+        if ($user->is($creator) && $createdAtDiff >= 72) {
             return false;
         }
 
-        // If user is farm admin and 24 hours have passed since irrigation end_time, return false
-        if ($farmAdmin && $endTimeDiff >= 24) {
+        // If user is farm admin and 72 hours have passed since irrigation end_time, return false
+        if ($farmAdmin && $endTimeDiff >= 72) {
             return false;
         }
 
@@ -64,13 +64,13 @@ class IrrigationPolicy
         $createdAtDiff = $irrigation->created_at->diffInHours(now());
         $endTimeDiff = $irrigation->end_time->diffInHours(now());
 
-        // If user is creator and 24 hours have passed since irrigation creation, return false
-        if ($user->is($creator) && $createdAtDiff >= 24) {
+        // If user is creator and 72 hours have passed since irrigation creation, return false
+        if ($user->is($creator) && $createdAtDiff >= 72) {
             return false;
         }
 
-        // If user is farm admin and 24 hours have passed since irrigation end_time, return false
-        if ($farmAdmin && $endTimeDiff >= 24) {
+        // If user is farm admin and 72 hours have passed since irrigation end_time, return false
+        if ($farmAdmin && $endTimeDiff >= 72) {
             return false;
         }
 
