@@ -16,11 +16,23 @@ class MaintenanceReport extends Model
      */
     protected $fillable = [
         'maintenance_id',
+        'maintainable_type',
+        'maintainable_id',
         'created_by',
         'maintained_by',
         'date',
         'description',
+        'repair_shop_entered_at',
+        'repair_shop_exited_at',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'repair_shop_entered_at' => 'datetime',
+            'repair_shop_exited_at' => 'datetime',
+        ];
+    }
 
     /**
      * The relationships that should always be loaded.
