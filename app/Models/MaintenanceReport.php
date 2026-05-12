@@ -16,25 +16,21 @@ class MaintenanceReport extends Model
      */
     protected $fillable = [
         'maintenance_id',
+        'maintainable_type',
+        'maintainable_id',
         'created_by',
         'maintained_by',
         'date',
         'description',
         'repair_shop_entered_at',
         'repair_shop_exited_at',
-        'next_maintenance_km',
     ];
 
-    /**
-     * @return array<string, string>
-     */
     protected function casts(): array
     {
         return [
-            'date' => 'date',
             'repair_shop_entered_at' => 'datetime',
             'repair_shop_exited_at' => 'datetime',
-            'next_maintenance_km' => 'decimal:2',
         ];
     }
 
