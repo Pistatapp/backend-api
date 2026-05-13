@@ -6,6 +6,7 @@ use App\Casts\Time;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphToMany;
 
 class TractorTask extends Model
 {
@@ -28,7 +29,7 @@ class TractorTask extends Model
         'data->consumed_fertilizer',
         'data->consumed_poison',
         'data->operation_area',
-        'data->workers_count'
+        'data->workers_count',
     ];
 
     /**
@@ -105,18 +106,70 @@ class TractorTask extends Model
     }
 
     /**
+     * Fields linked to this task (same pivot row set as taskableItems when type is Field).
+     *
+     * @return MorphToMany<Field, TractorTask>
+     */
+    public function fields(): MorphToMany
+    {
+        return $this->morphedByMany(Field::class, 'taskable', 'tractor_task_taskables')
+            ->withPivot('sort_order')
+            ->orderByPivot('sort_order');
+    }
+
+    /**
+     * Farms linked to this task.
+     *
+     * @return MorphToMany<Farm, TractorTask>
+     */
+    public function farms(): MorphToMany
+    {
+        return $this->morphedByMany(Farm::class, 'taskable', 'tractor_task_taskables')
+            ->withPivot('sort_order')
+            ->orderByPivot('sort_order');
+    }
+
+    /**
+     * Plots linked to this task.
+     *
+     * @return MorphToMany<Plot, TractorTask>
+     */
+    public function plots(): MorphToMany
+    {
+        return $this->morphedByMany(Plot::class, 'taskable', 'tractor_task_taskables')
+            ->withPivot('sort_order')
+            ->orderByPivot('sort_order');
+    }
+
+    /**
+     * Rows linked to this task.
+     *
+     * @return MorphToMany<Row, TractorTask>
+     */
+    public function rows(): MorphToMany
+    {
+        return $this->morphedByMany(Row::class, 'taskable', 'tractor_task_taskables')
+            ->withPivot('sort_order')
+            ->orderByPivot('sort_order');
+    }
+
+    /**
      * Replace linked taskables on the pivot table.
      *
      * @param  array<int>  $taskableIds
      */
     public function syncTaskableItems(string $taskableType, array $taskableIds): void
     {
+        $modelClass = class_exists($taskableType) && is_subclass_of($taskableType, Model::class, true)
+            ? $taskableType
+            : getModelClass($taskableType);
+
         $ids = array_values(array_unique(array_map('intval', $taskableIds)));
         $this->taskableItems()->delete();
 
         foreach ($ids as $order => $id) {
             $this->taskableItems()->create([
-                'taskable_type' => $taskableType,
+                'taskable_type' => $modelClass,
                 'taskable_id' => $id,
                 'sort_order' => $order,
             ]);
@@ -168,8 +221,8 @@ class TractorTask extends Model
     /**
      * Scope a query to only include tasks for a specific date.
      *
-     * @param \Illuminate\Database\Eloquent\Builder $query
-     * @param string $date
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @param  string  $date
      * @return \Illuminate\Database\Eloquent\Builder
      */
     public function scopeForDate($query, $date)
@@ -180,7 +233,7 @@ class TractorTask extends Model
     /**
      * Scope a query to only include not started tasks.
      *
-     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
      * @return \Illuminate\Database\Eloquent\Builder
      */
     public function scopeNotStarted($query)
@@ -191,7 +244,7 @@ class TractorTask extends Model
     /**
      * Scope a query to only include tasks in progress.
      *
-     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
      * @return \Illuminate\Database\Eloquent\Builder
      */
     public function scopeInProgress($query)
@@ -202,7 +255,7 @@ class TractorTask extends Model
     /**
      * Scope a query to only include stopped tasks.
      *
-     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
      * @return \Illuminate\Database\Eloquent\Builder
      */
     public function scopeStopped($query)
@@ -213,7 +266,7 @@ class TractorTask extends Model
     /**
      * Scope a query to only include done tasks.
      *
-     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
      * @return \Illuminate\Database\Eloquent\Builder
      */
     public function scopeDone($query)
@@ -224,7 +277,7 @@ class TractorTask extends Model
     /**
      * Scope a query to only include not done tasks.
      *
-     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
      * @return \Illuminate\Database\Eloquent\Builder
      */
     public function scopeNotDone($query)
@@ -235,7 +288,7 @@ class TractorTask extends Model
     /**
      * Scope a query to only include pending tasks (alias for not_started for backward compatibility).
      *
-     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
      * @return \Illuminate\Database\Eloquent\Builder
      */
     public function scopePending($query)
@@ -246,7 +299,7 @@ class TractorTask extends Model
     /**
      * Scope a query to only include tasks that have started (alias for in_progress for backward compatibility).
      *
-     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
      * @return \Illuminate\Database\Eloquent\Builder
      */
     public function scopeStarted($query)
@@ -259,7 +312,7 @@ class TractorTask extends Model
     /**
      * Scope a query to only include finished tasks (alias for done for backward compatibility).
      *
-     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
      * @return \Illuminate\Database\Eloquent\Builder
      */
     public function scopeFinished($query)

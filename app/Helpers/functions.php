@@ -4,9 +4,6 @@ use Morilog\Jalali\Jalalian;
 
 /**
  * Convert a Jalali date to Carbon
- *
- * @param string|null $jalaliDate
- * @return \Carbon\Carbon|null
  */
 function jalali_to_carbon(?string $jalaliDate): ?\Carbon\Carbon
 {
@@ -14,7 +11,7 @@ function jalali_to_carbon(?string $jalaliDate): ?\Carbon\Carbon
         return null; // Handle null input gracefully
     }
 
-    if (!is_jalali_date($jalaliDate)) {
+    if (! is_jalali_date($jalaliDate)) {
         throw new \InvalidArgumentException('Invalid Jalali date format');
     }
 
@@ -29,21 +26,18 @@ function jalali_to_carbon(?string $jalaliDate): ?\Carbon\Carbon
  * Check if a date is in valid Jalali format and year range
  *
  * Accepts only dates in the format YYYY/MM/DD where year is 13xx or 14xx (Jalali calendar)
- *
- * @param string $date
- * @return bool
  */
 function is_jalali_date(string $date): bool
 {
     // Check for correct format: 4 digits/2 digits/2 digits
-    if (!preg_match('/^(13|14)\\d{2}\/\\d{2}\/\\d{2}$/', $date)) {
+    if (! preg_match('/^(13|14)\\d{2}\/\\d{2}\/\\d{2}$/', $date)) {
         return false;
     }
     // Optionally, check for valid month and day ranges
     [$year, $month, $day] = explode('/', $date);
-    $year = (int)$year;
-    $month = (int)$month;
-    $day = (int)$day;
+    $year = (int) $year;
+    $month = (int) $month;
+    $day = (int) $day;
     // Jalali months: 1-12, days: 1-31 (1-6: 31 days, 7-11: 30 days, 12: 29 or 30)
     if ($month < 1 || $month > 12 || $day < 1 || $day > 31) {
         return false;
@@ -57,26 +51,22 @@ function is_jalali_date(string $date): bool
     if ($month == 12 && $day > 30) {
         return false;
     }
+
     return true;
 }
 
 /**
  * Convert a time string to hours
- *
- * @param string $time
- * @return float
  */
 function time_to_hours(string $time): float
 {
     [$hours, $minutes] = array_map('intval', explode(':', $time));
+
     return $hours + $minutes / 60;
 }
 
 /**
  * Calculate the area of a polygon with any number of corners
- *
- * @param array $points
- * @return float
  */
 function calculate_polygon_area(array $points): float
 {
@@ -91,7 +81,7 @@ function calculate_polygon_area(array $points): float
     foreach ($points as $point) {
         if (is_string($point)) {
             $coords = explode(',', $point);
-            $parsedPoints[] = [(float)$coords[0], (float)$coords[1]];
+            $parsedPoints[] = [(float) $coords[0], (float) $coords[1]];
         } else {
             $parsedPoints[] = $point;
         }
@@ -122,8 +112,9 @@ function calculate_polygon_area(array $points): float
 /**
  * Calculate the center point (centroid) of a polygon
  *
- * @param array $points Array of [x,y] coordinates
+ * @param  array  $points  Array of [x,y] coordinates
  * @return array [x,y] coordinates of the center point
+ *
  * @throws \InvalidArgumentException if polygon has less than 3 points
  */
 function calculate_polygon_center(array $points): array
@@ -144,15 +135,12 @@ function calculate_polygon_center(array $points): array
 
     return [
         $sumX / $numPoints,
-        $sumY / $numPoints
+        $sumY / $numPoints,
     ];
 }
 
 /**
  * Convert hours to a time format
- *
- * @param int $seconds
- * @return string
  */
 function to_time_format(?int $seconds): string
 {
@@ -164,6 +152,7 @@ function to_time_format(?int $seconds): string
     $remainingSeconds = $seconds % 3600;
     $minutes = floor($remainingSeconds / 60);
     $remainingSeconds = $remainingSeconds % 60;
+
     return sprintf('%02d:%02d:%02d', $hours, $minutes, $remainingSeconds);
 }
 
@@ -180,7 +169,7 @@ function weather_api()
 /**
  * Get the fully qualified class name of a model based on the model type.
  *
- * @param string $modelType The type of the model (e.g., 'tractor').
+ * @param  string  $modelType  The type of the model (e.g., 'tractor').
  * @return string The fully qualified class name of the model.
  */
 function getModelClass(string $modelType): string
@@ -188,6 +177,7 @@ function getModelClass(string $modelType): string
     $modelMap = [
         'tractor' => \App\Models\Tractor::class,
         'field' => \App\Models\Field::class,
+        'plot' => \App\Models\Plot::class,
         'row' => \App\Models\Row::class,
         'tree' => \App\Models\Tree::class,
         'farm' => \App\Models\Farm::class,
@@ -201,11 +191,11 @@ function getModelClass(string $modelType): string
 
     $modelClass = $modelMap[$modelType] ?? $modelType;
 
-    if (!str_starts_with($modelClass, 'App\\Models\\')) {
-        $modelClass = 'App\\Models\\' . ucfirst($modelClass);
+    if (! str_starts_with($modelClass, 'App\\Models\\')) {
+        $modelClass = 'App\\Models\\'.ucfirst($modelClass);
     }
 
-    if (!class_exists($modelClass)) {
+    if (! class_exists($modelClass)) {
         throw new InvalidArgumentException("Model class {$modelClass} does not exist");
     }
 
@@ -215,23 +205,24 @@ function getModelClass(string $modelType): string
 /**
  * Retrieve an instance of a model by its type and ID.
  *
- * @param string $model_type The type of the model (e.g., 'user', 'post').
- * @param string $model_id The ID of the model instance to retrieve.
+ * @param  string  $model_type  The type of the model (e.g., 'user', 'post').
+ * @param  string  $model_id  The ID of the model instance to retrieve.
  * @return \Illuminate\Database\Eloquent\Model The model instance.
+ *
  * @throws \Illuminate\Database\Eloquent\ModelNotFoundException If the model instance is not found.
  */
 function getModel(string $model_type, string $model_id)
 {
     $model_type = getModelClass($model_type);
+
     return app($model_type)->findOrFail($model_id);
 }
 
 /**
  * Determine if a point is within a polygon
  *
- * @param array $point [x, y] coordinates of the point
- * @param array $polygon Array of [x, y] coordinates representing the polygon
- * @return bool
+ * @param  array  $point  [x, y] coordinates of the point
+ * @param  array  $polygon  Array of [x, y] coordinates representing the polygon
  */
 function is_point_in_polygon(array $point, array $polygon): bool
 {
@@ -241,6 +232,7 @@ function is_point_in_polygon(array $point, array $polygon): bool
             // Explode string "lat,lon" into an array of two floats
             return array_map('floatval', explode(',', $p));
         }
+
         return $p;
     }, $polygon);
 
@@ -262,7 +254,7 @@ function is_point_in_polygon(array $point, array $polygon): bool
                      ($x < ($xj - $xi) * ($y - $yi) / ($yj - $yi) + $xi);
 
         if ($intersect) {
-            $inside = !$inside;
+            $inside = ! $inside;
         }
     }
 
@@ -272,9 +264,9 @@ function is_point_in_polygon(array $point, array $polygon): bool
 /**
  * Calculate the distance between two points using the Haversine formula
  *
- * @param array $point1 [latitude, longitude] coordinates of the first point
- * @param array $point2 [latitude, longitude] coordinates of the second point
- * @param string $unit Unit of distance ('km', 'm', 'cm', etc.). Default is 'km'
+ * @param  array  $point1  [latitude, longitude] coordinates of the first point
+ * @param  array  $point2  [latitude, longitude] coordinates of the second point
+ * @param  string  $unit  Unit of distance ('km', 'm', 'cm', etc.). Default is 'km'
  * @return float The distance between the two points in the specified unit
  */
 function calculate_distance(array $point1, array $point2, string $unit = 'km'): float
@@ -299,27 +291,26 @@ function calculate_distance(array $point1, array $point2, string $unit = 'km'): 
     // Convert to the requested unit
     $unit = strtolower($unit);
     $factors = [
-        'km'  => 1,
-        'm'   => 1000,
-        'cm'  => 100000,
-        'mm'  => 1000000,
-        'mi'  => 0.621371,
+        'km' => 1,
+        'm' => 1000,
+        'cm' => 100000,
+        'mm' => 1000000,
+        'mi' => 0.621371,
         'nmi' => 0.539957,
-        'ft'  => 3280.84,
+        'ft' => 3280.84,
     ];
     $factor = $factors[$unit] ?? 1;
-    return (float)($distance * $factor);
+
+    return (float) ($distance * $factor);
 }
 
 /**
  * Convert NMEA (ddmm.mmmm) to decimal degrees
- *
- * @param string $nmea
- * @return float
  */
 function nmea_to_decimal(string $nmea): float
 {
     $degrees = floor($nmea / 100);
     $minutes = ($nmea - ($degrees * 100)) / 60;
+
     return round($degrees + $minutes, 6);
 }

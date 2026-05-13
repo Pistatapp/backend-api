@@ -5,6 +5,7 @@ namespace App\Models;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class Tractor extends Model
 {
@@ -131,6 +132,21 @@ class Tractor extends Model
     }
 
     /**
+     * All task–target pivot rows across this tractor's tasks (polymorphic links to fields, plots, etc.).
+     *
+     * @return HasManyThrough<TractorTaskTaskable, TractorTask>
+     */
+    public function tractorTaskTaskables(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            TractorTaskTaskable::class,
+            TractorTask::class,
+            'tractor_id',
+            'tractor_task_id'
+        );
+    }
+
+    /**
      * Get the reports for the tractor.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
@@ -149,7 +165,6 @@ class Tractor extends Model
     {
         return $this->hasMany(GpsData::class);
     }
-
 
     /**
      * Get the maintenance reports for the tractor.

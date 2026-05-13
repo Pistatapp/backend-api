@@ -2,8 +2,8 @@
 
 namespace App\Http\Requests;
 
-use Illuminate\Foundation\Http\FormRequest;
 use App\Rules\UniqueTractorTask;
+use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateTractorTaskRequest extends FormRequest
 {
@@ -24,20 +24,28 @@ class UpdateTractorTaskRequest extends FormRequest
     {
         return [
             'operation_id' => 'required|integer|exists:operations,id',
-            'taskable_type' => 'required|string|in:App\Models\Field,App\Models\Farm,App\Models\Plot,App\Models\Row',
+            'taskable_type' => 'required|string|in:row,field,farm,plot',
             'taskable_ids' => ['required', 'array', 'min:1'],
             'taskable_ids.*' => [
                 'integer',
                 'distinct',
                 function ($attribute, $value, $fail) {
-                    $taskableType = $this->input('taskable_type');
-                    if (! $taskableType || ! class_exists($taskableType)) {
+                    $slug = $this->input('taskable_type');
+                    if (! $slug || ! in_array($slug, ['row', 'field', 'farm', 'plot'], true)) {
                         $fail(__('The selected taskable type is invalid.'));
 
                         return;
                     }
 
-                    if (! $taskableType::find($value)) {
+                    try {
+                        $modelClass = getModelClass($slug);
+                    } catch (\InvalidArgumentException) {
+                        $fail(__('The selected taskable type is invalid.'));
+
+                        return;
+                    }
+
+                    if (! $modelClass::find($value)) {
                         $fail(__('The selected taskable does not exist.'));
                     }
                 },
@@ -74,19 +82,8 @@ class UpdateTractorTaskRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
-        $taskableTypeMap = [
-            'field' => 'App\Models\Field',
-            'farm'  => 'App\Models\Farm',
-            'plot'  => 'App\Models\Plot',
-            'row'   => 'App\Models\Row',
-        ];
-
-        $taskableType = $this->input('taskable_type');
-        $modelClass = $taskableTypeMap[$taskableType] ?? $taskableType;
-
         $merge = [
             'date' => jalali_to_carbon($this->date),
-            'taskable_type' => $modelClass,
         ];
 
         if (! $this->filled('taskable_ids') && $this->filled('taskable_id')) {

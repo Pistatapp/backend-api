@@ -57,7 +57,7 @@ class TractorTaskController extends Controller
             'created_by' => $request->user()->id,
         ]);
 
-        $task->syncTaskableItems($validated['taskable_type'], $validated['taskable_ids']);
+        $task->syncTaskableItems(getModelClass($validated['taskable_type']), $validated['taskable_ids']);
 
         $farmAdmins = $tractor->farm->admins;
         $driver = $tractor->driver;
@@ -99,7 +99,7 @@ class TractorTaskController extends Controller
         $gpsMetricsInputsChanged = $this->tractorTaskGpsMetricsInputsChanged($tractorTask, $validated);
 
         $tractorTask->update($this->tractorTaskUpdateAttributesFromValidated($validated));
-        $tractorTask->syncTaskableItems($validated['taskable_type'], $validated['taskable_ids']);
+        $tractorTask->syncTaskableItems(getModelClass($validated['taskable_type']), $validated['taskable_ids']);
         $this->syncTractorTaskValidatedData($tractorTask, $validated);
 
         if ($gpsMetricsInputsChanged) {
@@ -143,7 +143,7 @@ class TractorTaskController extends Controller
     private function taskableSelectionMatches(TractorTask $task, array $validated): bool
     {
         $existingType = $task->taskableItems()->value('taskable_type');
-        if ($existingType !== $validated['taskable_type']) {
+        if ($existingType !== getModelClass($validated['taskable_type'])) {
             return false;
         }
 
