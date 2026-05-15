@@ -5,6 +5,7 @@ namespace Database\Factories;
 use App\Models\Farm;
 use App\Models\User;
 use App\Models\FarmPlan;
+use App\Support\QrIdentity;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class FarmPlanFactory extends Factory
@@ -23,7 +24,7 @@ class FarmPlanFactory extends Factory
      */
     public function definition(): array
     {
-        return [
+        return array_merge([
             'farm_id' => Farm::factory(),
             'name' => $this->faker->sentence(3),
             'goal' => $this->faker->paragraph,
@@ -39,6 +40,6 @@ class FarmPlanFactory extends Factory
             'end_date' => now()->addDays(30),
             'status' => 'pending',
             'created_by' => User::factory()
-        ];
+        ], QrIdentity::generate());
     }
 }

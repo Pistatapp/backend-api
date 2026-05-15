@@ -6,9 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\TreeResource;
 use App\Models\Row;
 use App\Models\Tree;
+use App\Support\QrIdentity;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
-use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class TreeController extends Controller
 {
@@ -55,10 +54,7 @@ class TreeController extends Controller
             $tree->image = $tree->getFirstMediaUrl('image');
         }
 
-        $uniqueId = Str::random(15);
-        $tree->unique_id = $uniqueId;
-
-        $tree->qr_code = base64_encode(QrCode::size(300)->generate($uniqueId));
+        $tree->fill(QrIdentity::makeForTable('trees'));
 
         $tree->save();
 
@@ -131,15 +127,17 @@ class TreeController extends Controller
         ]);
 
         $trees = $request->input('trees');
+        $pairs = QrIdentity::reserveForBatch('trees', count($trees));
         $treesData = [];
 
-        foreach ($trees as $tree) {
+        foreach ($trees as $index => $tree) {
+            $pair = $pairs[$index];
             $treeData = [
                 'row_id' => $row->id,
                 'name' => $tree['name'],
                 'location' => json_encode($tree['location']),
-                'unique_id' => $uniqueId = Str::random(15),
-                'qr_code' => base64_encode(QrCode::size(300)->generate($uniqueId)),
+                'unique_id' => $pair['unique_id'],
+                'qr_code' => $pair['qr_code'],
             ];
 
             $treesData[] = $treeData;

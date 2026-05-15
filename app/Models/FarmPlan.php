@@ -30,6 +30,8 @@ class FarmPlan extends Model
         'status',
         'created_by',
         'farm_id',
+        'unique_id',
+        'qr_code',
     ];
 
     /**

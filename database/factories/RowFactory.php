@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Support\QrIdentity;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -16,13 +17,13 @@ class RowFactory extends Factory
      */
     public function definition(): array
     {
-        return [
+        return array_merge([
             'name' => $this->faker->word(),
             'coordinates' => json_encode([
                 $this->faker->latitude(),
                 $this->faker->longitude(),
             ]),
             'field_id' => \App\Models\Field::factory(),
-        ];
+        ], QrIdentity::generate());
     }
 }

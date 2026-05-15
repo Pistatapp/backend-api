@@ -26,7 +26,7 @@ class TractorController extends Controller
      */
     public function index(Farm $farm)
     {
-        $tractors = $farm->tractors()->with('driver', 'gpsDevice', 'farm')->paginate(25);
+        $tractors = $farm->tractors()->with('driver', 'gpsDevice', 'farm')->simplePaginate(25);
         return TractorResource::collection($tractors);
     }
 

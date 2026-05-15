@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\RowResource;
 use App\Models\Field;
+use App\Support\QrIdentity;
 
 class RowController extends Controller
 {
@@ -35,7 +36,14 @@ class RowController extends Controller
             'rows.*.coordinates.*' => 'required|string',
         ]);
 
-        $rows = $field->rows()->createMany($request->input('rows'));
+        $rowsInput = $request->input('rows');
+        $pairs = QrIdentity::reserveForBatch('rows', count($rowsInput));
+
+        $rowsPayload = collect($rowsInput)->map(function (array $row, int $index) use ($pairs) {
+            return array_merge($row, $pairs[$index]);
+        })->all();
+
+        $rows = $field->rows()->createMany($rowsPayload);
 
         return RowResource::collection($rows);
     }

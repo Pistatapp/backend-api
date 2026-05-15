@@ -22,6 +22,8 @@ class Field extends Model
         'center',
         'area',
         'crop_type_id',
+        'unique_id',
+        'qr_code',
     ];
 
     /**

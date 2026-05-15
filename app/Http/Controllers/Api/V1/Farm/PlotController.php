@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\PlotResource;
 use App\Models\Plot;
 use App\Models\Field;
+use App\Support\QrIdentity;
 use Illuminate\Http\Request;
 
 class PlotController extends Controller
@@ -33,10 +34,13 @@ class PlotController extends Controller
             'coordinates' => 'required|array',
         ]);
 
-        $plot = $field->plots()->create($request->only([
-            'name',
-            'coordinates',
-        ]));
+        $plot = $field->plots()->create(array_merge(
+            $request->only([
+                'name',
+                'coordinates',
+            ]),
+            QrIdentity::makeForTable('plots')
+        ));
 
         return new PlotResource($plot);
     }

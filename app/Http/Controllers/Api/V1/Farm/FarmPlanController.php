@@ -11,6 +11,7 @@ use App\Http\Resources\FilteredFarmPlanResource;
 use App\Models\Farm;
 use App\Models\FarmPlan;
 use App\Models\FarmPlanDetail;
+use App\Support\QrIdentity;
 use Illuminate\Http\Request;
 
 class FarmPlanController extends Controller
@@ -93,7 +94,8 @@ class FarmPlanController extends Controller
             [
                 'created_by' => $request->user()->id,
                 'status' => 'pending'
-            ]
+            ],
+            QrIdentity::makeForTable('farm_plans')
         ));
 
         $plan_details_data = collect($request->details)->flatMap(function ($detail) use ($plan) {

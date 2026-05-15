@@ -19,6 +19,8 @@ class PlotResource extends JsonResource
             'name' => $this->name,
             'coordinates' => $this->coordinates,
             'field_id' => $this->field_id,
+            'unique_id' => $this->unique_id,
+            'qr_code' => $this->qr_code,
             'area' => calculate_polygon_area($this->coordinates),
             'created_at' => jdate($this->created_at)->format('Y/m/d'),
             'attachments' => AttachmentResource::collection($this->whenLoaded('attachments')),

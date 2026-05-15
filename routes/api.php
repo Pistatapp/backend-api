@@ -37,6 +37,7 @@ use App\Http\Controllers\Api\V1\Farm\DayDegreeCalculationController;
 use App\Http\Controllers\Api\V1\LoadEstimationController;
 use App\Http\Controllers\Api\V1\Farm\BlightCalculationController;
 use App\Http\Controllers\Api\V1\Farm\FarmPlanController;
+use App\Http\Controllers\Api\V1\Farm\QrEntityLookupController;
 use App\Http\Controllers\Api\V1\Management\TreatmentController;
 use App\Http\Controllers\Api\V1\Farm\WeatherForecastController;
 use App\Http\Controllers\Api\V1\SliderController;
@@ -97,6 +98,8 @@ Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
 
     // Global search endpoint
     Route::get('search', SearchController::class);
+
+    Route::match(['get', 'post'], 'entities/by-unique-id', QrEntityLookupController::class);
 
     Route::get('/farms/{farm}/set_working_environment', [FarmController::class, 'setWorkingEnvironment']);
     Route::apiResource('farms', FarmController::class);
@@ -207,15 +210,15 @@ Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
         Route::post('/blight/calculate', BlightCalculationController::class);
 
         // Nutrient Diagnosis Routes
-        Route::get('/nutrient_diagnosis', [CompositionalNutrientDiagnosisController::class, 'index']);
-        Route::get('/nutrient_diagnosis/{request}', [CompositionalNutrientDiagnosisController::class, 'show']);
-        Route::post('/nutrient_diagnosis', [CompositionalNutrientDiagnosisController::class, 'store']);
-        Route::put('/nutrient_diagnosis/{request}', [CompositionalNutrientDiagnosisController::class, 'update']);
-        Route::delete('/nutrient_diagnosis/{request}', [CompositionalNutrientDiagnosisController::class, 'destroy']);
-        Route::post('/nutrient_diagnosis/{request}/approve', [CompositionalNutrientDiagnosisController::class, 'approve']);
-        Route::post('/nutrient_diagnosis/{request}/reject', [CompositionalNutrientDiagnosisController::class, 'reject']);
-        Route::post('/nutrient_diagnosis/{request}/response', [CompositionalNutrientDiagnosisController::class, 'sendResponse']);
-        Route::get('/nutrient_diagnosis/export', [CompositionalNutrientDiagnosisController::class, 'export']);
+        Route::get('/nutrient-diagnosis', [CompositionalNutrientDiagnosisController::class, 'index']);
+        Route::get('/nutrient-diagnosis/{request}', [CompositionalNutrientDiagnosisController::class, 'show']);
+        Route::post('/nutrient-diagnosis', [CompositionalNutrientDiagnosisController::class, 'store']);
+        Route::put('/nutrient-diagnosis/{request}', [CompositionalNutrientDiagnosisController::class, 'update']);
+        Route::delete('/nutrient-diagnosis/{request}', [CompositionalNutrientDiagnosisController::class, 'destroy']);
+        Route::post('/nutrient-diagnosis/{request}/approve', [CompositionalNutrientDiagnosisController::class, 'approve']);
+        Route::post('/nutrient-diagnosis/{request}/reject', [CompositionalNutrientDiagnosisController::class, 'reject']);
+        Route::post('/nutrient-diagnosis/{request}/response', [CompositionalNutrientDiagnosisController::class, 'sendResponse']);
+        Route::get('/nutrient-diagnosis/export', [CompositionalNutrientDiagnosisController::class, 'export']);
 
         Route::post('/load_estimation', [LoadEstimationController::class, 'estimate']);
         Route::post('/weather_forecast', WeatherForecastController::class)->name('farms.weather_forecast');

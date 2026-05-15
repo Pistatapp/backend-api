@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Support\QrIdentity;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -16,7 +17,7 @@ class FieldFactory extends Factory
      */
     public function definition(): array
     {
-        return [
+        return array_merge([
             'farm_id' => \App\Models\Farm::factory(),
             'name' => $this->faker->word,
             'coordinates' => [
@@ -28,6 +29,6 @@ class FieldFactory extends Factory
             'center' => $this->faker->latitude . ',' . $this->faker->longitude,
             'area' => $this->faker->randomFloat(2, 1, 100),
             'crop_type_id' => \App\Models\CropType::factory(),
-        ];
+        ], QrIdentity::generate());
     }
 }

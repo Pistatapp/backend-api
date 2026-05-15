@@ -19,6 +19,8 @@ class RowResource extends JsonResource
             'field_id' => $this->field_id,
             'name' => $this->name,
             'coordinates' => $this->coordinates,
+            'unique_id' => $this->unique_id,
+            'qr_code' => $this->qr_code,
             'length' => $this->length,
             'reports' => FarmReportResource::collection($this->whenLoaded('reports')),
             'created_at' => jdate($this->created_at)->format('Y/m/d'),
