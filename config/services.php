@@ -33,6 +33,7 @@ return [
 
     'weatherapi' => [
         'key' => env('WEATHER_API_KEY'),
+        'proxy' => env('WEATHER_API_PROXY'),
     ],
 
     'fcm' => [

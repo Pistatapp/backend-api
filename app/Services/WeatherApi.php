@@ -97,7 +97,13 @@ class WeatherApi
     {
         $queryParams['key'] = config('services.weatherapi.key');
 
-        $response = Http::get("https://api.weatherapi.com/v1/{$endpoint}", $queryParams);
+        $options = [];
+        $proxy = config('services.weatherapi.proxy');
+        if (is_string($proxy) && $proxy !== '') {
+            $options['proxy'] = $proxy;
+        }
+
+        $response = Http::withOptions($options)->get("https://api.weatherapi.com/v1/{$endpoint}", $queryParams);
 
         abort_if($response->failed(), $response->status(), $response->body());
 
