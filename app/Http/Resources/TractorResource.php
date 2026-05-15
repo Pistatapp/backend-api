@@ -25,6 +25,9 @@ class TractorResource extends JsonResource
             'expected_yearly_work_time' => $this->expected_yearly_work_time,
             'driver' => new DriverResource($this->whenLoaded('driver')),
             'gps_device' => new GpsDeviceResource($this->whenLoaded('gpsDevice')),
+            'is_in_repair_shop' => $this->is_in_repair_shop,
+            'last_service_at' => $this->last_service_at,
+            'last_service_notified_at' => $this->last_service_notified_at,
             'one_week_efficiency_chart_data' => $this->whenLoaded('gpsMetricsCalculations', function () {
                 return $this->gpsMetricsCalculations->map(function ($report) {
                     return [
