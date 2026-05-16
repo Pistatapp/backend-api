@@ -22,7 +22,6 @@ class Tree extends Model implements HasMedia
         'location',
         'image',
         'unique_id',
-        'qr_code',
     ];
 
     /**

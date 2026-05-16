@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\FieldResource;
 use App\Models\Farm;
 use App\Models\Field;
-use App\Support\QrIdentity;
+use App\Helpers\UniqueId;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -52,7 +52,7 @@ class FieldController extends Controller
             'center' => $request->center,
             'area' => $request->area,
             'crop_type_id' => $request->crop_type_id,
-        ], QrIdentity::makeForTable('fields')));
+        ], UniqueId::makeForTable('fields')));
 
         return new FieldResource($field);
     }

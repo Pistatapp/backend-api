@@ -1,6 +1,6 @@
 <?php
 
-use App\Support\QrIdentity;
+use App\Helpers\UniqueId;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -16,17 +16,15 @@ return new class extends Migration
         foreach (['fields', 'rows', 'plots', 'farm_plans'] as $tableName) {
             Schema::table($tableName, function (Blueprint $table) {
                 $table->string('unique_id')->nullable();
-                $table->text('qr_code')->nullable();
             });
         }
 
         foreach (['fields', 'rows', 'plots', 'farm_plans', 'trees'] as $table) {
             DB::table($table)->orderBy('id')->chunkById(200, function ($rows) use ($table) {
                 foreach ($rows as $row) {
-                    $pair = QrIdentity::makeForTable($table);
+                    $identity = UniqueId::makeForTable($table);
                     DB::table($table)->where('id', $row->id)->update([
-                        'unique_id' => $pair['unique_id'],
-                        'qr_code' => $pair['qr_code'],
+                        'unique_id' => $identity['unique_id'],
                     ]);
                 }
             });
@@ -52,7 +50,7 @@ return new class extends Migration
 
         foreach (['fields', 'rows', 'plots', 'farm_plans'] as $tableName) {
             Schema::table($tableName, function (Blueprint $table) {
-                $table->dropColumn(['unique_id', 'qr_code']);
+                $table->dropColumn('unique_id');
             });
         }
     }

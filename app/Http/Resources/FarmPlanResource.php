@@ -18,7 +18,6 @@ class FarmPlanResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'unique_id' => $this->unique_id,
-            'qr_code' => $this->qr_code,
             'goal' => $this->goal,
             'referrer' => $this->referrer,
             'counselors' => $this->counselors,

@@ -2,7 +2,7 @@
 
 namespace Database\Factories;
 
-use App\Support\QrIdentity;
+use App\Helpers\UniqueId;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -24,6 +24,6 @@ class RowFactory extends Factory
                 $this->faker->longitude(),
             ]),
             'field_id' => \App\Models\Field::factory(),
-        ], QrIdentity::generate());
+        ], UniqueId::generate());
     }
 }

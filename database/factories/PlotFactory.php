@@ -4,7 +4,7 @@ namespace Database\Factories;
 
 use App\Models\Field;
 use App\Models\Plot;
-use App\Support\QrIdentity;
+use App\Helpers\UniqueId;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class PlotFactory extends Factory
@@ -31,6 +31,6 @@ class PlotFactory extends Factory
                 [$this->faker->latitude, $this->faker->longitude],
             ],
             'field_id' => Field::factory(),
-        ], QrIdentity::generate());
+        ], UniqueId::generate());
     }
 }

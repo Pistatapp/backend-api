@@ -2,7 +2,7 @@
 
 namespace Database\Factories;
 
-use App\Support\QrIdentity;
+use App\Helpers\UniqueId;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -29,6 +29,6 @@ class FieldFactory extends Factory
             'center' => $this->faker->latitude . ',' . $this->faker->longitude,
             'area' => $this->faker->randomFloat(2, 1, 100),
             'crop_type_id' => \App\Models\CropType::factory(),
-        ], QrIdentity::generate());
+        ], UniqueId::generate());
     }
 }

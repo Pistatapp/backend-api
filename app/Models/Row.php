@@ -19,7 +19,6 @@ class Row extends Model
         'name',
         'coordinates',
         'unique_id',
-        'qr_code',
     ];
 
     /**

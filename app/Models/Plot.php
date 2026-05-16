@@ -22,7 +22,6 @@ class Plot extends Model implements HasMedia
         'coordinates',
         'field_id',
         'unique_id',
-        'qr_code',
     ];
 
     /**

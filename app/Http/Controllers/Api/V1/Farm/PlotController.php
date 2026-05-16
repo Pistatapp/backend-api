@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\PlotResource;
 use App\Models\Plot;
 use App\Models\Field;
-use App\Support\QrIdentity;
+use App\Helpers\UniqueId;
 use Illuminate\Http\Request;
 
 class PlotController extends Controller
@@ -39,7 +39,7 @@ class PlotController extends Controller
                 'name',
                 'coordinates',
             ]),
-            QrIdentity::makeForTable('plots')
+            UniqueId::makeForTable('plots')
         ));
 
         return new PlotResource($plot);

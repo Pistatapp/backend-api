@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\RowResource;
 use App\Models\Field;
-use App\Support\QrIdentity;
+use App\Helpers\UniqueId;
 
 class RowController extends Controller
 {
@@ -37,7 +37,7 @@ class RowController extends Controller
         ]);
 
         $rowsInput = $request->input('rows');
-        $pairs = QrIdentity::reserveForBatch('rows', count($rowsInput));
+        $pairs = UniqueId::reserveForBatch('rows', count($rowsInput));
 
         $rowsPayload = collect($rowsInput)->map(function (array $row, int $index) use ($pairs) {
             return array_merge($row, $pairs[$index]);

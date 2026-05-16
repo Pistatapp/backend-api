@@ -1,30 +1,21 @@
 <?php
 
-namespace App\Support;
+namespace App\Helpers;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
-class QrIdentity
+class UniqueId
 {
-    /**
-     * @return array{unique_id: string, qr_code: string}
-     */
     public static function generate(): array
     {
-        $uniqueId = Str::random(15);
-
         return [
-            'unique_id' => $uniqueId,
-            'qr_code' => base64_encode(QrCode::size(300)->generate($uniqueId)),
+            'unique_id' => Str::random(15),
         ];
     }
 
     /**
      * Generate a unique_id that is not already stored on the given table.
-     *
-     * @return array{unique_id: string, qr_code: string}
      */
     public static function makeForTable(string $table): array
     {
@@ -34,14 +25,13 @@ class QrIdentity
 
         return [
             'unique_id' => $uniqueId,
-            'qr_code' => base64_encode(QrCode::size(300)->generate($uniqueId)),
         ];
     }
 
     /**
-     * Generate distinct identities for a batch insert (rows not yet persisted).
+     * Generate distinct unique_ids for a batch insert (rows not yet persisted).
      *
-     * @return list<array{unique_id: string, qr_code: string}>
+     * @return list<array{unique_id: string}>
      */
     public static function reserveForBatch(string $table, int $count): array
     {

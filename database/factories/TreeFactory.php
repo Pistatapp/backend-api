@@ -22,7 +22,6 @@ class TreeFactory extends Factory
             'name' => $this->faker->word(),
             'location' => [$this->faker->latitude(), $this->faker->longitude()],
             'unique_id' => $this->faker->unique()->regexify('[A-Za-z0-9]{15}'),
-            'qr_code' => $this->faker->text()
         ];
     }
 }

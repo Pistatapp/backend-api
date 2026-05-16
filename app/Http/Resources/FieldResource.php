@@ -22,7 +22,6 @@ class FieldResource extends JsonResource
             'center' => $this->center,
             'area' => calculate_polygon_area($this->coordinates),
             'unique_id' => $this->unique_id,
-            'qr_code' => $this->qr_code,
             'crop_type' => new CropTypeResource($this->whenLoaded('cropType')),
             'valves' => ValveResource::collection($this->whenLoaded('valves')),
             'rows_count' => $this->whenCounted('rows'),

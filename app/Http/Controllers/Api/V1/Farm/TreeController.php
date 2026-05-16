@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\TreeResource;
 use App\Models\Row;
 use App\Models\Tree;
-use App\Support\QrIdentity;
+use App\Helpers\UniqueId;
 use Illuminate\Http\Request;
 
 class TreeController extends Controller
@@ -54,7 +54,7 @@ class TreeController extends Controller
             $tree->image = $tree->getFirstMediaUrl('image');
         }
 
-        $tree->fill(QrIdentity::makeForTable('trees'));
+        $tree->fill(UniqueId::makeForTable('trees'));
 
         $tree->save();
 
@@ -127,7 +127,7 @@ class TreeController extends Controller
         ]);
 
         $trees = $request->input('trees');
-        $pairs = QrIdentity::reserveForBatch('trees', count($trees));
+        $pairs = UniqueId::reserveForBatch('trees', count($trees));
         $treesData = [];
 
         foreach ($trees as $index => $tree) {
@@ -137,7 +137,6 @@ class TreeController extends Controller
                 'name' => $tree['name'],
                 'location' => json_encode($tree['location']),
                 'unique_id' => $pair['unique_id'],
-                'qr_code' => $pair['qr_code'],
             ];
 
             $treesData[] = $treeData;

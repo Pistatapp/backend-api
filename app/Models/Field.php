@@ -23,7 +23,6 @@ class Field extends Model
         'area',
         'crop_type_id',
         'unique_id',
-        'qr_code',
     ];
 
     /**

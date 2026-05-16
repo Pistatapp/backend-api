@@ -18,7 +18,6 @@ return new class extends Migration
             $table->string('location');
             $table->string('image')->nullable();
             $table->string('unique_id')->nullable();
-            $table->text('qr_code')->nullable();
             $table->timestamps();
         });
     }
