@@ -84,7 +84,17 @@ class LoadEstimationController extends Controller
 
         $field = Field::findOrFail($request->field_id);
         $cropType = $field->cropType;
-        $loadEstimationTable = LoadEstimationTable::where('crop_type_id', $cropType->id)->firstOrFail();
+        $loadEstimationTable = LoadEstimationTable::where('crop_type_id', $cropType->id)->first();
+
+        if (!$loadEstimationTable) {
+            return response()->json([
+                'message' => __(
+                    'Load estimation table not found for crop type :crop_type',
+                    ['crop_type' => $cropType->name]
+                )
+            ], JsonResponse::HTTP_NOT_FOUND);
+        }
+
         $estimatedYields = $this->loadEstimationService->calculateEstimatedYields(
             $request->average_bud_count,
             $request->tree_count,

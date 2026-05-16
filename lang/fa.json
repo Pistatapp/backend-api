@@ -150,5 +150,6 @@
     "plot": "کرت",
     "area": "منطقه",
     "Attendance tracking not enabled for this user.": "تعیین وضعیت حضور و غیاب برای این کاربر غیرفعال است.",
-    "User does not have attendance tracking enabled for this farm.": "کاربر دارای تعیین وضعیت حضور و غیاب برای این مزرعه غیرفعال است."
+    "User does not have attendance tracking enabled for this farm.": "کاربر دارای تعیین وضعیت حضور و غیاب برای این مزرعه غیرفعال است.",
+    "Load estimation table not found for crop type :crop_type": "جدول تخمین بار برای نوع کشت :crop_type یافت نشد."
 }
