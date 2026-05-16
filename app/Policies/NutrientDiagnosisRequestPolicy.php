@@ -23,7 +23,7 @@ class NutrientDiagnosisRequestPolicy
     public function view(User $user, NutrientDiagnosisRequest $nutrientDiagnosisRequest): bool
     {
         return $user->hasRole('root') ||
-               $nutrientDiagnosisRequest->farm->users->contains($user->id);
+               $nutrientDiagnosisRequest->farm->users->contains($user);
     }
 
     /**
@@ -40,10 +40,6 @@ class NutrientDiagnosisRequestPolicy
      */
     public function update(User $user, NutrientDiagnosisRequest $nutrientDiagnosisRequest): bool
     {
-        if ($nutrientDiagnosisRequest->status === 'approved') {
-            return false;
-        }
-
         return $user->hasRole('root') || $nutrientDiagnosisRequest->user_id === $user->id;
     }
 
@@ -65,6 +61,15 @@ class NutrientDiagnosisRequestPolicy
      * Only root users can respond to requests.
      */
     public function respond(User $user, NutrientDiagnosisRequest $nutrientDiagnosisRequest): bool
+    {
+        return $user->hasRole('root');
+    }
+
+    /**
+     * Determine whether the user can export nutrient samples for a farm.
+     * Only root users can export.
+     */
+    public function export(User $user): bool
     {
         return $user->hasRole('root');
     }

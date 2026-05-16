@@ -26,7 +26,7 @@ class NutrientDiagnosisRequestFactory extends Factory
         return [
             'user_id' => User::factory(),
             'farm_id' => Farm::factory(),
-            'status' => $this->faker->randomElement(['pending', 'completed']),
+            'status' => 'pending',
             'response_description' => $this->faker->optional()->paragraph(),
             'response_attachment' => $this->faker->optional()->filePath(),
         ];
@@ -57,6 +57,32 @@ class NutrientDiagnosisRequestFactory extends Factory
             'status' => 'completed',
             'response_description' => $this->faker->paragraph(),
             'response_attachment' => 'nutrient-diagnosis/report.pdf',
+        ]);
+    }
+
+    /**
+     * Indicate that the request is approved.
+     *
+     * @return static
+     */
+    public function approved(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'status' => 'approved',
+            'approved_at' => now(),
+        ]);
+    }
+
+    /**
+     * Indicate that the request is rejected.
+     *
+     * @return static
+     */
+    public function rejected(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'status' => 'rejected',
+            'approved_at' => null,
         ]);
     }
 }

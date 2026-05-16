@@ -195,7 +195,7 @@ class CompositionalNutrientDiagnosisController extends Controller
      */
     public function export(Farm $farm)
     {
-        $this->authorize('respond', [\App\Models\NutrientDiagnosisRequest::class, $farm]);
+        $this->authorize('export', NutrientDiagnosisRequest::class);
         $export = new \App\Exports\NutrientSamplesExport($farm);
         $filePath = $export->export();
         $filename = __('nutrient_samples_') . $farm->id . '.xlsx';

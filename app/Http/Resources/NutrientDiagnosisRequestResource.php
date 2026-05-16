@@ -36,7 +36,8 @@ class NutrientDiagnosisRequestResource extends JsonResource
             'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),
             'can' => [
                 'respond' => $request->user()->can('respond', $this->resource),
-                'update' => $request->user()->can('update', $this->resource),
+                'update' => $request->user()->can('update', $this->resource)
+                    && $this->status !== 'approved',
                 'delete' => $request->user()->can('delete', $this->resource),
             ],
         ];
