@@ -211,6 +211,7 @@ Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
 
         // Nutrient Diagnosis Routes
         Route::get('/nutrient-diagnosis', [CompositionalNutrientDiagnosisController::class, 'index']);
+        Route::get('/nutrient-diagnosis/export', [CompositionalNutrientDiagnosisController::class, 'export']);
         Route::get('/nutrient-diagnosis/{request}', [CompositionalNutrientDiagnosisController::class, 'show']);
         Route::post('/nutrient-diagnosis', [CompositionalNutrientDiagnosisController::class, 'store']);
         Route::put('/nutrient-diagnosis/{request}', [CompositionalNutrientDiagnosisController::class, 'update']);
@@ -218,7 +219,6 @@ Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
         Route::post('/nutrient-diagnosis/{request}/approve', [CompositionalNutrientDiagnosisController::class, 'approve']);
         Route::post('/nutrient-diagnosis/{request}/reject', [CompositionalNutrientDiagnosisController::class, 'reject']);
         Route::post('/nutrient-diagnosis/{request}/response', [CompositionalNutrientDiagnosisController::class, 'sendResponse']);
-        Route::get('/nutrient-diagnosis/export', [CompositionalNutrientDiagnosisController::class, 'export']);
 
         Route::post('/load_estimation', [LoadEstimationController::class, 'estimate']);
         Route::post('/weather_forecast', WeatherForecastController::class)->name('farms.weather_forecast');
