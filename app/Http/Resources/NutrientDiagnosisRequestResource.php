@@ -22,7 +22,7 @@ class NutrientDiagnosisRequestResource extends JsonResource
             'user' => $this->whenLoaded('user', function() {
                 return [
                     'id' => $this->user->id,
-                    'name' => $this->user->name,
+                    'name' => $this->user->username,
                 ];
             }),
             'farm_id' => $this->farm_id,
