@@ -184,8 +184,6 @@ class Tractor extends Model
      */
     public function scopeActive($query)
     {
-        return $query->whereHas('gpsDevice')
-            ->whereHas('driver')
-            ->where('is_in_repair_shop', false);
+        return $query->whereHas('gpsDevice')->whereHas('driver');
     }
 }
