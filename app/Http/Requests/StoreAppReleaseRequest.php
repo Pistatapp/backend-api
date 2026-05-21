@@ -11,7 +11,7 @@ class StoreAppReleaseRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return $this->user()?->hasRole('root') ?? false;
+        return $this->user()->hasRole('root');
     }
 
     /**
@@ -23,7 +23,10 @@ class StoreAppReleaseRequest extends FormRequest
     {
         return [
             'version' => ['required', 'string', 'max:50', 'unique:app_releases,version', 'regex:/^v\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?$/'],
-            'file' => ['required', 'file', 'max:512000'],
+            'file' => 'required|array|min:1',
+            'file.name' => 'required|string|max:255',
+            'file.path' => 'required|string|max:255',
+            'file.mime_type' => 'required|string|max:255',
             'release_notes' => ['nullable', 'string', 'max:20000'],
         ];
     }

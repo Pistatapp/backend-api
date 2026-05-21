@@ -20,6 +20,7 @@
         "morilog/jalali": "3.*",
         "nunomaduro/collision": "^8.1",
         "phpoffice/phpspreadsheet": "^3.6",
+        "pion/laravel-chunk-upload": "^1.5",
         "pishran/zarinpal": "^4.3",
         "predis/predis": "^2.2",
         "sadegh19b/laravel-persian-validation": "^1.4",

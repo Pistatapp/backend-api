@@ -25,8 +25,10 @@ class AppReleaseController extends Controller
             'published_at' => now(),
         ]);
 
+        $pathToFile = storage_path('app/'.$request->input('file.path').$request->input('file.name'));
+
         $release
-            ->addMediaFromRequest('file')
+            ->addMedia($pathToFile)
             ->toMediaCollection('package');
 
         return (new AppReleaseResource($release->fresh()))

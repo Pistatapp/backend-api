@@ -49,6 +49,7 @@ use App\Http\Controllers\Api\V1\Tractor\TractorReportController;
 use App\Http\Controllers\Api\V1\WarningController;
 use App\Http\Controllers\Api\V1\PaymentController;
 use App\Http\Controllers\Api\V1\AppReleaseController;
+use App\Http\Controllers\Api\V1\FileUploadController;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 
@@ -243,6 +244,8 @@ Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
         Route::put('/', [UserPreferenceController::class, 'update']);
         Route::delete('/', [UserPreferenceController::class, 'reset']);
     });
+
+    Route::post('upload', [FileUploadController::class, 'upload']);
 
     Broadcast::routes();
 });

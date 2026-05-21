@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -17,6 +18,8 @@ class AppReleaseApiTest extends TestCase
     private const STORE_URL = '/api/app-releases';
 
     private const LATEST_URL = '/api/app-releases/latest';
+
+    private const UPLOAD_URL = '/api/upload';
 
     protected function setUp(): void
     {
@@ -33,6 +36,9 @@ class AppReleaseApiTest extends TestCase
         $this->postJson(self::STORE_URL, $this->validStorePayload())->assertUnauthorized();
         $this->getJson(self::LATEST_URL)->assertUnauthorized();
         $this->getJson("/api/app-releases/{$release->id}/download")->assertUnauthorized();
+        $this->post(self::UPLOAD_URL, [
+            'file' => UploadedFile::fake()->create('pistat.apk', 1024),
+        ], ['Accept' => 'application/json'])->assertUnauthorized();
     }
 
     public function test_user_without_username_cannot_access_app_release_endpoints(): void
@@ -48,6 +54,26 @@ class AppReleaseApiTest extends TestCase
         $this->actingAs($user)->postJson(self::STORE_URL, $this->validStorePayload())->assertForbidden();
         $this->actingAs($user)->getJson(self::LATEST_URL)->assertForbidden();
         $this->actingAs($user)->getJson("/api/app-releases/{$release->id}/download")->assertForbidden();
+        $this->actingAs($user)
+            ->post(self::UPLOAD_URL, ['file' => UploadedFile::fake()->create('pistat.apk', 1024)])
+            ->assertForbidden();
+    }
+
+    public function test_authenticated_user_can_upload_file_via_upload_endpoint(): void
+    {
+        $root = $this->createRootUser();
+
+        $response = $this->actingAs($root)->post(self::UPLOAD_URL, [
+            'file' => UploadedFile::fake()->create('pistat-v1.0.0.apk', 1024, 'application/octet-stream'),
+        ]);
+
+        $response->assertOk()
+            ->assertJsonStructure(['path', 'name', 'mime_type']);
+
+        $path = $response->json('path');
+        $name = $response->json('name');
+
+        $this->assertFileExists(storage_path('app/'.$path.$name));
     }
 
     public function test_root_user_can_upload_a_new_application_release(): void
@@ -108,7 +134,7 @@ class AppReleaseApiTest extends TestCase
 
         $response = $this->actingAs($root)->postJson(self::STORE_URL, $this->validStorePayload([
             'version' => 'v3.0.0-beta.1',
-            'file' => UploadedFile::fake()->create('pistat-v3.0.0-beta.1.apk', 1024, 'application/octet-stream'),
+            'file' => $this->stageUploadedPackageFile('pistat-v3.0.0-beta.1.apk'),
         ]));
 
         $response->assertCreated()
@@ -121,7 +147,7 @@ class AppReleaseApiTest extends TestCase
 
         $response = $this->actingAs($root)->postJson(self::STORE_URL, [
             'version' => 'v4.0.0',
-            'file' => UploadedFile::fake()->create('pistat-v4.0.0.apk', 1024, 'application/octet-stream'),
+            'file' => $this->stageUploadedPackageFile('pistat-v4.0.0.apk'),
         ]);
 
         $response->assertCreated()
@@ -151,13 +177,13 @@ class AppReleaseApiTest extends TestCase
         $this->actingAs($root)
             ->postJson(self::STORE_URL, [
                 'release_notes' => 'Notes',
-                'file' => UploadedFile::fake()->create('pistat.apk', 1024, 'application/octet-stream'),
+                'file' => $this->stageUploadedPackageFile('pistat.apk'),
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['version']);
     }
 
-    public function test_store_requires_file(): void
+    public function test_store_requires_file_metadata(): void
     {
         $root = $this->createRootUser();
 
@@ -168,6 +194,15 @@ class AppReleaseApiTest extends TestCase
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['file']);
+
+        $this->actingAs($root)
+            ->postJson(self::STORE_URL, [
+                'version' => 'v5.0.1',
+                'release_notes' => 'Notes',
+                'file' => [],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['file.name', 'file.path', 'file.mime_type']);
     }
 
     public function test_store_rejects_invalid_version_format(): void
@@ -196,17 +231,21 @@ class AppReleaseApiTest extends TestCase
             ->assertJsonValidationErrors(['version']);
     }
 
-    public function test_store_rejects_file_exceeding_max_size(): void
+    public function test_store_rejects_missing_staged_package_file(): void
     {
         $root = $this->createRootUser();
 
         $this->actingAs($root)
-            ->postJson(self::STORE_URL, $this->validStorePayload([
+            ->postJson(self::STORE_URL, [
                 'version' => 'v7.0.0',
-                'file' => UploadedFile::fake()->create('pistat-v7.0.0.apk', 512001, 'application/octet-stream'),
-            ]))
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['file']);
+                'release_notes' => 'Notes',
+                'file' => [
+                    'path' => 'upload/application-octet-stream/2099-01-01/',
+                    'name' => 'missing.apk',
+                    'mime_type' => 'application-octet-stream',
+                ],
+            ])
+            ->assertStatus(500);
     }
 
     public function test_store_rejects_release_notes_longer_than_allowed(): void
@@ -340,8 +379,28 @@ class AppReleaseApiTest extends TestCase
         return array_merge([
             'version' => $version,
             'release_notes' => 'Release notes.',
-            'file' => UploadedFile::fake()->create("pistat-{$version}.apk", 1024, 'application/octet-stream'),
+            'file' => $this->stageUploadedPackageFile("pistat-{$version}.apk"),
         ], $overrides);
+    }
+
+    /**
+     * @return array{path: string, name: string, mime_type: string}
+     */
+    private function stageUploadedPackageFile(string $fileName, string $contents = 'fake apk content'): array
+    {
+        $mime = 'application/octet-stream';
+        $mimeFolder = str_replace('/', '-', $mime);
+        $dateFolder = date('Y-m-W');
+        $relativePath = "upload/{$mimeFolder}/{$dateFolder}/";
+
+        Storage::disk('local')->makeDirectory($relativePath);
+        Storage::disk('local')->put($relativePath.$fileName, $contents);
+
+        return [
+            'path' => $relativePath,
+            'name' => $fileName,
+            'mime_type' => $mime,
+        ];
     }
 
     /**
