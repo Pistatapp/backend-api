@@ -67,7 +67,7 @@ class FileUploadController extends Controller
         $dateFolder = date('Y-m-W');
 
         // Relative path consumed by AppReleaseController: storage_path('app/'.$path.$name)
-        $filePath = "upload/{$mime}/{$dateFolder}/";
+        $filePath = "{$mime}/{$dateFolder}/";
         $finalPath = storage_path('app/public/'.$filePath);
 
         $file->move($finalPath, $fileName);
