@@ -233,9 +233,9 @@ Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
         Route::post('/mark_all_as_read', 'markAllAsRead');
     });
 
+    Route::post('app-releases', [AppReleaseController::class, 'store']);
     Route::get('app-releases/latest', [AppReleaseController::class, 'latest']);
     Route::get('app-releases/{appRelease}/download', [AppReleaseController::class, 'download']);
-    Route::post('app-releases', [AppReleaseController::class, 'store']);
 
 
     // User Preferences Routes
