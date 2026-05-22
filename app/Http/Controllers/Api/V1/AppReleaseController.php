@@ -23,13 +23,8 @@ class AppReleaseController extends Controller
             'release_notes' => $request->input('release_notes'),
             'created_by' => $request->user()->id,
             'published_at' => now(),
+            'file_url' => $request->input('file.path').$request->input('file.name'),
         ]);
-
-        $pathToFile = storage_path('app/'.$request->input('file.path').$request->input('file.name'));
-
-        $release
-            ->addMedia($pathToFile)
-            ->toMediaCollection('package');
 
         return (new AppReleaseResource($release->fresh()))
             ->response()
@@ -48,10 +43,8 @@ class AppReleaseController extends Controller
 
     public function download(AppRelease $appRelease): BinaryFileResponse
     {
-        $media = $appRelease->packageMedia();
+        abort_if($appRelease->file_url === null, 404, 'Release package was not found.');
 
-        abort_if($media === null, 404, 'Release package was not found.');
-
-        return response()->download($media->getPath(), $media->file_name);
+        return response()->download($appRelease->file_url);
     }
 }

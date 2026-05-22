@@ -14,21 +14,14 @@ class AppReleaseResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $media = $this->packageMedia();
-
         return [
             'id' => $this->id,
             'version' => $this->version,
             'release_notes' => $this->release_notes,
-            'published_at' => $this->published_at?->toIso8601String(),
-            'download_url' => route('app-releases.download', ['appRelease' => $this->id]),
-            'file' => [
-                'name' => $media?->file_name,
-                'size' => $media?->size,
-                'mime_type' => $media?->mime_type,
-            ],
-            'created_by' => $this->created_by,
-            'created_at' => $this->created_at?->toIso8601String(),
+            'published_at' => jdate($this->published_at)->format('Y/m/d'),
+            'file_url' => $this->file_url,
+            'created_by' => $this->creator->username,
+            'created_at' => jdate($this->created_at)->format('Y/m/d'),
         ];
     }
 }
