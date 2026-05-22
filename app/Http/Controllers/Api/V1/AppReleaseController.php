@@ -43,8 +43,6 @@ class AppReleaseController extends Controller
 
     public function download(AppRelease $appRelease): BinaryFileResponse
     {
-        abort_if($appRelease->file_url === null, 404, 'Release package was not found.');
-
-        return response()->download($appRelease->file_url);
+        return response()->download(storage_path('app/public/'.$appRelease->file_url));
     }
 }
