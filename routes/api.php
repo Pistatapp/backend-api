@@ -235,8 +235,6 @@ Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
 
     Route::post('app-releases', [AppReleaseController::class, 'store']);
     Route::get('app-releases/latest', [AppReleaseController::class, 'latest']);
-    Route::get('app-releases/{appRelease}/download', [AppReleaseController::class, 'download']);
-
 
     // User Preferences Routes
     Route::prefix('preferences')->group(function () {
@@ -251,6 +249,7 @@ Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
 });
 
 Route::post('/gps/reports', GpsReportController::class)->name('gps.reports');
+Route::get('app-releases/{appRelease}/download', [AppReleaseController::class, 'download']);
 
 Route::middleware(['auth:sanctum', 'ensure.username'])->prefix('v1')->group(function () {
     Route::apiResource('warnings', WarningController::class)->only(['index', 'store']);
