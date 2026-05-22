@@ -159,7 +159,7 @@ function to_time_format(?int $seconds): string
 /**
  * Get the weather API service
  *
- * @return \App\Services\WeatherApiService
+ * @return \App\Services\WeatherApi
  */
 function weather_api()
 {

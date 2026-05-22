@@ -67,7 +67,10 @@ class FileUploadController extends Controller
         $dateFolder = date("Y-m-W");
 
         // Build the file path
-        $filePath = "upload/{$mime}/{$dateFolder}/";
+        $filePath = storage_path("app/public/upload/{$mime}/{$dateFolder}/");
+        if (!file_exists($filePath)) {
+            mkdir($filePath, 0755, true);
+        }
 
         // move the file name
         $file->move($filePath, $fileName);

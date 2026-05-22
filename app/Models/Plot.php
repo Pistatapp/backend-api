@@ -99,7 +99,7 @@ class Plot extends Model implements HasMedia
     /**
      * Get the trees for the plot.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\HasManyDeep
+     * @return \Illuminate\Database\Eloquent\Relations\HasManyThrough
      */
     public function trees()
     {

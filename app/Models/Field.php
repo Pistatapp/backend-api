@@ -121,7 +121,7 @@ class Field extends Model
     /**
      * Get the trees for the field.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\HasManyDeep
+     * @return \Illuminate\Database\Eloquent\Relations\HasManyThrough
      */
     public function trees()
     {
