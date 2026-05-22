@@ -7,7 +7,6 @@ use App\Http\Requests\StoreAppReleaseRequest;
 use App\Http\Resources\AppReleaseResource;
 use App\Models\AppRelease;
 use Illuminate\Http\JsonResponse;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class AppReleaseController extends Controller
 {
@@ -39,10 +38,5 @@ class AppReleaseController extends Controller
             ->firstOrFail();
 
         return new AppReleaseResource($release);
-    }
-
-    public function download(AppRelease $appRelease): BinaryFileResponse
-    {
-        return response()->download(storage_path('app/public/'.$appRelease->file_url));
     }
 }
