@@ -19,7 +19,7 @@ class AppReleaseResource extends JsonResource
             'version' => $this->version,
             'release_notes' => $this->release_notes,
             'published_at' => jdate($this->published_at)->format('Y/m/d'),
-            'file_url' => $this->file_url,
+            'file_url' => url($this->file_url),
             'created_by' => $this->creator->username,
             'created_at' => jdate($this->created_at)->format('Y/m/d'),
         ];
