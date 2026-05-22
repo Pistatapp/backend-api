@@ -22,7 +22,7 @@ class AppReleaseController extends Controller
             'release_notes' => $request->input('release_notes'),
             'created_by' => $request->user()->id,
             'published_at' => now(),
-            'file_url' => $request->input('file.path').$request->input('file.name'),
+            'file_url' => $request->input('file.path') . $request->input('file.name'),
         ]);
 
         return (new AppReleaseResource($release->fresh()))
@@ -38,5 +38,12 @@ class AppReleaseController extends Controller
             ->firstOrFail();
 
         return new AppReleaseResource($release);
+    }
+
+    public function download(AppRelease $appRelease)
+    {
+        return response()->download(
+            storage_path('app/public/' . $appRelease->file_url)
+        );
     }
 }
