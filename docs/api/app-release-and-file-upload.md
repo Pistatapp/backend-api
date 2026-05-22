@@ -151,7 +151,7 @@ For large APKs, use a chunked upload library compatible with [resumable.js](http
 const resumable = new Resumable({
   target: `${API_BASE}/upload`,
   chunkSize: 1 * 1024 * 1024, // 1 MB — tune to your server limits
-  simultaneousUploads: 3,
+  simultaneousUploads: 1,
   testChunks: false,
   headers: {
     Authorization: `Bearer ${token}`,

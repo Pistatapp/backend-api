@@ -63,22 +63,23 @@ class FileUploadController extends Controller
         $fileName = $this->createFilename($file);
         // Group files by mime type
         $mime = str_replace('/', '-', $file->getMimeType());
-        // Group files by the date (week
-        $dateFolder = date("Y-m-W");
+        // Group files by the date (week)
+        $dateFolder = date('Y-m-W');
 
-        // Build the file path
-        $filePath = storage_path("app/public/upload/{$mime}/{$dateFolder}/");
-        if (!file_exists($filePath)) {
-            mkdir($filePath, 0755, true);
+        // Relative path consumed by AppReleaseController: storage_path('app/'.$path.$name)
+        $relativePath = "upload/{$mime}/{$dateFolder}/";
+        $absolutePath = storage_path('app/'.$relativePath);
+
+        if (! is_dir($absolutePath)) {
+            mkdir($absolutePath, 0755, true);
         }
 
-        // move the file name
-        $file->move($filePath, $fileName);
+        $file->move($absolutePath, $fileName);
 
         return response()->json([
-            'path' => $filePath,
+            'path' => $relativePath,
             'name' => $fileName,
-            'mime_type' => $mime
+            'mime_type' => $mime,
         ]);
     }
 

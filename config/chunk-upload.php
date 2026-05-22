@@ -28,8 +28,10 @@ return [
         // setup for the chunk naming setup to ensure same name upload at same time
         'name' => [
             'use' => [
-                'session' => true, // should the chunk name use the session id? The uploader must send cookie!,
-                'browser' => false, // instead of session we can use the ip and browser?
+                // API clients use Bearer tokens, not cookies — session IDs differ per request
+                // and chunks never merge. Resumable.js resumableIdentifier scopes chunk files.
+                'session' => false,
+                'browser' => false,
             ],
         ],
     ],
