@@ -234,7 +234,6 @@ Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
     });
 
     Route::get('app-releases/latest', [AppReleaseController::class, 'latest']);
-    Route::get('app-releases/{appRelease}/download', [AppReleaseController::class, 'download'])->name('app-releases.download');
     Route::post('app-releases', [AppReleaseController::class, 'store']);
 
 
