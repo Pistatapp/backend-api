@@ -34,7 +34,7 @@ class TreatmentController extends Controller
             'description' => 'nullable|string|max:2000',
         ]);
 
-        $treatment = $farm->treatments()->create($request->all());
+        $treatment = $farm->treatments()->create($request->validated());
 
         return new TreatmentResource($treatment);
     }

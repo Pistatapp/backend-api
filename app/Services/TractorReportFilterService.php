@@ -204,11 +204,6 @@ class TractorReportFilterService
                         'id' => $task->operation->id,
                         'name' => $task->operation->name,
                     ] : null,
-                    'taskable' => ($first = $task->taskableItems->first()) && $first->taskable ? [
-                        'id' => $first->taskable->id,
-                        'name' => $first->taskable->name,
-                        'type' => class_basename($first->taskable_type),
-                    ] : null,
                     'taskables' => $task->relationLoaded('taskableItems') ? $task->taskableItems->map(function ($item) {
                         $m = $item->taskable;
 
