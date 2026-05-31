@@ -19,6 +19,7 @@ class FarmPlanDetailResource extends JsonResource
             'farm_plan_id' => $this->farm_plan_id,
             'treatment' => new TreatmentResource($this->whenLoaded('treatment')),
             'treatable' => $this->getTreatableResource(),
+            'treatable_type' => $this->getTreatableType($this->treatable_type),
         ];
     }
 
@@ -35,6 +36,22 @@ class FarmPlanDetailResource extends JsonResource
             'App\Models\Tree' => new TreeResource($this->whenLoaded('treatable')),
             'App\Models\Plot' => new PlotResource($this->whenLoaded('treatable')),
             default => null,
+        };
+    }
+
+    /**
+     * Get the treatable type in a readable format.
+     *
+     * @return string
+     */
+    private function getTreatableType(string $treatableType): string
+    {
+        return match ($treatableType) {
+            'App\Models\Field' => 'field',
+            'App\Models\Row' => 'row',
+            'App\Models\Tree' => 'tree',
+            'App\Models\Plot' => 'plot',
+            default => 'unknown',
         };
     }
 }
