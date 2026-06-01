@@ -73,7 +73,7 @@ class QrEntityLookupController extends Controller
         }
 
         if (count($matches) > 1) {
-            abort(409, __('This code matches more than one record; contact support.'));
+            abort(409, __('This QR code matches more than one record; contact support.'));
         }
 
         return $matches[0];

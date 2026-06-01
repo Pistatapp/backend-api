@@ -112,7 +112,7 @@ Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
     Route::apiResource('farms.farm_reports', FarmReportsController::class)->shallow();
 
     Route::apiResource('farms.fields', FieldController::class)->shallow();
-    Route::apiResource('fields.rows', RowController::class)->except('update')->shallow();
+    Route::apiResource('fields.rows', RowController::class)->shallow();
     Route::post('rows/{row}/trees/batch_store', [TreeController::class, 'batchStore']);
     Route::apiResource('rows.trees', TreeController::class)->shallow();
     Route::apiResource('fields.plots', PlotController::class)->shallow();

@@ -59,6 +59,25 @@ class RowController extends Controller
     }
 
     /**
+     * Update the specified resource in storage.
+     */
+    public function update(Request $request, Row $row)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'coordinates' => 'required|array|size:2',
+            'coordinates.*' => 'required|string',
+        ]);
+
+        $row->update([
+            'name' => $request->name,
+            'coordinates' => $request->coordinates,
+        ]);
+
+        return new RowResource($row->fresh());
+    }
+
+    /**
      * Remove the specified resource from storage.
      */
     public function destroy(Row $row)

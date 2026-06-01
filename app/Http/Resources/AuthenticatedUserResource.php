@@ -24,8 +24,8 @@ class AuthenticatedUserResource extends JsonResource
             'photo' => $this->profile->media_url,
             'token' => $this->createToken('token')->plainTextToken,
             'new_user' => is_null($this->username),
-            'role' => $role->name,
-            'permissions' => $role->permissions()->pluck('name'),
+            'role' => $role->name ?? null,
+            'permissions' => $role ? $role->permissions()->pluck('name') : collect(),
         ];
     }
 
