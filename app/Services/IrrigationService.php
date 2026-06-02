@@ -7,6 +7,7 @@ use App\Models\Irrigation;
 use App\Models\Plot;
 use App\Models\User;
 use Illuminate\Support\Collection;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class IrrigationService
 {
@@ -17,9 +18,10 @@ class IrrigationService
      * @param string $status
      * @param string|null $dateRange
      * @param string|null $date
-     * @return Collection
+     * @param int $perPage
+     * @return LengthAwarePaginator
      */
-    public function getFilteredIrrigations(Farm $farm, string $status = 'all', ?string $dateRange = null, ?string $date = null): Collection
+    public function getFilteredIrrigations(Farm $farm, string $status = 'all', ?string $dateRange = null, ?string $date = null, int $perPage = 15): LengthAwarePaginator
     {
         $query = Irrigation::whereBelongsTo($farm);
 
@@ -69,7 +71,7 @@ class IrrigationService
             ->with(['plots', 'valves'])
             ->withCount('plots')
             ->latest()
-            ->get();
+            ->paginate($perPage);
     }
 
     /**
