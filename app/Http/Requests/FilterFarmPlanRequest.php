@@ -36,8 +36,8 @@ class FilterFarmPlanRequest extends FormRequest
     protected function prepareForValidation()
     {
         $this->merge([
-            'from_date' => jalali_to_carbon($this->from_date)->format('Y-m-d'),
-            'to_date' => jalali_to_carbon($this->to_date)->format('Y-m-d'),
+            'from_date' => $this->from_date ? jalali_to_carbon($this->from_date)->format('Y-m-d') : null,
+            'to_date' => $this->to_date ? jalali_to_carbon($this->to_date)->format('Y-m-d') : null,
         ]);
     }
 }
