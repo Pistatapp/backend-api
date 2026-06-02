@@ -135,21 +135,22 @@ class IrrigationService
      *
      * @param Farm $farm
      * @param User $user
-     * @return Collection
+     * @param int $perPage
+     * @return LengthAwarePaginator
      */
-    public function getIrrigationMessages(Farm $farm, bool $isVerified, User $user)
+    public function getIrrigationMessages(Farm $farm, bool $isVerified, User $user, int $perPage = 15): LengthAwarePaginator
     {
         $irrigations = $farm->irrigations()
             ->where('status', 'finished')
             ->where('is_verified_by_admin', $isVerified)
             ->with(['plots', 'valves'])
             ->latest()
-            ->get()
+            ->paginate($perPage)
             ->filter(fn($irrigation) => !$this->shouldFilterOutIrrigation($irrigation))
             ->map(fn($irrigation) => $this->formatIrrigationMessage($irrigation, $user));
 
         // When $isVerified is true, return as array to avoid numerical indexes
-        return $isVerified ? $irrigations->values()->toArray() : $irrigations;
+        return $irrigations;
     }
 
     /**
