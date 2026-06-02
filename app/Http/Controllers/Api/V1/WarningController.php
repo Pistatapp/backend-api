@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UpdateWarningRequest;
+use App\Http\Resources\WarningResource;
 use App\Models\Warning;
 use App\Services\WarningService;
 use Illuminate\Http\JsonResponse;
@@ -47,7 +48,7 @@ class WarningController extends Controller
     /**
      * Update or create a warning setting
      */
-    public function store(UpdateWarningRequest $request): JsonResponse
+    public function store(UpdateWarningRequest $request)
     {
         $validated = $request->validated();
 
@@ -69,9 +70,6 @@ class WarningController extends Controller
             ]
         );
 
-        return response()->json([
-            'message' => 'Warning settings updated successfully',
-            'warning' => $warning
-        ]);
+        return new WarningResource($warning);
     }
 }

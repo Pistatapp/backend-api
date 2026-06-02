@@ -153,5 +153,6 @@
     "User does not have attendance tracking enabled for this farm.": "کاربر دارای تعیین وضعیت حضور و غیاب برای این مزرعه غیرفعال است.",
     "Load estimation table not found for crop type :crop_type": "جدول تخمین بار برای نوع کشت :crop_type یافت نشد.",
     "No entity found for this code.": "هیچ موجودیتی برای این کد QR یافت نشد.",
-    "This QR code matches more than one record; contact support.": "کد QR انتخاب شده با چندین موجودیت مطابقت دارد; با پشتیبانی تماس بگیرید."
+    "This QR code matches more than one record; contact support.": "کد QR انتخاب شده با چندین موجودیت مطابقت دارد; با پشتیبانی تماس بگیرید.",
+    "Warning settings updated successfully": "تنظیمات هشدار با موفقیت به روز شد"
 }
