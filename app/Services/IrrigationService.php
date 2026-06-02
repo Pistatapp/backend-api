@@ -149,7 +149,13 @@ class IrrigationService
             ->latest()
             ->paginate($perPage);
 
-        return IrrigationResource::collection($irrigations);
+        $irrigations->map(function ($irrigation) use ($user) {
+            return $this->formatIrrigationMessage($irrigation, $user);
+        });
+
+        return $irrigations->map(function ($irrigation) use ($user) {
+            return $this->formatIrrigationMessage($irrigation, $user);
+        });
     }
 
     /**
