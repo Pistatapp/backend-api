@@ -172,8 +172,6 @@ class IrrigationController extends Controller
 
         $messages = $this->irrigationService->getIrrigationMessages($farm, $isVerified, $request->user());
 
-        return response()->json([
-            'data' => $messages
-        ]);
+        return response()->json($messages);
     }
 }

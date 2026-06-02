@@ -153,9 +153,23 @@ class IrrigationService
             return $this->formatIrrigationMessage($irrigation, $user);
         });
 
-        return $irrigations->map(function ($irrigation) use ($user) {
+        $irrigations = $irrigations->map(function ($irrigation) use ($user) {
             return $this->formatIrrigationMessage($irrigation, $user);
         });
+
+        $pagination = [
+            'total' => $irrigations->total(),
+            'per_page' => $irrigations->perPage(),
+            'current_page' => $irrigations->currentPage(),
+            'last_page' => $irrigations->lastPage(),
+            'from' => $irrigations->firstItem(),
+            'to' => $irrigations->lastItem(),
+        ];
+
+        return [
+            'data' => $irrigations,
+            'pagination' => $pagination,
+        ];
     }
 
     /**
