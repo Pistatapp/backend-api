@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Http\Resources\IrrigationMessageResource;
+use App\Http\Resources\IrrigationResource;
 use App\Models\Farm;
 use App\Models\Irrigation;
 use App\Models\Plot;
@@ -138,19 +140,16 @@ class IrrigationService
      * @param int $perPage
      * @return LengthAwarePaginator
      */
-    public function getIrrigationMessages(Farm $farm, bool $isVerified, User $user, int $perPage = 15): LengthAwarePaginator
+    public function getIrrigationMessages(Farm $farm, bool $isVerified, User $user, int $perPage = 15)
     {
         $irrigations = $farm->irrigations()
             ->where('status', 'finished')
             ->where('is_verified_by_admin', $isVerified)
             ->with(['plots', 'valves'])
             ->latest()
-            ->paginate($perPage)
-            ->filter(fn($irrigation) => !$this->shouldFilterOutIrrigation($irrigation))
-            ->map(fn($irrigation) => $this->formatIrrigationMessage($irrigation, $user));
+            ->paginate($perPage);
 
-        // When $isVerified is true, return as array to avoid numerical indexes
-        return $irrigations;
+        return IrrigationResource::collection($irrigations);
     }
 
     /**
