@@ -68,8 +68,8 @@ class IrrigationService
         }
 
         return $query->when($status !== 'all', function ($q) use ($status) {
-                $q->filter($status);
-            })
+            $q->filter($status);
+        })
             ->with(['plots', 'valves'])
             ->withCount('plots')
             ->latest()
@@ -149,14 +149,6 @@ class IrrigationService
             ->latest()
             ->paginate($perPage);
 
-        $irrigations->map(function ($irrigation) use ($user) {
-            return $this->formatIrrigationMessage($irrigation, $user);
-        });
-
-        $irrigations = $irrigations->map(function ($irrigation) use ($user) {
-            return $this->formatIrrigationMessage($irrigation, $user);
-        });
-
         $pagination = [
             'total' => $irrigations->total(),
             'per_page' => $irrigations->perPage(),
@@ -165,6 +157,15 @@ class IrrigationService
             'from' => $irrigations->firstItem(),
             'to' => $irrigations->lastItem(),
         ];
+
+        $irrigations->map(function ($irrigation) use ($user) {
+            return $this->formatIrrigationMessage($irrigation, $user);
+        });
+
+        $irrigations = $irrigations->map(function ($irrigation) use ($user) {
+            return $this->formatIrrigationMessage($irrigation, $user);
+        });
+
 
         return [
             'data' => $irrigations,
