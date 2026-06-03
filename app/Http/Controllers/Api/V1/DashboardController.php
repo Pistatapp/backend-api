@@ -90,7 +90,7 @@ class DashboardController extends Controller
 
             return [
                 'last_updated' => jdate($weatherData['current']['time'])->format('Y/m/d H:i:s'),
-                'temp_c' => number_format($weatherData['current']['temprature_2m'], 2),
+                'temp_c' => number_format($weatherData['current']['temperature_2m'], 2),
                 // 'condition' => $weatherData['current']['condition']['text'],
                 // 'icon' => $weatherData['current']['condition']['icon'],
                 // 'wind_kph' => number_format($weatherData['current']['wind_speed_10m'], 2),
