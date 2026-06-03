@@ -85,7 +85,7 @@ class DashboardController extends Controller
      */
     private function getWeatherData($location)
     {
-        try {
+        // try {
             $weatherData = open_meteo()->current($location);
 
             return [
@@ -98,17 +98,17 @@ class DashboardController extends Controller
                 // 'dewpoint_c' => number_format($weatherData['current']['dewpoint_2m'], 2),
                 // 'cloud' => number_format($weatherData['current']['cloud_cover'], 2),
             ];
-        } catch (\Throwable $e) {
-            return [
-                'last_updated' => null,
-                'temp_c' => 0,
-                'condition' => null,
-                'icon' => null,
-                'wind_kph' => 0,
-                'humidity' => 0,
-                'dewpoint_c' => 0,
-                'cloud' => 0,
-            ];
-        }
+        // } catch (\Throwable $e) {
+        //     return [
+        //         'last_updated' => null,
+        //         'temp_c' => 0,
+        //         'condition' => null,
+        //         'icon' => null,
+        //         'wind_kph' => 0,
+        //         'humidity' => 0,
+        //         'dewpoint_c' => 0,
+        //         'cloud' => 0,
+        //     ];
+        // }
     }
 }
