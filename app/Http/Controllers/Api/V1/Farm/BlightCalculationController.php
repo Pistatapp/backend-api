@@ -29,7 +29,7 @@ class BlightCalculationController extends Controller
     }
 
     /**
-     * Fetch weather data from the weather API.
+     * Fetch weather data from the open meteo.
      *
      * @param string $location
      * @param string $startDt
@@ -38,7 +38,7 @@ class BlightCalculationController extends Controller
      */
     private function fetchWeatherData($location, $startDt, $endDt)
     {
-        return weather_api()->history($location, $startDt, $endDt);
+        return open_meteo()->history($location, $startDt, $endDt);
     }
 
     /**
@@ -50,9 +50,10 @@ class BlightCalculationController extends Controller
      */
     private function calculateTotalBaseTemp($data, $minTemp)
     {
-        return collect($data['forecast']['forecastday'])
-            ->map(function ($day) use ($minTemp) {
-                $avgTemp = $day['day']['avgtemp_c'];
+        $data = $data['daily'];
+        return collect($data['temperature_2m_max'])
+            ->map(function ($day, $index) use ($minTemp, $data) {
+                $avgTemp = ($day + $data['temperature_2m_min'][$index]) / 2;
                 $baseTemp = $avgTemp - $minTemp;
 
                 return $baseTemp > 0 ? $baseTemp : 0;

@@ -15,6 +15,10 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('/', function () {
+    $startDate = now()->subDays(20);
+    $endDate = now();
+    $weather = open_meteo()->history('Tehran', $startDate, $endDate);
+    dd($weather);
     return view('welcome');
 });
 
