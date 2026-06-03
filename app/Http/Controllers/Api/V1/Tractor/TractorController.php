@@ -188,6 +188,11 @@ class TractorController extends Controller
 
     public function enterRepairShop(Request $request, Tractor $tractor)
     {
+        $request->validate([
+            'maintained_by' => 'nullable|exists:labours,id',
+            'description' => 'required|string|max:5000',
+        ]);
+
         $this->authorize('enterRepairShop', $tractor);
 
         if ($tractor->is_in_repair_shop) {
@@ -221,7 +226,7 @@ class TractorController extends Controller
             'created_by' => $request->user()->id,
             'maintained_by' => (int) $maintainedBy,
             'date' => today(),
-            'description' => $request->input('description', __('Tractor :name entered repair shop.', ['name' => $tractor->name])),
+            'description' => $request->description,
             'repair_shop_entered_at' => Carbon::now(),
             'repair_shop_exited_at' => null,
         ]);
