@@ -86,7 +86,7 @@ class DashboardController extends Controller
     private function getWeatherData($location)
     {
         try {
-            $weatherData = weather_api()->current($location);
+            $weatherData = open_meteo()->current($location);
 
             return [
                 'last_updated' => jdate($weatherData['current']['time'])->format('Y/m/d H:i:s'),
