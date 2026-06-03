@@ -90,13 +90,13 @@ class DashboardController extends Controller
 
             return [
                 'last_updated' => jdate($weatherData['current']['time'])->format('Y/m/d H:i:s'),
-                'temp_c' => intval($weatherData['current']['temperature_2m']),
+                'temp_c' => $weatherData['current']['temperature_2m'],
                 // 'condition' => $weatherData['current']['condition']['text'],
                 // 'icon' => $weatherData['current']['condition']['icon'],
-                // 'wind_kph' => intval($weatherData['current']['wind_speed_10m']),
-                // 'humidity' => intval($weatherData['current']['relative_humidity_2m']),
-                // 'dewpoint_c' => intval($weatherData['current']['dewpoint_2m']),
-                // 'cloud' => intval($weatherData['current']['cloud_cover']),
+                // 'wind_kph' => $weatherData['current']['wind_speed_10m'],
+                // 'humidity' => $weatherData['current']['relative_humidity_2m'],
+                // 'dewpoint_c' => $weatherData['current']['dewpoint_2m'],
+                // 'cloud' => $weatherData['current']['cloud_cover'],
             ];
         } catch (\Throwable $e) {
             return [
