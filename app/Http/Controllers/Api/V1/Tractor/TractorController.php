@@ -8,6 +8,7 @@ use App\Models\Farm;
 use App\Models\GpsDevice;
 use App\Models\Maintenance;
 use App\Models\MaintenanceReport;
+use App\Http\Resources\MaintenanceReportResource;
 use App\Models\Tractor;
 use App\Models\Driver;
 use Carbon\Carbon;
@@ -238,7 +239,7 @@ class TractorController extends Controller
             ]),
             'data' => [
                 'tractor' => new TractorResource($tractor->fresh()),
-                'maintenance_report_id' => $report->id,
+                'maintenance_report' => new MaintenanceReportResource($report),
             ],
         ]);
     }
@@ -272,7 +273,10 @@ class TractorController extends Controller
                 'name' => $tractor->name,
                 'datetime' => jdate(now())->format('Y/m/d H:i:s'),
             ]),
-            'data' => new TractorResource($tractor->fresh()),
+            'data' => [
+                'tractor' => new TractorResource($tractor->fresh()),
+                'maintenance_report' => new MaintenanceReportResource($openReport),
+            ],
         ]);
     }
 
