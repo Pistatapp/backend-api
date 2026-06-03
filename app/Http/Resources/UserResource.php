@@ -35,9 +35,9 @@ class UserResource extends JsonResource
      * Resolve the role for the user in the working environment.
      *
      * @param Request $request
-     * @return string
+     * @return string|null
      */
-    private function resolveRoleForEnvironment(Request $request): string
+    private function resolveRoleForEnvironment(Request $request): ?string
     {
         $workingEnvironmentId = $request->input('_working_environment_id');
         if ($workingEnvironmentId) {
