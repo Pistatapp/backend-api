@@ -6,6 +6,7 @@ use App\Services\WeatherApi;
 use App\Services\KalmanFilter;
 use App\Services\ActiveTractorService;
 use App\Services\GpsPathCorrectorService;
+use App\Services\OpenMeteo;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\ServiceProvider;
@@ -29,6 +30,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->app->singleton('weather-api', fn($app) => $app->make(WeatherApi::class));
+        $this->app->singleton('open-meteo', fn($app) => $app->make(OpenMeteo::class));
 
         Gate::before(function ($user, $ability) {
             return $user->hasRole('root') ? true : null;

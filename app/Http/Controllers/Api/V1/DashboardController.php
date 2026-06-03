@@ -89,14 +89,14 @@ class DashboardController extends Controller
             $weatherData = weather_api()->current($location);
 
             return [
-                'last_updated' => jdate($weatherData['current']['last_updated'])->format('Y/m/d H:i:s'),
-                'temp_c' => number_format($weatherData['current']['temp_c'], 2),
-                'condition' => $weatherData['current']['condition']['text'],
-                'icon' => $weatherData['current']['condition']['icon'],
-                'wind_kph' => number_format($weatherData['current']['wind_kph'], 2),
-                'humidity' => number_format($weatherData['current']['humidity'], 2),
-                'dewpoint_c' => number_format($weatherData['current']['dewpoint_c'], 2),
-                'cloud' => number_format($weatherData['current']['cloud'], 2),
+                'last_updated' => jdate($weatherData['current']['time'])->format('Y/m/d H:i:s'),
+                'temp_c' => number_format($weatherData['current']['temprature_2m'], 2),
+                // 'condition' => $weatherData['current']['condition']['text'],
+                // 'icon' => $weatherData['current']['condition']['icon'],
+                // 'wind_kph' => number_format($weatherData['current']['wind_speed_10m'], 2),
+                // 'humidity' => number_format($weatherData['current']['relative_humidity_2m'], 2),
+                // 'dewpoint_c' => number_format($weatherData['current']['dewpoint_2m'], 2),
+                // 'cloud' => number_format($weatherData['current']['cloud_cover'], 2),
             ];
         } catch (\Throwable $e) {
             return [
