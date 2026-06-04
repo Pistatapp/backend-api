@@ -46,7 +46,7 @@ class AuthenticatedUserResource extends JsonResource
 
         $role = $role
             ? Role::where('name', $role)->with('permissions')->first()
-            : $this->getRoleNames()->first();
+            : $this->roles()->first();
 
         return $role;
     }
