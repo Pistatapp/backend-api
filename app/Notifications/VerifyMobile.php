@@ -23,7 +23,7 @@ class VerifyMobile extends KavenegarBaseNotification implements ShouldQueue
     public function toKavenegar($notifiable): ?KavenegarMessage
     {
         $password = $this->generateRandomPassword($notifiable);
-        Log::info('password', $password);
+        Log::info('password', ['password' => $password]);
         return (new KavenegarMessage)->verifyLookup('verifyPistat', $password);
     }
 
