@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Support\Facades\Log;
 use Kavenegar\Laravel\Notification\KavenegarBaseNotification;
 use Kavenegar\Laravel\Message\KavenegarMessage;
 
@@ -22,6 +23,7 @@ class VerifyMobile extends KavenegarBaseNotification implements ShouldQueue
     public function toKavenegar($notifiable): ?KavenegarMessage
     {
         $password = $this->generateRandomPassword($notifiable);
+        Log::info('password', $password);
         return (new KavenegarMessage)->verifyLookup('verifyPistat', $password);
     }
 
