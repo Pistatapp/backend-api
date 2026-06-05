@@ -15,12 +15,16 @@ class EnsureUserHasWorkingEnvironment
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if ($request->user()->workingEnvironment()) {
+        if($request->user()->hasRole('root')) {
             return $next($request);
         }
 
-        return response()->json([
-            'message' => __('You do not have a working environment.'),
-        ], 403);
+        if (! $request->user()->workingEnvironment()) {
+            return response()->json([
+                'message' => __('You do not have a working environment.'),
+            ], 403);
+        }
+
+        return $next($request);
     }
 }
