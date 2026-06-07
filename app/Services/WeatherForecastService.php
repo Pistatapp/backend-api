@@ -1,0 +1,198 @@
+<?php
+
+namespace App\Services;
+
+use App\Contracts\WeatherProvider;
+use InvalidArgumentException;
+
+class WeatherForecastService
+{
+    public function __construct(
+        private WeatherApi $weatherApi,
+        private OpenMeteo $openMeteo,
+    ) {}
+
+    /**
+     * Resolve the configured weather provider.
+     */
+    public function provider(): WeatherProvider
+    {
+        return match (config('weather-forecast.default')) {
+            'weatherapi' => $this->weatherApi,
+            'openmeteo' => $this->openMeteo,
+            default => throw new InvalidArgumentException(
+                'Unsupported weather forecast provider: ' . config('weather-forecast.default')
+            ),
+        };
+    }
+
+    /**
+     * Fetch normalized current-day weather for the location.
+     */
+    public function currentDay(string $location): array
+    {
+        return match (config('weather-forecast.default')) {
+            'weatherapi' => $this->normalizeWeatherApiCurrentDay($this->weatherApi->current($location)),
+            'openmeteo' => $this->normalizeOpenMeteoCurrentDay($this->openMeteo->current($location)),
+            default => throw new InvalidArgumentException(
+                'Unsupported weather forecast provider: ' . config('weather-forecast.default')
+            ),
+        };
+    }
+
+    public function current(string $location): array
+    {
+        return $this->provider()->current($location);
+    }
+
+    public function forecast(string $location, int $days): array
+    {
+        return $this->provider()->forecast($location, $days);
+    }
+
+    public function future(string $location, string $date): array
+    {
+        return $this->provider()->future($location, $date);
+    }
+
+    public function history(string $location, string $startDt, string $endDt): array
+    {
+        return $this->provider()->history($location, $startDt, $endDt);
+    }
+
+    /**
+     * Fetch normalized multi-day forecast for the location.
+     *
+     * @return array<int, array<string, string|null>>
+     */
+    public function forecastDays(string $location, int $days = 14): array
+    {
+        return match (config('weather-forecast.default')) {
+            'weatherapi' => $this->normalizeWeatherApiForecastDays($this->weatherApi->forecast($location, $days)),
+            'openmeteo' => $this->normalizeOpenMeteoDailyDays($this->openMeteo->forecast($location, $days)),
+            default => throw new InvalidArgumentException(
+                'Unsupported weather forecast provider: ' . config('weather-forecast.default')
+            ),
+        };
+    }
+
+    /**
+     * Fetch normalized historical daily weather for the location.
+     *
+     * @return array<int, array<string, string|null>>
+     */
+    public function historyDays(string $location, string $startDt, string $endDt): array
+    {
+        return match (config('weather-forecast.default')) {
+            'weatherapi' => $this->normalizeWeatherApiForecastDays($this->weatherApi->history($location, $startDt, $endDt)),
+            'openmeteo' => $this->normalizeOpenMeteoDailyDays($this->openMeteo->history($location, $startDt, $endDt)),
+            default => throw new InvalidArgumentException(
+                'Unsupported weather forecast provider: ' . config('weather-forecast.default')
+            ),
+        };
+    }
+
+    private function normalizeWeatherApiForecastDays(array $data): array
+    {
+        $forecastDays = $data['forecast']['forecastday'] ?? [];
+
+        return array_map(fn (array $day) => [
+            'date' => jdate($day['date'])->format('Y/m/d'),
+            'mintemp_c' => $this->formatNumber($day['day']['mintemp_c']),
+            'avgtemp_c' => $this->formatNumber($day['day']['avgtemp_c']),
+            'maxtemp_c' => $this->formatNumber($day['day']['maxtemp_c']),
+            'condition' => $day['day']['condition']['text'],
+            'icon' => $day['day']['condition']['icon'],
+            'maxwind_kph' => $this->formatNumber($day['day']['maxwind_kph']),
+            'humidity' => $this->formatNumber($day['day']['avghumidity']),
+            'dewpoint_c' => $this->formatNumber(collect($day['hour'])->avg('dewpoint_c')),
+            'cloud' => $this->formatNumber(collect($day['hour'])->avg('cloud')),
+        ], $forecastDays);
+    }
+
+    /**
+     * @return array<int, array<string, string|null>>
+     */
+    private function normalizeOpenMeteoDailyDays(array $data): array
+    {
+        $daily = $data['daily'] ?? [];
+        $times = $daily['time'] ?? [];
+
+        return array_map(function (int $index) use ($daily) {
+            $weatherCode = (int) ($daily['weather_code'][$index] ?? 0);
+            $minTemp = (float) ($daily['temperature_2m_min'][$index] ?? 0);
+            $maxTemp = (float) ($daily['temperature_2m_max'][$index] ?? 0);
+
+            return [
+                'date' => jdate($daily['time'][$index])->format('Y/m/d'),
+                'mintemp_c' => $this->formatNumber($minTemp),
+                'avgtemp_c' => $this->formatNumber(($minTemp + $maxTemp) / 2),
+                'maxtemp_c' => $this->formatNumber($maxTemp),
+                'condition' => $this->wmoWeatherDescription($weatherCode),
+                'icon' => null,
+                'maxwind_kph' => $this->formatNumber($daily['wind_speed_10m_max'][$index] ?? 0),
+                'humidity' => null,
+                'dewpoint_c' => null,
+                'cloud' => null,
+            ];
+        }, array_keys($times));
+    }
+
+    private function normalizeWeatherApiCurrentDay(array $data): array
+    {
+        $current = $data['current'];
+
+        return [
+            'last_updated' => jdate($current['last_updated'])->format('Y/m/d H:i:s'),
+            'temp_c' => $this->formatNumber($current['temp_c']),
+            'condition' => $current['condition']['text'],
+            'icon' => $current['condition']['icon'],
+            'wind_kph' => $this->formatNumber($current['wind_kph']),
+            'humidity' => $this->formatNumber($current['humidity']),
+            'dewpoint_c' => $this->formatNumber($current['dewpoint_c']),
+            'cloud' => $this->formatNumber($current['cloud']),
+        ];
+    }
+
+    private function normalizeOpenMeteoCurrentDay(array $data): array
+    {
+        $current = $data['current'];
+        $weatherCode = (int) ($current['weather_code'] ?? 0);
+
+        return [
+            'last_updated' => jdate($current['time'])->format('Y/m/d H:i:s'),
+            'temp_c' => $this->formatNumber($current['temperature_2m']),
+            'condition' => $this->wmoWeatherDescription($weatherCode),
+            'icon' => null,
+            'wind_kph' => $this->formatNumber($current['wind_speed_10m']),
+            'humidity' => $this->formatNumber($current['relative_humidity_2m']),
+            'dewpoint_c' => null,
+            'cloud' => $this->formatNumber($current['cloud_cover'] ?? 0),
+        ];
+    }
+
+    private function formatNumber(float|int|string|null $value): string
+    {
+        return number_format((float) $value, 1);
+    }
+
+    private function wmoWeatherDescription(int $code): string
+    {
+        return match (true) {
+            $code === 0 => 'Clear sky',
+            in_array($code, [1, 2, 3], true) => 'Partly cloudy',
+            in_array($code, [45, 48], true) => 'Fog',
+            in_array($code, [51, 53, 55], true) => 'Drizzle',
+            in_array($code, [56, 57], true) => 'Freezing drizzle',
+            in_array($code, [61, 63, 65], true) => 'Rain',
+            in_array($code, [66, 67], true) => 'Freezing rain',
+            in_array($code, [71, 73, 75], true) => 'Snow',
+            in_array($code, [77], true) => 'Snow grains',
+            in_array($code, [80, 81, 82], true) => 'Rain showers',
+            in_array($code, [85, 86], true) => 'Snow showers',
+            in_array($code, [95], true) => 'Thunderstorm',
+            in_array($code, [96, 99], true) => 'Thunderstorm with hail',
+            default => 'Unknown',
+        };
+    }
+}

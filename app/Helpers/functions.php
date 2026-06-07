@@ -177,6 +177,16 @@ function open_meteo()
 }
 
 /**
+ * Get the weather forecast service
+ *
+ * @return \App\Services\WeatherForecastService
+ */
+function weather_forecast()
+{
+    return app('weather-forecast');
+}
+
+/**
  * Get the fully qualified class name of a model based on the model type.
  *
  * @param  string  $modelType  The type of the model (e.g., 'tractor').

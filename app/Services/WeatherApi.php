@@ -2,10 +2,11 @@
 
 namespace App\Services;
 
+use App\Contracts\WeatherProvider;
 use Illuminate\Support\Facades\Http;
 use Carbon\Carbon;
 
-class WeatherApi
+class WeatherApi implements WeatherProvider
 {
     /**
      * Get the current weather for the location.

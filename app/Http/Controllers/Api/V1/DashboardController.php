@@ -7,13 +7,15 @@ use App\Http\Resources\ActiveLabourWidgetResource;
 use App\Models\AttendanceSession;
 use App\Models\Farm;
 use App\Services\ActiveUserAttendanceService;
+use App\Services\WeatherForecastService;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
     public function __construct(
-        private ActiveUserAttendanceService $activeUserAttendanceService
+        private ActiveUserAttendanceService $activeUserAttendanceService,
+        private WeatherForecastService $weatherForecastService,
     ) {}
 
     /**
@@ -86,28 +88,17 @@ class DashboardController extends Controller
     private function getWeatherData($location)
     {
         try {
-            $weatherData = open_meteo()->current($location);
-
-            return [
-                'last_updated' => jdate($weatherData['current']['time'])->format('Y/m/d H:i:s'),
-                'temp_c' => $weatherData['current']['temperature_2m'],
-                // 'condition' => $weatherData['current']['condition']['text'],
-                // 'icon' => $weatherData['current']['condition']['icon'],
-                // 'wind_kph' => $weatherData['current']['wind_speed_10m'],
-                // 'humidity' => $weatherData['current']['relative_humidity_2m'],
-                // 'dewpoint_c' => $weatherData['current']['dewpoint_2m'],
-                // 'cloud' => $weatherData['current']['cloud_cover'],
-            ];
+            return $this->weatherForecastService->currentDay($location);
         } catch (\Throwable $e) {
             return [
                 'last_updated' => null,
-                'temp_c' => 0,
+                'temp_c' => '0.0',
                 'condition' => null,
                 'icon' => null,
-                'wind_kph' => 0,
-                'humidity' => 0,
-                'dewpoint_c' => 0,
-                'cloud' => 0,
+                'wind_kph' => '0.0',
+                'humidity' => '0.0',
+                'dewpoint_c' => null,
+                'cloud' => '0.0',
             ];
         }
     }

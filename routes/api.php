@@ -222,7 +222,7 @@ Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
         Route::post('/nutrient-diagnosis/{request}/response', [CompositionalNutrientDiagnosisController::class, 'sendResponse']);
 
         Route::post('/load-estimation', [LoadEstimationController::class, 'estimate']);
-        Route::post('/weather-forecast', WeatherForecastController::class)->name('farms.weather_forecast');
+        Route::post('/weather_forecast', WeatherForecastController::class)->name('farms.weather_forecast');
         Route::get('/dashboard/widgets', [DashboardController::class, 'dashboardWidgets']);
         Route::get('/dashboard/active-labours', [DashboardController::class, 'getActiveLabours']);
     });
