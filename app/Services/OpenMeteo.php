@@ -14,6 +14,18 @@ class OpenMeteo implements WeatherProvider
 
     private const HOURLY_PARAMS = 'temperature_2m,relative_humidity_2m,dewpoint_2m,cloud_cover,wind_speed_10m';
 
+    /** @see https://open-meteo.com/en/docs */
+    private const FORECAST_API_URL = 'https://api.open-meteo.com/v1/forecast';
+
+    /** @see https://open-meteo.com/en/docs/historical-weather-api */
+    private const ARCHIVE_API_URL = 'https://archive-api.open-meteo.com/v1/archive';
+
+    /** @see https://open-meteo.com/en/docs/climate-api */
+    private const CLIMATE_API_URL = 'https://climate-api.open-meteo.com/v1/climate';
+
+    /** @see https://open-meteo.com/en/docs/geocoding-api */
+    private const GEOCODING_API_URL = 'https://geocoding-api.open-meteo.com/v1/search';
+
     /**
      * Get the current weather for the location.
      *
@@ -161,7 +173,7 @@ class OpenMeteo implements WeatherProvider
     }
 
     /**
-     * Fetch weather data from the designated Open-Meteo subdomain API endpoint.
+     * Fetch weather data from the designated Open-Meteo API endpoint.
      *
      * @param string $endpoint
      * @param array $queryParams
@@ -169,30 +181,44 @@ class OpenMeteo implements WeatherProvider
      */
     private function fetchWeatherData(string $endpoint, array $queryParams): array
     {
-        // Select domain matching standard Open-Meteo segmented service routing
-        $baseUrl = match ($endpoint) {
-            'archive' => 'https://archive-api.open-meteo.com/v1/archive',
-            'climate' => 'https://climate-api.open-meteo.com/v1/climate',
-            default   => 'https://api.open-meteo.com/v1/forecast',
-        };
-
-        // Open-Meteo free tier requires no key. Commercial configurations override domains
-        $apiKey = config('services.openmeteo.key');
-        if ($apiKey) {
+        if ($apiKey = $this->commercialApiKey()) {
             $queryParams['apikey'] = $apiKey;
-            $commercialDomain = config('services.openmeteo.domain', 'customer-api.open-meteo.com');
-            $baseUrl = str_replace(
-                ['api.open-meteo.com', 'archive-api.open-meteo.com', 'climate-api.open-meteo.com'],
-                $commercialDomain,
-                $baseUrl
-            );
         }
 
-        $response = Http::get($baseUrl, $queryParams);
+        $response = Http::get($this->resolveApiUrl($endpoint), $queryParams);
 
         abort_if($response->failed(), $response->status(), $response->body());
 
         return $response->json();
+    }
+
+    /**
+     * Resolve the API URL for the requested Open-Meteo service.
+     *
+     * @see https://open-meteo.com/en/features Commercial plans prefix each service host with "customer-".
+     */
+    private function resolveApiUrl(string $endpoint): string
+    {
+        $baseUrl = match ($endpoint) {
+            'archive' => self::ARCHIVE_API_URL,
+            'climate' => self::CLIMATE_API_URL,
+            default => self::FORECAST_API_URL,
+        };
+
+        if ($this->commercialApiKey()) {
+            $baseUrl = preg_replace(
+                '#https://([a-z0-9-]+)\\.open-meteo\\.com#',
+                'https://customer-$1',
+                $baseUrl
+            );
+        }
+
+        return $baseUrl;
+    }
+
+    private function commercialApiKey(): ?string
+    {
+        return config('weather-forecast.api.openmeteo.key');
     }
 
     /**
@@ -213,7 +239,7 @@ class OpenMeteo implements WeatherProvider
         }
 
         // Resolves alphanumeric place names to coordinates using the Geocoding API
-        $response = Http::get('https://geocoding-api.open-meteo.com/v1/search', [
+        $response = Http::get(self::GEOCODING_API_URL, [
             'name'   => $location,
             'count'  => 1,
             'format' => 'json',
