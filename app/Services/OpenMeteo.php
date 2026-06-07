@@ -8,6 +8,12 @@ use Carbon\Carbon;
 
 class OpenMeteo implements WeatherProvider
 {
+    private const DAILY_FORECAST_PARAMS = 'weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,sunrise,sunset,daylight_duration,sunshine_duration,uv_index_max,precipitation_sum,rain_sum,showers_sum,snowfall_sum,precipitation_hours,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant';
+
+    private const DAILY_ARCHIVE_PARAMS = 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max,wind_gusts_10m_max';
+
+    private const HOURLY_PARAMS = 'relative_humidity_2m,dewpoint_2m,cloud_cover,wind_speed_10m';
+
     /**
      * Get the current weather for the location.
      *
@@ -23,6 +29,7 @@ class OpenMeteo implements WeatherProvider
             'longitude' => $coords['longitude'],
             'current' => 'temperature_2m,relative_humidity_2m,dewpoint_2m,apparent_temperature,is_day,precipitation,rain,showers,snowfall,weather_code,cloud_cover,pressure_msl,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m',
             'timezone' => 'auto',
+            'wind_speed_unit' => 'kmh',
         ]);
     }
 
@@ -41,8 +48,10 @@ class OpenMeteo implements WeatherProvider
             'latitude' => $coords['latitude'],
             'longitude' => $coords['longitude'],
             'forecast_days' => $days,
-            'daily' => 'weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,sunrise,sunset,daylight_duration,sunshine_duration,uv_index_max,precipitation_sum,rain_sum,showers_sum,snowfall_sum,precipitation_hours,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant',
+            'daily' => self::DAILY_FORECAST_PARAMS,
+            'hourly' => self::HOURLY_PARAMS,
             'timezone' => 'auto',
+            'wind_speed_unit' => 'kmh',
         ]);
     }
 
@@ -104,10 +113,12 @@ class OpenMeteo implements WeatherProvider
                 'longitude' => $coords['longitude'],
                 'start_date' => $start->format('Y-m-d'),
                 'end_date' => $nextEnd->format('Y-m-d'),
-                'daily' => 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum',
+                'daily' => self::DAILY_ARCHIVE_PARAMS,
+                'hourly' => self::HOURLY_PARAMS,
                 'timezone' => 'auto',
+                'wind_speed_unit' => 'kmh',
             ]);
-            $allData = array_merge_recursive($allData, $data);
+            $allData = $this->mergeArchiveData($allData, $data);
             $start = $nextEnd->copy()->addDay();
         }
 
@@ -116,13 +127,37 @@ class OpenMeteo implements WeatherProvider
             'longitude' => $coords['longitude'],
             'start_date' => $start->format('Y-m-d'),
             'end_date' => $end->format('Y-m-d'),
-            'daily' => 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum',
+            'daily' => self::DAILY_ARCHIVE_PARAMS,
+            'hourly' => self::HOURLY_PARAMS,
             'timezone' => 'auto',
+            'wind_speed_unit' => 'kmh',
         ]);
 
-        $allData = array_merge_recursive($allData, $data);
+        $allData = $this->mergeArchiveData($allData, $data);
 
         return $allData;
+    }
+
+    /**
+     * Merge archive API chunks without corrupting nested daily/hourly arrays.
+     */
+    private function mergeArchiveData(array $existing, array $incoming): array
+    {
+        if ($existing === []) {
+            return $incoming;
+        }
+
+        foreach (['daily', 'hourly'] as $section) {
+            if (! isset($incoming[$section])) {
+                continue;
+            }
+
+            foreach ($incoming[$section] as $key => $values) {
+                $existing[$section][$key] = array_merge($existing[$section][$key] ?? [], $values);
+            }
+        }
+
+        return $existing;
     }
 
     /**

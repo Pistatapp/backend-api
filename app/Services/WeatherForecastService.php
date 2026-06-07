@@ -117,25 +117,74 @@ class WeatherForecastService
     {
         $daily = $data['daily'] ?? [];
         $times = $daily['time'] ?? [];
+        $hourlyAverages = $this->groupOpenMeteoHourlyAverages($data['hourly'] ?? []);
 
-        return array_map(function (int $index) use ($daily) {
+        return array_map(function (int $index) use ($daily, $hourlyAverages) {
+            $date = $daily['time'][$index];
+            $dateKey = substr($date, 0, 10);
+            $averages = $hourlyAverages[$dateKey] ?? [];
             $weatherCode = (int) ($daily['weather_code'][$index] ?? 0);
             $minTemp = (float) ($daily['temperature_2m_min'][$index] ?? 0);
             $maxTemp = (float) ($daily['temperature_2m_max'][$index] ?? 0);
+            $maxWind = $daily['wind_speed_10m_max'][$index]
+                ?? $averages['wind_speed_10m_max']
+                ?? null;
 
             return [
-                'date' => jdate($daily['time'][$index])->format('Y/m/d'),
+                'date' => jdate($date)->format('Y/m/d'),
                 'mintemp_c' => $this->formatNumber($minTemp),
                 'avgtemp_c' => $this->formatNumber(($minTemp + $maxTemp) / 2),
                 'maxtemp_c' => $this->formatNumber($maxTemp),
                 'condition' => $this->wmoWeatherDescription($weatherCode),
-                'icon' => null,
-                'maxwind_kph' => $this->formatNumber($daily['wind_speed_10m_max'][$index] ?? 0),
-                'humidity' => null,
-                'dewpoint_c' => null,
-                'cloud' => null,
+                'icon' => $this->wmoWeatherIcon($weatherCode),
+                'maxwind_kph' => $maxWind !== null
+                    ? $this->formatNumber($maxWind)
+                    : null,
+                'humidity' => isset($averages['relative_humidity_2m'])
+                    ? $this->formatNumber($averages['relative_humidity_2m'])
+                    : null,
+                'dewpoint_c' => isset($averages['dewpoint_2m'])
+                    ? $this->formatNumber($averages['dewpoint_2m'])
+                    : null,
+                'cloud' => isset($averages['cloud_cover'])
+                    ? $this->formatNumber($averages['cloud_cover'])
+                    : null,
             ];
         }, array_keys($times));
+    }
+
+    /**
+     * @return array<string, array<string, float>>
+     */
+    private function groupOpenMeteoHourlyAverages(array $hourly): array
+    {
+        $grouped = [];
+
+        foreach ($hourly['time'] ?? [] as $index => $time) {
+            $date = substr($time, 0, 10);
+
+            foreach (['relative_humidity_2m', 'dewpoint_2m', 'cloud_cover', 'wind_speed_10m'] as $key) {
+                if (isset($hourly[$key][$index])) {
+                    $grouped[$date][$key][] = (float) $hourly[$key][$index];
+                }
+            }
+        }
+
+        $averages = [];
+
+        foreach ($grouped as $date => $values) {
+            foreach (['relative_humidity_2m', 'dewpoint_2m', 'cloud_cover'] as $key) {
+                if (! empty($values[$key])) {
+                    $averages[$date][$key] = array_sum($values[$key]) / count($values[$key]);
+                }
+            }
+
+            if (! empty($values['wind_speed_10m'])) {
+                $averages[$date]['wind_speed_10m_max'] = max($values['wind_speed_10m']);
+            }
+        }
+
+        return $averages;
     }
 
     private function normalizeWeatherApiCurrentDay(array $data): array
@@ -163,7 +212,7 @@ class WeatherForecastService
             'last_updated' => jdate($current['time'])->format('Y/m/d H:i:s'),
             'temp_c' => $this->formatNumber($current['temperature_2m']),
             'condition' => $this->wmoWeatherDescription($weatherCode),
-            'icon' => null,
+            'icon' => $this->wmoWeatherIcon($weatherCode, (bool) ($current['is_day'] ?? true)),
             'wind_kph' => $this->formatNumber($current['wind_speed_10m']),
             'humidity' => $this->formatNumber($current['relative_humidity_2m']),
             'dewpoint_c' => isset($current['dewpoint_2m'])
@@ -196,5 +245,23 @@ class WeatherForecastService
             in_array($code, [96, 99], true) => 'Thunderstorm with hail',
             default => 'Unknown',
         };
+    }
+
+    private function wmoWeatherIcon(int $code, bool $isDay = true): string
+    {
+        $period = $isDay ? 'day' : 'night';
+        $iconCode = match (true) {
+            $code === 0 => $isDay ? 113 : 113,
+            in_array($code, [1, 2], true) => $isDay ? 116 : 119,
+            $code === 3 => 122,
+            in_array($code, [45, 48], true) => 248,
+            in_array($code, [51, 53, 55, 56, 57], true) => 266,
+            in_array($code, [61, 63, 65, 66, 67, 80, 81, 82], true) => 176,
+            in_array($code, [71, 73, 75, 77, 85, 86], true) => 179,
+            in_array($code, [95, 96, 99], true) => 200,
+            default => 113,
+        };
+
+        return "https://cdn.weatherapi.com/weather/64x64/{$period}/{$iconCode}.png";
     }
 }
