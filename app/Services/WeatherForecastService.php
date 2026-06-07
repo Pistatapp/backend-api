@@ -166,7 +166,9 @@ class WeatherForecastService
             'icon' => null,
             'wind_kph' => $this->formatNumber($current['wind_speed_10m']),
             'humidity' => $this->formatNumber($current['relative_humidity_2m']),
-            'dewpoint_c' => null,
+            'dewpoint_c' => isset($current['dewpoint_2m'])
+                ? $this->formatNumber($current['dewpoint_2m'])
+                : null,
             'cloud' => $this->formatNumber($current['cloud_cover'] ?? 0),
         ];
     }
