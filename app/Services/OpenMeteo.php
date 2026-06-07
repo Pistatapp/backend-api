@@ -12,7 +12,7 @@ class OpenMeteo implements WeatherProvider
 
     private const DAILY_ARCHIVE_PARAMS = 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max,wind_gusts_10m_max';
 
-    private const HOURLY_PARAMS = 'relative_humidity_2m,dewpoint_2m,cloud_cover,wind_speed_10m';
+    private const HOURLY_PARAMS = 'temperature_2m,relative_humidity_2m,dewpoint_2m,cloud_cover,wind_speed_10m';
 
     /**
      * Get the current weather for the location.

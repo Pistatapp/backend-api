@@ -5,10 +5,13 @@ namespace App\Http\Controllers\Api\V1\Farm;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CalculateColdRequirementRequest;
 use App\Models\Farm;
-use Illuminate\Http\Request;
+use App\Services\WeatherForecastService;
 
 class ColdRequirementController extends Controller
 {
+    public function __construct(
+        private WeatherForecastService $weatherForecastService,
+    ) {}
     /**
      * Calculate the cold requirement for the farm.
      *
@@ -20,7 +23,11 @@ class ColdRequirementController extends Controller
     {
         $this->authorize('view', $farm);
 
-        $data = weather_api()->history($farm->center, $request->start_dt, $request->end_dt);
+        $data = $this->weatherForecastService->historyAsForecastDays(
+            $farm->center,
+            $request->start_dt,
+            $request->end_dt
+        );
 
         $minTemp = $request->input('min_temp', 0);
         $maxTemp = $request->input('max_temp', 7);

@@ -5,10 +5,13 @@ namespace App\Http\Controllers\Api\V1\Farm;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\DayDegreeCalculationRequest;
 use App\Models\Farm;
-use Illuminate\Http\Request;
+use App\Services\WeatherForecastService;
 
 class DayDegreeCalculationController extends Controller
 {
+    public function __construct(
+        private WeatherForecastService $weatherForecastService,
+    ) {}
     /**
      * Calculate the day degree for a farm.
      *
@@ -22,7 +25,11 @@ class DayDegreeCalculationController extends Controller
 
         $model = getModel($request->model_type, $request->model_id);
 
-        $data = weather_api()->history($farm->center, $request->start_dt, $request->end_dt);
+        $data = $this->weatherForecastService->historyAsForecastDays(
+            $farm->center,
+            $request->start_dt,
+            $request->end_dt
+        );
 
         return response()->json([
             'data' => collect($data['forecast']['forecastday'])

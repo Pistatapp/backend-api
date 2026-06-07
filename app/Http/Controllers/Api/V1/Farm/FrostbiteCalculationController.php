@@ -4,11 +4,15 @@ namespace App\Http\Controllers\Api\V1\Farm;
 
 use App\Http\Controllers\Controller;
 use App\Models\Farm;
+use App\Services\WeatherForecastService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
 class FrostbiteCalculationController extends Controller
 {
+    public function __construct(
+        private WeatherForecastService $weatherForecastService,
+    ) {}
     /**
      * Estimate the frostbite risk for the farm.
      *
@@ -23,10 +27,10 @@ class FrostbiteCalculationController extends Controller
         $request->validate(['type' => ['required', 'in:normal,radiational']]);
 
         if ($request->type === 'normal') {
-            $data = weather_api()->forecast($farm->center, 14);
+            $data = $this->weatherForecastService->forecastAsForecastDays($farm->center, 14);
             $response = $this->estimateFrostbiteRisk($data);
         } else {
-            $data = weather_api()->forecast($farm->center, 2);
+            $data = $this->weatherForecastService->forecastAsForecastDays($farm->center, 2);
             $response = $this->estimateRadiationalFrostbiteRisk($data);
         }
 

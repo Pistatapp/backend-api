@@ -61,6 +61,22 @@ class WeatherForecastService
     }
 
     /**
+     * History data normalized to WeatherAPI forecastday structure for calculations.
+     */
+    public function historyAsForecastDays(string $location, string $startDt, string $endDt): array
+    {
+        return $this->toForecastDayStructure($this->history($location, $startDt, $endDt));
+    }
+
+    /**
+     * Forecast data normalized to WeatherAPI forecastday structure for calculations.
+     */
+    public function forecastAsForecastDays(string $location, int $days): array
+    {
+        return $this->toForecastDayStructure($this->forecast($location, $days));
+    }
+
+    /**
      * Fetch normalized multi-day forecast for the location.
      *
      * @return array<int, array<string, string|null>>
@@ -90,6 +106,76 @@ class WeatherForecastService
                 'Unsupported weather forecast provider: ' . config('weather-forecast.default')
             ),
         };
+    }
+
+    private function toForecastDayStructure(array $data): array
+    {
+        if (isset($data['forecast']['forecastday'])) {
+            return $data;
+        }
+
+        return ['forecast' => ['forecastday' => $this->openMeteoToForecastDays($data)]];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function openMeteoToForecastDays(array $data): array
+    {
+        $daily = $data['daily'] ?? [];
+        $hourlyByDate = $this->groupOpenMeteoHourlyByDate($data['hourly'] ?? []);
+
+        return array_map(function (int $index) use ($daily, $hourlyByDate) {
+            $date = substr($daily['time'][$index], 0, 10);
+            $minTemp = (float) ($daily['temperature_2m_min'][$index] ?? 0);
+            $maxTemp = (float) ($daily['temperature_2m_max'][$index] ?? 0);
+            $hours = $hourlyByDate[$date] ?? [];
+            $maxWind = $daily['wind_speed_10m_max'][$index] ?? null;
+
+            if ($maxWind === null && $hours !== []) {
+                $maxWind = max(array_column($hours, 'wind_speed_10m'));
+            }
+
+            return [
+                'date' => $date,
+                'day' => [
+                    'mintemp_c' => $minTemp,
+                    'maxtemp_c' => $maxTemp,
+                    'avgtemp_c' => ($minTemp + $maxTemp) / 2,
+                    'maxwind_kph' => (float) ($maxWind ?? 0),
+                ],
+                'hour' => array_map(fn (array $hour) => [
+                    'temp_c' => $hour['temperature_2m'],
+                    'dewpoint_c' => $hour['dewpoint_2m'] ?? 0,
+                    'cloud' => $hour['cloud_cover'] ?? 0,
+                ], $hours),
+            ];
+        }, array_keys($daily['time'] ?? []));
+    }
+
+    /**
+     * @return array<string, array<int, array<string, float>>>
+     */
+    private function groupOpenMeteoHourlyByDate(array $hourly): array
+    {
+        $grouped = [];
+
+        foreach ($hourly['time'] ?? [] as $index => $time) {
+            $date = substr($time, 0, 10);
+            $reading = [];
+
+            foreach (['temperature_2m', 'dewpoint_2m', 'cloud_cover', 'wind_speed_10m'] as $key) {
+                if (isset($hourly[$key][$index])) {
+                    $reading[$key] = (float) $hourly[$key][$index];
+                }
+            }
+
+            if ($reading !== []) {
+                $grouped[$date][] = $reading;
+            }
+        }
+
+        return $grouped;
     }
 
     private function normalizeWeatherApiForecastDays(array $data): array
