@@ -48,12 +48,15 @@ class FrostbiteCalculationController extends Controller
     {
         return collect($data['forecast']['forecastday'])
             ->map(function ($day) {
+                $maxTemp = $day['day']['maxtemp_c'];
                 $minTemp = $day['day']['mintemp_c'];
 
                 return [
                     'date' => jdate($day['date'])->format('Y/m/d'),
                     'temperature' => number_format($minTemp, 2),
                     'warning' => $minTemp <= 0,
+                    'T1' => round($maxTemp, 2),
+                    'T2' => round($minTemp, 2),
                 ];
             });
     }
@@ -71,8 +74,9 @@ class FrostbiteCalculationController extends Controller
         $maxDewPoint = collect($day['hour'])->max('dewpoint_c');
         $maxCloudiness = collect($day['hour'])->max('cloud');
         $avgTemp = $day['day']['avgtemp_c'];
-        $maxTemp = $day['day']['maxtemp_c'];
-        $minTemp = $day['day']['mintemp_c'];
+
+        $temp1 = (0.18 * $avgTemp) + (0.083 * $maxDewPoint) - 2.33;
+        $temp2 = (0.21 * ($avgTemp + 0.4)) - 2.7;
 
         return [
             'date' => jdate($day['date'])->format('Y/m/d'),
@@ -80,10 +84,10 @@ class FrostbiteCalculationController extends Controller
             'dewpoint_c' => number_format($maxDewPoint, 2),
             'cloud' => number_format($maxCloudiness, 2),
             'avgtemp_c' => number_format($avgTemp, 2),
-            'mintemp_c' => $minTemp,
-            'warning' => $minTemp <= 0,
-            'T1' => round($maxTemp, 2),
-            'T2' => round($minTemp, 2),
+            'mintemp_c' => $day['day']['mintemp_c'],
+            'warning' => $temp1 < 0 || $temp2 < 0,
+            'T1' => round($temp1, 2),
+            'T2' => round($temp2, 2),
         ];
     }
 
