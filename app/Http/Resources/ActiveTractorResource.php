@@ -31,6 +31,7 @@ class ActiveTractorResource extends JsonResource
                 ];
             }),
             'status' => $this->is_working,
+            'is_in_repair_shop' => $this->is_in_repair_shop,
             'start_working_time' => $this->calculated_start_work_time ?? null,
         ];
     }
