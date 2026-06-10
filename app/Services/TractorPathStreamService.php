@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\Tractor;
 use App\Traits\GpsReadConnection;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class TractorPathStreamService
@@ -174,6 +173,7 @@ class TractorPathStreamService
         $startingPointAssigned = false;
         $firstPointProcessed = false;
         $prevTimestamp = null;
+        $lastDateTime = null;
 
         // Batch buffer for GPS path correction
         $correctionBatch = [];
@@ -210,6 +210,13 @@ class TractorPathStreamService
                 // Row is in correction batch, continue to next iteration
                 continue;
             }
+
+            $dateTime = $row['date_time'];
+            if ($dateTime === $lastDateTime) {
+                continue;
+            }
+            $lastDateTime = $dateTime;
+
             $speed = (int) $row['speed'];
             $status = (int) $row['status'];
             $isMovement = ($status === 1 && $speed > 0);
@@ -217,7 +224,6 @@ class TractorPathStreamService
             $isFirstPoint = !$firstPointProcessed;
 
             // Parse timestamp inline (avoid function call overhead)
-            $dateTime = $row['date_time'];
             $timestamp = ($dateTime && isset($dateTime[18]))
                 ? (int) strtotime($dateTime)
                 : time();
@@ -339,6 +345,12 @@ class TractorPathStreamService
         while (!empty($correctedRowsBuffer)) {
             $row = array_shift($correctedRowsBuffer);
 
+            $dateTime = $row['date_time'];
+            if ($dateTime === $lastDateTime) {
+                continue;
+            }
+            $lastDateTime = $dateTime;
+
             $speed = (int) $row['speed'];
             $status = (int) $row['status'];
             $isMovement = ($status === 1 && $speed > 0);
@@ -346,7 +358,6 @@ class TractorPathStreamService
             $isFirstPoint = !$firstPointProcessed;
 
             // Parse timestamp
-            $dateTime = $row['date_time'];
             $timestamp = ($dateTime && isset($dateTime[18]))
                 ? (int) strtotime($dateTime)
                 : time();

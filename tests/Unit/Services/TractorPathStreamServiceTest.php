@@ -231,6 +231,36 @@ class TractorPathStreamServiceTest extends TestCase
     }
 
     /**
+     * Test service filters out points with duplicate date_time values.
+     */
+    public function test_filters_duplicate_date_time_points(): void
+    {
+        $this->skipIfMysqlNotAvailable();
+        $this->setUpTractor();
+
+        $today = Carbon::today();
+        $this->insertGpsData($this->tractor->id, [
+            ['date_time' => $today->copy()->setTime(8, 0, 0), 'speed' => 10, 'status' => 1],
+            ['date_time' => $today->copy()->setTime(8, 0, 0), 'speed' => 99, 'status' => 1],
+            ['date_time' => $today->copy()->setTime(8, 0, 10), 'speed' => 15, 'status' => 1],
+            ['date_time' => $today->copy()->setTime(8, 0, 20), 'speed' => 20, 'status' => 1],
+        ]);
+
+        $response = $this->service->getTractorPath($this->tractor, $today, false);
+
+        ob_start();
+        $response->send();
+        $content = ob_get_clean();
+
+        $data = json_decode($content, true);
+
+        $this->assertCount(3, $data);
+        $this->assertEquals(10, $data[0]['speed']);
+        $this->assertEquals(15, $data[1]['speed']);
+        $this->assertEquals(20, $data[2]['speed']);
+    }
+
+    /**
      * Test service excludes data from other tractors.
      */
     public function test_excludes_data_from_other_tractors(): void
