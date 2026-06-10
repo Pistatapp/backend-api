@@ -2,8 +2,6 @@
 
 namespace App\Services;
 
-use App\Http\Resources\IrrigationMessageResource;
-use App\Http\Resources\IrrigationResource;
 use App\Models\Farm;
 use App\Models\Irrigation;
 use App\Models\Plot;
@@ -162,11 +160,6 @@ class IrrigationService
             return $this->formatIrrigationMessage($irrigation, $user);
         });
 
-        $irrigations = $irrigations->map(function ($irrigation) use ($user) {
-            return $this->formatIrrigationMessage($irrigation, $user);
-        });
-
-
         return [
             'data' => $irrigations,
             'pagination' => $pagination,
@@ -174,20 +167,11 @@ class IrrigationService
     }
 
     /**
-     * Check if irrigation should be filtered out based on verification status and time.
-     */
-    private function shouldFilterOutIrrigation(Irrigation $irrigation): bool
-    {
-        return $irrigation->is_verified_by_admin
-            && $irrigation->end_time->diffInHours(now()) > 72;
-    }
-
-    /**
      * Format irrigation data for message response.
      */
     private function formatIrrigationMessage(Irrigation $irrigation, User $user): array
     {
-        $volumeMetrics = $this->calculateIrrigationVolumeMetrics($irrigation);
+        $volumeMetrics = $this->calculateVolumeMetrics($irrigation, $irrigation->valves);
 
         return [
             'irrigation_id' => $irrigation->id,
@@ -273,38 +257,9 @@ class IrrigationService
             : 0; // Convert irrigation_area from square meters to hectares (divide by 10000)
 
         return [
-            'total_volume' => $totalVolume,
-            'irrigation_area_per_hectare' => $irrigationAreaPerHectare,
-        ];
-    }
-
-    /**
-     * Calculate volume metrics for an irrigation message.
-     *
-     * @param Irrigation $irrigation
-     * @return array
-     */
-    private function calculateIrrigationVolumeMetrics(Irrigation $irrigation): array
-    {
-        $durationInSeconds = $irrigation->start_time->diffInSeconds($irrigation->end_time);
-        $totalVolume = 0;
-        $totalVolumePerHectare = 0;
-
-        foreach ($irrigation->valves as $valve) {
-            $volume = ($valve->dripper_count * $valve->dripper_flow_rate) * ($durationInSeconds / 3600);
-            $totalVolume += $volume;
-            if ($valve->irrigation_area > 0) {
-                $totalVolumePerHectare += $volume / $valve->irrigation_area;
-            }
-        }
-
-        $totalVolume = round($totalVolume / 1000, 2);
-        $totalVolumePerHectare = round($totalVolumePerHectare / 1000, 2);
-
-        return [
             'duration' => $durationInSeconds,
             'total_volume' => $totalVolume,
-            'total_volume_per_hectare' => $totalVolumePerHectare,
+            'irrigation_area_per_hectare' => $irrigationAreaPerHectare,
         ];
     }
 }
