@@ -156,7 +156,7 @@ class IrrigationService
             'to' => $irrigations->lastItem(),
         ];
 
-        $irrigations->map(function ($irrigation) use ($user) {
+        $irrigations = $irrigations->map(function ($irrigation) use ($user) {
             return $this->formatIrrigationMessage($irrigation, $user);
         });
 
