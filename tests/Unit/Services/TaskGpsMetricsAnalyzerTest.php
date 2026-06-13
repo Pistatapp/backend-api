@@ -35,6 +35,7 @@ class TaskGpsMetricsAnalyzerTest extends TestCase
         $this->assertNull($results['first_movement_time']);
         $this->assertEquals(0, $results['latest_status']);
         $this->assertEquals(0, $results['average_speed']);
+        $this->assertFalse($results['has_zone_presence']);
     }
 
     /**
@@ -140,6 +141,7 @@ class TaskGpsMetricsAnalyzerTest extends TestCase
         $this->assertEquals(30, $results['movement_duration_seconds']);
         $this->assertEquals(0, $results['stoppage_count']);
         $this->assertGreaterThan(0, $results['average_speed']);
+        $this->assertTrue($results['has_zone_presence']);
     }
 
     /**

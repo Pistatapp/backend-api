@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Casts\Time;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -55,6 +56,32 @@ class TractorTask extends Model
             'created_by' => 'integer',
             'data' => 'array',
         ];
+    }
+
+    /**
+     * Task start datetime on the task's scheduled date.
+     *
+     * start_time/end_time are cast to Carbon via Time (today's date + H:i:s).
+     * Always format as H:i:s before combining with task date.
+     */
+    public function getStartDateTime(): Carbon
+    {
+        return Carbon::parse($this->date)->setTimeFromTimeString($this->start_time->format('H:i:s'));
+    }
+
+    /**
+     * Task end datetime on the task's scheduled date.
+     */
+    public function getEndDateTime(): Carbon
+    {
+        $start = $this->getStartDateTime();
+        $end = Carbon::parse($this->date)->setTimeFromTimeString($this->end_time->format('H:i:s'));
+
+        if ($end->lt($start)) {
+            $end->addDay();
+        }
+
+        return $end;
     }
 
     /**

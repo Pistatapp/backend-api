@@ -208,7 +208,10 @@ class TaskGpsMetricsAnalyzer
         }
 
         // Analyze each segment and merge results
-        return $this->analyzeSegments($segments);
+        $results = $this->analyzeSegments($segments);
+        $results['has_zone_presence'] = true;
+
+        return $results;
     }
 
     /**
@@ -667,6 +670,7 @@ class TaskGpsMetricsAnalyzer
             'first_movement_time' => $activation['first_movement_timestamp'] !== null ? $this->formatTimestamp($activation['first_movement_timestamp']) : null,
             'latest_status' => $lastStatus,
             'average_speed' => $averageSpeed,
+            'has_zone_presence' => true,
         ];
 
         return $this->results;
@@ -762,6 +766,7 @@ class TaskGpsMetricsAnalyzer
             'first_movement_time' => null,
             'latest_status' => 0,
             'average_speed' => 0,
+            'has_zone_presence' => false,
         ];
     }
 }

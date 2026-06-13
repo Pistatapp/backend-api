@@ -125,9 +125,8 @@ class TractorTaskService
         // Use GPS timestamp if provided, otherwise fall back to current time
         $now = $gpsTimestamp ?? Carbon::now();
 
-        $taskDate = Carbon::parse($task->date);
-        $taskStartTime = $taskDate->copy()->setTimeFromTimeString($task->start_time);
-        $taskEndTime = $taskDate->copy()->setTimeFromTimeString($task->end_time);
+        $taskStartTime = $task->getStartDateTime();
+        $taskEndTime = $task->getEndDateTime();
 
         // Scenario 1: Task time has not started
         if ($now->lt($taskStartTime)) {

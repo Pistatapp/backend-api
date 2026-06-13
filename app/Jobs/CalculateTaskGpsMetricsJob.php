@@ -7,7 +7,6 @@ use App\Models\GpsMetricsCalculation;
 use App\Notifications\TractorTaskStatusNotification;
 use App\Services\TaskGpsMetricsAnalyzer;
 use App\Services\TractorTaskService;
-use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -40,10 +39,8 @@ class CalculateTaskGpsMetricsJob implements ShouldQueue
      */
     public function handle(TaskGpsMetricsAnalyzer $gpsDataAnalyzer, TractorTaskService $tractorTaskService): void
     {
-        // Get task time window
-        $taskDate = Carbon::parse($this->task->date);
-        $taskStartTime = $taskDate->copy()->setTimeFromTimeString($this->task->start_time);
-        $taskEndTime = $taskDate->copy()->setTimeFromTimeString($this->task->end_time);
+        $taskStartTime = $this->task->getStartDateTime();
+        $taskEndTime = $this->task->getEndDateTime();
 
         // Ensure the tractor relationship is loaded
         $this->task->load('tractor');
@@ -55,10 +52,9 @@ class CalculateTaskGpsMetricsJob implements ShouldQueue
         $results = $gpsDataAnalyzer->loadRecordsFor($tractor, $taskStartTime, $taskEndTime)
             ->analyze($taskZones);
 
-        // Check if there's any valid GPS data
-        if ($results['movement_duration_seconds'] <= 0) {
-            // If no valid GPS data, set status to not_done and send notification
+        if (! $this->hasValidInZoneWork($results)) {
             $this->setTaskStatusAndNotify('not_done', null);
+
             return;
         }
 
@@ -95,6 +91,25 @@ class CalculateTaskGpsMetricsJob implements ShouldQueue
 
         // Update task status and send notification
         $this->setTaskStatusAndNotify($taskStatus, $metrics);
+    }
+
+    /**
+     * Determine whether the tractor performed measurable work inside task zones.
+     *
+     * Zone presence alone (e.g. a single ping) is not enough; some movement,
+     * stoppage, or distance inside the zone is required.
+     *
+     * @param  array<string, mixed>  $results
+     */
+    private function hasValidInZoneWork(array $results): bool
+    {
+        if (! ($results['has_zone_presence'] ?? false)) {
+            return false;
+        }
+
+        return ($results['movement_duration_seconds'] ?? 0) > 0
+            || ($results['stoppage_duration_seconds'] ?? 0) > 0
+            || ($results['movement_distance_km'] ?? 0) > 0;
     }
 
     /**

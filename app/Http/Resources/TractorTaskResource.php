@@ -77,19 +77,8 @@ class TractorTaskResource extends JsonResource
     private function isCurrent(): bool
     {
         $now = Carbon::now();
-        $taskDateTime = Carbon::parse($this->date);
-
-        // Get time string from start_time and end_time (they are cast as datetime objects)
-        $startTimeString = $this->start_time;
-        $endTimeString = $this->end_time;
-
-        $taskStartDateTime = $taskDateTime->copy()->setTimeFromTimeString($startTimeString);
-        $taskEndDateTime = $taskDateTime->copy()->setTimeFromTimeString($endTimeString);
-
-        // Handle midnight crossing (e.g., 22:00 - 02:00)
-        if ($taskEndDateTime->lt($taskStartDateTime)) {
-            $taskEndDateTime->addDay();
-        }
+        $taskStartDateTime = $this->getStartDateTime();
+        $taskEndDateTime = $this->getEndDateTime();
 
         return $now->gte($taskStartDateTime) && $now->lt($taskEndDateTime);
     }
