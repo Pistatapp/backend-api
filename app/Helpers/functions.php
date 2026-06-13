@@ -171,9 +171,9 @@ function calculate_irrigation_volume_liters(iterable $valves, int $durationInSec
 }
 
 /**
- * Sum irrigation areas in hectares for the given valves.
+ * Sum irrigation areas in square meters for the given valves.
  */
-function calculate_irrigation_area_hectares(iterable $valves): float
+function calculate_irrigation_area_square_meters(iterable $valves): float
 {
     $totalIrrigationArea = 0;
 
@@ -185,22 +185,39 @@ function calculate_irrigation_area_hectares(iterable $valves): float
 }
 
 /**
+ * Sum irrigation areas in hectares for the given valves.
+ */
+function calculate_irrigation_area_hectares(iterable $valves): float
+{
+    return calculate_irrigation_area_square_meters($valves) / 10000;
+}
+
+/**
  * Calculate irrigation volume per hectare in cubic meters per hectare (m³/ha).
  *
- * Formula: (total m³ / sum of valve irrigation areas) which equals
- * (total liters / sum of areas) / 1000
+ * Formula: (total liters / sum of areas in hectares) / 1000
+ * irrigation_area values are stored in square meters.
  */
-function calculate_irrigation_volume_per_hectare(iterable $valves, int $durationInSeconds): float
+function calculate_irrigation_volume_per_hectare_from_totals(float $totalVolumeLiters, float $totalIrrigationAreaSquareMeters): float
 {
-    $totalIrrigationArea = calculate_irrigation_area_hectares($valves);
-
-    if ($totalIrrigationArea <= 0) {
+    if ($totalIrrigationAreaSquareMeters <= 0) {
         return 0;
     }
 
-    $totalVolumeLiters = calculate_irrigation_volume_liters($valves, $durationInSeconds);
+    $totalIrrigationAreaHectares = $totalIrrigationAreaSquareMeters / 10000;
 
-    return ($totalVolumeLiters / $totalIrrigationArea) / 1000;
+    return ($totalVolumeLiters / $totalIrrigationAreaHectares) / 1000;
+}
+
+/**
+ * Calculate irrigation volume per hectare in cubic meters per hectare (m³/ha).
+ */
+function calculate_irrigation_volume_per_hectare(iterable $valves, int $durationInSeconds): float
+{
+    return calculate_irrigation_volume_per_hectare_from_totals(
+        calculate_irrigation_volume_liters($valves, $durationInSeconds),
+        calculate_irrigation_area_square_meters($valves)
+    );
 }
 
 /**

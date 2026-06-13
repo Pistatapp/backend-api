@@ -25,7 +25,7 @@ class ValveFactory extends Factory
                 'lng' => $this->faker->longitude
             ],
             'is_open' => false,
-            'irrigation_area' => $this->faker->randomFloat(2, 0.5, 10.0),
+            'irrigation_area' => $this->faker->randomFloat(2, 5000, 50000),
             'dripper_count' => $this->faker->numberBetween(100, 1000),
             'dripper_flow_rate' => $this->faker->randomFloat(2, 1, 10),
         ];

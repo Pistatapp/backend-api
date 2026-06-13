@@ -108,18 +108,19 @@ class PlotController extends Controller
         // Calculate statistics for last 30 days
         $totalDuration = 0;
         $totalVolumeLiters = 0;
-        $totalIrrigationArea = 0;
+        $totalIrrigationAreaSquareMeters = 0;
 
         foreach ($successfulIrrigations as $irrigation) {
             $durationInSeconds = $irrigation->start_time->diffInSeconds($irrigation->end_time);
             $totalDuration += $durationInSeconds;
             $totalVolumeLiters += calculate_irrigation_volume_liters($irrigation->valves, $durationInSeconds);
-            $totalIrrigationArea += calculate_irrigation_area_hectares($irrigation->valves);
+            $totalIrrigationAreaSquareMeters += calculate_irrigation_area_square_meters($irrigation->valves);
         }
 
-        $totalVolumePerHectare = $totalIrrigationArea > 0
-            ? ($totalVolumeLiters / $totalIrrigationArea) / 1000
-            : 0;
+        $totalVolumePerHectare = calculate_irrigation_volume_per_hectare_from_totals(
+            $totalVolumeLiters,
+            $totalIrrigationAreaSquareMeters
+        );
 
         // Format latest successful irrigation if exists
         $latestIrrigationData = null;

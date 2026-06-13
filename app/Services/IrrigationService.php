@@ -244,7 +244,10 @@ class IrrigationService
 
         $totalVolumeLiters = calculate_irrigation_volume_liters($irrigationValves, $durationInSeconds);
         $totalVolume = $totalVolumeLiters / 1000;
-        $totalVolumePerHectare = calculate_irrigation_volume_per_hectare($irrigationValves, $durationInSeconds);
+        $totalVolumePerHectare = calculate_irrigation_volume_per_hectare_from_totals(
+            $totalVolumeLiters,
+            calculate_irrigation_area_square_meters($irrigationValves)
+        );
 
         return [
             'duration' => $durationInSeconds,

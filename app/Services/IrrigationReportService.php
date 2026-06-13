@@ -270,13 +270,14 @@ class IrrigationReportService
             $durationInSeconds = $this->calculateIrrigationDuration($irrigation);
             $totalDuration += $durationInSeconds;
             $totalVolumeLiters += calculate_irrigation_volume_liters($irrigation->valves, $durationInSeconds);
-            $totalIrrigationArea += calculate_irrigation_area_hectares($irrigation->valves);
+            $totalIrrigationArea += calculate_irrigation_area_square_meters($irrigation->valves);
         }
 
         $totalVolume = $totalVolumeLiters / 1000;
-        $totalVolumePerHectare = $totalIrrigationArea > 0
-            ? ($totalVolumeLiters / $totalIrrigationArea) / 1000
-            : 0;
+        $totalVolumePerHectare = calculate_irrigation_volume_per_hectare_from_totals(
+            $totalVolumeLiters,
+            $totalIrrigationArea
+        );
 
         return [
             'date' => jdate($date)->format('Y/m/d'),
@@ -315,9 +316,10 @@ class IrrigationReportService
         }
 
         $totalVolume = $totalVolumeLiters / 1000;
-        $totalVolumePerHectare = $totalIrrigationArea > 0
-            ? ($totalVolumeLiters / $totalIrrigationArea) / 1000
-            : 0;
+        $totalVolumePerHectare = calculate_irrigation_volume_per_hectare_from_totals(
+            $totalVolumeLiters,
+            $totalIrrigationArea
+        );
 
         return [
             'total_duration' => to_time_format($totalDuration),
@@ -349,9 +351,10 @@ class IrrigationReportService
             $totalCount += $report['total_count'];
         }
 
-        $totalVolumePerHectare = $totalIrrigationArea > 0
-            ? $totalVolume / $totalIrrigationArea
-            : 0;
+        $totalVolumePerHectare = calculate_irrigation_volume_per_hectare_from_totals(
+            $totalVolume * 1000,
+            $totalIrrigationArea
+        );
 
         return [
             'total_duration' => to_time_format($totalDurationSeconds),
@@ -383,9 +386,10 @@ class IrrigationReportService
             }
         }
 
-        $totalVolumePerHectare = $totalIrrigationArea > 0
-            ? $totalVolume / $totalIrrigationArea
-            : 0;
+        $totalVolumePerHectare = calculate_irrigation_volume_per_hectare_from_totals(
+            $totalVolume * 1000,
+            $totalIrrigationArea
+        );
 
         return [
             'total_duration' => to_time_format($totalDurationSeconds),
