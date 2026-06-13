@@ -9,6 +9,10 @@ use Illuminate\Support\Collection;
 
 class IrrigationReportService
 {
+    public function __construct(
+        private IrrigationService $irrigationService
+    ) {}
+
     /**
      * Get aggregated daily reports (irrigations + accumulated) using arbitrary filters.
      *
@@ -269,12 +273,12 @@ class IrrigationReportService
             /** @var \App\Models\Irrigation $irrigation */
             $durationInSeconds = $this->calculateIrrigationDuration($irrigation);
             $totalDuration += $durationInSeconds;
-            $totalVolumeLiters += calculate_irrigation_volume_liters($irrigation->valves, $durationInSeconds);
-            $totalIrrigationArea += calculate_irrigation_area_square_meters($irrigation->valves);
+            $totalVolumeLiters += $this->irrigationService->calculateVolumeLiters($irrigation->valves, $durationInSeconds);
+            $totalIrrigationArea += $this->irrigationService->calculateAreaHectares($irrigation->valves);
         }
 
         $totalVolume = $totalVolumeLiters / 1000;
-        $totalVolumePerHectare = calculate_irrigation_volume_per_hectare_from_totals(
+        $totalVolumePerHectare = $this->irrigationService->calculateVolumePerHectareFromTotals(
             $totalVolumeLiters,
             $totalIrrigationArea
         );
@@ -310,13 +314,13 @@ class IrrigationReportService
             /** @var \App\Models\Valve|null $valve */
             $valve = $irrigation->valves->firstWhere('id', $valveId);
             if ($valve) {
-                $totalVolumeLiters += calculate_irrigation_volume_liters([$valve], $durationInSeconds);
+                $totalVolumeLiters += $this->irrigationService->calculateVolumeLiters([$valve], $durationInSeconds);
                 $totalIrrigationArea += $valve->irrigation_area;
             }
         }
 
         $totalVolume = $totalVolumeLiters / 1000;
-        $totalVolumePerHectare = calculate_irrigation_volume_per_hectare_from_totals(
+        $totalVolumePerHectare = $this->irrigationService->calculateVolumePerHectareFromTotals(
             $totalVolumeLiters,
             $totalIrrigationArea
         );
@@ -351,7 +355,7 @@ class IrrigationReportService
             $totalCount += $report['total_count'];
         }
 
-        $totalVolumePerHectare = calculate_irrigation_volume_per_hectare_from_totals(
+        $totalVolumePerHectare = $this->irrigationService->calculateVolumePerHectareFromTotals(
             $totalVolume * 1000,
             $totalIrrigationArea
         );
@@ -386,7 +390,7 @@ class IrrigationReportService
             }
         }
 
-        $totalVolumePerHectare = calculate_irrigation_volume_per_hectare_from_totals(
+        $totalVolumePerHectare = $this->irrigationService->calculateVolumePerHectareFromTotals(
             $totalVolume * 1000,
             $totalIrrigationArea
         );

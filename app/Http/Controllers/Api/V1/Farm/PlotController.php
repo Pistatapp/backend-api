@@ -7,12 +7,14 @@ use App\Http\Resources\PlotResource;
 use App\Models\Plot;
 use App\Models\Field;
 use App\Helpers\UniqueId;
+use App\Services\IrrigationService;
 use Illuminate\Http\Request;
 
 class PlotController extends Controller
 {
-    public function __construct()
-    {
+    public function __construct(
+        private IrrigationService $irrigationService
+    ) {
         $this->authorizeResource(Plot::class, 'plot');
     }
 
@@ -108,18 +110,18 @@ class PlotController extends Controller
         // Calculate statistics for last 30 days
         $totalDuration = 0;
         $totalVolumeLiters = 0;
-        $totalIrrigationAreaSquareMeters = 0;
+        $totalIrrigationAreaHectares = 0;
 
         foreach ($successfulIrrigations as $irrigation) {
             $durationInSeconds = $irrigation->start_time->diffInSeconds($irrigation->end_time);
             $totalDuration += $durationInSeconds;
-            $totalVolumeLiters += calculate_irrigation_volume_liters($irrigation->valves, $durationInSeconds);
-            $totalIrrigationAreaSquareMeters += calculate_irrigation_area_square_meters($irrigation->valves);
+            $totalVolumeLiters += $this->irrigationService->calculateVolumeLiters($irrigation->valves, $durationInSeconds);
+            $totalIrrigationAreaHectares += $this->irrigationService->calculateAreaHectares($irrigation->valves);
         }
 
-        $totalVolumePerHectare = calculate_irrigation_volume_per_hectare_from_totals(
+        $totalVolumePerHectare = $this->irrigationService->calculateVolumePerHectareFromTotals(
             $totalVolumeLiters,
-            $totalIrrigationAreaSquareMeters
+            $totalIrrigationAreaHectares
         );
 
         // Format latest successful irrigation if exists
