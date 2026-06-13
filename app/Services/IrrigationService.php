@@ -242,16 +242,9 @@ class IrrigationService
             $irrigation->end_time ?? now()
         );
 
-        // Calculate total irrigation volume (in cubic meters)
-        $totalVolume = 0;
-        foreach ($irrigationValves as $valve) {
-            $volume = ($valve->dripper_count * $valve->dripper_flow_rate) * ($durationInSeconds / 3600);
-            $totalVolume += $volume;
-        }
-        $totalVolume /= 1000; // Convert to cubic meters
-
-        $irrigationArea = $irrigationValves->sum('irrigation_area');
-        $totalVolumePerHectare = calculate_volume_per_hectare($totalVolume, $irrigationArea);
+        $totalVolumeLiters = calculate_irrigation_volume_liters($irrigationValves, $durationInSeconds);
+        $totalVolume = $totalVolumeLiters / 1000;
+        $totalVolumePerHectare = calculate_irrigation_volume_per_hectare($irrigationValves, $durationInSeconds);
 
         return [
             'duration' => $durationInSeconds,

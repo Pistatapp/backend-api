@@ -157,17 +157,50 @@ function to_time_format(?int $seconds): string
 }
 
 /**
- * Calculate irrigation volume per hectare from total volume and irrigated area.
- *
- * irrigation_area values are stored in square meters.
+ * Calculate total irrigation volume in liters for the given valves and duration.
  */
-function calculate_volume_per_hectare(float $totalVolumeCubicMeters, float $totalIrrigationArea): float
+function calculate_irrigation_volume_liters(iterable $valves, int $durationInSeconds): float
 {
+    $totalVolumeLiters = 0;
+
+    foreach ($valves as $valve) {
+        $totalVolumeLiters += ($valve->dripper_count * $valve->dripper_flow_rate) * ($durationInSeconds / 3600);
+    }
+
+    return $totalVolumeLiters;
+}
+
+/**
+ * Sum irrigation areas in hectares for the given valves.
+ */
+function calculate_irrigation_area_hectares(iterable $valves): float
+{
+    $totalIrrigationArea = 0;
+
+    foreach ($valves as $valve) {
+        $totalIrrigationArea += $valve->irrigation_area;
+    }
+
+    return $totalIrrigationArea;
+}
+
+/**
+ * Calculate irrigation volume per hectare in cubic meters per hectare (m³/ha).
+ *
+ * Formula: (total m³ / sum of valve irrigation areas) which equals
+ * (total liters / sum of areas) / 1000
+ */
+function calculate_irrigation_volume_per_hectare(iterable $valves, int $durationInSeconds): float
+{
+    $totalIrrigationArea = calculate_irrigation_area_hectares($valves);
+
     if ($totalIrrigationArea <= 0) {
         return 0;
     }
 
-    return ($totalVolumeCubicMeters / $totalIrrigationArea) / 10000;
+    $totalVolumeLiters = calculate_irrigation_volume_liters($valves, $durationInSeconds);
+
+    return ($totalVolumeLiters / $totalIrrigationArea) / 1000;
 }
 
 /**

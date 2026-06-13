@@ -107,25 +107,19 @@ class PlotController extends Controller
 
         // Calculate statistics for last 30 days
         $totalDuration = 0;
-        $totalVolume = 0;
-        $totalAreaCovered = 0;
+        $totalVolumeLiters = 0;
+        $totalIrrigationArea = 0;
 
         foreach ($successfulIrrigations as $irrigation) {
             $durationInSeconds = $irrigation->start_time->diffInSeconds($irrigation->end_time);
             $totalDuration += $durationInSeconds;
-
-            foreach ($irrigation->valves as $valve) {
-                // Calculate volume for this valve
-                $volume = ($valve->dripper_count * $valve->dripper_flow_rate) * ($durationInSeconds / 3600);
-                $totalVolume += $volume;
-
-                // Sum area covered
-                $totalAreaCovered += $valve->irrigation_area;
-            }
+            $totalVolumeLiters += calculate_irrigation_volume_liters($irrigation->valves, $durationInSeconds);
+            $totalIrrigationArea += calculate_irrigation_area_hectares($irrigation->valves);
         }
 
-        $totalVolumeInCubicMeters = $totalVolume / 1000;
-        $totalVolumePerHectare = calculate_volume_per_hectare($totalVolumeInCubicMeters, $totalAreaCovered);
+        $totalVolumePerHectare = $totalIrrigationArea > 0
+            ? ($totalVolumeLiters / $totalIrrigationArea) / 1000
+            : 0;
 
         // Format latest successful irrigation if exists
         $latestIrrigationData = null;
@@ -145,7 +139,7 @@ class PlotController extends Controller
                 'latest_successful_irrigation' => $latestIrrigationData,
                 'successful_irrigations_count_last_30_days' => $successfulIrrigations->count(),
                 'area_covered_duration_last_30_days' => to_time_format($totalDuration),
-                'total_volume_last_30_days' => round($totalVolume / 1000, 2),
+                'total_volume_last_30_days' => round($totalVolumeLiters / 1000, 2),
                 'total_volume_per_hectare_last_30_days' => round($totalVolumePerHectare, 2),
             ]
         ]);

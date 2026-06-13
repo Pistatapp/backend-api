@@ -262,30 +262,27 @@ class IrrigationReportService
     private function calculateDailyTotals(Collection $dailyIrrigations, Carbon $date): array
     {
         $totalDuration = 0;
-        $totalVolume = 0;
+        $totalVolumeLiters = 0;
         $totalIrrigationArea = 0;
 
         foreach ($dailyIrrigations as $irrigation) {
             /** @var \App\Models\Irrigation $irrigation */
             $durationInSeconds = $this->calculateIrrigationDuration($irrigation);
             $totalDuration += $durationInSeconds;
-
-            foreach ($irrigation->valves as $valve) {
-                /** @var \App\Models\Valve $valve */
-                // Calculate volume in liters, then convert to cubic meters
-                $volumeInLiters = ($valve->dripper_count * $valve->dripper_flow_rate) * ($durationInSeconds / 3600);
-                $volumeInCubicMeters = $volumeInLiters / 1000;
-                $totalVolume += $volumeInCubicMeters;
-                $totalIrrigationArea += $valve->irrigation_area;
-            }
+            $totalVolumeLiters += calculate_irrigation_volume_liters($irrigation->valves, $durationInSeconds);
+            $totalIrrigationArea += calculate_irrigation_area_hectares($irrigation->valves);
         }
 
-        $totalVolumePerHectare = calculate_volume_per_hectare($totalVolume, $totalIrrigationArea);
+        $totalVolume = $totalVolumeLiters / 1000;
+        $totalVolumePerHectare = $totalIrrigationArea > 0
+            ? ($totalVolumeLiters / $totalIrrigationArea) / 1000
+            : 0;
 
         return [
             'date' => jdate($date)->format('Y/m/d'),
             'total_duration' => to_time_format($totalDuration),
             'total_volume' => $totalVolume,
+            'total_irrigation_area' => $totalIrrigationArea,
             'total_volume_per_hectare' => $totalVolumePerHectare,
             'total_count' => $dailyIrrigations->count()
         ];
@@ -301,7 +298,7 @@ class IrrigationReportService
     private function calculateValveSpecificTotals(Collection $valveIrrigations, int $valveId): array
     {
         $totalDuration = 0;
-        $totalVolume = 0;
+        $totalVolumeLiters = 0;
         $totalIrrigationArea = 0;
 
         foreach ($valveIrrigations as $irrigation) {
@@ -312,19 +309,20 @@ class IrrigationReportService
             /** @var \App\Models\Valve|null $valve */
             $valve = $irrigation->valves->firstWhere('id', $valveId);
             if ($valve) {
-                // Calculate volume in liters, then convert to cubic meters
-                $volumeInLiters = ($valve->dripper_count * $valve->dripper_flow_rate) * ($durationInSeconds / 3600);
-                $volumeInCubicMeters = $volumeInLiters / 1000;
-                $totalVolume += $volumeInCubicMeters;
+                $totalVolumeLiters += calculate_irrigation_volume_liters([$valve], $durationInSeconds);
                 $totalIrrigationArea += $valve->irrigation_area;
             }
         }
 
-        $totalVolumePerHectare = calculate_volume_per_hectare($totalVolume, $totalIrrigationArea);
+        $totalVolume = $totalVolumeLiters / 1000;
+        $totalVolumePerHectare = $totalIrrigationArea > 0
+            ? ($totalVolumeLiters / $totalIrrigationArea) / 1000
+            : 0;
 
         return [
             'total_duration' => to_time_format($totalDuration),
             'total_volume' => $totalVolume,
+            'total_irrigation_area' => $totalIrrigationArea,
             'total_volume_per_hectare' => $totalVolumePerHectare,
             'total_count' => $valveIrrigations->count()
         ];
@@ -340,16 +338,20 @@ class IrrigationReportService
     {
         $totalDurationSeconds = 0;
         $totalVolume = 0;
-        $totalVolumePerHectare = 0;
+        $totalIrrigationArea = 0;
         $totalCount = 0;
 
         foreach ($dailyReports as $report) {
             // Convert time format back to seconds for accumulation
             $totalDurationSeconds += $this->timeFormatToSeconds($report['total_duration']);
             $totalVolume += $report['total_volume'];
-            $totalVolumePerHectare += $report['total_volume_per_hectare'];
+            $totalIrrigationArea += $report['total_irrigation_area'];
             $totalCount += $report['total_count'];
         }
+
+        $totalVolumePerHectare = $totalIrrigationArea > 0
+            ? $totalVolume / $totalIrrigationArea
+            : 0;
 
         return [
             'total_duration' => to_time_format($totalDurationSeconds),
@@ -369,17 +371,21 @@ class IrrigationReportService
     {
         $totalDurationSeconds = 0;
         $totalVolume = 0;
-        $totalVolumePerHectare = 0;
+        $totalIrrigationArea = 0;
         $totalCount = 0;
 
         foreach ($dailyReports as $report) {
             foreach ($report['irrigation_per_valve'] as $valveReport) {
                 $totalDurationSeconds += $this->timeFormatToSeconds($valveReport['total_duration']);
                 $totalVolume += $valveReport['total_volume'];
-                $totalVolumePerHectare += $valveReport['total_volume_per_hectare'];
+                $totalIrrigationArea += $valveReport['total_irrigation_area'];
                 $totalCount += $valveReport['total_count'];
             }
         }
+
+        $totalVolumePerHectare = $totalIrrigationArea > 0
+            ? $totalVolume / $totalIrrigationArea
+            : 0;
 
         return [
             'total_duration' => to_time_format($totalDurationSeconds),
