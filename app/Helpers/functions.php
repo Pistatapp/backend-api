@@ -157,6 +157,20 @@ function to_time_format(?int $seconds): string
 }
 
 /**
+ * Calculate irrigation volume per hectare from total volume and irrigated area.
+ *
+ * irrigation_area values are stored in square meters.
+ */
+function calculate_volume_per_hectare(float $totalVolumeCubicMeters, float $totalIrrigationArea): float
+{
+    if ($totalIrrigationArea <= 0) {
+        return 0;
+    }
+
+    return ($totalVolumeCubicMeters / $totalIrrigationArea) / 10000;
+}
+
+/**
  * Get the weather API service
  *
  * @return \App\Services\WeatherApi

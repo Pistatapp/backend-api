@@ -124,8 +124,8 @@ class PlotController extends Controller
             }
         }
 
-        // Calculate total volume per hectare
-        $totalVolumePerHectare = $totalAreaCovered > 0 ? $totalVolume / $totalAreaCovered : 0;
+        $totalVolumeInCubicMeters = $totalVolume / 1000;
+        $totalVolumePerHectare = calculate_volume_per_hectare($totalVolumeInCubicMeters, $totalAreaCovered);
 
         // Format latest successful irrigation if exists
         $latestIrrigationData = null;
@@ -146,7 +146,7 @@ class PlotController extends Controller
                 'successful_irrigations_count_last_30_days' => $successfulIrrigations->count(),
                 'area_covered_duration_last_30_days' => to_time_format($totalDuration),
                 'total_volume_last_30_days' => round($totalVolume / 1000, 2),
-                'total_volume_per_hectare_last_30_days' => round($totalVolumePerHectare / 1000, 2),
+                'total_volume_per_hectare_last_30_days' => round($totalVolumePerHectare, 2),
             ]
         ]);
     }

@@ -126,7 +126,7 @@ class IrrigationService
             'irrigation_area' => round($valveStatistics['irrigation_area'], 2),
             'irrigation_duration' => to_time_format($irrigationDuration),
             'total_irrigation_area' => round($volumeMetrics['total_volume'], 2),
-            'irrigation_area_per_hectare' => round($volumeMetrics['irrigation_area_per_hectare'], 2),
+            'irrigation_area_per_hectare' => round($volumeMetrics['total_volume_per_hectare'], 2),
         ];
     }
 
@@ -250,11 +250,8 @@ class IrrigationService
         }
         $totalVolume /= 1000; // Convert to cubic meters
 
-        // Calculate irrigation area per hectare (in cubic meters per hectare)
         $irrigationArea = $irrigationValves->sum('irrigation_area');
-        $totalVolumePerHectare = $irrigationArea > 0
-            ? ($totalVolume / ($irrigationArea / 10000))
-            : 0; // Convert irrigation_area from square meters to hectares (divide by 10000)
+        $totalVolumePerHectare = calculate_volume_per_hectare($totalVolume, $irrigationArea);
 
         return [
             'duration' => $durationInSeconds,
