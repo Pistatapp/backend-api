@@ -216,9 +216,7 @@ class IrrigationService
         $totalValveCount = $plot->valves()->count();
         $totalDripperCount = $irrigationValves->sum('dripper_count');
         $totalDripperFlowRate = $irrigationValves->sum('dripper_flow_rate');
-        $dripperFlowRate = $irrigationValves->count() > 0
-            ? $totalDripperFlowRate / $irrigationValves->count()
-            : 0;
+        $dripperFlowRate = round($totalDripperFlowRate / $irrigationValves->count(), 2);
         $irrigationArea = $irrigationValves->sum('irrigation_area');
 
         return [
