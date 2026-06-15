@@ -244,10 +244,8 @@ class IrrigationService
 
         $totalVolumeLiters = $this->calculateVolumeLiters($irrigationValves, $durationInSeconds);
         $totalVolume = $totalVolumeLiters / 1000;
-        $totalVolumePerHectare = $this->calculateVolumePerHectareFromTotals(
-            $totalVolumeLiters,
-            $this->calculateAreaHectares($irrigationValves)
-        );
+        $totalIrrigationArea = $irrigationValves->sum('irrigation_area');
+        $totalVolumePerHectare = $totalVolume / $totalIrrigationArea;
 
         return [
             'duration' => $durationInSeconds,
@@ -270,44 +268,5 @@ class IrrigationService
         }
 
         return $totalVolumeLiters;
-    }
-
-    /**
-     * Sum irrigation areas in hectares for the given valves.
-     */
-    public function calculateAreaHectares(iterable $valves): float
-    {
-        $totalIrrigationArea = 0;
-
-        foreach ($valves as $valve) {
-            $totalIrrigationArea += $valve->irrigation_area;
-        }
-
-        return $totalIrrigationArea;
-    }
-
-    /**
-     * Calculate irrigation volume per hectare in cubic meters per hectare (m³/ha).
-     *
-     * Formula: (total liters / sum of areas in hectares) / 1000
-     */
-    public function calculateVolumePerHectareFromTotals(float $totalVolumeLiters, float $totalIrrigationAreaHectares): float
-    {
-        if ($totalIrrigationAreaHectares <= 0) {
-            return 0;
-        }
-
-        return ($totalVolumeLiters / $totalIrrigationAreaHectares) / 1000;
-    }
-
-    /**
-     * Calculate irrigation volume per hectare in cubic meters per hectare (m³/ha).
-     */
-    public function calculateVolumePerHectare(iterable $valves, int $durationInSeconds): float
-    {
-        return $this->calculateVolumePerHectareFromTotals(
-            $this->calculateVolumeLiters($valves, $durationInSeconds),
-            $this->calculateAreaHectares($valves)
-        );
     }
 }
