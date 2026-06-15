@@ -58,10 +58,10 @@ return [
     ],
 
     'ui' => [
-        'title' => 'Pistat API',
+        'title' => 'PistatApp API',
     ],
 
-    'renderer' => 'elements',
+    'renderer' => 'scalar',
 
     'renderers' => [
         /*
@@ -89,6 +89,9 @@ return [
             'showDeveloperTools' => 'never',
             'agent' => ['disabled' => true],
             'credentials' => 'include',
+            'authentication' => [
+                'preferredSecurityScheme' => 'sanctum',
+            ],
         ],
     ],
 
@@ -176,7 +179,9 @@ return [
         \Dedoc\Scramble\SecurityDocumentation\MiddlewareAuthSecurityStrategy::class,
         [
             'middleware' => ['auth', 'auth:*'],
-            'scheme' => \Dedoc\Scramble\Support\Generator\SecurityScheme::http('bearer', 'Sanctum'),
+            'scheme' => \Dedoc\Scramble\Support\Generator\SecurityScheme::http('bearer', 'Sanctum')
+                ->as('sanctum')
+                ->setDescription('Laravel Sanctum bearer token. Obtain one via POST /api/auth/verify, then paste it here to test protected endpoints.'),
         ],
     ],
 ];
