@@ -8,6 +8,7 @@ use App\Services\ActiveTractorService;
 use App\Services\GpsPathCorrectorService;
 use App\Services\OpenMeteo;
 use App\Services\WeatherForecastService;
+use Dedoc\Scramble\Scramble;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\ServiceProvider;
@@ -38,5 +39,11 @@ class AppServiceProvider extends ServiceProvider
         Gate::before(function ($user, $ability) {
             return $user->hasRole('root') ? true : null;
         });
+
+        Scramble::configure()
+            ->expose(
+                ui: '/api/documentation',
+                document: '/api/documentation.json',
+            );
     }
 }

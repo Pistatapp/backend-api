@@ -33,8 +33,7 @@ class AuthController extends Controller
     /**
      * Send token to user mobile.
      *
-     * @param \Illuminate\Http\Request $request
-     * @return \Illuminate\Http\JsonResponse
+     * @unauthenticated
      */
     public function sendToken(Request $request)
     {
@@ -56,8 +55,8 @@ class AuthController extends Controller
     /**
      * Verify user token.
      *
-     * @param \Illuminate\Http\Request $request
-     * @return \App\Http\Resources\AuthenticatedUserResource
+     * @unauthenticated
+     *
      * @throws \Illuminate\Validation\ValidationException
      */
     public function verifyToken(Request $request)

@@ -9,6 +9,7 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
+        "dedoc/scramble": "^0.13.28",
         "google/apiclient": "^2.18",
         "guzzlehttp/guzzle": "^7.2",
         "kavenegar/laravel": "^1.3",
