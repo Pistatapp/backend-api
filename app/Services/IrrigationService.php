@@ -241,13 +241,13 @@ class IrrigationService
         );
 
         $totalVolumeLiters = $this->calculateVolumeLiters($irrigationValves, $durationInSeconds);
-        $totalVolume = $totalVolumeLiters / 1000;
+        $totalVolumeCubicMeters = $totalVolumeLiters / 1000;
         $totalIrrigationArea = $irrigationValves->sum('irrigation_area');
-        $totalVolumePerHectare = $totalVolume / $totalIrrigationArea;
+        $totalVolumePerHectare = $totalVolumeCubicMeters / $totalIrrigationArea;
 
         return [
             'duration' => $durationInSeconds,
-            'total_volume' => $totalVolume,
+            'total_volume' => $totalVolumeCubicMeters,
             'total_volume_per_hectare' => $totalVolumePerHectare,
         ];
     }
