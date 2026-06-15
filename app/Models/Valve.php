@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Helpers\UniqueId;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -16,6 +17,7 @@ class Valve extends Model
      */
     protected $fillable = [
         'plot_id',
+        'unique_id',
         'name',
         'location',
         'is_open',
@@ -67,5 +69,17 @@ class Valve extends Model
     public function plot()
     {
         return $this->belongsTo(Plot::class);
+    }
+
+    /**
+     * The "booted" method of the model.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (Valve $valve) {
+            if (empty($valve->unique_id)) {
+                $valve->fill(UniqueId::makeForTable('valves'));
+            }
+        });
     }
 }
