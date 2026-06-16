@@ -23,7 +23,9 @@ class ValveResource extends JsonResource
             'irrigation_area' => $this->irrigation_area,
             'dripper_count' => $this->dripper_count,
             'dripper_flow_rate' => $this->dripper_flow_rate,
+            'unique_id' => $this->unique_id,
             'plot' => new PlotResource($this->whenLoaded('plot')),
+            'created_at' => jdate($this->created_at)->format('Y/m/d'),
         ];
     }
 }
