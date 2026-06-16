@@ -14,6 +14,7 @@ use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 
 class ProcessGpsData implements ShouldQueue
 {
@@ -62,6 +63,8 @@ class ProcessGpsData implements ShouldQueue
             }
         });
 
+        $this->writeRawGpsData();
+
         $device = $tractor->gpsDevice;
         event(new TractorStatus($tractor, $lastStatus));
         event(new ReportReceived($this->data, $device));
@@ -89,6 +92,25 @@ class ProcessGpsData implements ShouldQueue
                 'date_time' => $item['date_time'],
             ]);
         }, $data);
+    }
+
+    /**
+     * Append raw GPS data to daily text files grouped by device IMEI.
+     */
+    private function writeRawGpsData(): void
+    {
+        $linesByFile = [];
+
+        foreach ($this->data as $item) {
+            $date = substr($item['date_time'], 0, 10);
+            $path = storage_path("logs/gps-raw/{$item['imei']}/{$date}.txt");
+            $linesByFile[$path][] = '[' . now()->toIso8601String() . '] ' . json_encode([$item]);
+        }
+
+        foreach ($linesByFile as $path => $lines) {
+            File::ensureDirectoryExists(dirname($path));
+            File::append($path, implode(PHP_EOL, $lines) . PHP_EOL);
+        }
     }
 
     /**
