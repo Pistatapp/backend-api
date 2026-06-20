@@ -25,9 +25,14 @@ class FarmController extends Controller
      */
     public function index(Request $request)
     {
-        $farms = $request->user()->farms()
-            ->withCount(['trees', 'fields', 'labours', 'tractors', 'plans'])
-            ->get();
+        if ($request->user()->hasRole('root')) {
+            $farms = Farm::withCount(['trees', 'fields', 'labours', 'tractors', 'plans'])->get();
+        } else {
+            $farms = $request->user()->farms()
+                ->withCount(['trees', 'fields', 'labours', 'tractors', 'plans'])
+                ->get();
+        }
+
 
         return FarmResource::collection($farms);
     }

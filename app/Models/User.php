@@ -82,13 +82,6 @@ class User extends Authenticatable implements HasMedia
     }
 
     /**
-     * The relationships that should always be loaded.
-     *
-     * @var array<string>
-     */
-    protected $with = ['roles'];
-
-    /**
      * Mark the user's mobile as verified.
      *
      * @return void
