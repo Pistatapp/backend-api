@@ -22,7 +22,10 @@ class UserResource extends JsonResource
             'username' => $this->username,
             'is_active' => $this->is_active,
             'last_activity_at' => jdate($this->last_activity_at)->ago(),
-            'role' => $this->resolveRoleForEnvironment($request),
+            'role' => $this->when(
+                $this->relationLoaded('farms'),
+                fn () => $this->resolveRoleForEnvironment($request)
+            ),
             'attendance_tracking' => new AttendanceTrackingResource($this->whenLoaded('attendanceTracking')),
             'can' => [
                 'update' => $request->user()->can('update', $this->resource),

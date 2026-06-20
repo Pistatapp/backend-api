@@ -39,7 +39,18 @@ class UserController extends Controller
 
         $query->where('id', '!=', $user->id);
 
-        $users = $query->with('farms', 'profile')->paginate();
+        if ($request->has('search') && !is_null($request->query('search'))) {
+            $search = $request->query('search');
+            $users = $query->where(function ($q) use ($search) {
+                $q->whereHas('profile', function ($profileQuery) use ($search) {
+                    $profileQuery->where('name', 'like', '%' . $search . '%');
+                })
+                ->orWhere('mobile', 'like', '%' . $search . '%');
+            })->get();
+        } else {
+            $users = $query->with('farms', 'profile')->paginate();
+        }
+
 
         return UserResource::collection($users);
     }
