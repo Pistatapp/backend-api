@@ -44,6 +44,7 @@ class UpdateEndedTractorTasks extends Command
 
             // Query tasks for current day where end time has passed
             TractorTask::whereDate('date', $today)
+                ->where('status', 'in_progress')
                 ->chunk(100, function ($tasks) use ($now) {
                     foreach ($tasks as $task) {
                         $endTime = $task->end_time->timestamp;
