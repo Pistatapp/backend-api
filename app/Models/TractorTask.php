@@ -4,9 +4,12 @@ namespace App\Models;
 
 use App\Casts\Time;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 
 class TractorTask extends Model
@@ -89,7 +92,7 @@ class TractorTask extends Model
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasOne
      */
-    public function gpsMetricsCalculation()
+    public function gpsMetricsCalculation(): HasOne
     {
         return $this->hasOne(GpsMetricsCalculation::class);
     }
@@ -99,7 +102,7 @@ class TractorTask extends Model
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
-    public function tractor()
+    public function tractor(): BelongsTo
     {
         return $this->belongsTo(Tractor::class);
     }
@@ -117,7 +120,7 @@ class TractorTask extends Model
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
-    public function operation()
+    public function operation(): BelongsTo
     {
         return $this->belongsTo(Operation::class);
     }
@@ -194,13 +197,25 @@ class TractorTask extends Model
         $ids = array_values(array_unique(array_map('intval', $taskableIds)));
         $this->taskableItems()->delete();
 
+        if ($ids === []) {
+            return;
+        }
+
+        $now = now();
+        $rows = [];
+
         foreach ($ids as $order => $id) {
-            $this->taskableItems()->create([
+            $rows[] = [
+                'tractor_task_id' => $this->id,
                 'taskable_type' => $modelClass,
                 'taskable_id' => $id,
                 'sort_order' => $order,
-            ]);
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
         }
+
+        TractorTaskTaskable::insert($rows);
     }
 
     /**
@@ -230,7 +245,7 @@ class TractorTask extends Model
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
-    public function creator()
+    public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
     }
@@ -252,7 +267,7 @@ class TractorTask extends Model
      * @param  string  $date
      * @return \Illuminate\Database\Eloquent\Builder
      */
-    public function scopeForDate($query, $date)
+    public function scopeForDate(Builder $query, $date): Builder
     {
         return $query->whereDate('date', $date);
     }
@@ -263,7 +278,7 @@ class TractorTask extends Model
      * @param  \Illuminate\Database\Eloquent\Builder  $query
      * @return \Illuminate\Database\Eloquent\Builder
      */
-    public function scopeNotStarted($query)
+    public function scopeNotStarted(Builder $query): Builder
     {
         return $query->where('status', 'not_started');
     }
@@ -274,7 +289,7 @@ class TractorTask extends Model
      * @param  \Illuminate\Database\Eloquent\Builder  $query
      * @return \Illuminate\Database\Eloquent\Builder
      */
-    public function scopeInProgress($query)
+    public function scopeInProgress(Builder $query): Builder
     {
         return $query->where('status', 'in_progress');
     }
@@ -285,7 +300,7 @@ class TractorTask extends Model
      * @param  \Illuminate\Database\Eloquent\Builder  $query
      * @return \Illuminate\Database\Eloquent\Builder
      */
-    public function scopeStopped($query)
+    public function scopeStopped(Builder $query): Builder
     {
         return $query->where('status', 'stopped');
     }
@@ -296,7 +311,7 @@ class TractorTask extends Model
      * @param  \Illuminate\Database\Eloquent\Builder  $query
      * @return \Illuminate\Database\Eloquent\Builder
      */
-    public function scopeDone($query)
+    public function scopeDone(Builder $query): Builder
     {
         return $query->where('status', 'done');
     }
@@ -307,7 +322,7 @@ class TractorTask extends Model
      * @param  \Illuminate\Database\Eloquent\Builder  $query
      * @return \Illuminate\Database\Eloquent\Builder
      */
-    public function scopeNotDone($query)
+    public function scopeNotDone(Builder $query): Builder
     {
         return $query->where('status', 'not_done');
     }
@@ -318,7 +333,7 @@ class TractorTask extends Model
      * @param  \Illuminate\Database\Eloquent\Builder  $query
      * @return \Illuminate\Database\Eloquent\Builder
      */
-    public function scopePending($query)
+    public function scopePending(Builder $query): Builder
     {
         return $query->where('status', 'not_started');
     }
@@ -329,7 +344,7 @@ class TractorTask extends Model
      * @param  \Illuminate\Database\Eloquent\Builder  $query
      * @return \Illuminate\Database\Eloquent\Builder
      */
-    public function scopeStarted($query)
+    public function scopeStarted(Builder $query): Builder
     {
         return $query->where('date', now()->format('Y-m-d'))
             ->whereTime('start_time', '<=', now()->format('H:i:s'))
@@ -342,7 +357,7 @@ class TractorTask extends Model
      * @param  \Illuminate\Database\Eloquent\Builder  $query
      * @return \Illuminate\Database\Eloquent\Builder
      */
-    public function scopeFinished($query)
+    public function scopeFinished(Builder $query): Builder
     {
         return $query->where('status', 'done');
     }

@@ -102,7 +102,7 @@ class TractorTaskService
         $task->update(['status' => $newStatus]);
         event(new TractorTaskStatusChanged($task, $newStatus, $isCurrentlyInZone));
 
-        CalculateTaskGpsMetricsJob::dispatchIf($newStatus == 'done', $task);
+        CalculateTaskGpsMetricsJob::dispatchIf($newStatus === 'done', $task);
     }
 
     /**

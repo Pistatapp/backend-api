@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\Tractor;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\FilterTractorTaskRequest;
+use App\Http\Requests\PatchTractorTaskDataRequest;
 use App\Http\Requests\StoreTractorTaskRequest;
 use App\Http\Requests\UpdateTractorTaskRequest;
 use App\Http\Resources\TractorTaskResource;
@@ -62,13 +63,9 @@ class TractorTaskController extends Controller
         $farmAdmins = $tractor->farm->admins;
         $driver = $tractor->driver;
 
-        // Send notifications to farm admins
         Notification::send($farmAdmins, new TractorTaskCreated($task));
-
-        // Send notification to driver
         Notification::send($driver, new TractorTaskCreated($task));
 
-        // Dispatch GPS metrics calculation if task end time has passed
         $taskEndDateTime = $task->getEndDateTime();
         $isTaskPassed = now()->greaterThan($taskEndDateTime);
 
@@ -162,12 +159,21 @@ class TractorTaskController extends Controller
             return;
         }
 
+        $this->updateTaskDataAttributes($tractorTask, $validated['data']);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function updateTaskDataAttributes(TractorTask $tractorTask, array $data): void
+    {
         $dataUpdates = [];
-        foreach ($validated['data'] as $key => $value) {
+
+        foreach ($data as $key => $value) {
             $dataUpdates["data->{$key}"] = $value;
         }
 
-        if (! empty($dataUpdates)) {
+        if ($dataUpdates !== []) {
             $tractorTask->update($dataUpdates);
         }
     }
@@ -187,24 +193,9 @@ class TractorTaskController extends Controller
     /**
      * Partially update the data attributes of a tractor task.
      */
-    public function patchData(Request $request, TractorTask $tractorTask)
+    public function patchData(PatchTractorTaskDataRequest $request, TractorTask $tractorTask)
     {
-        $this->authorize('update', $tractorTask);
-
-        $validated = $request->validate([
-            'consumed_water' => 'nullable|numeric|min:0',
-            'consumed_fertilizer' => 'nullable|numeric|min:0',
-            'consumed_poison' => 'nullable|numeric|min:0',
-            'operation_area' => 'nullable|numeric|min:0',
-            'workers_count' => 'nullable|integer|min:0',
-        ]);
-
-        // Update JSON attributes via dot-notation to match fillable keys
-        $dataUpdates = [];
-        foreach ($validated as $key => $value) {
-            $dataUpdates["data->{$key}"] = $value;
-        }
-        $tractorTask->update($dataUpdates);
+        $this->updateTaskDataAttributes($tractorTask, $request->validated());
 
         return new TractorTaskResource($tractorTask->fresh(['taskableItems.taskable', 'operation']));
     }
@@ -226,31 +217,21 @@ class TractorTaskController extends Controller
     {
         $validated = $request->validated();
 
-        // Verify user has access to the tractor's farm
         $tractor = Tractor::findOrFail($validated['tractor_id']);
-        if (! $tractor->farm->users->contains($request->user())) {
-            abort(403, 'Unauthorized access to this tractor.');
-        }
+        $this->authorizeTractorAccess($tractor, $request);
 
         $query = TractorTask::query()
-            ->with(['operation', 'taskableItems.taskable', 'creator', 'tractor.driver', 'operation'])
+            ->with(['operation', 'taskableItems.taskable', 'creator', 'tractor.driver'])
             ->where('tractor_id', $validated['tractor_id'])
             ->whereBetween('date', [$validated['start_date'], $validated['end_date']]);
 
-        // Filter by fields if provided
         if (! empty($validated['fields'])) {
-            $fieldModel = Field::class;
-            $query->where(function ($q) use ($validated, $fieldModel) {
-                foreach ($validated['fields'] as $fieldId) {
-                    $q->orWhereHas('taskableItems', function ($subQ) use ($fieldId, $fieldModel) {
-                        $subQ->where('taskable_type', $fieldModel)
-                            ->where('taskable_id', $fieldId);
-                    });
-                }
+            $query->whereHas('taskableItems', function ($subQuery) use ($validated) {
+                $subQuery->where('taskable_type', Field::class)
+                    ->whereIn('taskable_id', $validated['fields']);
             });
         }
 
-        // Filter by operations if provided
         if (! empty($validated['operations'])) {
             $query->whereIn('operation_id', $validated['operations']);
         }
@@ -276,14 +257,18 @@ class TractorTaskController extends Controller
             'operation' => 'nullable|exists:operations,id',
         ]);
 
-        // Verify user has access to the tractor's farm
         $tractor = Tractor::findOrFail($validated['tractor_id']);
-        if (! $tractor->farm->users->contains($request->user())) {
-            abort(403, 'Unauthorized access to this tractor.');
-        }
+        $this->authorizeTractorAccess($tractor, $request);
 
         $data = $this->reportFilterService->filter($validated);
 
         return response()->json(['data' => $data]);
+    }
+
+    private function authorizeTractorAccess(Tractor $tractor, Request $request): void
+    {
+        if (! $tractor->farm->users()->where('users.id', $request->user()->id)->exists()) {
+            abort(403, 'Unauthorized access to this tractor.');
+        }
     }
 }

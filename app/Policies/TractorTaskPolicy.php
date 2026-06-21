@@ -25,35 +25,23 @@ class TractorTaskPolicy
 
     public function update(User $user, TractorTask $tractorTask): bool
     {
-        $creator = $tractorTask->creator;
-        $farmAdmin = $tractorTask->farm->admins->contains($user);
-        $elapsedSinceCompletion = $this->elapsedHoursSinceCompletion($tractorTask);
-
-        // If user is creator and 24 hours have passed since tractor task completion, return false
-        if ($user->is($creator) && $elapsedSinceCompletion >= 24) {
-            return false;
-        }
-
-        // If user is farm admin and 48 hours have passed since tractor task completion, return false
-        if ($farmAdmin && $elapsedSinceCompletion >= 48) {
-            return false;
-        }
-
-        return $user->can('assign-tractor-task');
+        return $this->canModify($user, $tractorTask);
     }
 
     public function delete(User $user, TractorTask $tractorTask): bool
     {
-        $creator = $tractorTask->creator;
-        $farmAdmin = $tractorTask->farm->admins->contains($user);
+        return $this->canModify($user, $tractorTask);
+    }
+
+    private function canModify(User $user, TractorTask $tractorTask): bool
+    {
         $elapsedSinceCompletion = $this->elapsedHoursSinceCompletion($tractorTask);
-        // If user is creator and 24 hours have passed since tractor task completion, return false
-        if ($user->is($creator) && $elapsedSinceCompletion >= 24) {
+
+        if ($user->is($tractorTask->creator) && $elapsedSinceCompletion >= 24) {
             return false;
         }
 
-        // If user is farm admin and 48 hours have passed since tractor task completion, return false
-        if ($farmAdmin && $elapsedSinceCompletion >= 48) {
+        if ($tractorTask->farm->admins->contains($user) && $elapsedSinceCompletion >= 48) {
             return false;
         }
 
@@ -62,8 +50,7 @@ class TractorTaskPolicy
 
     private function elapsedHoursSinceCompletion(TractorTask $tractorTask): int
     {
-        $taskEndDateTime = $tractorTask->date->copy()
-            ->setTimeFromTimeString($tractorTask->end_time->format('H:i:s'));
+        $taskEndDateTime = $tractorTask->getEndDateTime();
 
         if ($taskEndDateTime->isFuture()) {
             return 0;

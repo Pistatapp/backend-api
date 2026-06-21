@@ -2,19 +2,20 @@
 
 namespace App\Jobs;
 
-use App\Models\TractorTask;
 use App\Models\GpsMetricsCalculation;
+use App\Models\TractorTask;
 use App\Notifications\TractorTaskStatusNotification;
 use App\Services\TaskGpsMetricsAnalyzer;
 use App\Services\TractorTaskService;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Notification;
 
-class CalculateTaskGpsMetricsJob implements ShouldQueue
+class CalculateTaskGpsMetricsJob implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
@@ -33,22 +34,26 @@ class CalculateTaskGpsMetricsJob implements ShouldQueue
     ) {}
 
     /**
+     * The unique ID of the job.
+     */
+    public function uniqueId(): string
+    {
+        return (string) $this->task->id;
+    }
+
+    /**
      * Execute the job.
-     *
-     * @return void
      */
     public function handle(TaskGpsMetricsAnalyzer $gpsDataAnalyzer, TractorTaskService $tractorTaskService): void
     {
+        $this->task->loadMissing('tractor.farm.admins');
+
         $taskStartTime = $this->task->getStartDateTime();
         $taskEndTime = $this->task->getEndDateTime();
-
-        // Ensure the tractor relationship is loaded
-        $this->task->load('tractor');
         $tractor = $this->task->tractor;
 
         $taskZones = $tractorTaskService->getTaskZones($this->task);
 
-        // Analyze GPS data with task time window (multiple disjoint polygons supported)
         $results = $gpsDataAnalyzer->loadRecordsFor($tractor, $taskStartTime, $taskEndTime)
             ->analyze($taskZones);
 
@@ -58,18 +63,13 @@ class CalculateTaskGpsMetricsJob implements ShouldQueue
             return;
         }
 
-        // Calculate efficiency
         $efficiency = $this->calculateEfficiency($tractor, $results['movement_duration_seconds']);
 
-        // Build timings array from analyzer results
         $timings = [
             'device_on_time' => $results['device_on_time'] ?? null,
             'first_movement_time' => $results['first_movement_time'] ?? null,
         ];
 
-        $taskStatus = 'done';
-
-        // Update or create metrics record
         $metrics = GpsMetricsCalculation::updateOrCreate(
             [
                 'tractor_id' => $this->task->tractor_id,
@@ -89,15 +89,11 @@ class CalculateTaskGpsMetricsJob implements ShouldQueue
             ]
         );
 
-        // Update task status and send notification
-        $this->setTaskStatusAndNotify($taskStatus, $metrics);
+        $this->setTaskStatusAndNotify('done', $metrics);
     }
 
     /**
      * Determine whether the tractor performed measurable work inside task zones.
-     *
-     * Zone presence alone (e.g. a single ping) is not enough; some movement,
-     * stoppage, or distance inside the zone is required.
      *
      * @param  array<string, mixed>  $results
      */
@@ -114,10 +110,6 @@ class CalculateTaskGpsMetricsJob implements ShouldQueue
 
     /**
      * Calculate efficiency based on work duration.
-     *
-     * @param \App\Models\Tractor $tractor
-     * @param int $workDurationSeconds
-     * @return float
      */
     private function calculateEfficiency($tractor, int $workDurationSeconds): float
     {
@@ -133,24 +125,15 @@ class CalculateTaskGpsMetricsJob implements ShouldQueue
 
     /**
      * Set task status and send notification to farm admins.
-     *
-     * @param string $status
-     * @param GpsMetricsCalculation|null $metrics
-     * @return void
      */
     private function setTaskStatusAndNotify(string $status, ?GpsMetricsCalculation $metrics): void
     {
-        // Update task status
         $this->task->update(['status' => $status]);
 
-        // Load relationships needed for notification
-        $this->task->load('tractor.farm');
+        $farm = $this->task->tractor->farm;
 
-        // Send notification to farm admins
-        if ($this->task->tractor->farm && $this->task->tractor->farm->admins) {
-            $farmAdmins = $this->task->tractor->farm->admins;
-            Notification::send($farmAdmins, new TractorTaskStatusNotification($this->task, $metrics));
+        if ($farm && $farm->admins) {
+            Notification::send($farm->admins, new TractorTaskStatusNotification($this->task, $metrics));
         }
     }
 }
-

@@ -24,14 +24,6 @@ class UpdateEndedTractorTasks extends Command
     protected $description = 'Check if any tractor tasks end time has passed and update their status';
 
     /**
-     * Create a new command instance.
-     */
-    public function __construct()
-    {
-        parent::__construct();
-    }
-
-    /**
      * Execute the console command.
      */
     public function handle(): int
@@ -42,23 +34,25 @@ class UpdateEndedTractorTasks extends Command
             $now = Carbon::now();
             $today = $now->toDateString();
 
-            // Query tasks for current day where end time has passed
             TractorTask::whereDate('date', $today)
-                ->where('status', 'in_progress')
+                ->whereIn('status', ['in_progress', 'stopped'])
+                ->whereTime('end_time', '<=', $now->format('H:i:s'))
                 ->chunk(100, function ($tasks) use ($now) {
                     foreach ($tasks as $task) {
-                        $endTime = $task->end_time->timestamp;
-                        if ($endTime < $now->timestamp) {
-                            $task->update(['status' => 'done']);
-                            CalculateTaskGpsMetricsJob::dispatch($task);
+                        if (! $now->greaterThan($task->getEndDateTime())) {
+                            continue;
                         }
+
+                        $task->update(['status' => 'done']);
+                        CalculateTaskGpsMetricsJob::dispatch($task);
                     }
                 });
 
             return Command::SUCCESS;
         } catch (\Exception $e) {
-            $this->error('Error checking ended tractor tasks: ' . $e->getMessage());
+            $this->error('Error checking ended tractor tasks: '.$e->getMessage());
             $this->error($e->getTraceAsString());
+
             return Command::FAILURE;
         }
     }

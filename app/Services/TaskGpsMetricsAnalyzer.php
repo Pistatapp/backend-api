@@ -21,7 +21,6 @@ use App\Models\Tractor;
 class TaskGpsMetricsAnalyzer
 {
     private array $data = [];
-    private array $results = [];
 
     private const MIN_STOPPAGE_DURATION_SECONDS = 60;
     private const CONSECUTIVE_MOVEMENTS_FOR_FIRST_MOVEMENT = 3;
@@ -414,7 +413,7 @@ class TaskGpsMetricsAnalyzer
             // Track device activation
             $activation = $this->trackDeviceActivation($activation, $pointData);
 
-            // Track first movement (within this segment and globally)
+            // Track first movement locally and globally (global persists across zone segments)
             $activation = $this->trackFirstMovement($activation, $pointData, $i);
             $globalActivation = $this->trackFirstMovement($globalActivation, $pointData, $i);
 
@@ -690,7 +689,7 @@ class TaskGpsMetricsAnalyzer
             ? (int)($metrics['movement_distance'] * self::SECONDS_PER_HOUR / $metrics['movement_duration'])
             : 0;
 
-        $this->results = [
+        return [
             'movement_distance_km' => round($metrics['movement_distance'], 1),
             'movement_distance_meters' => round($metrics['movement_distance'] * self::METERS_PER_KILOMETER, 2),
             'movement_duration_seconds' => $metrics['movement_duration'],
@@ -708,8 +707,6 @@ class TaskGpsMetricsAnalyzer
             'average_speed' => $averageSpeed,
             'has_zone_presence' => true,
         ];
-
-        return $this->results;
     }
 
     /**
@@ -720,8 +717,8 @@ class TaskGpsMetricsAnalyzer
         $dLat = $lat2Rad - $lat1Rad;
         $dLon = $lon2Rad - $lon1Rad;
 
-        $halfDelta = 0.5;
-        $a = sin($dLat * $halfDelta) ** 2 + cos($lat1Rad) * cos($lat2Rad) * sin($dLon * $halfDelta) ** 2;
+        // Haversine half-angle formula
+        $a = sin($dLat * 0.5) ** 2 + cos($lat1Rad) * cos($lat2Rad) * sin($dLon * 0.5) ** 2;
 
         return 2 * self::EARTH_RADIUS_KM * atan2(sqrt($a), sqrt(1 - $a));
     }
