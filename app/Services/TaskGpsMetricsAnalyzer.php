@@ -215,6 +215,11 @@ class TaskGpsMetricsAnalyzer
     }
 
     /**
+     * Normalize zone input from TractorTaskService::getTaskZones() or direct polygon rings.
+     *
+     * getTaskZones() returns a list of rings: [ ringA, ringB, ... ] where each ring is
+     * [ "lat,lon", ... ] or [ [lat, lon], ... ]. A single ring may also be passed directly.
+     *
      * @param array<int, mixed> $input
      * @return array<int, array<mixed>>
      */
@@ -224,25 +229,56 @@ class TaskGpsMetricsAnalyzer
             return [];
         }
 
-        if ($this->isMultiPolygonInput($input)) {
-            return array_values(array_filter($input));
+        if ($this->isPolygonRing($input)) {
+            return [$input];
         }
 
-        return [$input];
+        $polygons = [];
+        foreach ($input as $item) {
+            if (is_array($item) && $this->isPolygonRing($item)) {
+                $polygons[] = $item;
+            }
+        }
+
+        return $polygons;
+    }
+
+    /**
+     * @param mixed $vertex
+     */
+    private function isPolygonVertex(mixed $vertex): bool
+    {
+        if (is_string($vertex)) {
+            return str_contains($vertex, ',');
+        }
+
+        if (! is_array($vertex) || count($vertex) < self::MIN_COORDINATE_COUNT) {
+            return false;
+        }
+
+        if (is_array($vertex[0])) {
+            return false;
+        }
+
+        return is_numeric($vertex[0]) && is_numeric($vertex[1]);
     }
 
     /**
      * @param array<int, mixed> $input
      */
-    private function isMultiPolygonInput(array $input): bool
+    private function isPolygonRing(array $input): bool
     {
-        $first = $input[0] ?? null;
-        if (! is_array($first)) {
+        if ($input === []) {
             return false;
         }
-        $inner = $first[0] ?? null;
 
-        return is_array($inner) && isset($inner[0]) && is_numeric($inner[0]);
+        foreach ($input as $vertex) {
+            if (! $this->isPolygonVertex($vertex)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

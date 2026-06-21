@@ -823,6 +823,99 @@ class TaskGpsMetricsAnalyzerTest extends TestCase
     }
 
     /**
+     * getTaskZones() wraps each field ring in an outer list — analyzer must not double-wrap.
+     */
+    public function test_get_task_zones_wrapped_single_string_polygon_ring(): void
+    {
+        $baseTime = Carbon::now()->setTime(8, 0, 0);
+
+        $ring = [
+            '35.94381226988189,50.06009976643685',
+            '35.94690540840553,50.05982871316343',
+            '35.94649068708508,50.06900302348089',
+            '35.945701135668436,50.06913141713673',
+            '35.945308456893386,50.06890316174858',
+            '35.94383451601217,50.060574244825546',
+            '35.943761357694456,50.060124305929804',
+        ];
+
+        $gpsData = [
+            [
+                'date_time' => $baseTime->copy(),
+                'coordinate' => [35.9450, 50.0650],
+                'speed' => 10,
+                'status' => 1,
+            ],
+            [
+                'date_time' => $baseTime->copy()->addSeconds(10),
+                'coordinate' => [35.9455, 50.0655],
+                'speed' => 10,
+                'status' => 1,
+            ],
+        ];
+
+        $results = $this->getAnalyzerResults($gpsData, [$ring]);
+
+        $this->assertTrue($results['has_zone_presence']);
+        $this->assertEquals(10, $results['movement_duration_seconds']);
+        $this->assertGreaterThan(0, $results['movement_distance_km']);
+    }
+
+    /**
+     * Multiple task zones from getTaskZones() must each be evaluated independently.
+     */
+    public function test_get_task_zones_wrapped_multiple_string_polygon_rings(): void
+    {
+        $baseTime = Carbon::now()->setTime(8, 0, 0);
+
+        $zoneA = $this->createSquarePolygon(35.0, 51.0, 0.01);
+        $zoneB = $this->createSquarePolygon(36.0, 52.0, 0.01);
+
+        $zoneAStringRing = array_map(
+            fn (array $vertex) => $vertex[0] . ',' . $vertex[1],
+            $zoneA
+        );
+        $zoneBStringRing = array_map(
+            fn (array $vertex) => $vertex[0] . ',' . $vertex[1],
+            $zoneB
+        );
+
+        $gpsData = [
+            [
+                'date_time' => $baseTime->copy(),
+                'coordinate' => [35.0, 51.0],
+                'speed' => 10,
+                'status' => 1,
+            ],
+            [
+                'date_time' => $baseTime->copy()->addSeconds(10),
+                'coordinate' => [35.001, 51.001],
+                'speed' => 10,
+                'status' => 1,
+            ],
+            [
+                'date_time' => $baseTime->copy()->addSeconds(20),
+                'coordinate' => [36.0, 52.0],
+                'speed' => 10,
+                'status' => 1,
+            ],
+            [
+                'date_time' => $baseTime->copy()->addSeconds(30),
+                'coordinate' => [36.001, 52.001],
+                'speed' => 10,
+                'status' => 1,
+            ],
+        ];
+
+        $results = $this->getAnalyzerResults($gpsData, [$zoneAStringRing, $zoneBStringRing]);
+
+        $this->assertTrue($results['has_zone_presence']);
+        // Both zones count as in-zone; tractor moves through A then B without leaving task areas
+        $this->assertEquals(30, $results['movement_duration_seconds']);
+        $this->assertGreaterThan(0, $results['movement_distance_km']);
+    }
+
+    /**
      * Test with real-world task zone polygon format (string coordinates).
      * This tests the normalization of string format "lat,lon" coordinates.
      */
