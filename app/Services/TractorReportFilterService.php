@@ -2,13 +2,15 @@
 
 namespace App\Services;
 
+use App\Models\GpsMetricsCalculation;
 use App\Models\Tractor;
+use App\Models\TractorTask;
 use Illuminate\Support\Collection;
 use Morilog\Jalali\Jalalian;
 
 class TractorReportFilterService
 {
-    private $tasks;
+    private object $tasks;
 
     /**
      * Filter tractor reports by tractor and date/period.
@@ -34,8 +36,10 @@ class TractorReportFilterService
         // Get the filtered reports
         $this->tasks = $query->get();
 
-        // Map to report format
-        $reports = $this->mapReportsToArray($this->tasks);
+        // Map to report format (enrich daily aggregates with scheduled task data when needed)
+        $reports = $this->mapReportsToArray(
+            $this->prepareReportsForMapping($this->tasks, $tractor)
+        );
         $accumulated = $this->calculateAccumulatedValues($this->tasks);
         // Get raw work duration for calculations
         $rawWorkDuration = $this->tasks->sum('work_duration');
@@ -178,14 +182,97 @@ class TractorReportFilterService
     }
 
     /**
+     * Prepare GPS metric rows for mapping.
+     *
+     * Daily aggregate rows (tractor_task_id = null) do not have a linked tractor task,
+     * so mapReportsToArray cannot include operation info unless we attach scheduled tasks.
+     * When per-task metrics exist for the same day, daily aggregates are dropped to avoid
+     * duplicate rows that omit task details.
+     *
+     * @param Collection<int, GpsMetricsCalculation> $reports
+     * @return Collection<int, GpsMetricsCalculation>
+     */
+    private function prepareReportsForMapping(Collection $reports, Tractor $tractor): Collection
+    {
+        $datesWithTaskMetrics = $reports
+            ->filter(fn (GpsMetricsCalculation $report) => $report->tractor_task_id !== null)
+            ->map(fn (GpsMetricsCalculation $report) => $report->date->toDateString())
+            ->unique();
+
+        $filtered = $reports->reject(function (GpsMetricsCalculation $report) use ($datesWithTaskMetrics) {
+            return $report->tractor_task_id === null
+                && $datesWithTaskMetrics->contains($report->date->toDateString());
+        });
+
+        $dailyOnlyDates = $filtered
+            ->filter(fn (GpsMetricsCalculation $report) => $report->tractor_task_id === null)
+            ->map(fn (GpsMetricsCalculation $report) => $report->date->toDateString())
+            ->unique()
+            ->values();
+
+        if ($dailyOnlyDates->isEmpty()) {
+            return $filtered->values();
+        }
+
+        $tasksByDate = TractorTask::query()
+            ->where('tractor_id', $tractor->id)
+            ->where(function ($query) use ($dailyOnlyDates) {
+                foreach ($dailyOnlyDates as $date) {
+                    $query->orWhereDate('date', $date);
+                }
+            })
+            ->with(['operation', 'taskableItems.taskable'])
+            ->orderBy('start_time')
+            ->get()
+            ->groupBy(fn (TractorTask $task) => $task->date->toDateString());
+
+        $prepared = collect();
+
+        foreach ($filtered as $report) {
+            if ($report->tractor_task_id !== null) {
+                $prepared->push($report);
+
+                continue;
+            }
+
+            $tasksForDate = $tasksByDate->get($report->date->toDateString());
+
+            if (! $tasksForDate || $tasksForDate->isEmpty()) {
+                $prepared->push($report);
+
+                continue;
+            }
+
+            foreach ($tasksForDate as $task) {
+                $reportWithTask = $this->cloneMetricsReportWithTask($report, $task);
+                $prepared->push($reportWithTask);
+            }
+        }
+
+        return $prepared->values();
+    }
+
+    /**
+     * Clone a metrics row so each scheduled task can be mapped without mutating the original.
+     */
+    private function cloneMetricsReportWithTask(GpsMetricsCalculation $report, TractorTask $task): GpsMetricsCalculation
+    {
+        $clone = $report->newInstance($report->getAttributes());
+        $clone->exists = $report->exists;
+        $clone->setRelation('tractorTask', $task);
+
+        return $clone;
+    }
+
+    /**
      * Map GpsMetricsCalculations to report format.
      *
-     * @param Collection $reports
-     * @return Collection
+     * @param Collection<int, GpsMetricsCalculation> $reports
+     * @return Collection<int, array<string, mixed>>
      */
     private function mapReportsToArray(Collection $reports): Collection
     {
-        return $reports->map(function ($report) {
+        return $reports->map(function (GpsMetricsCalculation $report) {
             $task = $report->tractorTask;
 
             $result = [
@@ -197,14 +284,15 @@ class TractorReportFilterService
                 'stoppage_count' => (int) ($report->stoppage_count ?? 0),
             ];
 
-            // If there's a tractor task, wrap task data into "task" field
             if ($task) {
+                $task->loadMissing(['operation', 'taskableItems.taskable']);
+
                 $result['task'] = [
                     'operation' => $task->operation ? [
                         'id' => $task->operation->id,
                         'name' => $task->operation->name,
                     ] : null,
-                    'taskables' => $task->relationLoaded('taskableItems') ? $task->taskableItems->map(function ($item) {
+                    'taskables' => $task->taskableItems->map(function ($item) {
                         $m = $item->taskable;
 
                         return $m ? [
@@ -212,7 +300,7 @@ class TractorReportFilterService
                             'name' => $m->name,
                             'type' => class_basename($item->taskable_type),
                         ] : null;
-                    })->filter()->values() : [],
+                    })->filter()->values(),
                     'consumed_water' => $this->formatVolume(data_get($task->data, 'consumed_water', 0)),
                     'consumed_fertilizer' => $this->formatWeight(data_get($task->data, 'consumed_fertilizer', 0)),
                     'consumed_poison' => $this->formatVolume(data_get($task->data, 'consumed_poison', 0)),
