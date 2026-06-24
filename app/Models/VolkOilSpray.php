@@ -22,8 +22,23 @@ class VolkOilSpray extends Model
         'min_temp',
         'max_temp',
         'cold_requirement',
+        'cold_requirement_checked_at',
         'created_by'
     ];
+
+    /**
+     * The attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'start_dt' => 'date',
+            'end_dt' => 'date',
+            'cold_requirement_checked_at' => 'datetime',
+        ];
+    }
 
     /**
      * The attributes with default values.

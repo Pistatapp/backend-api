@@ -27,7 +27,7 @@ class CheckTractorServiceAlerts extends Command
     public function handle(): int
     {
         try {
-            CheckTractorServiceAlertsJob::dispatchSync();
+            CheckTractorServiceAlertsJob::dispatch();
             $this->info('Tractor service alerts check completed successfully.');
 
             return Command::SUCCESS;

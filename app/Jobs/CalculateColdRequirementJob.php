@@ -32,6 +32,8 @@ class CalculateColdRequirementJob implements ShouldQueue
         if ($coldRequirement < $this->volkOilSpray->cold_requirement) {
             $this->volkOilSpray->user->notify(new VolkOilSprayNotification($this->volkOilSpray, $coldRequirement));
         }
+
+        $this->volkOilSpray->update(['cold_requirement_checked_at' => now()]);
     }
 
     /**

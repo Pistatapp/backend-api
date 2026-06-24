@@ -5,7 +5,6 @@ namespace App\Console;
 use App\Jobs\CheckFrostConditionsJob;
 use App\Jobs\CheckOilSprayConditionsJob;
 use App\Jobs\CheckRadiativeFrostConditionsJob;
-use App\Jobs\CalculateTractorEfficiencyChartJob;
 use App\Jobs\GenerateDailyAttendanceSummaryJob;
 use App\Jobs\CloseAttendanceSessionsJob;
 use App\Jobs\CheckPestDegreeDayConditionsJob;
@@ -23,48 +22,68 @@ class Kernel extends ConsoleKernel
     {
         $schedule->command('app:change-farm-plan-status')
             ->everyMinute()
-            ->withoutOverlapping();
+            ->withoutOverlapping(5)
+            ->onOneServer();
 
         $schedule->command('app:change-irrigation-status')
             ->everyMinute()
-            ->withoutOverlapping();
+            ->withoutOverlapping(5)
+            ->onOneServer();
 
-        // Check for tractor stoppage warnings every 5 minutes
         $schedule->command('tractor:check-stoppage-warnings')
             ->everyFiveMinutes()
-            ->withoutOverlapping();
+            ->withoutOverlapping(10)
+            ->onOneServer();
 
-        // Check for tractor activity status every minute
         $schedule->command('tractor:check-activity-status')
             ->everyMinute()
-            ->withoutOverlapping();
+            ->withoutOverlapping(5)
+            ->onOneServer();
 
-        // Update ended tractor tasks every minute
-        $schedule->command('tractor:update-ended-tasks')->everyMinute();
+        $schedule->command('tractor:update-ended-tasks')
+            ->everyMinute()
+            ->withoutOverlapping(10)
+            ->onOneServer();
 
-        // Check for inactive tractors daily at 8 AM
-        $schedule->command('tractors:check-inactivity')->dailyAt('08:00');
+        $schedule->command('tractors:check-inactivity')
+            ->dailyAt('08:00')
+            ->withoutOverlapping(30)
+            ->onOneServer();
 
-        // Check for frost conditions daily at 6 AM
-        $schedule->job(new CheckFrostConditionsJob)->dailyAt('06:00');
+        $schedule->job(new CheckFrostConditionsJob)
+            ->dailyAt('06:00')
+            ->withoutOverlapping(60)
+            ->onOneServer();
 
-        // Check for radiative frost conditions daily at 6 PM
-        $schedule->job(new CheckRadiativeFrostConditionsJob)->dailyAt('18:00');
+        $schedule->job(new CheckRadiativeFrostConditionsJob)
+            ->dailyAt('18:00')
+            ->withoutOverlapping(60)
+            ->onOneServer();
 
-        // Check for oil spray conditions daily at midnight
-        $schedule->job(new CheckOilSprayConditionsJob)->dailyAt('00:00');
+        $schedule->job(new CheckOilSprayConditionsJob)
+            ->dailyAt('00:00')
+            ->withoutOverlapping(120)
+            ->onOneServer();
 
-        // Check for pest degree day conditions daily at 05:00 AM
-        $schedule->job(new CheckPestDegreeDayConditionsJob)->dailyAt('05:00');
+        $schedule->job(new CheckPestDegreeDayConditionsJob)
+            ->dailyAt('05:00')
+            ->withoutOverlapping(60)
+            ->onOneServer();
 
-        // Check for crop type degree day conditions daily at 05:30 AM
-        $schedule->job(new CheckCropTypeDegreeDayConditionsJob)->dailyAt('05:30');
+        $schedule->job(new CheckCropTypeDegreeDayConditionsJob)
+            ->dailyAt('05:30')
+            ->withoutOverlapping(60)
+            ->onOneServer();
 
-        // Generate daily attendance summary at midnight
-        $schedule->job(new GenerateDailyAttendanceSummaryJob(Carbon::yesterday()))->dailyAt('00:00');
+        $schedule->job(new GenerateDailyAttendanceSummaryJob(Carbon::yesterday()))
+            ->dailyAt('00:15')
+            ->withoutOverlapping(120)
+            ->onOneServer();
 
-        // Close stale attendance sessions every hour
-        $schedule->job(new CloseAttendanceSessionsJob)->hourly();
+        $schedule->job(new CloseAttendanceSessionsJob)
+            ->hourly()
+            ->withoutOverlapping(30)
+            ->onOneServer();
     }
 
     /**

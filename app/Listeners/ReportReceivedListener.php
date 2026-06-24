@@ -5,9 +5,17 @@ namespace App\Listeners;
 use App\Events\ReportReceived;
 use App\Services\TractorTaskService;
 use Carbon\Carbon;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Queue\InteractsWithQueue;
 
-class ReportReceivedListener
+class ReportReceivedListener implements ShouldQueue
 {
+    use InteractsWithQueue;
+
+    public string $queue = 'gps-processing';
+
+    public int $tries = 3;
+
     /**
      * Create the event listener.
      */
