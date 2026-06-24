@@ -34,9 +34,10 @@ class UpdateEndedTractorTasks extends Command
             $now = Carbon::now();
             $today = $now->toDateString();
 
-            TractorTask::whereDate('date', $today)
+            TractorTask::query()
+                ->where('date', $today)
                 ->whereIn('status', ['in_progress', 'stopped'])
-                ->whereTime('end_time', '<=', $now->format('H:i:s'))
+                ->where('end_time', '<=', $now->format('H:i:s'))
                 ->chunk(100, function ($tasks) use ($now) {
                     foreach ($tasks as $task) {
                         if (! $now->greaterThan($task->getEndDateTime())) {

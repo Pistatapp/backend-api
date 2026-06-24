@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 use App\Models\VolkOilSpray;
 use App\Models\Tractor;
+use App\Models\GpsMetricsCalculation;
 use App\Jobs\CalculateColdRequirementJob;
 use App\Jobs\CalculateFrostbiteRiskJob;
 use App\Jobs\CalculateGpsMetricsJob;
@@ -26,30 +27,54 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::call(function () {
-    $volkOilSprays = VolkOilSpray::where('end_dt', '<', today())->get();
-
-    foreach ($volkOilSprays as $spray) {
-        CalculateColdRequirementJob::dispatch($spray);
-    }
-})->daily();
+    VolkOilSpray::query()
+        ->whereDate('end_dt', today()->subDay())
+        ->whereNull('cold_requirement_checked_at')
+        ->chunkById(100, function ($sprays) {
+            foreach ($sprays as $spray) {
+                CalculateColdRequirementJob::dispatch($spray);
+            }
+        });
+})->name('volk-oil-spray-cold-requirement')
+    ->dailyAt('00:00')
+    ->withoutOverlapping(120)
+    ->onOneServer();
 
 Schedule::call(function () {
     CalculateFrostbiteRiskJob::dispatch();
-})->daily();
+})->name('frostbite-risk-daily')
+    ->dailyAt('00:05')
+    ->withoutOverlapping(60)
+    ->onOneServer();
 
 Schedule::call(function () {
     $today = Carbon::today();
 
-    // Use chunking to handle large datasets and avoid memory issues
-    Tractor::chunk(100, function ($tractors) use ($today) {
+    Tractor::chunkById(100, function ($tractors) use ($today) {
         foreach ($tractors as $tractor) {
-            // Calculate metrics for the entire day
-            // The job will check if metrics already exist
-            CalculateGpsMetricsJob::dispatch($tractor, $today)->delay(now()->addSeconds(5));
+            if (GpsMetricsCalculation::query()
+                ->where('tractor_id', $tractor->id)
+                ->whereDate('date', $today)
+                ->whereNull('tractor_task_id')
+                ->exists()) {
+                continue;
+            }
+
+            CalculateGpsMetricsJob::dispatch($tractor, $today)
+                ->delay(now()->addSeconds($tractor->id % 300));
         }
     });
-})->dailyAt('23:00:00');
+})->name('daily-gps-metrics')
+    ->dailyAt('23:00')
+    ->withoutOverlapping(180)
+    ->onOneServer();
 
-Schedule::command('tractor:check-service-alerts')->daily();
+Schedule::command('tractor:check-service-alerts')
+    ->dailyAt('00:10')
+    ->withoutOverlapping(120)
+    ->onOneServer();
 
-Schedule::command('telescope:prune --hours=24')->daily();
+Schedule::command('telescope:prune --hours=24')
+    ->dailyAt('00:30')
+    ->withoutOverlapping()
+    ->onOneServer();

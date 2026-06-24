@@ -1,0 +1,8 @@
+# Laravel scheduler — single instance via flock (Wave 1 containment).
+# Install: crontab -u api deploy/cron/laravel-scheduler.cron
+#
+# Exactly ONE line for schedule:run. Duplicate entries double scheduler load.
+* * * * * flock -n /tmp/laravel-schedule.lock cd /home/api/public_html && php artisan schedule:run >> /dev/null 2>&1
+
+# Optional: queue/scheduler health checks every 5 minutes (Wave 4 monitoring)
+# */5 * * * * /home/api/public_html/deploy/scripts/check-queue-alerts.sh /home/api/public_html >> /home/api/public_html/storage/logs/queue-alerts.log 2>&1
