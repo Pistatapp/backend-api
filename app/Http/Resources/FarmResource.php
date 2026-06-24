@@ -31,6 +31,14 @@ class FarmResource extends JsonResource
             'is_working_environment' => $this->isWorkingEnvironment(),
             'attendance_tracking_enabled' => $this->attendanceTrackingEnabledForUser($request),
             'created_at' => jdate($this->created_at)->format('Y/m/d'),
+            'admins' => $this->whenLoaded('admins', function () {
+                return $this->admins->map(function ($admin) {
+                    return [
+                        'id' => $admin->id,
+                        'name' => $admin->name,
+                    ];
+                });
+            }),
             'users' => $this->whenLoaded('users', function () {
                 return $this->users->map(function ($user) {
                     $role = $user->pivot->role;

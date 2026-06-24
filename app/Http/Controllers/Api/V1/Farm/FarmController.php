@@ -26,10 +26,13 @@ class FarmController extends Controller
     public function index(Request $request)
     {
         if ($request->user()->hasRole('root')) {
-            $farms = Farm::withCount(['trees', 'fields', 'labours', 'tractors', 'plans'])->get();
+            $farms = Farm::withCount(['trees', 'fields', 'labours', 'tractors', 'plans'])
+                ->with('admins')
+                ->get();
         } else {
             $farms = $request->user()->farms()
                 ->withCount(['trees', 'fields', 'labours', 'tractors', 'plans'])
+                ->with('admins')
                 ->get();
         }
 
