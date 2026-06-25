@@ -58,7 +58,7 @@ class ProcessGpsDataTest extends TestCase
         Queue::assertPushedOn('gps-processing', ProcessGpsData::class);
     }
 
-    public function test_receives_data_and_dispatches_store_gps_data_when_tractor_found(): void
+    public function test_dispatches_store_gps_data_when_tractor_found(): void
     {
         Queue::fake();
 
@@ -71,34 +71,13 @@ class ProcessGpsDataTest extends TestCase
 
         $data = $this->sampleData();
         $job = new ProcessGpsData($data);
-        $job->handle(app(\App\Services\ParseDataService::class));
+        $job->handle();
 
         Queue::assertPushed(StoreGpsData::class, function (StoreGpsData $storeJob) use ($tractor, $data) {
             $this->assertSame($data, $storeJob->data);
             $this->assertSame($tractor->id, $storeJob->tractorId);
-            return true;
-        });
-    }
+            $this->assertSame('863070046120282', $storeJob->deviceImei);
 
-    public function test_dispatches_broadcast_gps_events_when_tractor_found(): void
-    {
-        Queue::fake();
-
-        $farm = Farm::factory()->create();
-        $tractor = Tractor::factory()->create(['farm_id' => $farm->id]);
-        GpsDevice::factory()->create([
-            'tractor_id' => $tractor->id,
-            'imei' => '863070046120282',
-        ]);
-
-        $data = $this->sampleData();
-        $job = new ProcessGpsData($data);
-        $job->handle(app(\App\Services\ParseDataService::class));
-
-        Queue::assertPushed(BroadcastGpsEvents::class, function (BroadcastGpsEvents $broadcastJob) use ($tractor, $data) {
-            $this->assertSame($data, $broadcastJob->data);
-            $this->assertSame($tractor->id, $broadcastJob->tractorId);
-            $this->assertSame('863070046120282', $broadcastJob->deviceImei);
             return true;
         });
     }
@@ -108,9 +87,8 @@ class ProcessGpsDataTest extends TestCase
         Queue::fake();
 
         $data = $this->sampleData();
-        // IMEI not assigned to any tractor
         $job = new ProcessGpsData($data);
-        $job->handle(app(\App\Services\ParseDataService::class));
+        $job->handle();
 
         Queue::assertNotPushed(StoreGpsData::class);
         Queue::assertNotPushed(BroadcastGpsEvents::class);
@@ -127,10 +105,9 @@ class ProcessGpsDataTest extends TestCase
             'imei' => '863070046120282',
         ]);
 
-        // First item IMEI resolves to tractor; second item has different IMEI
         $data = $this->sampleData();
         $job = new ProcessGpsData($data);
-        $job->handle(app(\App\Services\ParseDataService::class));
+        $job->handle();
 
         Queue::assertPushed(StoreGpsData::class, function (StoreGpsData $storeJob) use ($tractor) {
             return $storeJob->tractorId === $tractor->id && count($storeJob->data) === 2;

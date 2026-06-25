@@ -2,8 +2,6 @@
 
 namespace App\Jobs;
 
-use App\Events\ReportReceived;
-use App\Events\TractorStatus;
 use App\Models\GpsDevice;
 use App\Models\Tractor;
 use Illuminate\Bus\Queueable;
@@ -13,8 +11,6 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\File;
 
 class ProcessGpsData implements ShouldQueue
 {
@@ -24,7 +20,7 @@ class ProcessGpsData implements ShouldQueue
 
     public int $maxExceptions = 2;
 
-    public int $timeout = 60;
+    public int $timeout = 30;
 
     public array $backoff = [2, 5, 10];
 
@@ -35,13 +31,11 @@ class ProcessGpsData implements ShouldQueue
     }
 
     /**
-     * Get the middleware the job should pass through.
-     *
      * @return array<int, object>
      */
     public function middleware(): array
     {
-        return [(new WithoutOverlapping($this->data[0]['imei']))->dontRelease()->expireAfter(30)];
+        return [(new WithoutOverlapping($this->data[0]['imei']))->dontRelease()->expireAfter(90)];
     }
 
     public function handle(): void
@@ -49,76 +43,13 @@ class ProcessGpsData implements ShouldQueue
         $deviceImei = $this->data[0]['imei'];
         $tractor = $this->resolveTractor($deviceImei);
 
-        if (!$tractor) {
+        if (! $tractor) {
             return;
         }
 
-        $lastStatus = end($this->data)['status'];
-
-        $records = $this->prepareBatch($this->data, $tractor);
-
-        DB::connection('mysql_gps')->transaction(function () use ($records) {
-            foreach (array_chunk($records, 1000) as $chunk) {
-                DB::table('gps_data')->insert($chunk);
-            }
-        });
-
-        $this->writeRawGpsData();
-
-        $device = $tractor->gpsDevice;
-        event(new TractorStatus($tractor, $lastStatus));
-        event(new ReportReceived($this->data, $device));
+        StoreGpsData::dispatch($this->data, $tractor->id, $deviceImei);
     }
 
-    /**
-     * Prepare the batch for insertion.
-     *
-     * @param array $data The batch of data to prepare.
-     * @param Tractor $tractor The tractor to prepare the batch for.
-     * @return array The prepared batch.
-     */
-    private function prepareBatch(array $data, Tractor $tractor): array
-    {
-        $tractorId = $tractor->id;
-
-        return array_map(function (array $item) use ($tractorId) {
-            return array_merge($item, [
-                'tractor_id' => $tractorId,
-                'coordinate' => json_encode($item['coordinate']),
-                'speed' => $item['speed'],
-                'status' => $item['status'],
-                'directions' => json_encode($item['directions']),
-                'imei' => $item['imei'],
-                'date_time' => $item['date_time'],
-            ]);
-        }, $data);
-    }
-
-    /**
-     * Append raw GPS data to daily text files grouped by device IMEI.
-     */
-    private function writeRawGpsData(): void
-    {
-        $linesByFile = [];
-
-        foreach ($this->data as $item) {
-            $date = substr($item['date_time'], 0, 10);
-            $path = storage_path("logs/gps-raw/{$item['imei']}/{$date}.txt");
-            $linesByFile[$path][] = '[' . now()->toIso8601String() . '] ' . json_encode([$item]);
-        }
-
-        foreach ($linesByFile as $path => $lines) {
-            File::ensureDirectoryExists(dirname($path));
-            File::append($path, implode(PHP_EOL, $lines) . PHP_EOL);
-        }
-    }
-
-    /**
-     * Resolve the tractor by device IMEI.
-     *
-     * @param string $imei The device IMEI.
-     * @return Tractor|null The tractor.
-     */
     private function resolveTractor(string $imei): ?Tractor
     {
         return Cache::remember("tractor_by_device_imei_{$imei}", 3600, function () use ($imei) {
@@ -126,6 +57,7 @@ class ProcessGpsData implements ShouldQueue
 
             if ($device && $device->tractor) {
                 $device->tractor->setRelation('gpsDevice', $device);
+
                 return $device->tractor;
             }
 

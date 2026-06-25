@@ -1,0 +1,3 @@
+# Laravel scheduler — single entry with flock to prevent overlapping schedule:run processes.
+# See: https://laravel.com/docs/scheduling#running-the-scheduler
+* * * * * cd /home/api/public_html && flock -n /tmp/laravel-schedule.lock php artisan schedule:run >> /dev/null 2>&1
