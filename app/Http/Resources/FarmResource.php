@@ -35,7 +35,7 @@ class FarmResource extends JsonResource
                 return $this->admins->map(function ($admin) {
                     return [
                         'id' => $admin->id,
-                        'name' => $admin->name,
+                        'name' => $admin->username,
                     ];
                 });
             }),
