@@ -80,7 +80,16 @@ class LoadEstimationController extends Controller
      */
     public function estimate(Request $request, Farm $farm)
     {
-        $this->validateEstimateRequest($request);
+        $request->validate([
+            'field_id' => 'required|integer|exists:fields,id',
+            'average_bud_count' => 'required|integer|min:0',
+            'tree_count' => 'required|integer|min:0',
+            'cluster_weight' => 'required|array|size:4',
+            'cluster_weight.excellent' => 'required|numeric|min:0',
+            'cluster_weight.good' => 'required|numeric|min:0',
+            'cluster_weight.normal' => 'required|numeric|min:0',
+            'cluster_weight.bad' => 'required|numeric|min:0',
+        ]);
 
         $field = Field::findOrFail($request->field_id);
         $cropType = $field->cropType;
@@ -103,25 +112,5 @@ class LoadEstimationController extends Controller
         );
 
         return response()->json(['data' => $estimatedYields]);
-    }
-
-    /**
-     * Validate the estimate request.
-     *
-     * @param \Illuminate\Http\Request $request
-     * @return void
-     */
-    private function validateEstimateRequest(Request $request)
-    {
-        $request->validate([
-            'field_id' => 'required|integer|exists:fields,id',
-            'average_bud_count' => 'required|integer|min:0',
-            'tree_count' => 'required|integer|min:0',
-            'cluster_weight' => 'required|array|size:4',
-            'cluster_weight.excellent' => 'required|numeric|min:0',
-            'cluster_weight.good' => 'required|numeric|min:0',
-            'cluster_weight.normal' => 'required|numeric|min:0',
-            'cluster_weight.bad' => 'required|numeric|min:0',
-        ]);
     }
 }
