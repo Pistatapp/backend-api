@@ -84,7 +84,7 @@ return [
             'view' => 'scramble::scalar',
             'cdn' => 'https://cdn.jsdelivr.net/npm/@scalar/api-reference',
             'theme' => 'laravel',
-            'proxyUrl' => 'https://proxy.scalar.com',
+            'proxyUrl' => env('SCRAMBLE_PROXY_URL'),
             'darkMode' => false,
             'showDeveloperTools' => 'never',
             'agent' => ['disabled' => true],
