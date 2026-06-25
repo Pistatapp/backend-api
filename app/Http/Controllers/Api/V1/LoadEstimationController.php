@@ -117,7 +117,11 @@ class LoadEstimationController extends Controller
             'field_id' => 'required|integer|exists:fields,id',
             'average_bud_count' => 'required|integer|min:0',
             'tree_count' => 'required|integer|min:0',
-            'cluster_weight' => 'nullable|numeric|min:0',
+            'cluster_weight' => 'required|array|size:4',
+            'cluster_weight.excellent' => 'required|numeric|min:0',
+            'cluster_weight.good' => 'required|numeric|min:0',
+            'cluster_weight.normal' => 'required|numeric|min:0',
+            'cluster_weight.bad' => 'required|numeric|min:0',
         ]);
     }
 }

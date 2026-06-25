@@ -27,14 +27,14 @@ class LoadEstimationService
      * @param int $averageBudCount
      * @param int $treeCount
      * @param array $loadEstimationTableRows
-     * @param float|null $clusterWeightOverride
+     * @param array<string, float>|null $clusterWeightOverrides
      * @return array
      */
     public function calculateEstimatedYields(
         int $averageBudCount,
         int $treeCount,
         array $loadEstimationTableRows,
-        ?float $clusterWeightOverride = null
+        ?array $clusterWeightOverrides = null
     ): array
     {
         $conditions = ['excellent', 'good', 'normal', 'bad'];
@@ -43,6 +43,7 @@ class LoadEstimationService
         foreach ($conditions as $condition) {
             foreach ($loadEstimationTableRows as $row) {
                 if ($row['condition'] === $condition) {
+                    $clusterWeightOverride = ($clusterWeightOverrides ?? [])[$condition] ?? null;
                     $estimatedYields[$condition] = $this->calculateEstimatedYield(
                         $averageBudCount,
                         $treeCount,
