@@ -96,4 +96,33 @@ class GpsReportsEndpointTest extends TestCase
             return $job->data === [];
         });
     }
+
+    public function test_gps_reports_endpoint_is_not_rate_limited_for_exempt_ip(): void
+    {
+        Queue::fake();
+
+        for ($i = 0; $i < 61; $i++) {
+            $response = $this->withServerVariables(['REMOTE_ADDR' => '94.101.187.206'])
+                ->postJson('/api/gps/reports', ['data' => []]);
+
+            $response->assertStatus(200);
+        }
+    }
+
+    public function test_gps_reports_endpoint_is_rate_limited_for_other_ips(): void
+    {
+        Queue::fake();
+
+        for ($i = 0; $i < 60; $i++) {
+            $response = $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.10'])
+                ->postJson('/api/gps/reports', ['data' => []]);
+
+            $response->assertStatus(200);
+        }
+
+        $response = $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.10'])
+            ->postJson('/api/gps/reports', ['data' => []]);
+
+        $response->assertStatus(429);
+    }
 }

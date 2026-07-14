@@ -54,4 +54,11 @@ return [
         'currency' => env('ZARINPAL_CURRENCY', 'IRT'), // IRT for Toman, IRR for Rial
     ],
 
+    'gps_reports' => [
+        'rate_limit_exempt_ips' => array_filter(array_map(
+            'trim',
+            explode(',', env('GPS_REPORTS_RATE_LIMIT_EXEMPT_IPS', '94.101.187.206'))
+        )),
+    ],
+
 ];
