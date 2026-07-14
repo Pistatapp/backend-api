@@ -8,11 +8,11 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
-class ProcessGpsData implements ShouldQueue
+class IngestGpsData implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
@@ -20,7 +20,7 @@ class ProcessGpsData implements ShouldQueue
 
     public int $maxExceptions = 2;
 
-    public int $timeout = 30;
+    public int $timeout = 60;
 
     public array $backoff = [2, 5, 10];
 
@@ -28,14 +28,6 @@ class ProcessGpsData implements ShouldQueue
         public array $data,
     ) {
         $this->onQueue('gps-processing');
-    }
-
-    /**
-     * @return array<int, object>
-     */
-    public function middleware(): array
-    {
-        return [(new WithoutOverlapping($this->data[0]['imei']))->dontRelease()->expireAfter(90)];
     }
 
     public function handle(): void
@@ -47,7 +39,15 @@ class ProcessGpsData implements ShouldQueue
             return;
         }
 
-        StoreGpsData::dispatch($this->data, $tractor->id, $deviceImei);
+        $records = $this->prepareBatch($this->data, $tractor->id);
+
+        DB::connection('mysql_gps')->transaction(function () use ($records) {
+            foreach (array_chunk($records, 1000) as $chunk) {
+                DB::connection('mysql_gps')->table('gps_data')->insertOrIgnore($chunk);
+            }
+        });
+
+        BroadcastGpsEvents::dispatch($this->data, $tractor->id, $deviceImei);
     }
 
     private function resolveTractor(string $imei): ?Tractor
@@ -63,5 +63,23 @@ class ProcessGpsData implements ShouldQueue
 
             return null;
         });
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function prepareBatch(array $data, int $tractorId): array
+    {
+        return array_map(function (array $item) use ($tractorId) {
+            return [
+                'tractor_id' => $tractorId,
+                'coordinate' => json_encode($item['coordinate']),
+                'speed' => $item['speed'],
+                'status' => $item['status'],
+                'directions' => json_encode($item['directions']),
+                'imei' => $item['imei'],
+                'date_time' => $item['date_time'],
+            ];
+        }, $data);
     }
 }

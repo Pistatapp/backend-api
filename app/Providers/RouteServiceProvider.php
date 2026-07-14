@@ -25,17 +25,17 @@ class RouteServiceProvider extends ServiceProvider
     public function boot(): void
     {
         RateLimiter::for('api', function (Request $request) {
-            if (
-                $request->is('api/gps/reports')
-                && in_array($request->ip(), config('services.gps_reports.rate_limit_exempt_ips', []), true)
-            ) {
-                return Limit::none();
-            }
-
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
         });
 
         $this->routes(function () {
+            Route::middleware('gps.ingest')
+                ->prefix('api')
+                ->group(function () {
+                    Route::post('/gps/reports', \App\Http\Controllers\Api\V1\Tractor\GpsReportController::class)
+                        ->name('gps.reports');
+                });
+
             Route::middleware('api')
                 ->prefix('api')
                 ->group(base_path('routes/api.php'));

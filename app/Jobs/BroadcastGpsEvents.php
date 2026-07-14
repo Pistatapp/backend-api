@@ -26,7 +26,7 @@ class BroadcastGpsEvents implements ShouldQueue
         public string $deviceImei,
     ) {
         $this->onConnection('redis');
-        $this->onQueue('default');
+        $this->onQueue('gps-broadcast');
     }
 
     public function handle(): void
@@ -46,9 +46,11 @@ class BroadcastGpsEvents implements ShouldQueue
         $tractor->setRelation('gpsDevice', $device);
         $device->setRelation('tractor', $tractor);
 
-        $lastStatus = (int) end($this->data)['status'];
+        $lastPoint = end($this->data);
+        $lastStatus = (int) $lastPoint['status'];
 
+        UpdateTractorStatusJob::dispatch($this->tractorId, $lastStatus);
         event(new TractorStatus($tractor, $lastStatus));
-        event(new ReportReceived($this->data, $device));
+        event(new ReportReceived([$lastPoint], $device));
     }
 }

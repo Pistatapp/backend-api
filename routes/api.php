@@ -13,7 +13,6 @@ use App\Http\Controllers\Api\V1\Farm\PumpController;
 use App\Http\Controllers\Api\V1\Farm\ValveController;
 use App\Http\Controllers\Api\V1\Management\TeamController;
 use App\Http\Controllers\Api\V1\Farm\DriverController;
-use App\Http\Controllers\Api\V1\Tractor\GpsReportController;
 use App\Http\Controllers\Api\V1\Tractor\TractorController;
 use App\Http\Controllers\Api\V1\Management\LabourController;
 use App\Http\Controllers\Api\V1\Farm\AttachmentController;
@@ -248,7 +247,6 @@ Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
     Broadcast::routes();
 });
 
-Route::post('/gps/reports', GpsReportController::class)->name('gps.reports');
 Route::get('app-releases/{appRelease}/download', [AppReleaseController::class, 'download']);
 
 Route::middleware(['auth:sanctum', 'ensure.username'])->prefix('v1')->group(function () {

@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Jobs\StoreGpsData;
+use App\Jobs\IngestGpsData;
 use App\Models\Farm;
 use App\Models\GpsDevice;
 use App\Models\Tractor;
@@ -180,15 +180,15 @@ class GpsReadWriteSeparationTest extends TestCase
     }
 
     /**
-     * Test StoreGpsData job uses write connection with optimized settings.
+     * Test IngestGpsData job uses write connection with optimized settings.
      */
-    public function test_store_gps_data_job_uses_write_connection_with_optimized_settings(): void
+    public function test_ingest_gps_data_job_uses_write_connection_with_optimized_settings(): void
     {
         $this->skipIfMysqlNotAvailable();
         $this->setUpTractor();
 
         $data = $this->createGpsDataArray(10);
-        $job = new StoreGpsData($data, $this->tractor->id);
+        $job = new IngestGpsData($data);
         $job->handle();
 
         $writeConnection = DB::connection('mysql_gps');
@@ -303,7 +303,7 @@ class GpsReadWriteSeparationTest extends TestCase
     }
 
     /**
-     * Helper to create GPS data array for StoreGpsData job.
+     * Helper to create GPS data array for IngestGpsData job.
      */
     private function createGpsDataArray(int $count): array
     {

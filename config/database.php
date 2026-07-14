@@ -82,7 +82,7 @@ return [
             'engine' => null,
             'pool' => [
                 'min_connections' => env('DB_GPS_POOL_MIN', 2),
-                'max_connections' => env('DB_GPS_POOL_MAX', 20),
+                'max_connections' => env('DB_GPS_POOL_MAX', 64),
             ],
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),

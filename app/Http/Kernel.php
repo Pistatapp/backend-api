@@ -47,6 +47,11 @@ class Kernel extends HttpKernel
             \App\Http\Middleware\ConvertPersianNumbersToEnglish::class,
             \App\Http\Middleware\EnsureUserIsActive::class,
         ],
+
+        'gps.ingest' => [
+            \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            \App\Http\Middleware\EnsureGpsIngestAllowed::class,
+        ],
     ];
 
     /**

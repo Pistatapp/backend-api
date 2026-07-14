@@ -12,7 +12,7 @@ class ReportReceivedListener implements ShouldQueue, ShouldQueueAfterCommit
 {
     public string $connection = 'redis';
 
-    public string $queue = 'default';
+    public string $queue = 'gps-side-effects';
 
     public int $tries = 3;
 
