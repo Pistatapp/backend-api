@@ -61,4 +61,9 @@ return [
         )),
     ],
 
+    'gps_ingest' => [
+        'driver' => env('GPS_INGEST_DRIVER', 'laravel'),
+        'go_url' => env('GPS_INGEST_GO_URL', 'http://127.0.0.1:8081'),
+    ],
+
 ];

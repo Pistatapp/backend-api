@@ -1,0 +1,18 @@
+[Unit]
+Description=Pistat GPS Ingest Service
+After=network.target mysql.service redis.service
+
+[Service]
+Type=simple
+User=api
+Group=api
+WorkingDirectory=/home/api/public_html/services/gps-ingest
+EnvironmentFile=/home/api/public_html/.env
+Environment=GOMAXPROCS=0
+ExecStart=/home/api/public_html/services/gps-ingest/bin/gps-ingest
+Restart=always
+RestartSec=3
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

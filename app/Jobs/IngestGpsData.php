@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\GpsDevice;
 use App\Models\Tractor;
+use App\Support\GpsDeviceCache;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -57,6 +58,8 @@ class IngestGpsData implements ShouldQueue
 
             if ($device && $device->tractor) {
                 $device->tractor->setRelation('gpsDevice', $device);
+
+                GpsDeviceCache::put($imei, $device->tractor->id, $device->id);
 
                 return $device->tractor;
             }

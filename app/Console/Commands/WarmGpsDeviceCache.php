@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\GpsDevice;
+use App\Support\GpsDeviceCache;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 
@@ -30,6 +31,8 @@ class WarmGpsDeviceCache extends Command
                         $device->tractor,
                         3600
                     );
+
+                    GpsDeviceCache::put($device->imei, $device->tractor->id, $device->id);
                     $count++;
                 }
             });
