@@ -48,6 +48,10 @@ Integration tests:
 
 ## Deployment
 
+**Start here:** [`docs/gps-ingest-deployment.md`](../../docs/gps-ingest-deployment.md) — full production deployment guide (agent-friendly step-by-step).
+
+Supporting docs:
+
 - `deploy/gps-ingest.service` — systemd unit
 - `deploy/nginx-gps-shadow.conf` — Phase 5 shadow mode (mirror to Laravel)
 - `deploy/nginx-gps-production.conf` — Phase 6 production cutover
