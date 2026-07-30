@@ -8,8 +8,10 @@ use App\Models\Farm;
 use App\Models\GpsDevice;
 use App\Models\Tractor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
@@ -101,12 +103,37 @@ class IngestGpsDataTest extends TestCase
     public function test_does_not_dispatch_broadcast_when_no_tractor_for_imei(): void
     {
         Queue::fake();
+        Log::fake();
 
         $data = $this->sampleData();
         $job = new IngestGpsData($data);
         $job->handle();
 
         Queue::assertNotPushed(BroadcastGpsEvents::class);
+
+        Log::assertLogged(function ($log) {
+            return $log->level === 'warning'
+                && str_contains($log->message, 'unbound IMEI')
+                && ($log->context['imei'] ?? null) === '863070046120282';
+        });
+    }
+
+    public function test_overlapping_middleware_releases_instead_of_discarding(): void
+    {
+        $job = new IngestGpsData($this->sampleData());
+        $middleware = $job->middleware();
+
+        $this->assertCount(1, $middleware);
+        $this->assertInstanceOf(WithoutOverlapping::class, $middleware[0]);
+
+        $reflection = new \ReflectionObject($middleware[0]);
+        $dontRelease = $reflection->getProperty('dontRelease');
+        $dontRelease->setAccessible(true);
+        $this->assertFalse($dontRelease->getValue($middleware[0]));
+
+        $releaseAfter = $reflection->getProperty('releaseAfter');
+        $releaseAfter->setAccessible(true);
+        $this->assertSame(3, $releaseAfter->getValue($middleware[0]));
     }
 
     public function test_uses_first_item_imei_to_resolve_tractor(): void
@@ -156,5 +183,35 @@ class IngestGpsDataTest extends TestCase
             ->count();
 
         $this->assertSame(1, $count);
+    }
+
+    public function test_prepare_batch_skips_frames_with_missing_coordinate(): void
+    {
+        $this->skipIfMysqlGpsNotAvailable();
+        Queue::fake();
+        Log::fake();
+
+        $farm = Farm::factory()->create();
+        $tractor = Tractor::factory()->create(['farm_id' => $farm->id]);
+        GpsDevice::factory()->create([
+            'tractor_id' => $tractor->id,
+            'imei' => '863070046120282',
+        ]);
+
+        $good = $this->sampleData()[0];
+        $bad = $good;
+        unset($bad['coordinate']);
+
+        $job = new IngestGpsData([$good, $bad]);
+        $job->handle();
+
+        $count = DB::connection('mysql_gps')
+            ->table('gps_data')
+            ->where('imei', '863070046120282')
+            ->where('date_time', '2026-02-25 18:49:45')
+            ->count();
+
+        $this->assertSame(1, $count);
+        Log::assertLogged(fn ($log) => $log->level === 'warning' && str_contains($log->message, 'missing field'));
     }
 }
