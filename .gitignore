@@ -22,6 +22,5 @@ yarn-error.log
 .htaccess
 worker.log
 /.cursor/*
-deploy.sh
 /.github/instructions/*
 push.bat
