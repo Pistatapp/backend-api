@@ -167,6 +167,7 @@ class TractorPathStreamService
         $firstPointProcessed = false;
         $prevTimestamp = null;
         $lastDateTime = null;
+        $lastCoordinateKey = null;
 
         $correctionBatch = [];
         $correctionBatchSize = 0;
@@ -205,14 +206,23 @@ class TractorPathStreamService
             }
 
             $dateTime = $row['date_time'];
-            if ($dateTime === $lastDateTime) {
+            $coordinateKey = $this->coordinateDedupeKey($row['coordinate'] ?? null);
+
+            // Skip only exact duplicates (same clock + same coordinate). Same-second
+            // points with different coordinates must remain — unique(imei,date_time)
+            // may still leave edge cases from legacy rows, and RTC-staggered inserts
+            // must not be collapsed again here.
+            if ($dateTime === $lastDateTime && $coordinateKey === $lastCoordinateKey) {
                 continue;
             }
             $lastDateTime = $dateTime;
+            $lastCoordinateKey = $coordinateKey;
 
             $speed = (int) $row['speed'];
-            $status = (int) $row['status'];
-            $isMovement = ($status === 1 && $speed > 0);
+            // Speed alone defines the trail. Ignition/status is often 0 while the
+            // tractor is still moving (IO not mapped) — requiring status===1 dropped
+            // the entire path while live WS markers still updated from the payload.
+            $isMovement = ($speed > 0);
             $isStoppage = ($speed === 0);
             $isFirstPoint = !$firstPointProcessed;
             $timestamp = $this->parseDateTimeToUnixTimestamp($dateTime);
@@ -288,6 +298,16 @@ class TractorPathStreamService
                 yield $this->formatPointFromRow($deferredRow, false, false, true, $stoppageDuration);
             }
         }
+    }
+
+    /**
+     * Stable key for coordinate equality checks during path streaming.
+     */
+    private function coordinateDedupeKey(mixed $coordinate): string
+    {
+        [$lat, $lon] = $this->parseCoordinate($coordinate);
+
+        return sprintf('%.6f,%.6f', $lat, $lon);
     }
 
     /**

@@ -261,6 +261,36 @@ class TractorPathStreamServiceTest extends TestCase
     }
 
     /**
+     * Movement trail must not require ignition/status=1 — otherwise live WS works
+     * while GET /path returns too few points for Android to draw a polyline.
+     */
+    public function test_includes_movement_points_when_status_is_zero(): void
+    {
+        $this->skipIfMysqlNotAvailable();
+        $this->setUpTractor();
+
+        $today = Carbon::today();
+        $this->insertGpsData($this->tractor->id, [
+            ['date_time' => $today->copy()->setTime(8, 0, 0), 'speed' => 10, 'status' => 0],
+            ['date_time' => $today->copy()->setTime(8, 0, 10), 'speed' => 15, 'status' => 0],
+            ['date_time' => $today->copy()->setTime(8, 0, 20), 'speed' => 20, 'status' => 0],
+        ]);
+
+        $response = $this->service->getTractorPath($this->tractor, $today, false);
+
+        ob_start();
+        $response->send();
+        $content = ob_get_clean();
+
+        $data = json_decode($content, true);
+
+        $this->assertIsArray($data);
+        $this->assertCount(3, $data);
+        $this->assertEquals(10, $data[0]['speed']);
+        $this->assertEquals(0, $data[0]['status']);
+    }
+
+    /**
      * Test service excludes data from other tractors.
      */
     public function test_excludes_data_from_other_tractors(): void
