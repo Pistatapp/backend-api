@@ -66,4 +66,18 @@ return [
         'go_url' => env('GPS_INGEST_GO_URL', 'http://127.0.0.1:8081'),
     ],
 
+    /*
+    | NOC side-channel (monitoring-broker). Does not alter GPS bodies.
+    | driver=http → POST {url}/api/monitor/events
+    | driver=redis → PUBLISH gps:monitor:events on redis connection
+    */
+    'noc_monitor' => [
+        'enabled' => env('NOC_MONITOR_ENABLED', true),
+        'driver' => env('NOC_MONITOR_DRIVER', 'http'),
+        'url' => env('NOC_MONITOR_URL', 'http://127.0.0.1:3200'),
+        'token' => env('NOC_MONITOR_TOKEN', ''),
+        'channel' => env('NOC_MONITOR_CHANNEL', 'gps:monitor:events'),
+        'redis_connection' => env('NOC_MONITOR_REDIS_CONNECTION', 'default'),
+    ],
+
 ];
