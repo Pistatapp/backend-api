@@ -34,6 +34,19 @@ class IngestGpsData implements ShouldQueue
 
     public array $backoff = [2, 5, 10];
 
+    /**
+     * Device clocks older than this vs server time are treated as stuck/corrupt RTC
+     * and resynced — otherwise live WS works while path-for-today stays empty.
+     */
+    private const MAX_PAST_SKEW_SECONDS = 36 * 3600;
+
+    /** Align with IoT Gateway PiStatMaxFutureSkew. */
+    private const MAX_FUTURE_SKEW_SECONDS = 24 * 3600;
+
+    private const MIN_VALID_DATETIME = '2025-01-01 00:00:00';
+
+    private static ?bool $hasImeiDateTimeUnique = null;
+
     public function __construct(
         public array $data,
         public ?string $traceId = null,
@@ -158,7 +171,7 @@ class IngestGpsData implements ShouldQueue
 
             try {
                 $gps->transaction(function () use ($gps, $chunk) {
-                    $gps->table('gps_data')->insertOrIgnore($chunk);
+                    $this->insertChunk($gps, $chunk);
                 });
             } catch (Throwable $e) {
                 $message = $e->getMessage();
@@ -180,7 +193,7 @@ class IngestGpsData implements ShouldQueue
             }
 
             // Prove durability: live WS can succeed while mysql_gps stays empty.
-            $probe = $chunk[0];
+            $probe = $chunk[array_key_last($chunk)];
             $exists = $gps->table('gps_data')
                 ->where('imei', $probe['imei'] ?? null)
                 ->where('date_time', $probe['date_time'] ?? null)
@@ -188,7 +201,7 @@ class IngestGpsData implements ShouldQueue
                 ->exists();
 
             if (! $exists) {
-                Log::error('IngestGpsData: insertOrIgnore left no durable row — forcing plain insert', [
+                Log::error('IngestGpsData: write left no durable row — forcing plain insert', [
                     'database' => $database,
                     'imei' => $probe['imei'] ?? null,
                     'date_time' => $probe['date_time'] ?? null,
@@ -202,6 +215,48 @@ class IngestGpsData implements ShouldQueue
     }
 
     /**
+     * Prefer insertOrIgnore only when the unique key exists; otherwise plain insert
+     * (IGNORE without a unique key is pointless and has masked write failures).
+     *
+     * @param  \Illuminate\Database\Connection  $gps
+     * @param  array<int, array<string, mixed>>  $chunk
+     */
+    private function insertChunk($gps, array $chunk): void
+    {
+        if ($this->hasImeiDateTimeUniqueIndex()) {
+            $gps->table('gps_data')->insertOrIgnore($chunk);
+
+            return;
+        }
+
+        $gps->table('gps_data')->insert($chunk);
+    }
+
+    private function hasImeiDateTimeUniqueIndex(): bool
+    {
+        if (self::$hasImeiDateTimeUnique !== null) {
+            return self::$hasImeiDateTimeUnique;
+        }
+
+        try {
+            $database = config('database.connections.mysql_gps.database');
+            $row = DB::connection('mysql_gps')->selectOne('
+                SELECT COUNT(*) AS count
+                FROM information_schema.statistics
+                WHERE table_schema = ?
+                  AND table_name = ?
+                  AND index_name = ?
+            ', [$database, 'gps_data', 'gps_data_imei_date_time_unique']);
+
+            self::$hasImeiDateTimeUnique = ((int) ($row->count ?? 0)) > 0;
+        } catch (Throwable) {
+            self::$hasImeiDateTimeUnique = false;
+        }
+
+        return self::$hasImeiDateTimeUnique;
+    }
+
+    /**
      * @param  \Illuminate\Database\Connection  $gps
      * @param  array<int, array<string, mixed>>  $chunk
      */
@@ -212,7 +267,7 @@ class IngestGpsData implements ShouldQueue
 
         foreach ($chunk as $row) {
             try {
-                $gps->table('gps_data')->insertOrIgnore($row);
+                $this->insertChunk($gps, [$row]);
                 $inserted++;
             } catch (Throwable $rowError) {
                 $lastError = $rowError;
@@ -297,6 +352,78 @@ class IngestGpsData implements ShouldQueue
     }
 
     /**
+     * Normalize wire date_time to Y-m-d H:i:s. Resync stuck/corrupt device clocks so
+     * live traffic is stored under "today" and the path API can find it.
+     *
+     * Evidence on prod (tractor 38): MAX(date_time)=2026-07-30 while live WS still
+     * moved markers on 2026-08-01 — path-for-today was empty because rows kept the
+     * stuck Jul-30 clock.
+     */
+    private function normalizeDeviceDateTime(string $raw, string $imei, int $index): string
+    {
+        $now = Carbon::now();
+        $fallback = $now->format('Y-m-d H:i:s');
+
+        if (trim($raw) === '') {
+            Log::warning('IngestGpsData: empty date_time — using server time', [
+                'imei' => $imei,
+                'index' => $index,
+            ]);
+
+            return $fallback;
+        }
+
+        try {
+            $dt = Carbon::parse($raw);
+        } catch (Throwable) {
+            Log::warning('IngestGpsData: unparseable date_time — using server time', [
+                'imei' => $imei,
+                'index' => $index,
+                'raw' => $raw,
+            ]);
+
+            return $fallback;
+        }
+
+        $formatted = $dt->format('Y-m-d H:i:s');
+
+        if ($formatted < self::MIN_VALID_DATETIME) {
+            Log::warning('IngestGpsData: pre-2025 date_time — resync to server', [
+                'imei' => $imei,
+                'index' => $index,
+                'raw' => $formatted,
+            ]);
+
+            return $fallback;
+        }
+
+        if ($dt->lt($now->copy()->subSeconds(self::MAX_PAST_SKEW_SECONDS))) {
+            Log::warning('IngestGpsData: date_time too far in the past — resync to server', [
+                'imei' => $imei,
+                'index' => $index,
+                'raw' => $formatted,
+                'server_now' => $fallback,
+                'skew_hours' => round($dt->diffInSeconds($now) / 3600, 1),
+            ]);
+
+            return $fallback;
+        }
+
+        if ($dt->gt($now->copy()->addSeconds(self::MAX_FUTURE_SKEW_SECONDS))) {
+            Log::warning('IngestGpsData: date_time too far in the future — resync to server', [
+                'imei' => $imei,
+                'index' => $index,
+                'raw' => $formatted,
+                'server_now' => $fallback,
+            ]);
+
+            return $fallback;
+        }
+
+        return $formatted;
+    }
+
+    /**
      * Normalize date_time and resolve (imei, date_time) collisions inside one packet.
      *
      * Same-second points are ordered by geographic progression (nearest-neighbor
@@ -314,11 +441,11 @@ class IngestGpsData implements ShouldQueue
 
         $prepared = [];
         foreach ($records as $index => $record) {
-            try {
-                $dt = Carbon::parse((string) $record['date_time'])->format('Y-m-d H:i:s');
-            } catch (Throwable) {
-                $dt = Carbon::now()->format('Y-m-d H:i:s');
-            }
+            $dt = $this->normalizeDeviceDateTime(
+                (string) ($record['date_time'] ?? ''),
+                (string) ($record['imei'] ?? ''),
+                $index
+            );
 
             [$lat, $lon] = $this->parseCoordinatePair($record['coordinate'] ?? null);
             $prepared[] = [
