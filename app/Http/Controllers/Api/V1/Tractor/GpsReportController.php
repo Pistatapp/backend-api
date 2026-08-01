@@ -9,6 +9,7 @@ use App\Services\NocMonitor;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class GpsReportController extends Controller
 {
@@ -24,7 +25,7 @@ class GpsReportController extends Controller
         $imei = (string) ($data[0]['imei'] ?? 'unknown');
 
         try {
-            IngestGpsData::dispatch($data, $traceId);
+            $this->dispatchIngestWithRetry($data, $traceId);
             NocMonitor::emit(
                 'PISTAT_DELIVERY',
                 'success',
@@ -33,7 +34,7 @@ class GpsReportController extends Controller
                 'PiStat queued IngestGpsData',
                 ['phase' => 'queued', 'records' => count($data)]
             );
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             Log::error('GPS ingest dispatch failed', [
                 'imei' => $data[0]['imei'] ?? null,
                 'record_count' => count($data),
@@ -53,6 +54,54 @@ class GpsReportController extends Controller
         }
 
         return response()->json(['success' => true], 200);
+    }
+
+    /**
+     * Redis may briefly return LOADING after restart; retry then optional sync fallback
+     * so gateway packets are not dropped while workers/redis recover.
+     *
+     * @param  array<int, array<string, mixed>>  $data
+     */
+    private function dispatchIngestWithRetry(array $data, ?string $traceId): void
+    {
+        $attempts = 3;
+        $last = null;
+
+        for ($i = 1; $i <= $attempts; $i++) {
+            try {
+                IngestGpsData::dispatch($data, $traceId);
+
+                return;
+            } catch (Throwable $e) {
+                $last = $e;
+                if (! $this->isTransientRedisError($e) || $i === $attempts) {
+                    break;
+                }
+                usleep(200_000 * $i);
+            }
+        }
+
+        if ($last && $this->isTransientRedisError($last) && config('services.gps_ingest.sync_fallback', true)) {
+            Log::warning('GPS ingest Redis unavailable — running IngestGpsData synchronously', [
+                'error' => $last->getMessage(),
+                'records' => count($data),
+            ]);
+            (new IngestGpsData($data, $traceId))->handle();
+
+            return;
+        }
+
+        throw $last ?? new \RuntimeException('GPS ingest dispatch failed');
+    }
+
+    private function isTransientRedisError(Throwable $e): bool
+    {
+        $message = strtolower($e->getMessage());
+
+        return str_contains($message, 'loading')
+            || str_contains($message, 'connection refused')
+            || str_contains($message, 'read error')
+            || str_contains($message, 'went away');
     }
 
     private function extractTraceId(GpsReportRequest $request): ?string
