@@ -14,6 +14,13 @@ set -euo pipefail
 PROJECT_DIR="/home/api/domains/api.pistatapp.ir/public_html"
 BRANCH="${DEPLOY_BRANCH:-main}"
 REDIS_CLI="${REDIS_CLI:-redis-cli}"
+# After queue:restart, supervisors cycle STARTING→RUNNING. Give them time.
+WORKER_SETTLE_SECONDS="${WORKER_SETTLE_SECONDS:-12}"
+WORKER_RETRY_ATTEMPTS="${WORKER_RETRY_ATTEMPTS:-5}"
+WORKER_RETRY_SLEEP="${WORKER_RETRY_SLEEP:-3}"
+# Minimum RUNNING workers required (eco1-small should use modest numprocs).
+MIN_GPS_PROCESSING="${MIN_GPS_PROCESSING:-1}"
+MIN_GPS_BROADCAST="${MIN_GPS_BROADCAST:-1}"
 
 CRITICAL=0
 WARNINGS=0
@@ -33,6 +40,94 @@ require_cmd() {
         crit "command not found: $1"
         return 1
     fi
+    return 0
+}
+
+supervisor_gps_status() {
+    sudo supervisorctl status 2>/dev/null | grep -E 'gps-processing|gps-broadcast|gps-side-effects' || true
+}
+
+# Evaluate supervisor lines in the CURRENT shell (no pipe subshell — CRITICAL must stick).
+evaluate_supervisor_gps() {
+    local sup_out="$1"
+    local quiet="${2:-0}"
+    local proc_n=0 bcast_n=0 proc_run=0 bcast_run=0
+    local bad_hard=0 starting=0
+    local line name state
+
+    if [[ -z "$sup_out" ]]; then
+        crit "no gps-* programs in supervisor (gps-processing / gps-broadcast missing)"
+        info "install: sudo cp deploy/supervisor/laravel-gps-workers.conf /etc/supervisor/conf.d/"
+        info "         sudo cp deploy/supervisor/laravel-gps-broadcast.conf /etc/supervisor/conf.d/"
+        info "         sudo supervisorctl reread && sudo supervisorctl update"
+        info "         sudo supervisorctl start gps-processing:* gps-broadcast:*"
+        return 1
+    fi
+
+    while IFS= read -r line; do
+        [[ -z "$line" ]] && continue
+        name="$(echo "$line" | awk '{print $1}')"
+        state="$(echo "$line" | awk '{print $2}')"
+
+        case "$name" in
+            gps-processing:*) proc_n=$((proc_n + 1)) ;;
+            gps-broadcast:*)  bcast_n=$((bcast_n + 1)) ;;
+        esac
+
+        case "$state" in
+            RUNNING)
+                case "$name" in
+                    gps-processing:*) proc_run=$((proc_run + 1)) ;;
+                    gps-broadcast:*)  bcast_run=$((bcast_run + 1)) ;;
+                esac
+                [[ "$quiet" == "0" ]] && ok "supervisor $name RUNNING"
+                ;;
+            STARTING)
+                starting=$((starting + 1))
+                [[ "$quiet" == "0" ]] && warn "supervisor $name still STARTING (settling after restart)"
+                ;;
+            FATAL|BACKOFF)
+                bad_hard=$((bad_hard + 1))
+                crit "supervisor $name is $state — restart or scale down workers"
+                ;;
+            EXITED|STOPPED)
+                # Often transient after queue:restart or OOM under too many numprocs.
+                # Capacity gate below decides CRITICAL vs WARNING.
+                bad_hard=$((bad_hard + 1))
+                [[ "$quiet" == "0" ]] && warn "supervisor $name is $state"
+                ;;
+            *)
+                warn "supervisor $name unexpected state: $state"
+                ;;
+        esac
+    done <<< "$sup_out"
+
+    if (( proc_n > 16 )); then
+        warn "gps-processing has ${proc_n} processes — too many for a small VPS; scale down to numprocs=4 (see deploy/supervisor/GPS-WORKERS.md)"
+    fi
+    if (( bcast_n > 8 )); then
+        warn "gps-broadcast has ${bcast_n} processes — scale down to numprocs=2"
+    fi
+
+    if (( proc_run < MIN_GPS_PROCESSING )); then
+        crit "gps-processing RUNNING=${proc_run}/${proc_n} (need >= ${MIN_GPS_PROCESSING}) — GPS will NOT persist to DB"
+    else
+        ok "gps-processing RUNNING count = ${proc_run}/${proc_n}"
+        if (( bad_hard > 0 )); then
+            warn "${bad_hard} gps worker(s) not RUNNING — capacity OK for now; scale down / start them to stop flapping"
+        fi
+    fi
+    if (( bcast_run < MIN_GPS_BROADCAST )); then
+        crit "gps-broadcast RUNNING=${bcast_run}/${bcast_n} (need >= ${MIN_GPS_BROADCAST}) — map WS broadcast queue will stall"
+    else
+        ok "gps-broadcast RUNNING count = ${bcast_run}/${bcast_n}"
+    fi
+
+    # STARTING alone is not CRITICAL if we already have the minimum RUNNING.
+    if (( starting > 0 )) && (( proc_run >= MIN_GPS_PROCESSING )) && (( bcast_run >= MIN_GPS_BROADCAST )); then
+        warn "${starting} gps worker(s) still STARTING — OK if min capacity is RUNNING"
+    fi
+
     return 0
 }
 
@@ -88,7 +183,6 @@ if require_cmd "$REDIS_CLI"; then
     fi
 
     for q in gps-processing gps-broadcast gps-side-effects default; do
-        # Laravel Redis queue key is typically queues:{name}
         LEN="$($REDIS_CLI LLEN "queues:${q}" 2>/dev/null || echo err)"
         if [[ "$LEN" == "err" ]]; then
             warn "cannot read queue length for queues:${q}"
@@ -105,42 +199,37 @@ fi
 
 echo ""
 
-# Supervisor GPS programs
+# Supervisor GPS programs — wait for settle after queue:restart, then retry
 if command -v supervisorctl >/dev/null 2>&1; then
-    SUP_OUT="$(sudo supervisorctl status 2>/dev/null | grep -E 'gps-processing|gps-broadcast|gps-side-effects' || true)"
-    if [[ -z "$SUP_OUT" ]]; then
-        crit "no gps-* programs in supervisor (gps-processing / gps-broadcast missing)"
-        info "install: sudo cp deploy/supervisor/laravel-gps-workers.conf /etc/supervisor/conf.d/"
-        info "         sudo cp deploy/supervisor/laravel-gps-broadcast.conf /etc/supervisor/conf.d/"
-        info "         sudo supervisorctl reread && sudo supervisorctl update"
-        info "         sudo supervisorctl start gps-processing:* gps-broadcast:*"
-    else
-        echo "$SUP_OUT" | while read -r line; do
-            name="$(echo "$line" | awk '{print $1}')"
-            state="$(echo "$line" | awk '{print $2}')"
-            if [[ "$state" == "RUNNING" ]]; then
-                ok "supervisor $name RUNNING"
-            else
-                crit "supervisor $name is $state (expected RUNNING)"
-            fi
-        done
+    info "waiting ${WORKER_SETTLE_SECONDS}s for workers to settle after queue:restart..."
+    sleep "$WORKER_SETTLE_SECONDS"
 
-        PROC_N="$(echo "$SUP_OUT" | grep -c 'gps-processing' || true)"
-        BCAST_N="$(echo "$SUP_OUT" | grep -c 'gps-broadcast' || true)"
+    # Best-effort: revive EXITED/FATAL processes before final scoring
+    sudo supervisorctl start gps-processing:* gps-broadcast:* gps-side-effects:* gps-side-effects-consumer:* >/dev/null 2>&1
+
+    attempt=1
+    while (( attempt <= WORKER_RETRY_ATTEMPTS )); do
+        SUP_OUT="$(supervisor_gps_status)"
+        STARTING_N="$(echo "$SUP_OUT" | grep -c 'STARTING' || true)"
+        EXITED_N="$(echo "$SUP_OUT" | grep -cE 'EXITED|FATAL|STOPPED|BACKOFF' || true)"
         PROC_RUN="$(echo "$SUP_OUT" | grep 'gps-processing' | grep -c RUNNING || true)"
         BCAST_RUN="$(echo "$SUP_OUT" | grep 'gps-broadcast' | grep -c RUNNING || true)"
 
-        if (( PROC_RUN < 1 )); then
-            crit "zero RUNNING gps-processing workers — GPS will NOT persist to DB"
-        else
-            ok "gps-processing RUNNING count = ${PROC_RUN}/${PROC_N}"
+        if (( STARTING_N == 0 )) && (( EXITED_N == 0 )) && (( PROC_RUN >= MIN_GPS_PROCESSING )) && (( BCAST_RUN >= MIN_GPS_BROADCAST )); then
+            break
         fi
-        if (( BCAST_RUN < 1 )); then
-            crit "zero RUNNING gps-broadcast workers — map WS broadcast queue will stall"
-        else
-            ok "gps-broadcast RUNNING count = ${BCAST_RUN}/${BCAST_N}"
+        if (( attempt < WORKER_RETRY_ATTEMPTS )); then
+            info "workers settling (attempt ${attempt}/${WORKER_RETRY_ATTEMPTS}): STARTING=${STARTING_N} BAD=${EXITED_N} proc_run=${PROC_RUN} bcast_run=${BCAST_RUN}"
+            if (( EXITED_N > 0 )); then
+                sudo supervisorctl start gps-processing:* gps-broadcast:* gps-side-effects:* >/dev/null 2>&1
+            fi
+            sleep "$WORKER_RETRY_SLEEP"
         fi
-    fi
+        attempt=$((attempt + 1))
+    done
+
+    SUP_OUT="$(supervisor_gps_status)"
+    evaluate_supervisor_gps "$SUP_OUT" 0
 else
     crit "supervisorctl not found — cannot verify GPS workers"
 fi
@@ -158,7 +247,6 @@ if php artisan list --raw 2>/dev/null | grep -q '^gps:ingest-health'; then
     fi
 else
     warn "gps:ingest-health command missing — deploy includes app/Console/Commands/GpsIngestHealthCommand.php?"
-    # Minimal inline fallbacks
     if grep -q 'normalizeDeviceDateTime' app/Jobs/IngestGpsData.php 2>/dev/null; then
         ok "IngestGpsData clock-resync code present"
     else
@@ -205,9 +293,12 @@ if (( CRITICAL > 0 )); then
     red "Deploy finished, but ${CRITICAL} CRITICAL issue(s), ${WARNINGS} warning(s)."
     red "Do NOT replay IoT Gateway traffic until CRITICAL items are fixed."
     echo ""
-    info "Typical fix for missing workers:"
-    info "  sudo supervisorctl status | grep gps"
-    info "  sudo supervisorctl start gps-processing:* gps-broadcast:*"
+    info "Typical fix for overloaded / EXITED workers on eco1-small:"
+    info "  sudo cp deploy/supervisor/laravel-gps-workers.conf /etc/supervisor/conf.d/"
+    info "  sudo cp deploy/supervisor/laravel-gps-broadcast.conf /etc/supervisor/conf.d/"
+    info "  sudo cp deploy/supervisor/laravel-gps-side-effects.conf /etc/supervisor/conf.d/"
+    info "  sudo supervisorctl reread && sudo supervisorctl update"
+    info "  sudo supervisorctl start gps-processing:* gps-broadcast:* gps-side-effects:*"
     info "Typical fix for Redis LOADING: wait until redis-cli ping => PONG"
     echo ""
     exit 2

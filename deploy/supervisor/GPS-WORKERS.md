@@ -9,33 +9,55 @@ and historical path polyline is empty.
 2. Supervisor conf pointed at **wrong path** (`/home/api/public_html` vs `/home/api/domains/api.pistatapp.ir/public_html`).
 3. **Redis `LOADING`** — queue dispatch/work fails until Redis finishes loading RDB/AOF.
 4. Device clocks stuck in the past (e.g. 2026-07-30) or far future (e.g. 2068) — fixed in `IngestGpsData::normalizeDeviceDateTime`.
+5. **Too many workers on eco1-small** (e.g. 32 processing + 16 broadcast) → many `STARTING` / occasional `EXITED` after `queue:restart`.
 
-## Install / repair workers
+## Recommended numprocs (eco1-small)
+| Program | numprocs |
+|---|---|
+| `gps-processing` | **4** |
+| `gps-broadcast` | **2** |
+| `gps-side-effects` | **2** |
+| `gps-side-effects-consumer` | **1** |
+
+Raise only if CPU/RAM allow and queues backlog under load.
+
+## Scale down / repair workers (do this if you see STARTING/EXITED storms)
 ```bash
 cd /home/api/domains/api.pistatapp.ir/public_html
 
 sudo cp deploy/supervisor/laravel-gps-workers.conf /etc/supervisor/conf.d/
 sudo cp deploy/supervisor/laravel-gps-broadcast.conf /etc/supervisor/conf.d/
+sudo cp deploy/supervisor/laravel-gps-side-effects.conf /etc/supervisor/conf.d/
+sudo cp deploy/supervisor/laravel-gps-side-effects-consumer.conf /etc/supervisor/conf.d/
+
+# Drop old high-numprocs program definitions cleanly
+sudo supervisorctl stop gps-processing:* gps-broadcast:* gps-side-effects:* gps-side-effects-consumer:* || true
 sudo supervisorctl reread
 sudo supervisorctl update
-sudo supervisorctl start gps-processing:*
-sudo supervisorctl start gps-broadcast:*
+sudo supervisorctl start gps-processing:* gps-broadcast:* gps-side-effects:* gps-side-effects-consumer:*
 sudo supervisorctl status | grep gps
 ```
 
-Expected: several `RUNNING` lines for `gps-processing_00..` and `gps-broadcast_00..`.
+Expected: a small number of `RUNNING` lines (about 4+2+2+1), not 32+16.
 
 ## After deploy of PHP code
 ```bash
+./deploy.sh
+# or:
 php artisan queue:restart
 php artisan gps:ingest-health
+```
+
+## Purge far-future junk clocks (optional)
+```bash
+php artisan gps:purge-future-junk --dry-run
+php artisan gps:purge-future-junk --force
 ```
 
 ## Redis must be ready before replay from gateway
 ```bash
 redis-cli ping          # must be PONG (not LOADING)
 redis-cli LLEN queues:gps-processing
-redis-cli info persistence | head
 ```
 
 If `LOADING`, wait until `redis-cli ping` returns `PONG`, then start workers.
@@ -46,6 +68,3 @@ SELECT COUNT(*), MIN(date_time), MAX(date_time)
 FROM gps_data
 WHERE tractor_id = 38 AND date_time >= CURDATE();
 ```
-
-Also reject garbage future clocks in app path queries is handled by ingest resync
-(>24h future → server now).

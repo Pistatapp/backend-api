@@ -137,13 +137,17 @@ class GpsIngestHealthCommand extends Command
                 'max' => $today->max_dt ?? null,
                 'tractors' => (int) ($today->tractors ?? 0),
             ];
+            $todayCount = $report['today_sane_rows']['count'];
             if (! $this->option('json')) {
                 $this->line(sprintf(
                     'Rows today (sane < +2d): %d | tractors=%d | max=%s',
-                    $report['today_sane_rows']['count'],
+                    $todayCount,
                     $report['today_sane_rows']['tractors'],
                     $report['today_sane_rows']['max'] ?? 'null'
                 ));
+                if ($todayCount === 0) {
+                    $this->warn('No sane GPS rows for today yet — after workers are stable, replay IoT Gateway logs');
+                }
             }
 
             $futureJunk = DB::connection('mysql_gps')->selectOne('
@@ -155,6 +159,7 @@ class GpsIngestHealthCommand extends Command
             $report['future_junk_rows'] = $junk;
             if ($junk > 0 && ! $this->option('json')) {
                 $this->warn("Far-future junk rows (date_time >= now+2d): {$junk}");
+                $this->warn('Purge with: php artisan gps:purge-future-junk --dry-run  then  --force');
             }
         } catch (Throwable $e) {
             $ok = false;
