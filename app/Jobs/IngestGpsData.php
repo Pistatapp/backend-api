@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\GpsDevice;
 use App\Models\Tractor;
+use App\Services\NocMonitor;
 use App\Support\GpsDeviceCache;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -34,6 +35,7 @@ class IngestGpsData implements ShouldQueue
 
     public function __construct(
         public array $data,
+        public ?string $traceId = null,
     ) {
         $this->onQueue('gps-processing');
     }
@@ -73,6 +75,15 @@ class IngestGpsData implements ShouldQueue
                 'imei' => $deviceImei,
                 'batch_size' => count($this->data),
             ]);
+            NocMonitor::emit(
+                'PISTAT_DELIVERY',
+                'drop',
+                $deviceImei,
+                $this->traceId,
+                'Unbound IMEI — no tractor assignment',
+                ['phase' => 'persist', 'batch_size' => count($this->data)],
+                'unbound IMEI'
+            );
 
             return;
         }
@@ -81,9 +92,27 @@ class IngestGpsData implements ShouldQueue
 
         if ($records !== []) {
             $this->insertWithRecovery($records);
+            NocMonitor::emit(
+                'PISTAT_DELIVERY',
+                'success',
+                $deviceImei,
+                $this->traceId,
+                'PiStat mysql_gps persisted',
+                ['phase' => 'persisted', 'records' => count($records), 'tractor_id' => $tractor->id]
+            );
+        } else {
+            NocMonitor::emit(
+                'PISTAT_DELIVERY',
+                'drop',
+                $deviceImei,
+                $this->traceId,
+                'PiStat prepareBatch produced zero rows',
+                ['phase' => 'persist'],
+                'empty prepared batch'
+            );
         }
 
-        BroadcastGpsEvents::dispatch($this->data, $tractor->id, $deviceImei);
+        BroadcastGpsEvents::dispatch($this->data, $tractor->id, $deviceImei, $this->traceId);
     }
 
     private function resolveTractor(string $imei): ?Tractor
