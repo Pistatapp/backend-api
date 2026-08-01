@@ -57,9 +57,11 @@ class TractorPathStreamService
 
             $tractorId = $tractor->id;
 
-            // Use range-based date filter for optimal index utilization
-            $startOfDay = $date->copy()->startOfDay()->format('Y-m-d H:i:s');
-            $endOfDay = $date->copy()->endOfDay()->format('Y-m-d H:i:s');
+            // Gateway stores PiStat date_time as UTC wall-clock strings; the app
+            // requests a Jalali civil day resolved in Asia/Tehran. Cover BOTH
+            // conventions so morning Tehran points stored as previous UTC date
+            // are not dropped from the trail.
+            [$startOfDay, $endOfDay] = $this->resolvePathDateWindow($date);
 
             // Stream raw rows without Eloquent model hydration (single query; fallback handled in stream)
             return response()->streamJson(
@@ -75,6 +77,28 @@ class TractorPathStreamService
 
             return response()->streamJson(new \EmptyIterator());
         }
+    }
+
+    /**
+     * Widest [start, end] string window for a civil day under app TZ and UTC storage.
+     *
+     * @return array{0: string, 1: string}
+     */
+    private function resolvePathDateWindow(Carbon $date): array
+    {
+        $localStart = $date->copy()->startOfDay();
+        $localEnd = $date->copy()->endOfDay();
+
+        $utcStart = $localStart->copy()->timezone('UTC');
+        $utcEnd = $localEnd->copy()->timezone('UTC');
+
+        $start = $localStart->lt($utcStart) ? $localStart : $utcStart;
+        $end = $localEnd->gt($utcEnd) ? $localEnd : $utcEnd;
+
+        return [
+            $start->format('Y-m-d H:i:s'),
+            $end->format('Y-m-d H:i:s'),
+        ];
     }
 
     /**
@@ -219,9 +243,8 @@ class TractorPathStreamService
             $lastCoordinateKey = $coordinateKey;
 
             $speed = (int) $row['speed'];
-            // Speed alone defines the trail. Ignition/status is often 0 while the
-            // tractor is still moving (IO not mapped) — requiring status===1 dropped
-            // the entire path while live WS markers still updated from the payload.
+            // Speed defines movement. Requiring status===1 previously dropped moving
+            // trails when ignition IO was off while live WS markers still updated.
             $isMovement = ($speed > 0);
             $isStoppage = ($speed === 0);
             $isFirstPoint = !$firstPointProcessed;

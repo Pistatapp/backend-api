@@ -99,7 +99,14 @@ class IngestGpsData implements ShouldQueue
                 $deviceImei,
                 $this->traceId,
                 'PiStat mysql_gps persisted',
-                ['phase' => 'persisted', 'records' => count($records), 'tractor_id' => $tractor->id]
+                [
+                    'phase' => 'persisted',
+                    'records' => count($records),
+                    'tractor_id' => $tractor->id,
+                    'database' => config('database.connections.mysql_gps.database'),
+                    'first_date_time' => $records[0]['date_time'] ?? null,
+                    'last_date_time' => $records[array_key_last($records)]['date_time'] ?? null,
+                ]
             );
         } else {
             NocMonitor::emit(
@@ -142,6 +149,7 @@ class IngestGpsData implements ShouldQueue
     private function insertWithRecovery(array $records): void
     {
         $gps = DB::connection('mysql_gps');
+        $database = (string) config('database.connections.mysql_gps.database');
 
         foreach (array_chunk($records, 1000) as $chunk) {
             if ($chunk === []) {
@@ -152,36 +160,109 @@ class IngestGpsData implements ShouldQueue
                 $gps->transaction(function () use ($gps, $chunk) {
                     $gps->table('gps_data')->insertOrIgnore($chunk);
                 });
-
-                continue;
             } catch (Throwable $e) {
+                $message = $e->getMessage();
                 Log::warning('IngestGpsData: bulk chunk insert failed, retrying row-by-row', [
+                    'database' => $database,
                     'chunk_size' => count($chunk),
-                    'error' => $e->getMessage(),
+                    'error' => $message,
                 ]);
-            }
 
-            $inserted = 0;
-            $lastError = null;
-
-            foreach ($chunk as $row) {
-                try {
-                    $gps->table('gps_data')->insertOrIgnore($row);
-                    $inserted++;
-                } catch (Throwable $rowError) {
-                    $lastError = $rowError;
-                    Log::error('IngestGpsData: dropping unrecoverable gps_data row', [
-                        'imei' => $row['imei'] ?? null,
-                        'date_time' => $row['date_time'] ?? null,
-                        'error' => $rowError->getMessage(),
+                if (str_contains(strtolower($message), 'partition')) {
+                    Log::critical('IngestGpsData: partition error — run php artisan gps:ensure-partitions', [
+                        'database' => $database,
+                        'error' => $message,
+                        'sample_date_time' => $chunk[0]['date_time'] ?? null,
                     ]);
                 }
+
+                $this->insertChunkRowByRow($gps, $chunk);
             }
 
-            if ($inserted === 0 && $lastError !== null) {
-                throw $lastError;
+            // Prove durability: live WS can succeed while mysql_gps stays empty.
+            $probe = $chunk[0];
+            $exists = $gps->table('gps_data')
+                ->where('imei', $probe['imei'] ?? null)
+                ->where('date_time', $probe['date_time'] ?? null)
+                ->where('tractor_id', $probe['tractor_id'] ?? null)
+                ->exists();
+
+            if (! $exists) {
+                Log::error('IngestGpsData: insertOrIgnore left no durable row — forcing plain insert', [
+                    'database' => $database,
+                    'imei' => $probe['imei'] ?? null,
+                    'date_time' => $probe['date_time'] ?? null,
+                    'tractor_id' => $probe['tractor_id'] ?? null,
+                    'chunk_size' => count($chunk),
+                ]);
+
+                $this->forceInsertChunk($gps, $chunk);
             }
         }
+    }
+
+    /**
+     * @param  \Illuminate\Database\Connection  $gps
+     * @param  array<int, array<string, mixed>>  $chunk
+     */
+    private function insertChunkRowByRow($gps, array $chunk): void
+    {
+        $inserted = 0;
+        $lastError = null;
+
+        foreach ($chunk as $row) {
+            try {
+                $gps->table('gps_data')->insertOrIgnore($row);
+                $inserted++;
+            } catch (Throwable $rowError) {
+                $lastError = $rowError;
+                Log::error('IngestGpsData: dropping unrecoverable gps_data row', [
+                    'imei' => $row['imei'] ?? null,
+                    'date_time' => $row['date_time'] ?? null,
+                    'error' => $rowError->getMessage(),
+                ]);
+            }
+        }
+
+        if ($inserted === 0 && $lastError !== null) {
+            throw $lastError;
+        }
+    }
+
+    /**
+     * Last-resort write when IGNORE silently no-ops (misconfigured unique / partition).
+     *
+     * @param  \Illuminate\Database\Connection  $gps
+     * @param  array<int, array<string, mixed>>  $chunk
+     */
+    private function forceInsertChunk($gps, array $chunk): void
+    {
+        foreach ($chunk as $row) {
+            try {
+                $gps->table('gps_data')->insert($row);
+            } catch (Throwable $e) {
+                // Duplicate after unique exists: keep first, continue trail.
+                if ($this->isDuplicateKeyException($e)) {
+                    continue;
+                }
+
+                Log::error('IngestGpsData: force insert failed', [
+                    'imei' => $row['imei'] ?? null,
+                    'date_time' => $row['date_time'] ?? null,
+                    'error' => $e->getMessage(),
+                ]);
+
+                throw $e;
+            }
+        }
+    }
+
+    private function isDuplicateKeyException(Throwable $e): bool
+    {
+        $message = strtolower($e->getMessage());
+
+        return str_contains($message, 'duplicate')
+            || str_contains($message, '1062');
     }
 
     /**
@@ -216,34 +297,181 @@ class IngestGpsData implements ShouldQueue
     }
 
     /**
-     * Normalize date_time to Y-m-d H:i:s and stagger +1s on in-batch collisions
-     * so insertOrIgnore under gps_data_imei_date_time_unique keeps the trail.
+     * Normalize date_time and resolve (imei, date_time) collisions inside one packet.
+     *
+     * Same-second points are ordered by geographic progression (nearest-neighbor
+     * chain along the trail), then given consecutive seconds so
+     * gps_data_imei_date_time_unique + insertOrIgnore does not drop them.
      *
      * @param  array<int, array<string, mixed>>  $records
      * @return array<int, array<string, mixed>>
      */
     private function ensureUniqueDateTimes(array $records): array
     {
-        $used = [];
+        if ($records === []) {
+            return [];
+        }
 
-        foreach ($records as &$record) {
-            $imei = (string) ($record['imei'] ?? '');
+        $prepared = [];
+        foreach ($records as $index => $record) {
             try {
                 $dt = Carbon::parse((string) $record['date_time'])->format('Y-m-d H:i:s');
             } catch (Throwable) {
                 $dt = Carbon::now()->format('Y-m-d H:i:s');
             }
 
-            while (isset($used[$imei][$dt])) {
+            [$lat, $lon] = $this->parseCoordinatePair($record['coordinate'] ?? null);
+            $prepared[] = [
+                'record' => $record,
+                'imei' => (string) ($record['imei'] ?? ''),
+                'date_time' => $dt,
+                'lat' => $lat,
+                'lon' => $lon,
+                'index' => $index,
+            ];
+        }
+
+        $byImei = [];
+        foreach ($prepared as $item) {
+            $byImei[$item['imei']][] = $item;
+        }
+
+        $resolved = [];
+        foreach ($byImei as $imeiItems) {
+            $resolved = array_merge($resolved, $this->assignUniqueDateTimesForImei($imeiItems));
+        }
+
+        usort($resolved, fn (array $a, array $b) => $a['index'] <=> $b['index']);
+
+        return array_map(static function (array $item) {
+            $record = $item['record'];
+            $record['date_time'] = $item['date_time'];
+
+            return $record;
+        }, $resolved);
+    }
+
+    /**
+     * @param  array<int, array{record: array<string, mixed>, imei: string, date_time: string, lat: float, lon: float, index: int}>  $items
+     * @return array<int, array{record: array<string, mixed>, imei: string, date_time: string, lat: float, lon: float, index: int}>
+     */
+    private function assignUniqueDateTimesForImei(array $items): array
+    {
+        $groups = [];
+        foreach ($items as $item) {
+            $groups[$item['date_time']][] = $item;
+        }
+        ksort($groups);
+
+        $used = [];
+        $out = [];
+        $previous = null;
+
+        foreach ($groups as $baseDateTime => $group) {
+            $ordered = count($group) > 1
+                ? $this->orderBySpatialProgression($group, $previous)
+                : $group;
+
+            $dt = $baseDateTime;
+            foreach ($ordered as $item) {
+                while (isset($used[$dt])) {
+                    $dt = Carbon::parse($dt)->addSecond()->format('Y-m-d H:i:s');
+                }
+
+                $item['date_time'] = $dt;
+                $used[$dt] = true;
+                $previous = $item;
+                $out[] = $item;
                 $dt = Carbon::parse($dt)->addSecond()->format('Y-m-d H:i:s');
             }
-
-            $used[$imei][$dt] = true;
-            $record['date_time'] = $dt;
         }
-        unset($record);
 
-        return $records;
+        return $out;
+    }
+
+    /**
+     * Nearest-neighbor chain: start nearest to previous point (or earliest packet
+     * index), then repeatedly append the spatially closest remaining point.
+     *
+     * @param  array<int, array{record: array<string, mixed>, imei: string, date_time: string, lat: float, lon: float, index: int}>  $group
+     * @param  array{lat: float, lon: float}|null  $previous
+     * @return array<int, array{record: array<string, mixed>, imei: string, date_time: string, lat: float, lon: float, index: int}>
+     */
+    private function orderBySpatialProgression(array $group, ?array $previous): array
+    {
+        $remaining = array_values($group);
+        $ordered = [];
+
+        if ($previous !== null) {
+            $startPos = 0;
+            $best = null;
+            foreach ($remaining as $i => $item) {
+                $d = $this->haversineMeters($previous['lat'], $previous['lon'], $item['lat'], $item['lon']);
+                if ($best === null || $d < $best) {
+                    $best = $d;
+                    $startPos = $i;
+                }
+            }
+            $current = $remaining[$startPos];
+            array_splice($remaining, $startPos, 1);
+        } else {
+            usort($remaining, fn (array $a, array $b) => $a['index'] <=> $b['index']);
+            $current = array_shift($remaining);
+        }
+
+        $ordered[] = $current;
+
+        while ($remaining !== []) {
+            $nearestPos = 0;
+            $best = null;
+            foreach ($remaining as $i => $item) {
+                $d = $this->haversineMeters($current['lat'], $current['lon'], $item['lat'], $item['lon']);
+                if ($best === null || $d < $best || ($d === $best && $item['index'] < $remaining[$nearestPos]['index'])) {
+                    $best = $d;
+                    $nearestPos = $i;
+                }
+            }
+            $current = $remaining[$nearestPos];
+            array_splice($remaining, $nearestPos, 1);
+            $ordered[] = $current;
+        }
+
+        return $ordered;
+    }
+
+    /**
+     * @return array{0: float, 1: float}
+     */
+    private function parseCoordinatePair(mixed $coordinate): array
+    {
+        if (is_string($coordinate)) {
+            $decoded = json_decode($coordinate, true);
+            if (is_array($decoded)) {
+                return [(float) ($decoded[0] ?? 0), (float) ($decoded[1] ?? 0)];
+            }
+
+            $parts = explode(',', $coordinate, 2);
+            if (count($parts) === 2) {
+                return [(float) $parts[0], (float) $parts[1]];
+            }
+        }
+
+        if (is_array($coordinate)) {
+            return [(float) ($coordinate[0] ?? 0), (float) ($coordinate[1] ?? 0)];
+        }
+
+        return [0.0, 0.0];
+    }
+
+    private function haversineMeters(float $lat1, float $lon1, float $lat2, float $lon2): float
+    {
+        $earthRadius = 6371000.0;
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLon = deg2rad($lon2 - $lon1);
+        $a = sin($dLat / 2) ** 2
+            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLon / 2) ** 2;
+
+        return 2 * $earthRadius * asin(min(1.0, sqrt($a)));
     }
 
     /**
