@@ -47,6 +47,31 @@ supervisor_gps_status() {
     sudo supervisorctl status 2>/dev/null | grep -E 'gps-processing|gps-broadcast|gps-side-effects' || true
 }
 
+# True if this supervisor process is a gps-processing worker (flat or group-prefixed).
+# Examples: gps-processing:gps-processing_00  OR  gps-ingest:gps-processing_00
+is_gps_processing() {
+    [[ "$1" == *gps-processing_* ]] || [[ "$1" == gps-processing:* ]]
+}
+
+is_gps_broadcast() {
+    [[ "$1" == *gps-broadcast_* ]] || [[ "$1" == gps-broadcast:* ]]
+}
+
+start_gps_workers_best_effort() {
+    # Flat program names (preferred confs without [group:])
+    sudo supervisorctl start \
+        gps-processing:* \
+        gps-broadcast:* \
+        gps-side-effects:* \
+        gps-side-effects-consumer:* >/dev/null 2>&1
+    # Legacy group-prefixed names still on some hosts
+    sudo supervisorctl start \
+        gps-ingest:* \
+        gps-broadcast-group:* \
+        gps-side-effects-group:* \
+        gps-side-effects-consumer-group:* >/dev/null 2>&1
+}
+
 # Evaluate supervisor lines in the CURRENT shell (no pipe subshell — CRITICAL must stick).
 evaluate_supervisor_gps() {
     local sup_out="$1"
@@ -60,7 +85,8 @@ evaluate_supervisor_gps() {
         info "install: sudo cp deploy/supervisor/laravel-gps-workers.conf /etc/supervisor/conf.d/"
         info "         sudo cp deploy/supervisor/laravel-gps-broadcast.conf /etc/supervisor/conf.d/"
         info "         sudo supervisorctl reread && sudo supervisorctl update"
-        info "         sudo supervisorctl start gps-processing:* gps-broadcast:*"
+        info "         then: sudo supervisorctl start gps-processing:* gps-broadcast:*"
+        info "         or legacy groups: sudo supervisorctl start gps-ingest:* gps-broadcast-group:*"
         return 1
     fi
 
@@ -69,17 +95,19 @@ evaluate_supervisor_gps() {
         name="$(echo "$line" | awk '{print $1}')"
         state="$(echo "$line" | awk '{print $2}')"
 
-        case "$name" in
-            gps-processing:*) proc_n=$((proc_n + 1)) ;;
-            gps-broadcast:*)  bcast_n=$((bcast_n + 1)) ;;
-        esac
+        if is_gps_processing "$name"; then
+            proc_n=$((proc_n + 1))
+        elif is_gps_broadcast "$name"; then
+            bcast_n=$((bcast_n + 1))
+        fi
 
         case "$state" in
             RUNNING)
-                case "$name" in
-                    gps-processing:*) proc_run=$((proc_run + 1)) ;;
-                    gps-broadcast:*)  bcast_run=$((bcast_run + 1)) ;;
-                esac
+                if is_gps_processing "$name"; then
+                    proc_run=$((proc_run + 1))
+                elif is_gps_broadcast "$name"; then
+                    bcast_run=$((bcast_run + 1))
+                fi
                 [[ "$quiet" == "0" ]] && ok "supervisor $name RUNNING"
                 ;;
             STARTING)
@@ -204,8 +232,8 @@ if command -v supervisorctl >/dev/null 2>&1; then
     info "waiting ${WORKER_SETTLE_SECONDS}s for workers to settle after queue:restart..."
     sleep "$WORKER_SETTLE_SECONDS"
 
-    # Best-effort: revive EXITED/FATAL processes before final scoring
-    sudo supervisorctl start gps-processing:* gps-broadcast:* gps-side-effects:* gps-side-effects-consumer:* >/dev/null 2>&1
+    # Best-effort: revive EXITED/FATAL (flat + legacy group names)
+    start_gps_workers_best_effort
 
     attempt=1
     while (( attempt <= WORKER_RETRY_ATTEMPTS )); do
@@ -221,7 +249,7 @@ if command -v supervisorctl >/dev/null 2>&1; then
         if (( attempt < WORKER_RETRY_ATTEMPTS )); then
             info "workers settling (attempt ${attempt}/${WORKER_RETRY_ATTEMPTS}): STARTING=${STARTING_N} BAD=${EXITED_N} proc_run=${PROC_RUN} bcast_run=${BCAST_RUN}"
             if (( EXITED_N > 0 )); then
-                sudo supervisorctl start gps-processing:* gps-broadcast:* gps-side-effects:* >/dev/null 2>&1
+                start_gps_workers_best_effort
             fi
             sleep "$WORKER_RETRY_SLEEP"
         fi
@@ -294,11 +322,10 @@ if (( CRITICAL > 0 )); then
     red "Do NOT replay IoT Gateway traffic until CRITICAL items are fixed."
     echo ""
     info "Typical fix for overloaded / EXITED workers on eco1-small:"
-    info "  sudo cp deploy/supervisor/laravel-gps-workers.conf /etc/supervisor/conf.d/"
-    info "  sudo cp deploy/supervisor/laravel-gps-broadcast.conf /etc/supervisor/conf.d/"
-    info "  sudo cp deploy/supervisor/laravel-gps-side-effects.conf /etc/supervisor/conf.d/"
+    info "  sudo cp -f deploy/supervisor/laravel-gps-*.conf /etc/supervisor/conf.d/  # or edit symlink target"
     info "  sudo supervisorctl reread && sudo supervisorctl update"
     info "  sudo supervisorctl start gps-processing:* gps-broadcast:* gps-side-effects:*"
+    info "  # legacy groups: sudo supervisorctl start gps-ingest:* gps-broadcast-group:* gps-side-effects-group:*"
     info "Typical fix for Redis LOADING: wait until redis-cli ping => PONG"
     echo ""
     exit 2
