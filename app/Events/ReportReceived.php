@@ -50,9 +50,17 @@ class ReportReceived implements ShouldBroadcast
     public function broadcastWith(): array
     {
         return collect($this->points)->map(function ($point) {
+            $coordinate = $point['coordinate'] ?? null;
+            if (is_string($coordinate)) {
+                $coordinate = json_decode($coordinate, true);
+            }
+            if (! is_array($coordinate)) {
+                $coordinate = [0, 0];
+            }
+
             return [
-                    'latitude' => $point['coordinate'][0],
-                    'longitude' => $point['coordinate'][1],
+                    'latitude' => $coordinate[0] ?? null,
+                    'longitude' => $coordinate[1] ?? null,
                     'speed' => $point['speed'],
                     'status' => $point['status'],
                     'directions' => $point['directions'],

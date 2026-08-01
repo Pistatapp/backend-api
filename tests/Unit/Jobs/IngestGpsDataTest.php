@@ -215,7 +215,7 @@ class IngestGpsDataTest extends TestCase
         Log::assertLogged(fn ($log) => $log->level === 'warning' && str_contains($log->message, 'missing field'));
     }
 
-    public function test_colliding_date_times_in_batch_are_staggered_before_insert(): void
+    public function test_colliding_date_times_are_ordered_by_spatial_progression_then_staggered(): void
     {
         $this->skipIfMysqlGpsNotAvailable();
         Queue::fake();
@@ -228,24 +228,25 @@ class IngestGpsDataTest extends TestCase
         ]);
 
         $base = $this->sampleData()[0];
+        // Packet order is A, C, B (C is farther than B). Spatial chain must be A→B→C.
         $batch = [
             array_merge($base, [
                 'date_time' => '2026-02-25 18:49:45',
-                'coordinate' => [35.937893, 50.065403],
+                'coordinate' => [35.000000, 50.000000], // A
                 'speed' => 10,
                 'status' => 0,
             ]),
             array_merge($base, [
                 'date_time' => '2026-02-25 18:49:45',
-                'coordinate' => [35.938000, 50.065500],
-                'speed' => 12,
-                'status' => 0,
+                'coordinate' => [35.000200, 50.000000], // C (farther along lat)
+                'speed' => 14,
+                'status' => 1,
             ]),
             array_merge($base, [
                 'date_time' => '2026-02-25 18:49:45',
-                'coordinate' => [35.938100, 50.065600],
-                'speed' => 14,
-                'status' => 1,
+                'coordinate' => [35.000100, 50.000000], // B (between A and C)
+                'speed' => 12,
+                'status' => 0,
             ]),
         ];
 
@@ -257,13 +258,14 @@ class IngestGpsDataTest extends TestCase
             ->where('date_time', '>=', '2026-02-25 18:49:45')
             ->where('date_time', '<=', '2026-02-25 18:49:47')
             ->orderBy('date_time')
-            ->get(['date_time', 'speed']);
+            ->get(['date_time', 'speed', 'coordinate']);
 
         $this->assertCount(3, $rows);
         $this->assertSame(
             ['2026-02-25 18:49:45', '2026-02-25 18:49:46', '2026-02-25 18:49:47'],
             $rows->pluck('date_time')->map(fn ($dt) => (string) $dt)->all()
         );
+        // Speeds follow spatial order A(10) → B(12) → C(14), not packet order A,C,B.
         $this->assertSame([10, 12, 14], $rows->pluck('speed')->map(fn ($s) => (int) $s)->all());
     }
 }

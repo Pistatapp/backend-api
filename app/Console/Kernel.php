@@ -76,6 +76,12 @@ class Kernel extends ConsoleKernel
         $schedule->job(new CloseAttendanceSessionsJob)
             ->hourly()
             ->withoutOverlapping();
+
+        // gps_data RANGE partitions: if MySQL EVENT dies, Aug+ inserts fail while WS still moves markers.
+        $schedule->command('gps:ensure-partitions --days=21')
+            ->dailyAt('00:10')
+            ->withoutOverlapping()
+            ->runInBackground();
     }
 
     /**
