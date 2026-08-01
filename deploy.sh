@@ -15,7 +15,7 @@ PROJECT_DIR="/home/api/domains/api.pistatapp.ir/public_html"
 BRANCH="${DEPLOY_BRANCH:-main}"
 REDIS_CLI="${REDIS_CLI:-redis-cli}"
 # After queue:restart, supervisors cycle STARTING→RUNNING. Give them time.
-WORKER_SETTLE_SECONDS="${WORKER_SETTLE_SECONDS:-12}"
+WORKER_SETTLE_SECONDS="${WORKER_SETTLE_SECONDS:-6}"
 WORKER_RETRY_ATTEMPTS="${WORKER_RETRY_ATTEMPTS:-5}"
 WORKER_RETRY_SLEEP="${WORKER_RETRY_SLEEP:-3}"
 # Minimum RUNNING workers required (eco1-small should use modest numprocs).
@@ -266,7 +266,8 @@ echo ""
 
 # Artisan GPS health (code + DB + Redis via Laravel)
 if php artisan list --raw 2>/dev/null | grep -q '^gps:ingest-health'; then
-    php artisan gps:ingest-health
+    # --fast: never full-scan gps_data.p_future (can OOM small VPS and drop SSH)
+    php artisan gps:ingest-health --fast
     ART_RC=$?
     if (( ART_RC != 0 )); then
         crit "php artisan gps:ingest-health reported failures (exit ${ART_RC})"

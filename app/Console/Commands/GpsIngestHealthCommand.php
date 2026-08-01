@@ -10,17 +10,31 @@ use Throwable;
 
 /**
  * Production GPS ingest health check (used by deploy.sh and ops).
+ *
+ * IMPORTANT: gps_data.p_future can hold 10M+ mixed-date rows. Full-table
+ * COUNT(*) on far-future clocks can OOM / freeze a small VPS and drop SSH.
+ * Deploy uses --fast (no full junk scan). Use --deep only when you can spare load.
  */
 class GpsIngestHealthCommand extends Command
 {
-    protected $signature = 'gps:ingest-health {--json : Machine-readable JSON summary}';
+    protected $signature = 'gps:ingest-health
+                            {--json : Machine-readable JSON summary}
+                            {--fast : Skip heavy gps_data scans (default for deploy.sh)}
+                            {--deep : Allow full far-future COUNT on gps_data (can be slow/heavy)}';
 
     protected $description = 'Check Redis, queues, mysql_gps, partitions, code gates, and today ingest counts';
 
     public function handle(): int
     {
         $ok = true;
+        $fast = (bool) $this->option('fast') || ! $this->option('deep');
+        // --deep wins over --fast when both passed
+        if ($this->option('deep')) {
+            $fast = false;
+        }
+
         $report = [
+            'mode' => $fast ? 'fast' : 'deep',
             'redis' => null,
             'queues' => [],
             'mysql_gps' => null,
@@ -33,7 +47,7 @@ class GpsIngestHealthCommand extends Command
         ];
 
         if (! $this->option('json')) {
-            $this->info('=== GPS ingest health ===');
+            $this->info('=== GPS ingest health ('.$report['mode'].') ===');
         }
 
         // Redis + queues
@@ -92,13 +106,21 @@ class GpsIngestHealthCommand extends Command
         // mysql_gps
         try {
             $db = (string) config('database.connections.mysql_gps.database');
-            DB::connection('mysql_gps')->selectOne('SELECT 1 AS ok');
+            $conn = DB::connection('mysql_gps');
+            $conn->selectOne('SELECT 1 AS ok');
+            // Cap SELECT runtime (MySQL 5.7.8+ / 8.x) so a bad scan cannot freeze the host.
+            try {
+                $conn->statement('SET SESSION MAX_EXECUTION_TIME=8000');
+            } catch (Throwable) {
+                // ignore if unsupported
+            }
+
             $report['mysql_gps'] = $db;
             if (! $this->option('json')) {
                 $this->line("mysql_gps database: {$db} — OK");
             }
 
-            $unique = DB::connection('mysql_gps')->selectOne('
+            $unique = $conn->selectOne('
                 SELECT COUNT(*) AS c
                 FROM information_schema.statistics
                 WHERE table_schema = ? AND table_name = ? AND index_name = ?
@@ -109,7 +131,7 @@ class GpsIngestHealthCommand extends Command
                 $this->line('Unique imei+date_time: '.($hasUnique ? 'YES' : 'NO (plain insert mode)'));
             }
 
-            $futurePart = DB::connection('mysql_gps')->selectOne('
+            $futurePart = $conn->selectOne('
                 SELECT COUNT(*) AS c
                 FROM information_schema.PARTITIONS
                 WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND PARTITION_NAME = ?
@@ -125,24 +147,22 @@ class GpsIngestHealthCommand extends Command
                 $this->line('Partition p_future: present');
             }
 
-            // Sane "today" window excludes absurd future clocks (e.g. 2068)
-            $today = DB::connection('mysql_gps')->selectOne('
-                SELECT COUNT(*) AS c, MAX(date_time) AS max_dt, COUNT(DISTINCT tractor_id) AS tractors
+            // Today window — avoid COUNT(DISTINCT) (extra heavy on large partitions).
+            $today = $conn->selectOne('
+                SELECT COUNT(*) AS c, MAX(date_time) AS max_dt
                 FROM gps_data
                 WHERE date_time >= CURDATE()
                   AND date_time < (CURDATE() + INTERVAL 2 DAY)
             ');
+            $todayCount = (int) ($today->c ?? 0);
             $report['today_sane_rows'] = [
-                'count' => (int) ($today->c ?? 0),
+                'count' => $todayCount,
                 'max' => $today->max_dt ?? null,
-                'tractors' => (int) ($today->tractors ?? 0),
             ];
-            $todayCount = $report['today_sane_rows']['count'];
             if (! $this->option('json')) {
                 $this->line(sprintf(
-                    'Rows today (sane < +2d): %d | tractors=%d | max=%s',
+                    'Rows today (sane < +2d): %d | max=%s',
                     $todayCount,
-                    $report['today_sane_rows']['tractors'],
                     $report['today_sane_rows']['max'] ?? 'null'
                 ));
                 if ($todayCount === 0) {
@@ -150,22 +170,37 @@ class GpsIngestHealthCommand extends Command
                 }
             }
 
-            $futureJunk = DB::connection('mysql_gps')->selectOne('
-                SELECT COUNT(*) AS c
-                FROM gps_data
-                WHERE date_time >= (NOW() + INTERVAL 2 DAY)
-            ');
-            $junk = (int) ($futureJunk->c ?? 0);
-            $report['future_junk_rows'] = $junk;
-            if ($junk > 0 && ! $this->option('json')) {
-                $this->warn("Far-future junk rows (date_time >= now+2d): {$junk}");
-                $this->warn('Purge with: php artisan gps:purge-future-junk --dry-run  then  --force');
+            if ($fast) {
+                // Do NOT full-scan p_future for junk COUNT — that partition can be 10M+ rows
+                // and has OOM'd / dropped SSH on eco1-small during deploy.
+                $report['future_junk_rows'] = null;
+                if (! $this->option('json')) {
+                    $this->line('Far-future junk scan: skipped (--fast). Use: php artisan gps:purge-future-junk --dry-run');
+                    $this->line('Deep health (heavy): php artisan gps:ingest-health --deep');
+                }
+            } else {
+                $futureJunk = $conn->selectOne('
+                    SELECT COUNT(*) AS c
+                    FROM gps_data
+                    WHERE date_time >= (NOW() + INTERVAL 2 DAY)
+                ');
+                $junk = (int) ($futureJunk->c ?? 0);
+                $report['future_junk_rows'] = $junk;
+                if ($junk > 0 && ! $this->option('json')) {
+                    $this->warn("Far-future junk rows (date_time >= now+2d): {$junk}");
+                    $this->warn('Purge with: php artisan gps:purge-future-junk --dry-run  then  --force');
+                } elseif (! $this->option('json')) {
+                    $this->line('Far-future junk rows: 0');
+                }
             }
         } catch (Throwable $e) {
             $ok = false;
             $report['mysql_gps'] = 'FAILED: '.$e->getMessage();
             if (! $this->option('json')) {
                 $this->error('mysql_gps FAILED: '.$e->getMessage());
+                if (str_contains(strtolower($e->getMessage()), 'maximum statement execution time')) {
+                    $this->warn('Query timed out — gps_data scan too heavy; stick to --fast / purge offline');
+                }
             }
         }
 

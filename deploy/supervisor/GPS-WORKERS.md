@@ -75,11 +75,17 @@ php artisan queue:restart
 php artisan gps:ingest-health
 ```
 
-## Purge far-future junk clocks (optional)
+## Purge far-future junk clocks (optional — can be heavy on p_future)
 ```bash
+# Prefer dedicated purge dry-run over gps:ingest-health --deep on eco1-small
 php artisan gps:purge-future-junk --dry-run
 php artisan gps:purge-future-junk --force
 ```
+
+## Why SSH drops mid-deploy?
+Full `COUNT(*)` of far-future rows on `gps_data` scans partition `p_future` (often 10M+ mixed
+dates). On a small VPS that can spike RAM/CPU, freeze the host, and SSH ends with
+`Connection closed by remote host`. `deploy.sh` now runs `gps:ingest-health --fast` to avoid that.
 
 ## Redis must be ready before replay from gateway
 ```bash
