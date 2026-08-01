@@ -6,6 +6,7 @@ use App\Models\GpsDevice;
 use App\Models\Tractor;
 use App\Services\NocMonitor;
 use App\Support\GpsDeviceCache;
+use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -207,6 +208,40 @@ class IngestGpsData implements ShouldQueue
                 $records[] = $record;
             }
         }
+
+        // Unique (imei, date_time) + second-precision clocks: colliding rows in one
+        // batch (gateway retries, RTC resync to server "now") would otherwise be
+        // insertOrIgnore'd down to a single DB point while WS still shows live logs.
+        return $this->ensureUniqueDateTimes($records);
+    }
+
+    /**
+     * Normalize date_time to Y-m-d H:i:s and stagger +1s on in-batch collisions
+     * so insertOrIgnore under gps_data_imei_date_time_unique keeps the trail.
+     *
+     * @param  array<int, array<string, mixed>>  $records
+     * @return array<int, array<string, mixed>>
+     */
+    private function ensureUniqueDateTimes(array $records): array
+    {
+        $used = [];
+
+        foreach ($records as &$record) {
+            $imei = (string) ($record['imei'] ?? '');
+            try {
+                $dt = Carbon::parse((string) $record['date_time'])->format('Y-m-d H:i:s');
+            } catch (Throwable) {
+                $dt = Carbon::now()->format('Y-m-d H:i:s');
+            }
+
+            while (isset($used[$imei][$dt])) {
+                $dt = Carbon::parse($dt)->addSecond()->format('Y-m-d H:i:s');
+            }
+
+            $used[$imei][$dt] = true;
+            $record['date_time'] = $dt;
+        }
+        unset($record);
 
         return $records;
     }

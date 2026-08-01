@@ -214,4 +214,56 @@ class IngestGpsDataTest extends TestCase
         $this->assertSame(1, $count);
         Log::assertLogged(fn ($log) => $log->level === 'warning' && str_contains($log->message, 'missing field'));
     }
+
+    public function test_colliding_date_times_in_batch_are_staggered_before_insert(): void
+    {
+        $this->skipIfMysqlGpsNotAvailable();
+        Queue::fake();
+
+        $farm = Farm::factory()->create();
+        $tractor = Tractor::factory()->create(['farm_id' => $farm->id]);
+        GpsDevice::factory()->create([
+            'tractor_id' => $tractor->id,
+            'imei' => '863070046120282',
+        ]);
+
+        $base = $this->sampleData()[0];
+        $batch = [
+            array_merge($base, [
+                'date_time' => '2026-02-25 18:49:45',
+                'coordinate' => [35.937893, 50.065403],
+                'speed' => 10,
+                'status' => 0,
+            ]),
+            array_merge($base, [
+                'date_time' => '2026-02-25 18:49:45',
+                'coordinate' => [35.938000, 50.065500],
+                'speed' => 12,
+                'status' => 0,
+            ]),
+            array_merge($base, [
+                'date_time' => '2026-02-25 18:49:45',
+                'coordinate' => [35.938100, 50.065600],
+                'speed' => 14,
+                'status' => 1,
+            ]),
+        ];
+
+        (new IngestGpsData($batch))->handle();
+
+        $rows = DB::connection('mysql_gps')
+            ->table('gps_data')
+            ->where('imei', '863070046120282')
+            ->where('date_time', '>=', '2026-02-25 18:49:45')
+            ->where('date_time', '<=', '2026-02-25 18:49:47')
+            ->orderBy('date_time')
+            ->get(['date_time', 'speed']);
+
+        $this->assertCount(3, $rows);
+        $this->assertSame(
+            ['2026-02-25 18:49:45', '2026-02-25 18:49:46', '2026-02-25 18:49:47'],
+            $rows->pluck('date_time')->map(fn ($dt) => (string) $dt)->all()
+        );
+        $this->assertSame([10, 12, 14], $rows->pluck('speed')->map(fn ($s) => (int) $s)->all());
+    }
 }
