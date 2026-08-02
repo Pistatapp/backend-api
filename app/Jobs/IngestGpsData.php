@@ -51,6 +51,7 @@ class IngestGpsData implements ShouldQueue
         public array $data,
         public ?string $traceId = null,
     ) {
+        $this->onConnection(config('queue.default', 'redis'));
         $this->onQueue('gps-processing');
     }
 
@@ -67,7 +68,7 @@ class IngestGpsData implements ShouldQueue
         return [
             (new WithoutOverlapping((string) $imei))
                 ->releaseAfter(3)
-                ->expireAfter(90),
+                ->expireAfter(60),
         ];
     }
 
@@ -104,24 +105,7 @@ class IngestGpsData implements ShouldQueue
 
         $records = $this->prepareBatch($this->data, $tractor->id, $deviceImei);
 
-        if ($records !== []) {
-            $this->insertWithRecovery($records);
-            NocMonitor::emit(
-                'PISTAT_DELIVERY',
-                'success',
-                $deviceImei,
-                $this->traceId,
-                'PiStat mysql_gps persisted',
-                [
-                    'phase' => 'persisted',
-                    'records' => count($records),
-                    'tractor_id' => $tractor->id,
-                    'database' => config('database.connections.mysql_gps.database'),
-                    'first_date_time' => $records[0]['date_time'] ?? null,
-                    'last_date_time' => $records[array_key_last($records)]['date_time'] ?? null,
-                ]
-            );
-        } else {
+        if ($records === []) {
             NocMonitor::emit(
                 'PISTAT_DELIVERY',
                 'drop',
@@ -131,8 +115,51 @@ class IngestGpsData implements ShouldQueue
                 ['phase' => 'persist'],
                 'empty prepared batch'
             );
+
+            return;
         }
 
+        $persisted = $this->insertWithRecovery($records);
+
+        if ($persisted < 1) {
+            NocMonitor::emit(
+                'PISTAT_DELIVERY',
+                'error',
+                $deviceImei,
+                $this->traceId,
+                'PiStat mysql_gps persisted 0 rows',
+                [
+                    'phase' => 'persist',
+                    'prepared' => count($records),
+                    'tractor_id' => $tractor->id,
+                    'database' => config('database.connections.mysql_gps.database'),
+                ],
+                'zero durable rows'
+            );
+
+            throw new \RuntimeException(
+                'IngestGpsData persisted 0/'.count($records).' rows for IMEI '.$deviceImei
+            );
+        }
+
+        NocMonitor::emit(
+            'PISTAT_DELIVERY',
+            'success',
+            $deviceImei,
+            $this->traceId,
+            'PiStat mysql_gps persisted',
+            [
+                'phase' => 'persisted',
+                'records' => $persisted,
+                'prepared' => count($records),
+                'tractor_id' => $tractor->id,
+                'database' => config('database.connections.mysql_gps.database'),
+                'first_date_time' => $records[0]['date_time'] ?? null,
+                'last_date_time' => $records[array_key_last($records)]['date_time'] ?? null,
+            ]
+        );
+
+        // Only broadcast after durable write — otherwise markers move while path stays empty.
         BroadcastGpsEvents::dispatch($this->data, $tractor->id, $deviceImei, $this->traceId);
     }
 
@@ -154,82 +181,208 @@ class IngestGpsData implements ShouldQueue
     }
 
     /**
-     * Bulk insertOrIgnore on mysql_gps; on chunk failure, retry row-by-row so
-     * one bad row cannot discard a healthy batch.
+     * Persist rows to mysql_gps with reconnect / row-level recovery.
      *
      * @param  array<int, array<string, mixed>>  $records
+     * @return int Number of rows successfully written (or already present as duplicate)
      */
-    private function insertWithRecovery(array $records): void
+    private function insertWithRecovery(array $records): int
     {
         $gps = DB::connection('mysql_gps');
         $database = (string) config('database.connections.mysql_gps.database');
+        $written = 0;
 
-        foreach (array_chunk($records, 1000) as $chunk) {
+        $this->ensureGpsConnection($gps);
+
+        foreach (array_chunk($records, 200) as $chunk) {
             if ($chunk === []) {
                 continue;
             }
 
             try {
-                $gps->transaction(function () use ($gps, $chunk) {
-                    $this->insertChunk($gps, $chunk);
+                $this->ensureGpsConnection($gps);
+                $gps->transaction(function () use ($gps, $chunk, &$written) {
+                    $written += $this->insertChunkCounting($gps, $chunk);
                 });
             } catch (Throwable $e) {
-                $message = $e->getMessage();
                 Log::warning('IngestGpsData: bulk chunk insert failed, retrying row-by-row', [
                     'database' => $database,
                     'chunk_size' => count($chunk),
-                    'error' => $message,
+                    'error' => $e->getMessage(),
                 ]);
 
-                if (str_contains(strtolower($message), 'partition')) {
-                    Log::critical('IngestGpsData: partition error — run php artisan gps:ensure-partitions', [
+                if (str_contains(strtolower($e->getMessage()), 'partition')) {
+                    Log::critical('IngestGpsData: partition error on bulk insert', [
                         'database' => $database,
-                        'error' => $message,
+                        'error' => $e->getMessage(),
                         'sample_date_time' => $chunk[0]['date_time'] ?? null,
                     ]);
                 }
 
-                $this->insertChunkRowByRow($gps, $chunk);
-            }
-
-            // Prove durability: live WS can succeed while mysql_gps stays empty.
-            $probe = $chunk[array_key_last($chunk)];
-            $exists = $gps->table('gps_data')
-                ->where('imei', $probe['imei'] ?? null)
-                ->where('date_time', $probe['date_time'] ?? null)
-                ->where('tractor_id', $probe['tractor_id'] ?? null)
-                ->exists();
-
-            if (! $exists) {
-                Log::error('IngestGpsData: write left no durable row — forcing plain insert', [
-                    'database' => $database,
-                    'imei' => $probe['imei'] ?? null,
-                    'date_time' => $probe['date_time'] ?? null,
-                    'tractor_id' => $probe['tractor_id'] ?? null,
-                    'chunk_size' => count($chunk),
-                ]);
-
-                $this->forceInsertChunk($gps, $chunk);
+                $this->ensureGpsConnection($gps);
+                $written += $this->insertRowsIndividually($gps, $chunk);
             }
         }
+
+        if ($written < 1) {
+            // Last resort: verify + force plain insert one by one with reconnect.
+            $this->ensureGpsConnection($gps);
+            $written = $this->insertRowsIndividually($gps, $records, true);
+        }
+
+        Log::info('IngestGpsData: persist result', [
+            'database' => $database,
+            'prepared' => count($records),
+            'written' => $written,
+            'imei' => $records[0]['imei'] ?? null,
+            'tractor_id' => $records[0]['tractor_id'] ?? null,
+        ]);
+
+        return $written;
     }
 
     /**
-     * Prefer insertOrIgnore only when the unique key exists; otherwise plain insert
-     * (IGNORE without a unique key is pointless and has masked write failures).
-     *
+     * @param  \Illuminate\Database\Connection  $gps
+     */
+    private function ensureGpsConnection($gps): void
+    {
+        try {
+            $gps->select('SELECT 1');
+        } catch (Throwable) {
+            try {
+                $gps->disconnect();
+            } catch (Throwable) {
+                // ignore
+            }
+            $gps->reconnect();
+        }
+    }
+
+    private function isStaleConnectionException(Throwable $e): bool
+    {
+        $message = strtolower($e->getMessage());
+
+        return str_contains($message, 'server has gone away')
+            || str_contains($message, 'lost connection')
+            || str_contains($message, 'is dead')
+            || str_contains($message, 'broken pipe')
+            || str_contains($message, 'error while sending')
+            || (str_contains($message, '2006'))
+            || (str_contains($message, '2013'));
+    }
+
+    /**
      * @param  \Illuminate\Database\Connection  $gps
      * @param  array<int, array<string, mixed>>  $chunk
      */
-    private function insertChunk($gps, array $chunk): void
+    private function insertChunkCounting($gps, array $chunk): int
     {
         if ($this->hasImeiDateTimeUniqueIndex()) {
-            $gps->table('gps_data')->insertOrIgnore($chunk);
+            $result = $gps->table('gps_data')->insertOrIgnore($chunk);
+            if (is_bool($result)) {
+                return $result
+                    ? count($chunk)
+                    : ($this->countExistingInChunk($gps, $chunk) > 0 ? count($chunk) : 0);
+            }
 
-            return;
+            $affected = (int) $result;
+            if ($affected > 0) {
+                return $affected;
+            }
+
+            // All ignored as duplicates — still counts as durable for this batch.
+            return $this->countExistingInChunk($gps, $chunk) > 0 ? count($chunk) : 0;
         }
 
         $gps->table('gps_data')->insert($chunk);
+
+        return count($chunk);
+    }
+
+    /**
+     * @param  \Illuminate\Database\Connection  $gps
+     * @param  array<int, array<string, mixed>>  $chunk
+     */
+    private function countExistingInChunk($gps, array $chunk): int
+    {
+        $imei = (string) ($chunk[0]['imei'] ?? '');
+        $tractorId = (int) ($chunk[0]['tractor_id'] ?? 0);
+        $times = array_values(array_unique(array_column($chunk, 'date_time')));
+
+        if ($imei === '' || $tractorId < 1 || $times === []) {
+            return 0;
+        }
+
+        return (int) $gps->table('gps_data')
+            ->where('imei', $imei)
+            ->where('tractor_id', $tractorId)
+            ->whereIn('date_time', $times)
+            ->count();
+    }
+
+    /**
+     * @param  \Illuminate\Database\Connection  $gps
+     * @param  array<int, array<string, mixed>>  $chunk
+     */
+    private function insertRowsIndividually($gps, array $chunk, bool $forcePlain = false): int
+    {
+        $written = 0;
+
+        foreach ($chunk as $row) {
+            $attempts = 0;
+            while ($attempts < 3) {
+                $attempts++;
+                try {
+                    if ($forcePlain || ! $this->hasImeiDateTimeUniqueIndex()) {
+                        $gps->table('gps_data')->insert($row);
+                    } else {
+                        $affected = (int) $gps->table('gps_data')->insertOrIgnore([$row]);
+                        if ($affected < 1) {
+                            // Duplicate under unique key — treat as persisted.
+                            $written++;
+                            break;
+                        }
+                    }
+                    $written++;
+                    break;
+                } catch (Throwable $e) {
+                    if ($this->isDuplicateKeyException($e)) {
+                        $written++;
+                        break;
+                    }
+
+                    if ($this->isStaleConnectionException($e) && $attempts < 3) {
+                        Log::warning('IngestGpsData: stale MySQL connection — reconnecting', [
+                            'attempt' => $attempts,
+                            'error' => $e->getMessage(),
+                        ]);
+                        $this->ensureGpsConnection($gps);
+                        continue;
+                    }
+
+                    if (str_contains(strtolower($e->getMessage()), 'partition') && $attempts < 3) {
+                        // Land in p_future under server "now" so the trail is not dropped.
+                        $row['date_time'] = Carbon::now()->format('Y-m-d H:i:s');
+                        Log::critical('IngestGpsData: partition miss — rewriting date_time to server now', [
+                            'imei' => $row['imei'] ?? null,
+                            'new_date_time' => $row['date_time'],
+                            'error' => $e->getMessage(),
+                        ]);
+                        $this->ensureGpsConnection($gps);
+                        continue;
+                    }
+
+                    Log::error('IngestGpsData: dropping unrecoverable gps_data row', [
+                        'imei' => $row['imei'] ?? null,
+                        'date_time' => $row['date_time'] ?? null,
+                        'error' => $e->getMessage(),
+                    ]);
+                    break;
+                }
+            }
+        }
+
+        return $written;
     }
 
     private function hasImeiDateTimeUniqueIndex(): bool
@@ -254,62 +407,6 @@ class IngestGpsData implements ShouldQueue
         }
 
         return self::$hasImeiDateTimeUnique;
-    }
-
-    /**
-     * @param  \Illuminate\Database\Connection  $gps
-     * @param  array<int, array<string, mixed>>  $chunk
-     */
-    private function insertChunkRowByRow($gps, array $chunk): void
-    {
-        $inserted = 0;
-        $lastError = null;
-
-        foreach ($chunk as $row) {
-            try {
-                $this->insertChunk($gps, [$row]);
-                $inserted++;
-            } catch (Throwable $rowError) {
-                $lastError = $rowError;
-                Log::error('IngestGpsData: dropping unrecoverable gps_data row', [
-                    'imei' => $row['imei'] ?? null,
-                    'date_time' => $row['date_time'] ?? null,
-                    'error' => $rowError->getMessage(),
-                ]);
-            }
-        }
-
-        if ($inserted === 0 && $lastError !== null) {
-            throw $lastError;
-        }
-    }
-
-    /**
-     * Last-resort write when IGNORE silently no-ops (misconfigured unique / partition).
-     *
-     * @param  \Illuminate\Database\Connection  $gps
-     * @param  array<int, array<string, mixed>>  $chunk
-     */
-    private function forceInsertChunk($gps, array $chunk): void
-    {
-        foreach ($chunk as $row) {
-            try {
-                $gps->table('gps_data')->insert($row);
-            } catch (Throwable $e) {
-                // Duplicate after unique exists: keep first, continue trail.
-                if ($this->isDuplicateKeyException($e)) {
-                    continue;
-                }
-
-                Log::error('IngestGpsData: force insert failed', [
-                    'imei' => $row['imei'] ?? null,
-                    'date_time' => $row['date_time'] ?? null,
-                    'error' => $e->getMessage(),
-                ]);
-
-                throw $e;
-            }
-        }
     }
 
     private function isDuplicateKeyException(Throwable $e): bool

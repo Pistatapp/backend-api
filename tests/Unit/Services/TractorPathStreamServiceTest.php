@@ -323,6 +323,34 @@ class TractorPathStreamServiceTest extends TestCase
     }
 
     /**
+     * Coordinate drift with speed=0 must still produce a drawable trail.
+     * Live WS uses coordinates; path must not require speed>0 only.
+     */
+    public function test_includes_movement_when_speed_zero_but_coordinates_move(): void
+    {
+        $this->skipIfMysqlNotAvailable();
+        $this->setUpTractor();
+
+        $today = Carbon::today();
+        $this->insertGpsData($this->tractor->id, [
+            ['date_time' => $today->copy()->setTime(8, 0, 0), 'speed' => 0, 'status' => 0, 'coordinate' => json_encode([35.0000, 51.0000])],
+            ['date_time' => $today->copy()->setTime(8, 0, 10), 'speed' => 0, 'status' => 0, 'coordinate' => json_encode([35.0005, 51.0005])],
+            ['date_time' => $today->copy()->setTime(8, 0, 20), 'speed' => 0, 'status' => 0, 'coordinate' => json_encode([35.0010, 51.0010])],
+        ]);
+
+        $response = $this->service->getTractorPath($this->tractor, $today, false);
+
+        ob_start();
+        $response->send();
+        $content = ob_get_clean();
+
+        $data = json_decode($content, true);
+
+        $this->assertIsArray($data);
+        $this->assertGreaterThanOrEqual(2, count($data), 'Android needs >=2 points to draw polyline');
+    }
+
+    /**
      * Helper method to insert GPS data for testing.
      */
     private function insertGpsData(int $tractorId, array $records): void
