@@ -10,19 +10,27 @@ use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
- * Ensure mysql_gps.gps_data has daily RANGE partitions covering today + N days.
+ * OPTIONAL / DBA-ONLY: split daily partitions out of p_future.
  *
- * Without p_future (or when the MySQL EVENT dies), inserts for new calendar days
- * fail with "Table has no partition for value from KEY of ..." while WebSocket
- * broadcast can still succeed from an in-memory payload — markers move, path dies.
+ * NEVER schedule this command. REORGANIZE PARTITION p_future on a large
+ * gps_data table takes metadata locks for hours/days and blocks ALL INSERT
+ * ingest while WebSocket broadcast still succeeds (markers move, path empty).
+ *
+ * With PARTITION p_future VALUES LESS THAN MAXVALUE, new calendar days already
+ * insert successfully — daily REORGANIZE is not required for production ingest.
+ *
+ * Manual use only:
+ *   php artisan gps:ensure-partitions --dry-run
+ *   php artisan gps:ensure-partitions --force   # offline / DBA window only
  */
 class EnsureGpsDataPartitions extends Command
 {
     protected $signature = 'gps:ensure-partitions
                             {--days=14 : How many days ahead (including today) to guarantee}
-                            {--dry-run : Only report missing partitions}';
+                            {--dry-run : Only report missing partitions (never locks)}
+                            {--force : Required to run ALTER TABLE REORGANIZE (dangerous on large p_future)}';
 
-    protected $description = 'Create missing daily partitions on mysql_gps.gps_data (keeps p_future)';
+    protected $description = 'DBA-only: create daily gps_data partitions (NEVER schedule — locks table)';
 
     public function handle(): int
     {
@@ -34,6 +42,7 @@ class EnsureGpsDataPartitions extends Command
 
         $days = max(1, (int) $this->option('days'));
         $dryRun = (bool) $this->option('dry-run');
+        $force = (bool) $this->option('force');
 
         try {
             $existing = $this->existingPartitionNames();
@@ -52,15 +61,23 @@ class EnsureGpsDataPartitions extends Command
             return self::FAILURE;
         }
 
+        // Production-safe default: p_future already accepts all future dates.
+        if (! $dryRun && ! $force) {
+            $this->warn('Aborted: p_future exists — REORGANIZE is NOT needed for GPS ingest.');
+            $this->warn('This command must NEVER be scheduled. It causes metadata locks that block INSERTs.');
+            $this->line('Dry-run:  php artisan gps:ensure-partitions --dry-run');
+            $this->line('DBA only: php artisan gps:ensure-partitions --force   (offline maintenance window)');
+
+            return self::SUCCESS;
+        }
+
         $created = 0;
         $today = Carbon::today(config('app.timezone', 'Asia/Tehran'));
-        // Backfill a week so Jul 31 is created when "today" is Aug 1 and EVENT was dead.
         $startOffset = -7;
 
         for ($i = $startOffset; $i < $days; $i++) {
             $date = $today->copy()->addDays($i);
             $name = 'p'.$date->format('Ymd');
-            // RANGE VALUES LESS THAN next civil day (YYYYMMDD as int)
             $lessThan = (int) $date->copy()->addDay()->format('Ymd');
 
             if (in_array($name, $existing, true)) {
@@ -87,7 +104,6 @@ class EnsureGpsDataPartitions extends Command
                 $existing[] = $name;
                 $created++;
             } catch (Throwable $e) {
-                // Concurrent ensure / already created / out-of-order LESS THAN
                 $lower = strtolower($e->getMessage());
                 if (str_contains($lower, 'duplicate')
                     || str_contains($lower, 'already')

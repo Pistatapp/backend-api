@@ -77,11 +77,14 @@ class Kernel extends ConsoleKernel
             ->hourly()
             ->withoutOverlapping();
 
-        // gps_data RANGE partitions: if MySQL EVENT dies, Aug+ inserts fail while WS still moves markers.
-        $schedule->command('gps:ensure-partitions --days=21')
-            ->dailyAt('00:10')
-            ->withoutOverlapping()
-            ->runInBackground();
+        // -------------------------------------------------------------------------
+        // DO NOT schedule gps:ensure-partitions.
+        // REORGANIZE PARTITION p_future on large gps_data takes metadata locks for
+        // hours/days and blocks ALL INSERT ingest (live WS still works → empty path).
+        // p_future (LESS THAN MAXVALUE) already accepts all future dates — no auto
+        // REORGANIZE is required. Manual DBA-only if ever needed:
+        //   php artisan gps:ensure-partitions --force
+        // -------------------------------------------------------------------------
     }
 
     /**

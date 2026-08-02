@@ -87,7 +87,15 @@ Full `COUNT(*)` of far-future rows on `gps_data` scans partition `p_future` (oft
 dates). On a small VPS that can spike RAM/CPU, freeze the host, and SSH ends with
 `Connection closed by remote host`. `deploy.sh` now runs `gps:ingest-health --fast` to avoid that.
 
-## Diagnose GPS not persisting to DB
+## NEVER schedule gps:ensure-partitions
+`p_future` (`LESS THAN MAXVALUE`) already accepts new days. Scheduling
+`gps:ensure-partitions` runs `ALTER TABLE … REORGANIZE PARTITION p_future`,
+which takes **metadata locks** for hours/days on large tables and blocks all
+`INSERT` into `gps_data` (live WS markers still move → empty path).
+
+- Removed from `app/Console/Kernel.php` schedule (do not re-add).
+- Command requires `--force` to actually REORGANIZE; default is abort/dry-run only.
+- Manual DBA only, offline window: `php artisan gps:ensure-partitions --force`
 ```bash
 cd /home/api/domains/api.pistatapp.ir/public_html
 chmod +x deploy/diagnose-gps-persist.sh
