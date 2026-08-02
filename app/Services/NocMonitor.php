@@ -77,7 +77,7 @@ class NocMonitor
         if ($url === '') {
             return;
         }
-        $req = Http::timeout(1.5)->acceptJson();
+        $req = Http::timeout(1.5)->connectTimeout(0.5)->acceptJson();
         $token = (string) config('services.noc_monitor.token', '');
         if ($token !== '') {
             $req = $req->withHeaders(['X-Monitor-Token' => $token]);
