@@ -87,7 +87,17 @@ Full `COUNT(*)` of far-future rows on `gps_data` scans partition `p_future` (oft
 dates). On a small VPS that can spike RAM/CPU, freeze the host, and SSH ends with
 `Connection closed by remote host`. `deploy.sh` now runs `gps:ingest-health --fast` to avoid that.
 
-## Redis must be ready before replay from gateway
+## Diagnose GPS not persisting to DB
+```bash
+cd /home/api/domains/api.pistatapp.ir/public_html
+chmod +x deploy/diagnose-gps-persist.sh
+./deploy/diagnose-gps-persist.sh --tractor=38
+# or without write smoke:
+./deploy/diagnose-gps-persist.sh --tractor=38 --no-smoke
+
+# Laravel-only:
+php artisan gps:diagnose-persist --tractor=38 --smoke
+```
 ```bash
 redis-cli ping          # must be PONG (not LOADING)
 redis-cli LLEN queues:gps-processing
