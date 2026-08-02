@@ -6,10 +6,15 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Idempotent unique (imei, date_time) on mysql_gps.gps_data.
+ * Optional unique (imei, date_time) on mysql_gps.gps_data.
  *
- * Safe to re-run: skips when the index already exists. Deduplicates first so
- * MariaDB/MySQL can create the unique key on databases that still have replays.
+ * IMPORTANT: Do NOT run a full-table self-join DELETE on production gps_data.
+ * That query locks the table for days on 10M+ rows and blocks ALL inserts
+ * (live WS still works from memory → empty path). Seen in prod 2026-08.
+ *
+ * Default: no-op when the index is missing (IngestGpsData uses plain insert).
+ * Only attempts CREATE UNIQUE when GPS_FORCE_UNIQUE_IMEI_DATETIME=true and
+ * after an explicit offline dedupe by DBA.
  */
 return new class extends Migration
 {
@@ -23,14 +28,12 @@ return new class extends Migration
             return;
         }
 
-        DB::connection('mysql_gps')->statement('
-            DELETE t1 FROM gps_data t1
-            INNER JOIN gps_data t2
-                ON t1.imei = t2.imei
-                AND t1.date_time = t2.date_time
-                AND t1.id > t2.id
-        ');
+        // Production-safe default: leave table without unique index.
+        if (! filter_var(env('GPS_FORCE_UNIQUE_IMEI_DATETIME', false), FILTER_VALIDATE_BOOLEAN)) {
+            return;
+        }
 
+        // Forced path: create unique only — never auto-DELETE duplicates here.
         Schema::connection('mysql_gps')->table('gps_data', function (Blueprint $table) {
             $table->unique(['imei', 'date_time'], 'gps_data_imei_date_time_unique');
         });
