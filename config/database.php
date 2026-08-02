@@ -86,8 +86,12 @@ return [
             ],
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
-                PDO::ATTR_PERSISTENT => true,
+                // Persistent connections in long-lived queue workers go stale
+                // ("MySQL server has gone away") and GPS inserts silently fail
+                // while WebSocket broadcast still succeeds from memory.
+                PDO::ATTR_PERSISTENT => false,
                 PDO::ATTR_EMULATE_PREPARES => true,
+                PDO::MYSQL_ATTR_USE_BUFFERED_QUERY => true,
             ]) : [],
         ],
 
@@ -110,8 +114,10 @@ return [
             'options' => extension_loaded('pdo_mysql') ? (
                 array_filter([PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA')], fn($v) => $v !== null)
                 + [
-                    PDO::ATTR_PERSISTENT => true,
-                    PDO::MYSQL_ATTR_USE_BUFFERED_QUERY => false,
+                    // Persistent + unbuffered previously left half-open connections and
+                    // empty path streams. Prefer non-persistent buffered reads.
+                    PDO::ATTR_PERSISTENT => false,
+                    PDO::MYSQL_ATTR_USE_BUFFERED_QUERY => true,
                 ]
             ) : [],
         ],

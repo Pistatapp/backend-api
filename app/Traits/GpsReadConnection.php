@@ -49,7 +49,10 @@ trait GpsReadConnection
             $connection = $this->getGpsReadConnection();
             $this->gpsReadPdo = $connection->getPdo();
 
-            $this->gpsReadPdo->setAttribute(PDO::MYSQL_ATTR_USE_BUFFERED_QUERY, false);
+            // MUST stay buffered when ATTR_PERSISTENT is enabled on mysql_gps_read.
+            // Unbuffered leftovers on a reused connection produced empty path streams
+            // while WebSocket (no DB read) still moved markers.
+            $this->gpsReadPdo->setAttribute(PDO::MYSQL_ATTR_USE_BUFFERED_QUERY, true);
         }
 
         return $this->gpsReadPdo;

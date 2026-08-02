@@ -123,19 +123,52 @@ class TractorPathStreamService
         ');
         $stmt->execute([$tractorId, $startOfDay, $endOfDay]);
 
-        $hadPoints = false;
-        foreach ($this->processStreamOptimized($stmt) as $point) {
-            $hadPoints = true;
-            yield $point;
-        }
-
+        $rawRows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
         $this->restoreBufferedQueryMode();
 
-        if (!$hadPoints) {
+        if ($rawRows === []) {
             $lastPoint = $this->getLastPointFromPreviousDateRaw($tractorId, $startOfDay);
             if ($lastPoint) {
                 yield from $this->yieldSinglePoint($lastPoint);
             }
+
+            return;
+        }
+
+        $points = iterator_to_array($this->processStreamOptimized($rawRows), false);
+
+        // Safety net: movement/stoppage heuristics (or speed=0 trails) can collapse a
+        // real GPS day to 0–1 API points while Android needs >=2 for a polyline.
+        // Live WS still moves the marker from the ingest payload — classic symptom.
+        if (count($points) < 2 && count($rawRows) >= 2) {
+            yield from $this->yieldSimpleTrail($rawRows);
+
+            return;
+        }
+
+        foreach ($points as $point) {
+            yield $point;
+        }
+    }
+
+    /**
+     * Minimal trail: every point with a coordinate change (or first/last).
+     * Used when the rich movement detector under-emits.
+     *
+     * @param  array<int, array<string, mixed>>  $rows
+     */
+    private function yieldSimpleTrail(array $rows): \Generator
+    {
+        $lastKey = null;
+        $count = count($rows);
+        foreach ($rows as $index => $row) {
+            $key = $this->coordinateDedupeKey($row['coordinate'] ?? null);
+            $isEdge = $index === 0 || $index === $count - 1;
+            if (! $isEdge && $key === $lastKey) {
+                continue;
+            }
+            $lastKey = $key;
+            yield $this->formatPointFromRow($row, $index === 0, $index === $count - 1, false, 0);
         }
     }
 
@@ -176,8 +209,10 @@ class TractorPathStreamService
     /**
      * Process stream with inline optimizations - single loop, minimal function calls.
      * This is the hot path - every micro-optimization matters here.
+     *
+     * @param  array<int, array<string, mixed>>  $rows
      */
-    private function processStreamOptimized(\PDOStatement $stmt): \Generator
+    private function processStreamOptimized(array $rows): \Generator
     {
         $hasSeenMovement = false;
         $lastPointType = null;
@@ -192,12 +227,16 @@ class TractorPathStreamService
         $prevTimestamp = null;
         $lastDateTime = null;
         $lastCoordinateKey = null;
+        $prevLat = null;
+        $prevLon = null;
 
         $correctionBatch = [];
         $correctionBatchSize = 0;
         $pendingRows = [];
         $pendingIndex = 0;
         $pathCorrectionEnabled = $this->enablePathCorrection && $this->pathCorrector !== null;
+        $rowCursor = 0;
+        $rowCount = count($rows);
 
         while (true) {
             if ($pendingIndex < count($pendingRows)) {
@@ -206,31 +245,36 @@ class TractorPathStreamService
                 $pendingRows = [];
                 $pendingIndex = 0;
 
-                $row = $stmt->fetch(\PDO::FETCH_ASSOC);
-                if ($row === false) {
-                    if ($pathCorrectionEnabled && $correctionBatchSize > 0) {
-                        $this->processCorrectionBatch($correctionBatch, $pendingRows);
-                        $correctionBatch = [];
-                        $correctionBatchSize = 0;
-                        continue;
-                    }
-                    break;
-                }
-
                 if ($pathCorrectionEnabled) {
-                    $correctionBatch[] = $row;
-                    $correctionBatchSize++;
-                    if ($correctionBatchSize >= self::GPS_CORRECTION_BATCH_SIZE) {
-                        $this->processCorrectionBatch($correctionBatch, $pendingRows);
-                        $correctionBatch = [];
-                        $correctionBatchSize = 0;
+                    if ($rowCursor >= $rowCount) {
+                        if ($correctionBatchSize > 0) {
+                            $this->processCorrectionBatch($correctionBatch, $pendingRows);
+                            $correctionBatch = [];
+                            $correctionBatchSize = 0;
+                            continue;
+                        }
+                        break;
                     }
+
+                    while ($rowCursor < $rowCount && $correctionBatchSize < self::GPS_CORRECTION_BATCH_SIZE) {
+                        $correctionBatch[] = $rows[$rowCursor++];
+                        $correctionBatchSize++;
+                    }
+                    $this->processCorrectionBatch($correctionBatch, $pendingRows);
+                    $correctionBatch = [];
+                    $correctionBatchSize = 0;
                     continue;
                 }
+
+                if ($rowCursor >= $rowCount) {
+                    break;
+                }
+                $row = $rows[$rowCursor++];
             }
 
             $dateTime = $row['date_time'];
             $coordinateKey = $this->coordinateDedupeKey($row['coordinate'] ?? null);
+            [$lat, $lon] = $this->parseCoordinate($row['coordinate'] ?? null);
 
             // Skip only exact duplicates (same clock + same coordinate). Same-second
             // points with different coordinates must remain — unique(imei,date_time)
@@ -243,11 +287,15 @@ class TractorPathStreamService
             $lastCoordinateKey = $coordinateKey;
 
             $speed = (int) $row['speed'];
-            // Speed defines movement. Requiring status===1 previously dropped moving
-            // trails when ignition IO was off while live WS markers still updated.
-            $isMovement = ($speed > 0);
-            $isStoppage = ($speed === 0);
-            $isFirstPoint = !$firstPointProcessed;
+            // Speed alone is unreliable (many devices report 0 while coordinates move).
+            // Live WS still updates the marker from coordinates — path must do the same.
+            $movedMeters = 0.0;
+            if ($prevLat !== null && $prevLon !== null) {
+                $movedMeters = $this->haversineMeters($prevLat, $prevLon, $lat, $lon);
+            }
+            $isMovement = ($speed > 0) || ($movedMeters >= 2.0);
+            $isStoppage = ! $isMovement;
+            $isFirstPoint = ! $firstPointProcessed;
             $timestamp = $this->parseDateTimeToUnixTimestamp($dateTime);
 
             if ($inStoppageSegment && $prevTimestamp !== null && $isStoppage) {
@@ -274,7 +322,7 @@ class TractorPathStreamService
                 if ($movementBufferSize === self::MOVEMENT_BUFFER_SIZE) {
                     $firstRow = array_shift($movementBuffer);
                     $movementBufferSize--;
-                    $isStart = !$startingPointAssigned;
+                    $isStart = ! $startingPointAssigned;
                     if ($isStart) {
                         $startingPointAssigned = true;
                     }
@@ -309,6 +357,8 @@ class TractorPathStreamService
             }
 
             $prevTimestamp = $timestamp;
+            $prevLat = $lat;
+            $prevLon = $lon;
             $firstPointProcessed = true;
         }
 
@@ -321,6 +371,17 @@ class TractorPathStreamService
                 yield $this->formatPointFromRow($deferredRow, false, false, true, $stoppageDuration);
             }
         }
+    }
+
+    private function haversineMeters(float $lat1, float $lon1, float $lat2, float $lon2): float
+    {
+        $earthRadius = 6371000.0;
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLon = deg2rad($lon2 - $lon1);
+        $a = sin($dLat / 2) ** 2
+            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLon / 2) ** 2;
+
+        return 2 * $earthRadius * asin(min(1.0, sqrt($a)));
     }
 
     /**
