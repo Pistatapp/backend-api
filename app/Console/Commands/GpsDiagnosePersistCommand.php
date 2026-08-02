@@ -45,6 +45,7 @@ class GpsDiagnosePersistCommand extends Command
         $this->sectionTractorSample();
         $this->sectionFailedJobs();
         $this->sectionRecentLogs();
+        $this->sectionMysqlLocks();
 
         if ($this->option('smoke')) {
             $this->sectionSmoke();
@@ -389,9 +390,46 @@ class GpsDiagnosePersistCommand extends Command
         $this->newLine();
     }
 
+    private function sectionMysqlLocks(): void
+    {
+        $this->comment('[7b] MySQL locks / long queries (common hang on gps_data)');
+        try {
+            $rows = DB::connection('mysql_gps')->select('
+                SELECT id, user, db, command, time, state,
+                       LEFT(IFNULL(info, ""), 120) AS info
+                FROM information_schema.processlist
+                WHERE command != "Sleep"
+                  AND time >= 2
+                ORDER BY time DESC
+                LIMIT 15
+            ');
+            if ($rows === []) {
+                $this->ok('No long-running MySQL queries (>=2s)');
+            } else {
+                $this->warnMsg('Long-running MySQL queries present — INSERT into gps_data may wait on locks');
+                foreach ($rows as $r) {
+                    $this->line(sprintf(
+                        '  • id=%s user=%s time=%ss state=%s info=%s',
+                        $r->id,
+                        $r->user,
+                        $r->time,
+                        $r->state,
+                        $r->info
+                    ));
+                }
+            }
+        } catch (Throwable $e) {
+            $this->warnMsg('processlist check failed: '.$e->getMessage());
+        }
+        $this->newLine();
+    }
+
     private function sectionSmoke(): void
     {
-        $this->comment('[8] Live write smoke (IngestGpsData → mysql_gps)');
+        $this->comment('[8] Live write smoke (direct INSERT, then IngestGpsData)');
+        $this->line('  • If this step hangs >10s: gps_data is likely locked (ALTER/REORGANIZE p_future).');
+        $this->line('  • Ctrl+C and run: SHOW FULL PROCESSLIST;');
+
         $tractorId = (int) $this->option('tractor');
         $imeiOpt = $this->option('imei');
 
@@ -409,35 +447,97 @@ class GpsDiagnosePersistCommand extends Command
                 return;
             }
 
+            $gps = DB::connection('mysql_gps');
+            try {
+                $gps->statement('SET SESSION innodb_lock_wait_timeout = 5');
+                $gps->statement('SET SESSION lock_wait_timeout = 5');
+            } catch (Throwable) {
+                // ignore if unsupported
+            }
+
             $stamp = Carbon::now()->format('Y-m-d H:i:s');
-            $payload = [[
-                'coordinate' => [35.6892, 51.3890],
+            $direct = [
+                'tractor_id' => $tractor->id,
+                'coordinate' => json_encode([35.6892, 51.3890]),
                 'speed' => 5,
                 'status' => 1,
-                'directions' => ['ew' => 1, 'ns' => 1],
-                'date_time' => $stamp,
+                'directions' => json_encode(['ew' => 1, 'ns' => 1]),
                 'imei' => $imei,
-            ]];
+                'date_time' => $stamp,
+            ];
 
-            Queue::fake();
-            (new IngestGpsData($payload, 'diagnose-'.uniqid()))->handle();
+            $this->line("  • [8a] direct INSERT tractor={$tractor->id} imei={$imei} at {$stamp} ...");
+            $t0 = microtime(true);
+            try {
+                $gps->table('gps_data')->insert($direct);
+                $ms = (int) ((microtime(true) - $t0) * 1000);
+                $this->ok("direct INSERT ok in {$ms}ms");
+            } catch (Throwable $e) {
+                $ms = (int) ((microtime(true) - $t0) * 1000);
+                $msg = $e->getMessage();
+                if (str_contains(strtolower($msg), 'lock wait') || str_contains(strtolower($msg), '1205')) {
+                    $this->crit("direct INSERT lock-wait after {$ms}ms — gps_data is locked (often REORGANIZE p_future)");
+                    $this->line('  → Kill long ALTER/OPTIMIZE on gps_data, or wait until it finishes');
+                    $this->line('  → SHOW FULL PROCESSLIST; SHOW ENGINE INNODB STATUS\\G');
 
-            $row = DB::connection('mysql_gps')->table('gps_data')
+                    return;
+                }
+                if (str_contains(strtolower($msg), 'partition')) {
+                    $this->crit("direct INSERT partition error after {$ms}ms: {$msg}");
+
+                    return;
+                }
+                $this->crit("direct INSERT failed after {$ms}ms: {$msg}");
+
+                return;
+            }
+
+            $row = $gps->table('gps_data')
                 ->where('imei', $imei)
                 ->where('tractor_id', $tractor->id)
                 ->where('date_time', $stamp)
                 ->first();
 
             if (! $row) {
-                $this->crit('SMOKE FAIL — IngestGpsData ran but row not found in gps_data');
-                $this->line('  → Check mysql_gps credentials, partitions, column schema, storage/logs');
+                $this->crit('direct INSERT reported ok but row not readable afterward');
+
+                return;
+            }
+
+            // cleanup direct row before job smoke (avoid unique collision if index exists)
+            $gps->table('gps_data')->where('id', $row->id)->where('date_time', $stamp)->delete();
+            $this->line('  • direct row deleted');
+
+            $stamp2 = Carbon::now()->format('Y-m-d H:i:s');
+            $payload = [[
+                'coordinate' => [35.6892, 51.3890],
+                'speed' => 5,
+                'status' => 1,
+                'directions' => ['ew' => 1, 'ns' => 1],
+                'date_time' => $stamp2,
+                'imei' => $imei,
+            ]];
+
+            $this->line('  • [8b] IngestGpsData::handle() ...');
+            $t1 = microtime(true);
+            // Disable NOC HTTP side-channel for smoke (can add latency).
+            config(['services.noc_monitor.enabled' => false]);
+            Queue::fake();
+            (new IngestGpsData($payload, 'diagnose-'.uniqid()))->handle();
+            $ms2 = (int) ((microtime(true) - $t1) * 1000);
+
+            $row2 = $gps->table('gps_data')
+                ->where('imei', $imei)
+                ->where('tractor_id', $tractor->id)
+                ->where('date_time', $stamp2)
+                ->first();
+
+            if (! $row2) {
+                $this->crit("IngestGpsData smoke FAIL after {$ms2}ms — job ran but row missing");
             } else {
-                $this->ok("SMOKE PASS — row id={$row->id} written for tractor={$tractor->id}");
-                DB::connection('mysql_gps')->table('gps_data')
-                    ->where('id', $row->id)
-                    ->where('date_time', $stamp)
-                    ->delete();
-                $this->line('  • synthetic row deleted');
+                $this->ok("IngestGpsData smoke PASS in {$ms2}ms — row id={$row2->id}");
+                $gps->table('gps_data')->where('id', $row2->id)->where('date_time', $stamp2)->delete();
+                $this->line('  • ingest smoke row deleted');
             }
         } catch (Throwable $e) {
             $this->crit('SMOKE EXCEPTION: '.$e->getMessage());

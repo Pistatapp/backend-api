@@ -126,12 +126,29 @@ else
         if (( DO_SMOKE == 1 )); then
             SMOKE_FLAG="--smoke"
         fi
-        php artisan gps:diagnose-persist --tractor="$TRACTOR" --hours="$HOURS" $SMOKE_FLAG
-        ART_RC=$?
-        if (( ART_RC != 0 )); then
-            crit "php artisan gps:diagnose-persist exited ${ART_RC}"
+        blue "  running: php artisan gps:diagnose-persist --tractor=${TRACTOR} --hours=${HOURS} ${SMOKE_FLAG}"
+        yellow "  (smoke has 5s MySQL lock wait; if still stuck, Ctrl+C and check PROCESSLIST)"
+        if command -v timeout >/dev/null 2>&1; then
+            timeout --signal=TERM 60 php artisan gps:diagnose-persist --tractor="$TRACTOR" --hours="$HOURS" $SMOKE_FLAG
+            ART_RC=$?
+            if (( ART_RC == 124 )); then
+                crit "diagnose timed out after 60s — almost certainly MySQL lock on gps_data (p_future REORGANIZE/ALTER)"
+                echo "  Run now:"
+                echo "    mysql -e \"SHOW FULL PROCESSLIST;\""
+                echo "    mysql api_db -e \"SELECT * FROM information_schema.innodb_trx\\G\""
+            elif (( ART_RC != 0 )); then
+                crit "php artisan gps:diagnose-persist exited ${ART_RC}"
+            else
+                ok "php artisan gps:diagnose-persist finished"
+            fi
         else
-            ok "php artisan gps:diagnose-persist finished"
+            php artisan gps:diagnose-persist --tractor="$TRACTOR" --hours="$HOURS" $SMOKE_FLAG
+            ART_RC=$?
+            if (( ART_RC != 0 )); then
+                crit "php artisan gps:diagnose-persist exited ${ART_RC}"
+            else
+                ok "php artisan gps:diagnose-persist finished"
+            fi
         fi
     fi
 fi
