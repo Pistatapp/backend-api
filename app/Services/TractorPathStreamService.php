@@ -14,7 +14,7 @@ class TractorPathStreamService
     private const MIN_STOPPAGE_SECONDS = 60;
 
     // Movement detection constants
-    private const MOVEMENT_BUFFER_SIZE = 3;
+    private const MOVEMENT_BUFFER_SIZE = 2;
 
     // Pre-computed time format for zero stoppage (most common case)
     private const ZERO_STOPPAGE_TIME = '00:00:00';
@@ -92,12 +92,22 @@ class TractorPathStreamService
         $utcStart = $localStart->copy()->timezone('UTC');
         $utcEnd = $localEnd->copy()->timezone('UTC');
 
-        $start = $localStart->lt($utcStart) ? $localStart : $utcStart;
-        $end = $localEnd->gt($utcEnd) ? $localEnd : $utcEnd;
+        // gps_data.date_time is compared as a wall-clock string. For Asia/Tehran the
+        // local civil-day end (23:59:59) and its UTC instant (20:29:59) are the same
+        // moment — Carbon::gt() is false, so the old branch picked 20:29:59 and cut
+        // afternoon trails stored with local wall-clock timestamps (e.g. replay to 21:56).
+        $startCandidates = [
+            $localStart->format('Y-m-d H:i:s'),
+            $utcStart->format('Y-m-d H:i:s'),
+        ];
+        $endCandidates = [
+            $localEnd->format('Y-m-d H:i:s'),
+            $utcEnd->format('Y-m-d H:i:s'),
+        ];
 
         return [
-            $start->format('Y-m-d H:i:s'),
-            $end->format('Y-m-d H:i:s'),
+            min($startCandidates),
+            max($endCandidates),
         ];
     }
 
@@ -125,6 +135,10 @@ class TractorPathStreamService
 
         $rawRows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
         $this->restoreBufferedQueryMode();
+
+        // Collapse replay duplicates before correction/movement (correction would
+        // otherwise assign different smoothed coords to the same logical point).
+        $rawRows = $this->collapseLogicalDuplicateRows($rawRows);
 
         if ($rawRows === []) {
             $lastPoint = $this->getLastPointFromPreviousDateRaw($tractorId, $startOfDay);
@@ -159,15 +173,13 @@ class TractorPathStreamService
      */
     private function yieldSimpleTrail(array $rows): \Generator
     {
-        $lastKey = null;
+        $seenLogicalKeys = [];
         $count = count($rows);
         foreach ($rows as $index => $row) {
-            $key = $this->coordinateDedupeKey($row['coordinate'] ?? null);
-            $isEdge = $index === 0 || $index === $count - 1;
-            if (! $isEdge && $key === $lastKey) {
+            $dateTime = (string) ($row['date_time'] ?? '');
+            if ($this->isDuplicateLogicalPoint($seenLogicalKeys, $dateTime, $row['coordinate'] ?? null)) {
                 continue;
             }
-            $lastKey = $key;
             yield $this->formatPointFromRow($row, $index === 0, $index === $count - 1, false, 0);
         }
     }
@@ -225,8 +237,7 @@ class TractorPathStreamService
         $startingPointAssigned = false;
         $firstPointProcessed = false;
         $prevTimestamp = null;
-        $lastDateTime = null;
-        $lastCoordinateKey = null;
+        $seenLogicalKeys = [];
         $prevLat = null;
         $prevLon = null;
 
@@ -237,6 +248,7 @@ class TractorPathStreamService
         $pathCorrectionEnabled = $this->enablePathCorrection && $this->pathCorrector !== null;
         $rowCursor = 0;
         $rowCount = count($rows);
+        $pendingPoint = null;
 
         while (true) {
             if ($pendingIndex < count($pendingRows)) {
@@ -273,18 +285,14 @@ class TractorPathStreamService
             }
 
             $dateTime = $row['date_time'];
-            $coordinateKey = $this->coordinateDedupeKey($row['coordinate'] ?? null);
             [$lat, $lon] = $this->parseCoordinate($row['coordinate'] ?? null);
 
-            // Skip only exact duplicates (same clock + same coordinate). Same-second
-            // points with different coordinates must remain — unique(imei,date_time)
-            // may still leave edge cases from legacy rows, and RTC-staggered inserts
-            // must not be collapsed again here.
-            if ($dateTime === $lastDateTime && $coordinateKey === $lastCoordinateKey) {
+            // Collapse logical duplicates anywhere in the day (replay blocks append
+            // identical date_time+coordinate rows non-consecutively). Ordering stays
+            // date_time ASC — first occurrence wins; received time is not used here.
+            if ($this->isDuplicateLogicalPoint($seenLogicalKeys, $dateTime, $row['coordinate'] ?? null)) {
                 continue;
             }
-            $lastDateTime = $dateTime;
-            $lastCoordinateKey = $coordinateKey;
 
             $speed = (int) $row['speed'];
             // Speed alone is unreliable (many devices report 0 while coordinates move).
@@ -307,7 +315,9 @@ class TractorPathStreamService
 
                 if ($inStoppageSegment && $deferredRow !== null) {
                     if ($stoppageDuration >= self::MIN_STOPPAGE_SECONDS || $stoppageStartedAtFirstPoint) {
-                        yield $this->formatPointFromRow($deferredRow, false, false, true, $stoppageDuration);
+                        if ($out = $this->enqueuePathPoint($pendingPoint, $this->formatPointFromRow($deferredRow, false, false, true, $stoppageDuration))) {
+                            yield $out;
+                        }
                     }
                     $deferredRow = null;
                 }
@@ -326,17 +336,23 @@ class TractorPathStreamService
                     if ($isStart) {
                         $startingPointAssigned = true;
                     }
-                    yield $this->formatPointFromRow($firstRow, $isStart, false, false, 0);
+                    if ($out = $this->enqueuePathPoint($pendingPoint, $this->formatPointFromRow($firstRow, $isStart, false, false, 0))) {
+                        yield $out;
+                    }
                 } elseif ($movementBufferSize > self::MOVEMENT_BUFFER_SIZE) {
                     $shiftedRow = array_shift($movementBuffer);
                     $movementBufferSize--;
-                    yield $this->formatPointFromRow($shiftedRow, false, false, false, 0);
+                    if ($out = $this->enqueuePathPoint($pendingPoint, $this->formatPointFromRow($shiftedRow, false, false, false, 0))) {
+                        yield $out;
+                    }
                 }
 
                 $lastPointType = 'movement';
             } elseif ($isStoppage) {
                 foreach ($movementBuffer as $bufferedRow) {
-                    yield $this->formatPointFromRow($bufferedRow, false, false, false, 0);
+                    if ($out = $this->enqueuePathPoint($pendingPoint, $this->formatPointFromRow($bufferedRow, false, false, false, 0))) {
+                        yield $out;
+                    }
                 }
                 $movementBuffer = [];
                 $movementBufferSize = 0;
@@ -363,14 +379,38 @@ class TractorPathStreamService
         }
 
         foreach ($movementBuffer as $bufferedRow) {
-            yield $this->formatPointFromRow($bufferedRow, false, false, false, 0);
+            if ($out = $this->enqueuePathPoint($pendingPoint, $this->formatPointFromRow($bufferedRow, false, false, false, 0))) {
+                yield $out;
+            }
         }
 
         if ($inStoppageSegment && $deferredRow !== null) {
             if ($stoppageDuration >= self::MIN_STOPPAGE_SECONDS || $stoppageStartedAtFirstPoint) {
-                yield $this->formatPointFromRow($deferredRow, false, false, true, $stoppageDuration);
+                if ($out = $this->enqueuePathPoint($pendingPoint, $this->formatPointFromRow($deferredRow, false, false, true, $stoppageDuration))) {
+                    yield $out;
+                }
             }
         }
+
+        if ($pendingPoint !== null) {
+            $pendingPoint['is_ending_point'] = true;
+            yield $pendingPoint;
+        }
+    }
+
+    /**
+     * Queue one formatted point so the previous point can be yielded before the next.
+     *
+     * @param  array<string, mixed>|null  $pending
+     * @param  array<string, mixed>  $point
+     * @return array<string, mixed>|null
+     */
+    private function enqueuePathPoint(?array &$pending, array $point): ?array
+    {
+        $ready = $pending;
+        $pending = $point;
+
+        return $ready;
     }
 
     private function haversineMeters(float $lat1, float $lon1, float $lat2, float $lon2): float
@@ -392,6 +432,53 @@ class TractorPathStreamService
         [$lat, $lon] = $this->parseCoordinate($coordinate);
 
         return sprintf('%.6f,%.6f', $lat, $lon);
+    }
+
+    /**
+     * Track date_time + coordinate pairs seen in the current path stream.
+     * Returns true when this logical point was already processed.
+     *
+     * @param  array<string, true>  $seen
+     */
+    private function isDuplicateLogicalPoint(array &$seen, string $dateTime, mixed $coordinate): bool
+    {
+        $key = $dateTime.'|'.$this->coordinateDedupeKey($coordinate);
+        if (isset($seen[$key])) {
+            return true;
+        }
+
+        $seen[$key] = true;
+
+        return false;
+    }
+
+    /**
+     * Keep first row per (date_time, coordinate) in date_time order.
+     * Replay appends duplicate blocks non-consecutively — pre-filtering here
+     * keeps correction and movement stages from double-emitting the trail.
+     *
+     * @param  array<int, array<string, mixed>>  $rows
+     * @return array<int, array<string, mixed>>
+     */
+    private function collapseLogicalDuplicateRows(array $rows): array
+    {
+        if ($rows === []) {
+            return [];
+        }
+
+        $seen = [];
+        $collapsed = [];
+
+        foreach ($rows as $row) {
+            $dateTime = (string) ($row['date_time'] ?? '');
+            if ($this->isDuplicateLogicalPoint($seen, $dateTime, $row['coordinate'] ?? null)) {
+                continue;
+            }
+
+            $collapsed[] = $row;
+        }
+
+        return $collapsed;
     }
 
     /**

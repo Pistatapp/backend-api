@@ -351,6 +351,111 @@ class TractorPathStreamServiceTest extends TestCase
     }
 
     /**
+     * Tehran civil-day end must not collapse to 20:29:59 when gps_data uses local wall-clock strings.
+     */
+    public function test_resolve_path_date_window_includes_local_end_of_day(): void
+    {
+        $originalTz = config('app.timezone');
+        config(['app.timezone' => 'Asia/Tehran']);
+
+        try {
+            $service = app(TractorPathStreamService::class);
+            $method = new \ReflectionMethod($service, 'resolvePathDateWindow');
+            $method->setAccessible(true);
+
+            [$start, $end] = $method->invoke($service, Carbon::parse('2026-07-03', 'Asia/Tehran'));
+
+            $this->assertSame('2026-07-02 20:30:00', $start);
+            $this->assertSame('2026-07-03 23:59:59', $end);
+        } finally {
+            config(['app.timezone' => $originalTz]);
+        }
+    }
+
+    /**
+     * Points stored after 20:29:59 on the same civil day must appear in the path stream.
+     */
+    public function test_includes_gps_points_after_tehran_utc_end_of_day_boundary(): void
+    {
+        $this->skipIfMysqlNotAvailable();
+        $this->setUpTractor();
+
+        $day = Carbon::parse('2026-07-03', config('app.timezone'));
+        $this->insertGpsData($this->tractor->id, [
+            ['date_time' => $day->copy()->setTime(20, 29, 58), 'speed' => 10, 'status' => 1],
+            ['date_time' => $day->copy()->setTime(21, 56, 5), 'speed' => 12, 'status' => 1],
+        ]);
+
+        $response = $this->service->getTractorPath($this->tractor, $day, false);
+
+        ob_start();
+        $response->send();
+        $content = ob_get_clean();
+
+        $data = json_decode($content, true);
+
+        $this->assertCount(2, $data);
+        $this->assertSame('21:56:05', $data[1]['timestamp']);
+        $this->assertTrue($data[1]['is_ending_point']);
+    }
+
+    /**
+     * Replay duplicates appended non-consecutively must collapse to one logical trail.
+     */
+    public function test_deduplicates_non_consecutive_logical_replay_duplicates(): void
+    {
+        $this->skipIfMysqlNotAvailable();
+        $this->setUpTractor();
+
+        $day = Carbon::parse('2026-07-03', config('app.timezone'));
+        $t1 = $day->copy()->setTime(10, 0, 0);
+        $t2 = $day->copy()->setTime(10, 0, 10);
+        $coord = json_encode([35.123456, 51.654321]);
+
+        // Simulate double replay: A, B, then duplicate A appended after the full pass.
+        DB::connection('mysql_gps')->table('gps_data')->insert([
+            [
+                'tractor_id' => $this->tractor->id,
+                'coordinate' => $coord,
+                'speed' => 10,
+                'status' => 1,
+                'directions' => json_encode([]),
+                'imei' => '863070043380001',
+                'date_time' => $t1->format('Y-m-d H:i:s'),
+            ],
+            [
+                'tractor_id' => $this->tractor->id,
+                'coordinate' => json_encode([35.124000, 51.655000]),
+                'speed' => 12,
+                'status' => 1,
+                'directions' => json_encode([]),
+                'imei' => '863070043380001',
+                'date_time' => $t2->format('Y-m-d H:i:s'),
+            ],
+            [
+                'tractor_id' => $this->tractor->id,
+                'coordinate' => $coord,
+                'speed' => 99,
+                'status' => 1,
+                'directions' => json_encode([]),
+                'imei' => '863070043380001',
+                'date_time' => $t1->format('Y-m-d H:i:s'),
+            ],
+        ]);
+
+        $response = $this->service->getTractorPath($this->tractor, $day, true);
+
+        ob_start();
+        $response->send();
+        $content = ob_get_clean();
+
+        $data = json_decode($content, true);
+
+        $this->assertCount(2, $data);
+        $this->assertSame(10, $data[0]['speed'], 'First occurrence wins; replay duplicate must not re-yield');
+    }
+
+    /**
      * Helper method to insert GPS data for testing.
      */
     private function insertGpsData(int $tractorId, array $records): void

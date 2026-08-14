@@ -277,26 +277,148 @@ class IngestGpsData implements ShouldQueue
      */
     private function insertChunkCounting($gps, array $chunk): int
     {
-        if ($this->hasImeiDateTimeUniqueIndex()) {
-            $result = $gps->table('gps_data')->insertOrIgnore($chunk);
-            if (is_bool($result)) {
-                return $result
-                    ? count($chunk)
-                    : ($this->countExistingInChunk($gps, $chunk) > 0 ? count($chunk) : 0);
-            }
+        return $this->persistChunkWithDelta($gps, $chunk);
+    }
 
-            $affected = (int) $result;
-            if ($affected > 0) {
-                return $affected;
-            }
-
-            // All ignored as duplicates — still counts as durable for this batch.
-            return $this->countExistingInChunk($gps, $chunk) > 0 ? count($chunk) : 0;
+    /**
+     * Delta ingest: skip exact duplicates (imei + date_time + coordinate), update
+     * existing rows when the same GPS timestamp arrives with new telemetry, insert
+     * otherwise. Without a DB received_at column, the incoming batch always wins
+     * over an existing row for the same (imei, date_time) — last write is authoritative.
+     *
+     * @param  \Illuminate\Database\Connection  $gps
+     * @param  array<int, array<string, mixed>>  $chunk
+     */
+    private function persistChunkWithDelta($gps, array $chunk): int
+    {
+        if ($chunk === []) {
+            return 0;
         }
 
-        $gps->table('gps_data')->insert($chunk);
+        $chunk = $this->deduplicateIncomingChunk($chunk);
+        [$toInsert, $toUpdate, $skipped] = $this->resolveChunkDelta($gps, $chunk);
+        $written = $skipped;
 
-        return count($chunk);
+        foreach ($toUpdate as $update) {
+            $gps->table('gps_data')
+                ->where('id', $update['id'])
+                ->update($update['values']);
+            $written++;
+        }
+
+        if ($toInsert === []) {
+            return $written;
+        }
+
+        if ($this->hasImeiDateTimeUniqueIndex()) {
+            $result = $gps->table('gps_data')->insertOrIgnore($toInsert);
+            if (is_bool($result)) {
+                $written += $result
+                    ? count($toInsert)
+                    : ($this->countExistingInChunk($gps, $toInsert) > 0 ? count($toInsert) : 0);
+            } else {
+                $affected = (int) $result;
+                if ($affected > 0) {
+                    $written += $affected;
+                } elseif ($this->countExistingInChunk($gps, $toInsert) > 0) {
+                    $written += count($toInsert);
+                }
+            }
+        } else {
+            $gps->table('gps_data')->insert($toInsert);
+            $written += count($toInsert);
+        }
+
+        return $written;
+    }
+
+    /**
+     * Within one gateway batch keep the last frame for an exact imei+time+location key.
+     *
+     * @param  array<int, array<string, mixed>>  $chunk
+     * @return array<int, array<string, mixed>>
+     */
+    private function deduplicateIncomingChunk(array $chunk): array
+    {
+        $deduped = [];
+        foreach ($chunk as $row) {
+            $key = ($row['imei'] ?? '').'|'.($row['date_time'] ?? '').'|'.$this->normalizedCoordinateKey($row['coordinate'] ?? null);
+            $deduped[$key] = $row;
+        }
+
+        return array_values($deduped);
+    }
+
+    /**
+     * @param  \Illuminate\Database\Connection  $gps
+     * @param  array<int, array<string, mixed>>  $chunk
+     * @return array{0: array<int, array<string, mixed>>, 1: array<int, array{id: int, values: array<string, mixed>}>, 2: int}
+     */
+    private function resolveChunkDelta($gps, array $chunk): array
+    {
+        $imei = (string) ($chunk[0]['imei'] ?? '');
+        $times = array_values(array_unique(array_column($chunk, 'date_time')));
+
+        if ($imei === '' || $times === []) {
+            return [$chunk, [], 0];
+        }
+
+        $existing = $gps->table('gps_data')
+            ->select(['id', 'imei', 'date_time', 'coordinate'])
+            ->where('imei', $imei)
+            ->whereIn('date_time', $times)
+            ->orderBy('id')
+            ->get();
+
+        $byDateTime = [];
+        foreach ($existing as $row) {
+            $byDateTime[(string) $row->date_time][] = $row;
+        }
+
+        $toInsert = [];
+        $toUpdate = [];
+        $skipped = 0;
+
+        foreach ($chunk as $row) {
+            $dateTime = (string) $row['date_time'];
+            $coordKey = $this->normalizedCoordinateKey($row['coordinate'] ?? null);
+            $matches = $byDateTime[$dateTime] ?? [];
+
+            foreach ($matches as $match) {
+                if ($this->normalizedCoordinateKey($match->coordinate) === $coordKey) {
+                    $skipped++;
+
+                    continue 2;
+                }
+            }
+
+            if ($matches !== []) {
+                $target = $matches[array_key_last($matches)];
+                $toUpdate[] = [
+                    'id' => (int) $target->id,
+                    'values' => [
+                        'tractor_id' => $row['tractor_id'],
+                        'coordinate' => $row['coordinate'],
+                        'speed' => $row['speed'],
+                        'status' => $row['status'],
+                        'directions' => $row['directions'],
+                    ],
+                ];
+
+                continue;
+            }
+
+            $toInsert[] = $row;
+        }
+
+        return [$toInsert, $toUpdate, $skipped];
+    }
+
+    private function normalizedCoordinateKey(mixed $coordinate): string
+    {
+        [$lat, $lon] = $this->parseCoordinatePair($coordinate);
+
+        return sprintf('%.6f,%.6f', $lat, $lon);
     }
 
     /**
@@ -333,17 +455,10 @@ class IngestGpsData implements ShouldQueue
             while ($attempts < 3) {
                 $attempts++;
                 try {
-                    if ($forcePlain || ! $this->hasImeiDateTimeUniqueIndex()) {
-                        $gps->table('gps_data')->insert($row);
-                    } else {
-                        $affected = (int) $gps->table('gps_data')->insertOrIgnore([$row]);
-                        if ($affected < 1) {
-                            // Duplicate under unique key — treat as persisted.
-                            $written++;
-                            break;
-                        }
+                    $deltaWritten = $this->persistChunkWithDelta($gps, [$row]);
+                    if ($deltaWritten > 0) {
+                        $written += $deltaWritten;
                     }
-                    $written++;
                     break;
                 } catch (Throwable $e) {
                     if ($this->isDuplicateKeyException($e)) {

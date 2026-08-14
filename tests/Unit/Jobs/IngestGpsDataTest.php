@@ -186,8 +186,65 @@ class IngestGpsDataTest extends TestCase
             ->where('date_time', $data[0]['date_time'])
             ->count();
 
-        // Without unique index both inserts land; with unique, ignore keeps one.
-        $this->assertGreaterThanOrEqual(1, $count);
+        $this->assertSame(1, $count);
+    }
+
+    public function test_replay_updates_existing_row_when_coordinate_differs(): void
+    {
+        $this->skipIfMysqlGpsNotAvailable();
+        Queue::fake();
+
+        $farm = Farm::factory()->create();
+        $tractor = Tractor::factory()->create(['farm_id' => $farm->id]);
+        GpsDevice::factory()->create([
+            'tractor_id' => $tractor->id,
+            'imei' => '863070046120282',
+        ]);
+
+        $base = $this->sampleData()[0];
+        (new IngestGpsData([$base]))->handle();
+
+        $updated = array_merge($base, [
+            'coordinate' => [35.999001, 50.999001],
+            'speed' => 42,
+        ]);
+        (new IngestGpsData([$updated]))->handle();
+
+        $rows = DB::connection('mysql_gps')
+            ->table('gps_data')
+            ->where('imei', '863070046120282')
+            ->where('date_time', $base['date_time'])
+            ->get();
+
+        $this->assertCount(1, $rows);
+        $coord = json_decode($rows[0]->coordinate, true);
+        $this->assertEqualsWithDelta(35.999001, (float) $coord[0], 0.000001);
+        $this->assertEqualsWithDelta(50.999001, (float) $coord[1], 0.000001);
+        $this->assertSame(42, (int) $rows[0]->speed);
+    }
+
+    public function test_incoming_batch_deduplicates_exact_coordinate_duplicates(): void
+    {
+        $this->skipIfMysqlGpsNotAvailable();
+        Queue::fake();
+
+        $farm = Farm::factory()->create();
+        $tractor = Tractor::factory()->create(['farm_id' => $farm->id]);
+        GpsDevice::factory()->create([
+            'tractor_id' => $tractor->id,
+            'imei' => '863070046120282',
+        ]);
+
+        $frame = $this->sampleData()[0];
+        (new IngestGpsData([$frame, $frame]))->handle();
+
+        $count = DB::connection('mysql_gps')
+            ->table('gps_data')
+            ->where('imei', '863070046120282')
+            ->where('date_time', $frame['date_time'])
+            ->count();
+
+        $this->assertSame(1, $count);
     }
 
     public function test_prepare_batch_skips_frames_with_missing_coordinate(): void
