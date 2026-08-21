@@ -1,0 +1,31 @@
+{
+  "backup_directory": "/opt/pistat-production-backups/20260812-183344",
+  "dump_file": "api_db-full.sql.gz",
+  "storage_archive": "storage-app-copy.tar.gz",
+  "sha256_manifest": {
+    "api_db-full.sql.gz": "c58c124f081fecf64e6d03d6665c9d49770c583abdcdb7b640664ebdd150e226",
+    "storage-app-copy.tar.gz": "755e9ee084fe879cfa7ff3d9f89aff6ce6a80620c2a15da571e61bf34aa8a9d1",
+    "table_inventory.tsv": "e89d7f7bb05f297cf8934a75266d8504e3f591f82839cf9ebbdea2e3fb791ac5",
+    "table_columns.tsv": "13ad33005bfc5ca7b72a085e4d0d416aeedd8b52d3d9dda3dc9bd997d156c2f8",
+    "table_indexes.tsv": "2250a688a0b549e448251e8635c5ab85c988f5c1231751a141fd3e07426b6ab8",
+    "exact_row_counts.tsv": "2c516c4890acd558d5ed95c66fdd135e74e7ad06c7df5de74f79f425aed37e43",
+    "user_09182704453_dependency_report.tsv": "c9305f3f8699d521e7f65ccab615ab90cd3202207176d94a87b7d0f18cd71f62",
+    "migration_manifest.json": "809ae815b6e3aac32770dc4ec70ffcbbd12b2972e41b0d0b017f027fdb606256",
+    "PRODUCTION_AUDIT_REPORT.md": "5ccb337a507fa8169bf356df3db8229b0cb812acf096a6b71c0d2fee736d867b"
+  },
+  "checks": {
+    "backup_directory_exists": true,
+    "dump_exists": true,
+    "storage_archive_exists": true,
+    "dump_sha256_matches_manifest": true,
+    "storage_sha256_matches_manifest": true,
+    "gzip_integrity_ok": true,
+    "footer_present": true,
+    "create_table_present": true,
+    "insert_present": true,
+    "backup_report_exists": true
+  },
+  "footer_line": "-- Dump completed on 2026-08-13  5:08:09",
+  "sample_create_table_line": "CREATE TABLE `app_releases` (",
+  "sample_insert_line": "INSERT INTO `app_releases` VALUES (1,'v1.12.14','تست آپلود',45,'2026-05-22 15:21:35','application-zip/2026-05-21/v1.12.13-productionDebug_789008586298ce549dda33ed413b3d0c.apk','2026-05-22 15:21:35','2026-05-22 15:21:35'),(2,'v1.13.2','گزارش‌های تراکتور و طرح باغ اصلاح و کامل‌تر شدند.\\n\\nنمایش آیتم‌های گزارش روی نقشه و بخش «باغ من» بهبود پیدا کرد.\\n\\nقابلیت QR Code برای شناسایی موجودیت‌های مختلف توسعه داده شد.\\n\\nبخش تعمیرگاه تراکتور با ثبت و نمایش علت ورود اصلاح شد.\\n\\nپیام‌های آبیاری و نوتیفیکیشن‌ها بهبود پیدا کردند.\\n\\nجزئیات قطعه، ردیف، طرح و موجودیت‌های باغ اصلاح شد.\\n\\nچند اصلاح زیرساختی برای پایداری API، parse داده‌ها و update manager انجام شد.',45,'2026-06-03 10:02:35','application-zip/2026-06-23/v1.13.2-productionRelease_8d2a7212abbca8a5655ac10e21c0cf67.apk','2026-06-03 10:02:35','2026-06-03 10:02:35'),(3,'v1.13.3','نمایش badge تعمیرگاه تراکتور اصلاح شد.\\nبخش تعمیرات و لیست تراکتورها چند اصلاح UI و منطق گرفت.\\nflagهای تراکتور و فیلترهای مربوط به آن تغییر کردند.\\nچند باگ در Tractor API، گزارش‌ها و اکشن‌های تراکتور رفع شد.\\nصفحه چت و CDN / CND بهبود گرفت.\\nصفحه Home یک اصلاح کوچک داشت.\\nOTP / SMS و ActivityBase هم چند fix داشتند.\\nدیالوگ آپلود نسخه اپ کمی اصلاح UI شد.',45,'2026-06-08 08:46:17','application-zip/2026-06-24/v1.13.3-productionRelease_5eeed0497acd663c865eb7d8ba3d0db4.apk','2026-06-08 08:46:17','2026-06-08 08:46:17'),(4,'v1.13.4','برطرف کردن خطای چپچین بودن صفحه\\nاضافه کردن نحوه ی محاسبه ی تخمین بار\\nکار روی مسیر تراکتور',45,'2026-06-09 05:08:41','application-zip/2026-06-24/v1.13.4-productionRelease_6c72e672e34651a6f1894c85510351e4.apk','2026-06-09 05:08:41','2026-06-09 05:08:41'),(5,'v1.13.5','برطرف کردن باگ های نویگیشن اپلیکیشن\\nتخمین بار\\nاضافه شدن qrcode برای شیرفلکه',45,'2026-06-17 06:02:27','application-zip/2026-06-25/v1.13.5-productionRelease_09ec7a303e619fabb2c62c9bfe1b1dad.apk','2026-06-17 06:02:27','2026-06-17 06:02:27'),(6,'v1.13.6','ویرایش pdf تخمین بار',45,'2026-06-18 15:08:09','application-zip/2026-06-25/v1.13.6-productionRelease_f83bfa8988b1a8478ebbe609dfae822e.apk','2026-06-18 15:08:09','2026-06-18 15:08:09'),(7,'v1.13.7','اصلاح پیشبینی بار\\nاضافه کردن ادمین به صفحه ی باغ های من\\nاصلاح ویرایش آبیاری اجازه ی انتخاب چند قطعه و کرت های چند قطعه در ویرایش\\nبرطرف کردن باگ های نویگیشن',45,'2026-06-27 18:22:07','application-zip/2026-06-26/v1.13.7-productionRelease_7d82a24b552f5695c65ccadce2e795e1.apk','2026-06-27 18:22:07','2026-06-27 18:22:07');"
+}

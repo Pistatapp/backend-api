@@ -1,0 +1,58 @@
+{
+  "database": "api_db",
+  "counts": [
+    {
+      "entity": "operations",
+      "count": 68,
+      "date_range": {
+        "min": "2024-11-30 14:56:26",
+        "max": "2026-07-03 16:02:24"
+      }
+    },
+    {
+      "entity": "farm_reports",
+      "count": 929,
+      "date_range": {
+        "min": "2025-04-03",
+        "max": "2026-04-23"
+      }
+    },
+    {
+      "entity": "farm_plans",
+      "count": 11,
+      "date_range": {
+        "min": "2024-11-22 10:43:48",
+        "max": "2025-06-14 13:38:31"
+      }
+    }
+  ],
+  "farm_reports_reportable_types": [
+    {
+      "type": "App\\\\Models\\\\Tree",
+      "count": 488
+    },
+    {
+      "type": "App\\\\Models\\\\Field",
+      "count": 271
+    },
+    {
+      "type": "App\\\\Models\\\\Plot",
+      "count": 96
+    },
+    {
+      "type": "App\\\\Models\\\\Row",
+      "count": 74
+    }
+  ],
+  "anomalies": {
+    "farm_reports_missing_labour_ref": 29,
+    "farm_reports_missing_reportable_ref": 25,
+    "farm_reports_missing_reportable_fields_only": 25,
+    "operations_missing_parent_ref": 0,
+    "farm_plans_missing_farm_ref": 0,
+    "farm_plans_missing_created_by_ref": 0,
+    "farm_reports_missing_farm_ref": 0,
+    "farm_reports_missing_operation_ref": 0,
+    "farm_reports_missing_created_by_ref": 0
+  }
+}

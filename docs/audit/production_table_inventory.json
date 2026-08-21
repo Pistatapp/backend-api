@@ -1,0 +1,1458 @@
+{
+  "database": "api_db",
+  "version": "10.6.25-MariaDB",
+  "version_comment": "MariaDB Server",
+  "charset_server": "latin1",
+  "collation_server": "latin1_swedish_ci",
+  "database_size_mb": 3772.67,
+  "table_count": 74,
+  "view_count": 1,
+  "broken_view_count": 1,
+  "views": [
+    "v_gps_delta"
+  ],
+  "broken_views": [
+    {
+      "name": "v_gps_delta",
+      "error": "--------------\nSELECT COUNT(*) FROM `v_gps_delta`\n--------------\n\nERROR 1356 (HY000) at line 1: View 'api_db.v_gps_delta' references invalid table(s) or column(s) or function(s) or definer/invoker of view lack rights to use them"
+    }
+  ],
+  "tables": [
+    {
+      "table": "app_releases",
+      "rows": 7,
+      "data_mb": 0.02,
+      "index_mb": 0.05,
+      "total_mb": 0.06,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "app_releases_created_by_foreign",
+          "unique": false,
+          "columns": "created_by"
+        },
+        {
+          "name": "app_releases_published_at_index",
+          "unique": false,
+          "columns": "published_at"
+        },
+        {
+          "name": "app_releases_version_unique",
+          "unique": true,
+          "columns": "version"
+        }
+      ]
+    },
+    {
+      "table": "attachments",
+      "rows": 47,
+      "data_mb": 0.02,
+      "index_mb": 0.03,
+      "total_mb": 0.05,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "attachments_attachable_type_attachable_id_index",
+          "unique": false,
+          "columns": "attachable_type,attachable_id"
+        },
+        {
+          "name": "attachments_user_id_foreign",
+          "unique": false,
+          "columns": "user_id"
+        }
+      ]
+    },
+    {
+      "table": "attendance_daily_reports",
+      "rows": 1951,
+      "data_mb": 0.16,
+      "index_mb": 0.2,
+      "total_mb": 0.36,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "unique_user_date_report",
+          "unique": true,
+          "columns": "user_id,date"
+        },
+        {
+          "name": "worker_daily_reports_approved_by_foreign",
+          "unique": false,
+          "columns": "approved_by"
+        }
+      ]
+    },
+    {
+      "table": "attendance_gps_data",
+      "rows": 2683,
+      "data_mb": 0.25,
+      "index_mb": 0.17,
+      "total_mb": 0.42,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "labour_gps_data_date_time_index",
+          "unique": false,
+          "columns": "date_time"
+        },
+        {
+          "name": "labour_gps_data_user_id_date_time_index",
+          "unique": false,
+          "columns": "user_id,date_time"
+        }
+      ]
+    },
+    {
+      "table": "attendance_monthly_payrolls",
+      "rows": 0,
+      "data_mb": 0.02,
+      "index_mb": 0.03,
+      "total_mb": 0.05,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "unique_user_month_year",
+          "unique": true,
+          "columns": "user_id,month,year"
+        }
+      ]
+    },
+    {
+      "table": "attendance_sessions",
+      "rows": 3,
+      "data_mb": 0.02,
+      "index_mb": 0.02,
+      "total_mb": 0.03,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "unique_user_date_session",
+          "unique": true,
+          "columns": "user_id,date"
+        }
+      ]
+    },
+    {
+      "table": "attendance_shift_schedules",
+      "rows": 18,
+      "data_mb": 0.02,
+      "index_mb": 0.05,
+      "total_mb": 0.06,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "unique_user_shift_date",
+          "unique": true,
+          "columns": "user_id,shift_id,scheduled_date"
+        },
+        {
+          "name": "worker_shift_schedules_shift_id_foreign",
+          "unique": false,
+          "columns": "shift_id"
+        }
+      ]
+    },
+    {
+      "table": "attendance_trackings",
+      "rows": 1,
+      "data_mb": 0.03,
+      "index_mb": 0.03,
+      "total_mb": 0.06,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "attendance_trackings_farm_id_foreign",
+          "unique": false,
+          "columns": "farm_id"
+        },
+        {
+          "name": "attendance_trackings_user_id_unique",
+          "unique": true,
+          "columns": "user_id"
+        }
+      ]
+    },
+    {
+      "table": "crops",
+      "rows": 7,
+      "data_mb": 0.02,
+      "index_mb": 0.03,
+      "total_mb": 0.05,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "crops_created_by_index",
+          "unique": false,
+          "columns": "created_by"
+        }
+      ]
+    },
+    {
+      "table": "crop_types",
+      "rows": 6,
+      "data_mb": 0.03,
+      "index_mb": 0.03,
+      "total_mb": 0.06,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "crop_types_created_by_index",
+          "unique": false,
+          "columns": "created_by"
+        },
+        {
+          "name": "product_types_product_id_foreign",
+          "unique": false,
+          "columns": "crop_id"
+        }
+      ]
+    },
+    {
+      "table": "drivers",
+      "rows": 78,
+      "data_mb": 0.02,
+      "index_mb": 0.03,
+      "total_mb": 0.05,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "drivers_farm_id_foreign",
+          "unique": false,
+          "columns": "farm_id"
+        },
+        {
+          "name": "drivers_tractor_id_foreign",
+          "unique": false,
+          "columns": "tractor_id"
+        }
+      ]
+    },
+    {
+      "table": "failed_jobs",
+      "rows": 275,
+      "data_mb": 3.52,
+      "index_mb": 0.02,
+      "total_mb": 3.53,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "failed_jobs_uuid_unique",
+          "unique": true,
+          "columns": "uuid"
+        }
+      ]
+    },
+    {
+      "table": "farms",
+      "rows": 70,
+      "data_mb": 0.08,
+      "index_mb": 0.0,
+      "total_mb": 0.08,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": []
+    },
+    {
+      "table": "farm_plans",
+      "rows": 11,
+      "data_mb": 0.02,
+      "index_mb": 0.05,
+      "total_mb": 0.06,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "farm_plans_unique_id_unique",
+          "unique": true,
+          "columns": "unique_id"
+        },
+        {
+          "name": "plans_created_by_foreign",
+          "unique": false,
+          "columns": "created_by"
+        },
+        {
+          "name": "plans_farm_id_foreign",
+          "unique": false,
+          "columns": "farm_id"
+        }
+      ]
+    },
+    {
+      "table": "farm_plan_details",
+      "rows": 29,
+      "data_mb": 0.02,
+      "index_mb": 0.05,
+      "total_mb": 0.06,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "features_plan_id_foreign",
+          "unique": false,
+          "columns": "farm_plan_id"
+        },
+        {
+          "name": "features_timarable_type_timarable_id_index",
+          "unique": false,
+          "columns": "treatable_type,treatable_id"
+        },
+        {
+          "name": "features_timar_id_foreign",
+          "unique": false,
+          "columns": "treatment_id"
+        }
+      ]
+    },
+    {
+      "table": "farm_reports",
+      "rows": 929,
+      "data_mb": 0.14,
+      "index_mb": 0.2,
+      "total_mb": 0.34,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "farm_reports_created_by_foreign",
+          "unique": false,
+          "columns": "created_by"
+        },
+        {
+          "name": "farm_reports_farm_id_foreign",
+          "unique": false,
+          "columns": "farm_id"
+        },
+        {
+          "name": "farm_reports_operation_id_foreign",
+          "unique": false,
+          "columns": "operation_id"
+        },
+        {
+          "name": "farm_reports_reportable_type_reportable_id_index",
+          "unique": false,
+          "columns": "reportable_type,reportable_id"
+        }
+      ]
+    },
+    {
+      "table": "farm_user",
+      "rows": 223,
+      "data_mb": 0.02,
+      "index_mb": 0.03,
+      "total_mb": 0.05,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "farm_user_farm_id_foreign",
+          "unique": false,
+          "columns": "farm_id"
+        },
+        {
+          "name": "farm_user_user_id_foreign",
+          "unique": false,
+          "columns": "user_id"
+        }
+      ]
+    },
+    {
+      "table": "features",
+      "rows": 0,
+      "data_mb": 0.02,
+      "index_mb": 0.02,
+      "total_mb": 0.03,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "features_plan_id_slug_unique",
+          "unique": true,
+          "columns": "plan_id,slug"
+        }
+      ]
+    },
+    {
+      "table": "fields",
+      "rows": 226,
+      "data_mb": 0.14,
+      "index_mb": 0.03,
+      "total_mb": 0.17,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "fields_farm_id_foreign",
+          "unique": false,
+          "columns": "farm_id"
+        },
+        {
+          "name": "fields_unique_id_unique",
+          "unique": true,
+          "columns": "unique_id"
+        }
+      ]
+    },
+    {
+      "table": "frostbit_risks",
+      "rows": 1,
+      "data_mb": 0.02,
+      "index_mb": 0.02,
+      "total_mb": 0.03,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "frostbit_risks_farm_id_foreign",
+          "unique": false,
+          "columns": "farm_id"
+        }
+      ]
+    },
+    {
+      "table": "gps_data",
+      "rows": 18149805,
+      "data_mb": 1506.58,
+      "index_mb": 2187.98,
+      "total_mb": 3694.56,
+      "engine": "InnoDB",
+      "primary_key": "id,date_time",
+      "indexes": [
+        {
+          "name": "gps_data_imei_index",
+          "unique": false,
+          "columns": "imei"
+        },
+        {
+          "name": "gps_data_tractor_id_date_time_index",
+          "unique": false,
+          "columns": "tractor_id,date_time"
+        },
+        {
+          "name": "gps_data_tractor_id_index",
+          "unique": false,
+          "columns": "tractor_id"
+        },
+        {
+          "name": "idx_gps_data_start_time_detection",
+          "unique": false,
+          "columns": "tractor_id,date_time,status,speed"
+        }
+      ]
+    },
+    {
+      "table": "gps_devices",
+      "rows": 38,
+      "data_mb": 0.03,
+      "index_mb": 0.06,
+      "total_mb": 0.09,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "gps_devices_device_fingerprint_unique",
+          "unique": true,
+          "columns": "device_fingerprint"
+        },
+        {
+          "name": "gps_devices_imei_unique",
+          "unique": true,
+          "columns": "imei"
+        },
+        {
+          "name": "gps_devices_sim_number_unique",
+          "unique": true,
+          "columns": "sim_number"
+        },
+        {
+          "name": "gps_devices_user_id_foreign",
+          "unique": false,
+          "columns": "user_id"
+        }
+      ]
+    },
+    {
+      "table": "gps_metrics_calculations",
+      "rows": 3470,
+      "data_mb": 0.33,
+      "index_mb": 0.17,
+      "total_mb": 0.5,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "gps_daily_reports_tractor_id_foreign",
+          "unique": false,
+          "columns": "tractor_id"
+        },
+        {
+          "name": "gps_daily_reports_tractor_task_id_foreign",
+          "unique": false,
+          "columns": "tractor_task_id"
+        }
+      ]
+    },
+    {
+      "table": "irrigations",
+      "rows": 1099,
+      "data_mb": 0.13,
+      "index_mb": 0.19,
+      "total_mb": 0.31,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "irrigations_created_by_foreign",
+          "unique": false,
+          "columns": "created_by"
+        },
+        {
+          "name": "irrigations_farm_id_foreign",
+          "unique": false,
+          "columns": "farm_id"
+        },
+        {
+          "name": "irrigations_labour_id_foreign",
+          "unique": false,
+          "columns": "labour_id"
+        },
+        {
+          "name": "irrigations_pump_id_foreign",
+          "unique": false,
+          "columns": "pump_id"
+        }
+      ]
+    },
+    {
+      "table": "irrigation_plot",
+      "rows": 3713,
+      "data_mb": 0.19,
+      "index_mb": 0.22,
+      "total_mb": 0.41,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "field_irrigation_field_id_foreign",
+          "unique": false,
+          "columns": "plot_id"
+        },
+        {
+          "name": "field_irrigation_irrigation_id_foreign",
+          "unique": false,
+          "columns": "irrigation_id"
+        }
+      ]
+    },
+    {
+      "table": "irrigation_plot_new",
+      "rows": 0,
+      "data_mb": 0.02,
+      "index_mb": 0.03,
+      "total_mb": 0.05,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "irrigation_plot_new_irrigation_id_foreign",
+          "unique": false,
+          "columns": "irrigation_id"
+        },
+        {
+          "name": "irrigation_plot_new_plot_id_foreign",
+          "unique": false,
+          "columns": "plot_id"
+        }
+      ]
+    },
+    {
+      "table": "irrigation_valve",
+      "rows": 3537,
+      "data_mb": 0.45,
+      "index_mb": 0.22,
+      "total_mb": 0.67,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "irrigation_valve_irrigation_id_foreign",
+          "unique": false,
+          "columns": "irrigation_id"
+        },
+        {
+          "name": "irrigation_valve_valve_id_foreign",
+          "unique": false,
+          "columns": "valve_id"
+        }
+      ]
+    },
+    {
+      "table": "jobs",
+      "rows": 0,
+      "data_mb": 0.02,
+      "index_mb": 0.02,
+      "total_mb": 0.03,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "jobs_queue_index",
+          "unique": false,
+          "columns": "queue"
+        }
+      ]
+    },
+    {
+      "table": "job_batches",
+      "rows": 10,
+      "data_mb": 0.06,
+      "index_mb": 0.0,
+      "total_mb": 0.06,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": []
+    },
+    {
+      "table": "labours",
+      "rows": 114,
+      "data_mb": 0.02,
+      "index_mb": 0.03,
+      "total_mb": 0.05,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "labours_farm_id_index",
+          "unique": false,
+          "columns": "farm_id"
+        },
+        {
+          "name": "labours_user_id_foreign",
+          "unique": false,
+          "columns": "user_id"
+        }
+      ]
+    },
+    {
+      "table": "labour_team",
+      "rows": 22,
+      "data_mb": 0.02,
+      "index_mb": 0.03,
+      "total_mb": 0.05,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "labour_team_labour_id_foreign",
+          "unique": false,
+          "columns": "labour_id"
+        },
+        {
+          "name": "labour_team_team_id_foreign",
+          "unique": false,
+          "columns": "team_id"
+        }
+      ]
+    },
+    {
+      "table": "load_estimation_tables",
+      "rows": 4,
+      "data_mb": 0.02,
+      "index_mb": 0.02,
+      "total_mb": 0.03,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "load_prediction_tables_crop_type_id_foreign",
+          "unique": false,
+          "columns": "crop_type_id"
+        }
+      ]
+    },
+    {
+      "table": "maintenances",
+      "rows": 12,
+      "data_mb": 0.02,
+      "index_mb": 0.02,
+      "total_mb": 0.03,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "maintenances_farm_id_foreign",
+          "unique": false,
+          "columns": "farm_id"
+        }
+      ]
+    },
+    {
+      "table": "maintenance_reports",
+      "rows": 27,
+      "data_mb": 0.03,
+      "index_mb": 0.06,
+      "total_mb": 0.09,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "maintenance_reports_created_by_foreign",
+          "unique": false,
+          "columns": "created_by"
+        },
+        {
+          "name": "maintenance_reports_maintainable_type_maintainable_id_index",
+          "unique": false,
+          "columns": "maintainable_type,maintainable_id"
+        },
+        {
+          "name": "maintenance_reports_maintained_by_foreign",
+          "unique": false,
+          "columns": "maintained_by"
+        },
+        {
+          "name": "maintenance_reports_maintenance_id_foreign",
+          "unique": false,
+          "columns": "maintenance_id"
+        }
+      ]
+    },
+    {
+      "table": "media",
+      "rows": 54,
+      "data_mb": 0.02,
+      "index_mb": 0.05,
+      "total_mb": 0.06,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "media_model_type_model_id_index",
+          "unique": false,
+          "columns": "model_type,model_id"
+        },
+        {
+          "name": "media_order_column_index",
+          "unique": false,
+          "columns": "order_column"
+        },
+        {
+          "name": "media_uuid_unique",
+          "unique": true,
+          "columns": "uuid"
+        }
+      ]
+    },
+    {
+      "table": "migrations",
+      "rows": 185,
+      "data_mb": 0.02,
+      "index_mb": 0.0,
+      "total_mb": 0.02,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": []
+    },
+    {
+      "table": "notifications",
+      "rows": 47721,
+      "data_mb": 54.77,
+      "index_mb": 5.55,
+      "total_mb": 60.31,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "notifications_notifiable_type_notifiable_id_index",
+          "unique": false,
+          "columns": "notifiable_type,notifiable_id"
+        }
+      ]
+    },
+    {
+      "table": "nutrient_diagnosis_requests",
+      "rows": 16,
+      "data_mb": 0.03,
+      "index_mb": 0.03,
+      "total_mb": 0.06,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "nutrient_diagnosis_requests_farm_id_foreign",
+          "unique": false,
+          "columns": "farm_id"
+        },
+        {
+          "name": "nutrient_diagnosis_requests_user_id_foreign",
+          "unique": false,
+          "columns": "user_id"
+        }
+      ]
+    },
+    {
+      "table": "nutrient_samples",
+      "rows": 16,
+      "data_mb": 0.02,
+      "index_mb": 0.03,
+      "total_mb": 0.05,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "nutrient_samples_field_id_foreign",
+          "unique": false,
+          "columns": "field_id"
+        },
+        {
+          "name": "nutrient_samples_nutrient_diagnosis_request_id_foreign",
+          "unique": false,
+          "columns": "nutrient_diagnosis_request_id"
+        }
+      ]
+    },
+    {
+      "table": "operations",
+      "rows": 68,
+      "data_mb": 0.02,
+      "index_mb": 0.03,
+      "total_mb": 0.05,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "operations_farm_id_foreign",
+          "unique": false,
+          "columns": "farm_id"
+        },
+        {
+          "name": "operations_parent_id_foreign",
+          "unique": false,
+          "columns": "parent_id"
+        }
+      ]
+    },
+    {
+      "table": "password_reset_tokens",
+      "rows": 0,
+      "data_mb": 0.02,
+      "index_mb": 0.0,
+      "total_mb": 0.02,
+      "engine": "InnoDB",
+      "primary_key": "email",
+      "indexes": []
+    },
+    {
+      "table": "payments",
+      "rows": 0,
+      "data_mb": 0.02,
+      "index_mb": 0.03,
+      "total_mb": 0.05,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "payments_payable_type_payable_id_index",
+          "unique": false,
+          "columns": "payable_type,payable_id"
+        },
+        {
+          "name": "payments_user_id_foreign",
+          "unique": false,
+          "columns": "user_id"
+        }
+      ]
+    },
+    {
+      "table": "permissions",
+      "rows": 81,
+      "data_mb": 0.02,
+      "index_mb": 0.02,
+      "total_mb": 0.03,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "permissions_name_guard_name_unique",
+          "unique": true,
+          "columns": "name,guard_name"
+        }
+      ]
+    },
+    {
+      "table": "personal_access_tokens",
+      "rows": 105,
+      "data_mb": 0.02,
+      "index_mb": 0.03,
+      "total_mb": 0.05,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "personal_access_tokens_tokenable_type_tokenable_id_index",
+          "unique": false,
+          "columns": "tokenable_type,tokenable_id"
+        },
+        {
+          "name": "personal_access_tokens_token_unique",
+          "unique": true,
+          "columns": "token"
+        }
+      ]
+    },
+    {
+      "table": "pests",
+      "rows": 3,
+      "data_mb": 0.02,
+      "index_mb": 0.03,
+      "total_mb": 0.05,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "pests_created_by_index",
+          "unique": false,
+          "columns": "created_by"
+        },
+        {
+          "name": "pests_name_unique",
+          "unique": true,
+          "columns": "name"
+        }
+      ]
+    },
+    {
+      "table": "phonology_guide_files",
+      "rows": 0,
+      "data_mb": 0.02,
+      "index_mb": 0.03,
+      "total_mb": 0.05,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "phonology_guide_files_created_by_foreign",
+          "unique": false,
+          "columns": "created_by"
+        },
+        {
+          "name": "phonology_guide_files_phonologyable_type_phonologyable_id_index",
+          "unique": false,
+          "columns": "phonologyable_type,phonologyable_id"
+        }
+      ]
+    },
+    {
+      "table": "plans",
+      "rows": 0,
+      "data_mb": 0.02,
+      "index_mb": 0.02,
+      "total_mb": 0.03,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "plans_slug_unique",
+          "unique": true,
+          "columns": "slug"
+        }
+      ]
+    },
+    {
+      "table": "plots",
+      "rows": 326,
+      "data_mb": 0.13,
+      "index_mb": 0.03,
+      "total_mb": 0.16,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "blocks_field_id_foreign",
+          "unique": false,
+          "columns": "field_id"
+        },
+        {
+          "name": "plots_unique_id_unique",
+          "unique": true,
+          "columns": "unique_id"
+        }
+      ]
+    },
+    {
+      "table": "profiles",
+      "rows": 213,
+      "data_mb": 0.02,
+      "index_mb": 0.02,
+      "total_mb": 0.03,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "profiles_user_id_foreign",
+          "unique": false,
+          "columns": "user_id"
+        }
+      ]
+    },
+    {
+      "table": "pumps",
+      "rows": 20,
+      "data_mb": 0.02,
+      "index_mb": 0.02,
+      "total_mb": 0.03,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "pumps_farm_id_foreign",
+          "unique": false,
+          "columns": "farm_id"
+        }
+      ]
+    },
+    {
+      "table": "roles",
+      "rows": 10,
+      "data_mb": 0.02,
+      "index_mb": 0.02,
+      "total_mb": 0.03,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "roles_name_guard_name_unique",
+          "unique": true,
+          "columns": "name,guard_name"
+        }
+      ]
+    },
+    {
+      "table": "role_has_permissions",
+      "rows": 195,
+      "data_mb": 0.02,
+      "index_mb": 0.02,
+      "total_mb": 0.03,
+      "engine": "InnoDB",
+      "primary_key": "permission_id,role_id",
+      "indexes": [
+        {
+          "name": "role_has_permissions_role_id_foreign",
+          "unique": false,
+          "columns": "role_id"
+        }
+      ]
+    },
+    {
+      "table": "rows",
+      "rows": 245,
+      "data_mb": 0.06,
+      "index_mb": 0.03,
+      "total_mb": 0.09,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "rows_field_id_foreign",
+          "unique": false,
+          "columns": "field_id"
+        },
+        {
+          "name": "rows_unique_id_unique",
+          "unique": true,
+          "columns": "unique_id"
+        }
+      ]
+    },
+    {
+      "table": "sliders",
+      "rows": 0,
+      "data_mb": 0.02,
+      "index_mb": 0.0,
+      "total_mb": 0.02,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": []
+    },
+    {
+      "table": "subscriptions",
+      "rows": 0,
+      "data_mb": 0.02,
+      "index_mb": 0.02,
+      "total_mb": 0.03,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "subscriptions_subscriber_type_subscriber_id_index",
+          "unique": false,
+          "columns": "subscriber_type,subscriber_id"
+        }
+      ]
+    },
+    {
+      "table": "subscription_usage",
+      "rows": 0,
+      "data_mb": 0.02,
+      "index_mb": 0.0,
+      "total_mb": 0.02,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": []
+    },
+    {
+      "table": "teams",
+      "rows": 14,
+      "data_mb": 0.02,
+      "index_mb": 0.03,
+      "total_mb": 0.05,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "teams_farm_id_foreign",
+          "unique": false,
+          "columns": "farm_id"
+        }
+      ]
+    },
+    {
+      "table": "telescope_entries",
+      "rows": 0,
+      "data_mb": 0.02,
+      "index_mb": 0.08,
+      "total_mb": 0.09,
+      "engine": "InnoDB",
+      "primary_key": "sequence",
+      "indexes": [
+        {
+          "name": "telescope_entries_batch_id_index",
+          "unique": false,
+          "columns": "batch_id"
+        },
+        {
+          "name": "telescope_entries_created_at_index",
+          "unique": false,
+          "columns": "created_at"
+        },
+        {
+          "name": "telescope_entries_family_hash_index",
+          "unique": false,
+          "columns": "family_hash"
+        },
+        {
+          "name": "telescope_entries_type_should_display_on_index_index",
+          "unique": false,
+          "columns": "type,should_display_on_index"
+        },
+        {
+          "name": "telescope_entries_uuid_unique",
+          "unique": true,
+          "columns": "uuid"
+        }
+      ]
+    },
+    {
+      "table": "telescope_entries_tags",
+      "rows": 0,
+      "data_mb": 0.02,
+      "index_mb": 0.02,
+      "total_mb": 0.03,
+      "engine": "InnoDB",
+      "primary_key": "entry_uuid,tag",
+      "indexes": [
+        {
+          "name": "telescope_entries_tags_tag_index",
+          "unique": false,
+          "columns": "tag"
+        }
+      ]
+    },
+    {
+      "table": "telescope_monitoring",
+      "rows": 0,
+      "data_mb": 0.02,
+      "index_mb": 0.0,
+      "total_mb": 0.02,
+      "engine": "InnoDB",
+      "primary_key": "tag",
+      "indexes": []
+    },
+    {
+      "table": "tractors",
+      "rows": 92,
+      "data_mb": 0.03,
+      "index_mb": 0.02,
+      "total_mb": 0.05,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "trucktors_farm_id_foreign",
+          "unique": false,
+          "columns": "farm_id"
+        }
+      ]
+    },
+    {
+      "table": "tractor_reports",
+      "rows": 248,
+      "data_mb": 0.08,
+      "index_mb": 0.06,
+      "total_mb": 0.14,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "trucktor_reports_created_by_foreign",
+          "unique": false,
+          "columns": "created_by"
+        },
+        {
+          "name": "trucktor_reports_field_id_foreign",
+          "unique": false,
+          "columns": "field_id"
+        },
+        {
+          "name": "trucktor_reports_operation_id_foreign",
+          "unique": false,
+          "columns": "operation_id"
+        },
+        {
+          "name": "trucktor_reports_trucktor_id_foreign",
+          "unique": false,
+          "columns": "tractor_id"
+        }
+      ]
+    },
+    {
+      "table": "tractor_tasks",
+      "rows": 592,
+      "data_mb": 0.09,
+      "index_mb": 0.05,
+      "total_mb": 0.14,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "trucktor_tasks_created_by_foreign",
+          "unique": false,
+          "columns": "created_by"
+        },
+        {
+          "name": "trucktor_tasks_operation_id_foreign",
+          "unique": false,
+          "columns": "operation_id"
+        },
+        {
+          "name": "trucktor_tasks_trucktor_id_foreign",
+          "unique": false,
+          "columns": "tractor_id"
+        }
+      ]
+    },
+    {
+      "table": "tractor_task_taskables",
+      "rows": 679,
+      "data_mb": 0.08,
+      "index_mb": 0.11,
+      "total_mb": 0.19,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "tractor_task_taskables_taskable_type_taskable_id_index",
+          "unique": false,
+          "columns": "taskable_type,taskable_id"
+        },
+        {
+          "name": "tractor_task_taskables_task_unique",
+          "unique": true,
+          "columns": "tractor_task_id,taskable_type,taskable_id"
+        }
+      ]
+    },
+    {
+      "table": "treatments",
+      "rows": 26,
+      "data_mb": 0.02,
+      "index_mb": 0.02,
+      "total_mb": 0.03,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "timars_farm_id_foreign",
+          "unique": false,
+          "columns": "farm_id"
+        }
+      ]
+    },
+    {
+      "table": "trees",
+      "rows": 2680,
+      "data_mb": 7.52,
+      "index_mb": 0.19,
+      "total_mb": 7.7,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "trees_row_id_foreign",
+          "unique": false,
+          "columns": "row_id"
+        },
+        {
+          "name": "trees_unique_id_unique",
+          "unique": true,
+          "columns": "unique_id"
+        }
+      ]
+    },
+    {
+      "table": "users",
+      "rows": 201,
+      "data_mb": 0.09,
+      "index_mb": 0.03,
+      "total_mb": 0.13,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "users_mobile_unique",
+          "unique": true,
+          "columns": "mobile"
+        },
+        {
+          "name": "users_username_unique",
+          "unique": true,
+          "columns": "username"
+        }
+      ]
+    },
+    {
+      "table": "user_has_permissions",
+      "rows": 60,
+      "data_mb": 0.02,
+      "index_mb": 0.02,
+      "total_mb": 0.03,
+      "engine": "InnoDB",
+      "primary_key": "permission_id,model_id,model_type",
+      "indexes": [
+        {
+          "name": "model_has_permissions_model_id_model_type_index",
+          "unique": false,
+          "columns": "model_id,model_type"
+        }
+      ]
+    },
+    {
+      "table": "user_has_roles",
+      "rows": 226,
+      "data_mb": 0.02,
+      "index_mb": 0.02,
+      "total_mb": 0.03,
+      "engine": "InnoDB",
+      "primary_key": "role_id,model_id,model_type",
+      "indexes": [
+        {
+          "name": "model_has_roles_model_id_model_type_index",
+          "unique": false,
+          "columns": "model_id,model_type"
+        }
+      ]
+    },
+    {
+      "table": "valves",
+      "rows": 338,
+      "data_mb": 0.11,
+      "index_mb": 0.02,
+      "total_mb": 0.13,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "valves_unique_id_unique",
+          "unique": true,
+          "columns": "unique_id"
+        }
+      ]
+    },
+    {
+      "table": "verify_mobile_tokens",
+      "rows": 8,
+      "data_mb": 0.02,
+      "index_mb": 0.0,
+      "total_mb": 0.02,
+      "engine": "InnoDB",
+      "primary_key": "mobile",
+      "indexes": []
+    },
+    {
+      "table": "volk_oil_sprays",
+      "rows": 8,
+      "data_mb": 0.02,
+      "index_mb": 0.03,
+      "total_mb": 0.05,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "cold_requirement_notifications_created_by_foreign",
+          "unique": false,
+          "columns": "created_by"
+        },
+        {
+          "name": "cold_requirement_notifications_farm_id_foreign",
+          "unique": false,
+          "columns": "farm_id"
+        }
+      ]
+    },
+    {
+      "table": "warnings",
+      "rows": 23,
+      "data_mb": 0.02,
+      "index_mb": 0.02,
+      "total_mb": 0.03,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "warnings_farm_id_foreign",
+          "unique": false,
+          "columns": "farm_id"
+        }
+      ]
+    },
+    {
+      "table": "work_shifts",
+      "rows": 4,
+      "data_mb": 0.02,
+      "index_mb": 0.02,
+      "total_mb": 0.03,
+      "engine": "InnoDB",
+      "primary_key": "id",
+      "indexes": [
+        {
+          "name": "work_shifts_farm_id_foreign",
+          "unique": false,
+          "columns": "farm_id"
+        }
+      ]
+    }
+  ]
+}

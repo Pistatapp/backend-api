@@ -1,0 +1,43 @@
+{
+  "database": "api_db",
+  "counts": [
+    {
+      "entity": "irrigations",
+      "count": 1099,
+      "date_range": {
+        "min_start": "2025-01-08 07:00:00",
+        "max_start": "2026-08-14 03:00:00",
+        "min_end": "2025-01-08 14:00:00",
+        "max_end": "2026-08-15 03:00:00"
+      }
+    },
+    {
+      "entity": "irrigation_plot",
+      "count": 3713
+    },
+    {
+      "entity": "irrigation_plot_new",
+      "count": 0
+    },
+    {
+      "entity": "irrigation_valve",
+      "count": 3537
+    },
+    {
+      "entity": "valves",
+      "count": 338
+    },
+    {
+      "entity": "pumps",
+      "count": 20
+    }
+  ],
+  "anomalies": {
+    "irrigation_plot_null_plot_link": 0,
+    "irrigation_plot_broken_plot_link": 45,
+    "valves_null_plot_link": 24,
+    "valves_broken_plot_link": 13,
+    "irrigation_missing_labour_ref": 0,
+    "irrigation_missing_pump_ref": 0
+  }
+}

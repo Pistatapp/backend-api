@@ -1,0 +1,20 @@
+{
+  "database": "api_db",
+  "media_count": 54,
+  "existing_files": 0,
+  "missing_files": 54,
+  "path_pattern": "storage/app/public/{media_id}/{file_name}",
+  "storage_root": "storage/app/public",
+  "sample_missing_paths": [
+    "storage/app/public/1/avatar.jpg",
+    "storage/app/public/3/PistatImage.jpg",
+    "storage/app/public/4/PistatImage.jpg",
+    "storage/app/public/6/image.jpg",
+    "storage/app/public/9/avatar.jpg",
+    "storage/app/public/18/PistatImage.jpg",
+    "storage/app/public/20/Book1.xlsx",
+    "storage/app/public/21/ddns-(1).pdf",
+    "storage/app/public/22/avatar.jpg",
+    "storage/app/public/23/az-hidrimetri.pdf"
+  ]
+}

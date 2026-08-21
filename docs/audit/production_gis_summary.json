@@ -1,0 +1,70 @@
+{
+  "database": "api_db",
+  "entities": [
+    {
+      "entity": "farms",
+      "table": "farms",
+      "geometry_type": "polygon",
+      "count": 70,
+      "null_geometry": 0,
+      "invalid_geometry": 0,
+      "valid_json": 70,
+      "json_length_min": 3,
+      "json_length_max": 370,
+      "srid": null,
+      "storage": "JSON strings / text, no native spatial type"
+    },
+    {
+      "entity": "fields",
+      "table": "fields",
+      "geometry_type": "polygon",
+      "count": 226,
+      "null_geometry": 0,
+      "invalid_geometry": 0,
+      "valid_json": 226,
+      "json_length_min": 3,
+      "json_length_max": 78,
+      "srid": null,
+      "storage": "JSON strings / text, no native spatial type"
+    },
+    {
+      "entity": "plots",
+      "table": "plots",
+      "geometry_type": "polygon",
+      "count": 326,
+      "null_geometry": 0,
+      "invalid_geometry": 0,
+      "valid_json": 326,
+      "json_length_min": 2,
+      "json_length_max": 70,
+      "srid": null,
+      "storage": "JSON strings / text, no native spatial type"
+    },
+    {
+      "entity": "rows",
+      "table": "rows",
+      "geometry_type": "polyline",
+      "count": 245,
+      "null_geometry": 0,
+      "invalid_geometry": 0,
+      "valid_json": 245,
+      "json_length_min": 2,
+      "json_length_max": 2,
+      "srid": null,
+      "storage": "JSON strings / text, no native spatial type"
+    },
+    {
+      "entity": "trees",
+      "table": "trees",
+      "geometry_type": "point",
+      "count": 2680,
+      "null_geometry": 0,
+      "invalid_geometry": 0,
+      "valid_json": 2680,
+      "json_length_min": 1,
+      "json_length_max": 1,
+      "srid": null,
+      "storage": "JSON strings / text, no native spatial type"
+    }
+  ]
+}

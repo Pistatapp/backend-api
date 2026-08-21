@@ -1,0 +1,302 @@
+{
+  "database": "api_db",
+  "generated_at": "2026-08-21T16:58:33",
+  "row_counts": [
+    {
+      "table": "app_releases",
+      "rows": 7
+    },
+    {
+      "table": "attachments",
+      "rows": 47
+    },
+    {
+      "table": "attendance_daily_reports",
+      "rows": 1951
+    },
+    {
+      "table": "attendance_gps_data",
+      "rows": 2683
+    },
+    {
+      "table": "attendance_monthly_payrolls",
+      "rows": 0
+    },
+    {
+      "table": "attendance_sessions",
+      "rows": 3
+    },
+    {
+      "table": "attendance_shift_schedules",
+      "rows": 18
+    },
+    {
+      "table": "attendance_trackings",
+      "rows": 1
+    },
+    {
+      "table": "crops",
+      "rows": 7
+    },
+    {
+      "table": "crop_types",
+      "rows": 6
+    },
+    {
+      "table": "drivers",
+      "rows": 78
+    },
+    {
+      "table": "failed_jobs",
+      "rows": 275
+    },
+    {
+      "table": "farms",
+      "rows": 70
+    },
+    {
+      "table": "farm_plans",
+      "rows": 11
+    },
+    {
+      "table": "farm_plan_details",
+      "rows": 29
+    },
+    {
+      "table": "farm_reports",
+      "rows": 929
+    },
+    {
+      "table": "farm_user",
+      "rows": 223
+    },
+    {
+      "table": "features",
+      "rows": 0
+    },
+    {
+      "table": "fields",
+      "rows": 226
+    },
+    {
+      "table": "frostbit_risks",
+      "rows": 1
+    },
+    {
+      "table": "gps_data",
+      "rows": 18149805
+    },
+    {
+      "table": "gps_devices",
+      "rows": 38
+    },
+    {
+      "table": "gps_metrics_calculations",
+      "rows": 3470
+    },
+    {
+      "table": "irrigations",
+      "rows": 1099
+    },
+    {
+      "table": "irrigation_plot",
+      "rows": 3713
+    },
+    {
+      "table": "irrigation_plot_new",
+      "rows": 0
+    },
+    {
+      "table": "irrigation_valve",
+      "rows": 3537
+    },
+    {
+      "table": "jobs",
+      "rows": 0
+    },
+    {
+      "table": "job_batches",
+      "rows": 10
+    },
+    {
+      "table": "labours",
+      "rows": 114
+    },
+    {
+      "table": "labour_team",
+      "rows": 22
+    },
+    {
+      "table": "load_estimation_tables",
+      "rows": 4
+    },
+    {
+      "table": "maintenances",
+      "rows": 12
+    },
+    {
+      "table": "maintenance_reports",
+      "rows": 27
+    },
+    {
+      "table": "media",
+      "rows": 54
+    },
+    {
+      "table": "migrations",
+      "rows": 185
+    },
+    {
+      "table": "notifications",
+      "rows": 47721
+    },
+    {
+      "table": "nutrient_diagnosis_requests",
+      "rows": 16
+    },
+    {
+      "table": "nutrient_samples",
+      "rows": 16
+    },
+    {
+      "table": "operations",
+      "rows": 68
+    },
+    {
+      "table": "password_reset_tokens",
+      "rows": 0
+    },
+    {
+      "table": "payments",
+      "rows": 0
+    },
+    {
+      "table": "permissions",
+      "rows": 81
+    },
+    {
+      "table": "personal_access_tokens",
+      "rows": 105
+    },
+    {
+      "table": "pests",
+      "rows": 3
+    },
+    {
+      "table": "phonology_guide_files",
+      "rows": 0
+    },
+    {
+      "table": "plans",
+      "rows": 0
+    },
+    {
+      "table": "plots",
+      "rows": 326
+    },
+    {
+      "table": "profiles",
+      "rows": 213
+    },
+    {
+      "table": "pumps",
+      "rows": 20
+    },
+    {
+      "table": "roles",
+      "rows": 10
+    },
+    {
+      "table": "role_has_permissions",
+      "rows": 195
+    },
+    {
+      "table": "rows",
+      "rows": 245
+    },
+    {
+      "table": "sliders",
+      "rows": 0
+    },
+    {
+      "table": "subscriptions",
+      "rows": 0
+    },
+    {
+      "table": "subscription_usage",
+      "rows": 0
+    },
+    {
+      "table": "teams",
+      "rows": 14
+    },
+    {
+      "table": "telescope_entries",
+      "rows": 0
+    },
+    {
+      "table": "telescope_entries_tags",
+      "rows": 0
+    },
+    {
+      "table": "telescope_monitoring",
+      "rows": 0
+    },
+    {
+      "table": "tractors",
+      "rows": 92
+    },
+    {
+      "table": "tractor_reports",
+      "rows": 248
+    },
+    {
+      "table": "tractor_tasks",
+      "rows": 592
+    },
+    {
+      "table": "tractor_task_taskables",
+      "rows": 679
+    },
+    {
+      "table": "treatments",
+      "rows": 26
+    },
+    {
+      "table": "trees",
+      "rows": 2680
+    },
+    {
+      "table": "users",
+      "rows": 201
+    },
+    {
+      "table": "user_has_permissions",
+      "rows": 60
+    },
+    {
+      "table": "user_has_roles",
+      "rows": 226
+    },
+    {
+      "table": "valves",
+      "rows": 338
+    },
+    {
+      "table": "verify_mobile_tokens",
+      "rows": 8
+    },
+    {
+      "table": "volk_oil_sprays",
+      "rows": 8
+    },
+    {
+      "table": "warnings",
+      "rows": 23
+    },
+    {
+      "table": "work_shifts",
+      "rows": 4
+    }
+  ]
+}

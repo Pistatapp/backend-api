@@ -1,0 +1,174 @@
+{
+  "database": "api_db",
+  "tractors": {
+    "count": 92,
+    "assigned_farms": [
+      {
+        "farm_id": 4,
+        "tractor_count": 23
+      },
+      {
+        "farm_id": 14,
+        "tractor_count": 10
+      },
+      {
+        "farm_id": 68,
+        "tractor_count": 10
+      },
+      {
+        "farm_id": 1,
+        "tractor_count": 9
+      },
+      {
+        "farm_id": 8,
+        "tractor_count": 9
+      },
+      {
+        "farm_id": 2,
+        "tractor_count": 8
+      },
+      {
+        "farm_id": 77,
+        "tractor_count": 8
+      },
+      {
+        "farm_id": 71,
+        "tractor_count": 7
+      },
+      {
+        "farm_id": 9,
+        "tractor_count": 3
+      },
+      {
+        "farm_id": 12,
+        "tractor_count": 2
+      },
+      {
+        "farm_id": 11,
+        "tractor_count": 1
+      },
+      {
+        "farm_id": 18,
+        "tractor_count": 1
+      },
+      {
+        "farm_id": 22,
+        "tractor_count": 1
+      }
+    ]
+  },
+  "gps_devices": {
+    "count": 38,
+    "device_type_counts": [
+      {
+        "device_type": "tractor_gps",
+        "count": 21
+      },
+      {
+        "device_type": "(NULL)",
+        "count": 15
+      },
+      {
+        "device_type": "mobile_phone",
+        "count": 2
+      }
+    ],
+    "unbound_devices": 27,
+    "bound_devices": 11,
+    "devices_missing_tractor_ref": 0,
+    "tractors_without_gps_device": 81,
+    "null_imei": 1
+  },
+  "gps_data": {
+    "count": 18149805,
+    "min_timestamp": "2004-01-01 03:30:24",
+    "max_timestamp": "2068-11-30 07:49:21",
+    "missing_device_ref": 1636226,
+    "missing_tractor_ref": 0,
+    "missing_device_or_tractor_ref": 1636226,
+    "null_imei": 0,
+    "distinct_orphan_imeis": 20,
+    "top_orphan_imeis": [
+      {
+        "imei": "868064073179027",
+        "points": 527573
+      },
+      {
+        "imei": "867994060632680",
+        "points": 306825
+      },
+      {
+        "imei": "863070046119607",
+        "points": 241289
+      },
+      {
+        "imei": "863070044742822",
+        "points": 214124
+      },
+      {
+        "imei": "863070046120282",
+        "points": 185873
+      },
+      {
+        "imei": "863070046098355",
+        "points": 132086
+      },
+      {
+        "imei": "863070046040167",
+        "points": 28442
+      },
+      {
+        "imei": "863070046809159",
+        "points": 2
+      },
+      {
+        "imei": "863070044333277",
+        "points": 1
+      },
+      {
+        "imei": "863070044809179",
+        "points": 1
+      },
+      {
+        "imei": "863070044809359",
+        "points": 1
+      },
+      {
+        "imei": "863070044809959",
+        "points": 1
+      },
+      {
+        "imei": "863070044849159",
+        "points": 1
+      },
+      {
+        "imei": "863070064849159",
+        "points": 1
+      },
+      {
+        "imei": "863070446839105",
+        "points": 1
+      },
+      {
+        "imei": "863072044809159",
+        "points": 1
+      },
+      {
+        "imei": "863074044809159",
+        "points": 1
+      },
+      {
+        "imei": "863470044809159",
+        "points": 1
+      },
+      {
+        "imei": "863470046839105",
+        "points": 1
+      },
+      {
+        "imei": "873070044333077",
+        "points": 1
+      }
+    ]
+  }
+}
