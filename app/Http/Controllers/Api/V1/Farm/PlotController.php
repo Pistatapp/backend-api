@@ -8,12 +8,14 @@ use App\Models\Plot;
 use App\Models\Field;
 use App\Helpers\UniqueId;
 use App\Services\IrrigationService;
+use App\Services\IrrigationReportCalculationService;
 use Illuminate\Http\Request;
 
 class PlotController extends Controller
 {
     public function __construct(
-        private IrrigationService $irrigationService
+        private IrrigationService $irrigationService,
+        private IrrigationReportCalculationService $calculator
     ) {
         $this->authorizeResource(Plot::class, 'plot');
     }
@@ -91,38 +93,47 @@ class PlotController extends Controller
      */
     public function getIrrigationStatistics(Plot $plot)
     {
-        $thirtyDaysAgo = now()->subDays(30);
+        $rangeEnd = now()->setTimezone(IrrigationReportCalculationService::TIMEZONE);
+        $rangeStart = $rangeEnd->copy()->subDays(30);
+        $physicalAreaM2 = $this->calculator->polygonArea($plot->coordinates);
 
-        // Get successful irrigations (status = 'finished') in the last 30 days
+        // Include any completed, verified program that overlaps the window.
         $successfulIrrigations = $plot->irrigations()
             ->where('status', 'finished')
-            ->whereDate('start_time', '>=', $thirtyDaysAgo)
-            ->with('valves')
+            ->verifiedByAdmin()
+            ->whereNotNull('start_time')
+            ->whereNotNull('end_time')
+            ->whereColumn('end_time', '>', 'start_time')
+            ->where('start_time', '<', $rangeEnd)
+            ->where('end_time', '>', $rangeStart)
+            ->with(['valves' => fn ($query) => $query->where('plot_id', $plot->id)])
             ->get();
 
         // Get latest successful irrigation
         $latestSuccessfulIrrigation = $plot->irrigations()
             ->where('status', 'finished')
-            ->with('valves')
+            ->verifiedByAdmin()
+            ->whereNotNull('end_time')
             ->latest('start_time')
             ->first();
 
         // Calculate statistics for last 30 days
         $totalDuration = 0;
         $totalVolumeLiters = 0;
-        $totalIrrigationAreaHectares = 0;
 
         foreach ($successfulIrrigations as $irrigation) {
-            $durationInSeconds = $irrigation->start_time->diffInSeconds($irrigation->end_time);
+            $durationInSeconds = $this->calculator->overlapSeconds(
+                $irrigation->start_time,
+                $irrigation->end_time,
+                $rangeStart,
+                $rangeEnd,
+            );
             $totalDuration += $durationInSeconds;
             $totalVolumeLiters += $this->irrigationService->calculateVolumeLiters($irrigation->valves, $durationInSeconds);
-            $totalIrrigationAreaHectares += $this->irrigationService->calculateAreaHectares($irrigation->valves);
         }
 
-        $totalVolumePerHectare = $this->irrigationService->calculateVolumePerHectareFromTotals(
-            $totalVolumeLiters,
-            $totalIrrigationAreaHectares
-        );
+        $totalVolumeM3 = $totalVolumeLiters / 1000;
+        $totalVolumePerHectare = $this->calculator->volumePerHectare($totalVolumeM3, $physicalAreaM2);
 
         // Format latest successful irrigation if exists
         $latestIrrigationData = null;
@@ -142,8 +153,13 @@ class PlotController extends Controller
                 'latest_successful_irrigation' => $latestIrrigationData,
                 'successful_irrigations_count_last_30_days' => $successfulIrrigations->count(),
                 'area_covered_duration_last_30_days' => to_time_format($totalDuration),
-                'total_volume_last_30_days' => round($totalVolumeLiters / 1000, 2),
-                'total_volume_per_hectare_last_30_days' => round($totalVolumePerHectare, 2),
+                'total_volume_last_30_days' => round($totalVolumeM3, 2),
+                'total_volume_per_hectare_last_30_days' => $totalVolumePerHectare === null
+                    ? null
+                    : round($totalVolumePerHectare, 2),
+                'physical_area_m2' => $physicalAreaM2,
+                'physical_area_ha' => $physicalAreaM2 / 10000,
+                'area_source' => 'plot_polygon',
             ]
         ]);
     }

@@ -8,6 +8,10 @@ use Illuminate\Support\Collection;
 
 class PumpIrrigationReportService
 {
+    public function __construct(
+        private IrrigationReportCalculationService $calculator,
+    ) {}
+
     /**
      * Get pump irrigation reports for a date range
      *
@@ -21,7 +25,8 @@ class PumpIrrigationReportService
         $irrigations = $this->getFilteredIrrigations($pumpId, $fromDate, $toDate);
 
         $dailyReports = $this->generateDailyReports($irrigations, $fromDate, $toDate);
-        $accumulated = $this->calculateAccumulatedValues($dailyReports);
+        [$rangeStart, $rangeEnd] = $this->calculator->reportRange($fromDate, $toDate);
+        $accumulated = $this->calculateAccumulatedValues($irrigations, $rangeStart, $rangeEnd);
 
         return [
             'irrigations' => $dailyReports,
@@ -39,13 +44,16 @@ class PumpIrrigationReportService
      */
     private function getFilteredIrrigations(int $pumpId, Carbon $fromDate, Carbon $toDate): Collection
     {
+        [$rangeStart, $rangeEnd] = $this->calculator->reportRange($fromDate, $toDate);
+
         return Irrigation::where('pump_id', $pumpId)
             ->filter('finished')
             ->verifiedByAdmin()
-            ->whereBetween('start_time', [
-                $fromDate->copy()->startOfDay(),
-                $toDate->copy()->endOfDay(),
-            ])
+            ->whereNotNull('start_time')
+            ->whereNotNull('end_time')
+            ->whereColumn('end_time', '>', 'start_time')
+            ->where('start_time', '<', $rangeEnd)
+            ->where('end_time', '>', $rangeStart)
             ->with('valves')
             ->get();
     }
@@ -61,14 +69,19 @@ class PumpIrrigationReportService
     private function generateDailyReports(Collection $irrigations, Carbon $fromDate, Carbon $toDate): array
     {
         $dailyReports = [];
-        $currentDate = $fromDate->copy();
+        $currentDate = $fromDate->copy()->setTimezone(IrrigationReportCalculationService::TIMEZONE)->startOfDay();
+        $lastDate = $toDate->copy()->setTimezone(IrrigationReportCalculationService::TIMEZONE)->startOfDay();
 
-        while ($currentDate->lte($toDate)) {
-            $dailyIrrigations = $irrigations->filter(function ($irrigation) use ($currentDate) {
-                $irrigationDate = $irrigation->start_time;
-
-                return $irrigationDate instanceof Carbon && $irrigationDate->isSameDay($currentDate);
-            });
+        while ($currentDate->lte($lastDate)) {
+            [$dayStart, $dayEnd] = $this->calculator->reportRange($currentDate, $currentDate);
+            $dailyIrrigations = $irrigations->filter(fn ($irrigation): bool =>
+                $this->calculator->overlapSeconds(
+                    $irrigation->start_time,
+                    $irrigation->end_time,
+                    $dayStart,
+                    $dayEnd,
+                ) > 0
+            );
 
             // Skip dates with no irrigations
             if ($dailyIrrigations->isEmpty()) {
@@ -106,15 +119,16 @@ class PumpIrrigationReportService
 
         foreach ($dailyIrrigations as $irrigation) {
             /** @var \App\Models\Irrigation $irrigation */
-            $durationInSeconds = $this->calculateIrrigationDuration($irrigation);
+            [$dayStart, $dayEnd] = $this->calculator->reportRange($date, $date);
+            $durationInSeconds = $this->calculator->overlapSeconds(
+                $irrigation->start_time,
+                $irrigation->end_time,
+                $dayStart,
+                $dayEnd,
+            );
             $totalDurationSeconds += $durationInSeconds;
 
-            foreach ($irrigation->valves as $valve) {
-                /** @var \App\Models\Valve $valve */
-                // Calculate volume in liters
-                $volumeInLiters = ($valve->dripper_count * $valve->dripper_flow_rate) * ($durationInSeconds / 3600);
-                $totalVolume += $volumeInLiters;
-            }
+            $totalVolume += $this->calculator->volumeLiters($irrigation->valves, $durationInSeconds);
         }
 
         // Convert volume from liters to cubic meters
@@ -135,31 +149,29 @@ class PumpIrrigationReportService
      * @param array $dailyReports
      * @return array
      */
-    private function calculateAccumulatedValues(array $dailyReports): array
+    private function calculateAccumulatedValues(Collection $irrigations, Carbon $rangeStart, Carbon $rangeEnd): array
     {
-        $accumulatedHours = 0;
-        $accumulatedVolume = 0;
+        $accumulatedSeconds = 0;
+        $accumulatedLiters = 0.0;
 
-        foreach ($dailyReports as $report) {
-            $accumulatedHours += $report['hours'];
-            $accumulatedVolume += $report['volume'];
+        foreach ($irrigations as $irrigation) {
+            $durationInSeconds = $this->calculator->overlapSeconds(
+                $irrigation->start_time,
+                $irrigation->end_time,
+                $rangeStart,
+                $rangeEnd,
+            );
+            $accumulatedSeconds += $durationInSeconds;
+            $accumulatedLiters += $this->calculator->volumeLiters(
+                $irrigation->valves,
+                $durationInSeconds,
+            );
         }
 
         return [
-            'hours' => round($accumulatedHours, 2),
-            'volume' => round($accumulatedVolume, 2),
+            'hours' => round($accumulatedSeconds / 3600, 2),
+            'volume' => round($accumulatedLiters / 1000, 2),
         ];
-    }
-
-    /**
-     * Calculate irrigation duration from start_time to end_time
-     *
-     * @param \App\Models\Irrigation $irrigation
-     * @return int Duration in seconds
-     */
-    private function calculateIrrigationDuration(\App\Models\Irrigation $irrigation): int
-    {
-        return $irrigation->start_time->diffInSeconds($irrigation->end_time);
     }
 
     /**
@@ -173,4 +185,3 @@ class PumpIrrigationReportService
         return $report['hours'] > 0 || $report['volume'] > 0;
     }
 }
-

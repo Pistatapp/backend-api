@@ -14,10 +14,9 @@ use App\Services\PumpIrrigationReportService;
 
 class PumpController extends Controller
 {
-    /**
-     * Create a new controller instance.
-     */
-    public function __construct()
+    public function __construct(
+        private PumpIrrigationReportService $pumpReportService,
+    )
     {
         $this->authorizeResource(Pump::class, 'pump');
     }
@@ -73,9 +72,7 @@ class PumpController extends Controller
      */
     public function generateIrrigationReport(PumpIrrigationReportRequest $request, Pump $pump)
     {
-        $service = new PumpIrrigationReportService();
-
-        $report = $service->getPumpReports(
+        $report = $this->pumpReportService->getPumpReports(
             $pump->id,
             $request->start_date,
             $request->end_date

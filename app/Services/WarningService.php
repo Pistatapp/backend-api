@@ -14,7 +14,7 @@ class WarningService
         $this->warningDefinitions = json_decode(
             Storage::get('json/warnings.json'),
             true
-        );
+        ) ?? [];
     }
 
     public function getWarningsByRelatedTo(string $relatedTo): array

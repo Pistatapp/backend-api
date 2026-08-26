@@ -55,9 +55,15 @@ class IrrigationResource extends JsonResource
             'is_verified_by_admin' => (bool) $this->is_verified_by_admin,
             'duration' => to_time_format($this->duration),
             'plots_count' => $this->whenCounted('plots'),
-            'area_covered' => $this->getAreaCovered(),
+            // area_covered is retained for compatibility and is expressed in
+            // physical hectares, derived from unique plot GIS polygons.
+            'area_covered' => $this->getPhysicalAreaM2() / 10000,
+            'physical_area_m2' => $this->getPhysicalAreaM2(),
+            'physical_area_ha' => $this->getPhysicalAreaM2() / 10000,
+            'area_source' => 'plot_polygon',
             $this->mergeWhen(in_array($this->status, ['in-progress', 'finished']), [
                 'total_volume' => $this->getTotalVolume(),
+                'irrigation_per_hectare' => $this->getVolumePerHectare(),
             ]),
             'can' => [
                 'delete' => $request->user()->can('delete', $this->resource),
@@ -72,11 +78,14 @@ class IrrigationResource extends JsonResource
      *
      * @return float
      */
-    private function getAreaCovered(): float
+    private function getPhysicalAreaM2(): float
     {
-        return $this->valves->sum(function ($valve) {
-            return $valve->irrigation_area;
-        });
+        $plots = $this->relationLoaded('plots')
+            ? $this->plots
+            : $this->plots()->get();
+
+        return app(\App\Services\IrrigationReportCalculationService::class)
+            ->physicalAreaForPlots($plots);
     }
 
     /**
@@ -86,9 +95,15 @@ class IrrigationResource extends JsonResource
      */
     private function getTotalVolume(): float
     {
-        return $this->valves->sum(function ($valve) {
-            $area = $valve->dripper_count * $valve->dripper_flow_rate * ($this->duration / 3600);
-            return round($area / 1000, 2);
-        });
+        $liters = app(\App\Services\IrrigationReportCalculationService::class)
+            ->volumeLiters($this->valves, $this->duration);
+
+        return $liters / 1000;
+    }
+
+    private function getVolumePerHectare(): ?float
+    {
+        return app(\App\Services\IrrigationReportCalculationService::class)
+            ->volumePerHectare($this->getTotalVolume(), $this->getPhysicalAreaM2());
     }
 }

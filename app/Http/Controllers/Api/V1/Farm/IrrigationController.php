@@ -125,17 +125,14 @@ class IrrigationController extends Controller
      */
     public function filterReports(FilterIrrigationReportsRequest $request, Farm $farm)
     {
-        $filters = [
-            'labour_id' => $request->labour_id,
-            'valves' => $request->valves,
+        $reports = $this->irrigationReportService->getAggregatedReports($farm, [
+            'field_ids' => $request->input('field_ids', []),
+            'plot_ids' => $request->input('plot_ids', []),
+            'valve_ids' => $request->input('valve_ids', $request->input('valves', [])),
+            'labour_id' => $request->input('labour_id'),
             'from_date' => $request->from_date,
             'to_date' => $request->to_date,
-        ];
-
-        $plotIds = $request->plot_ids;
-
-        // Build aggregated daily reports to match API contract expected by tests
-        $reports = $this->irrigationReportService->getAggregatedReports($plotIds, $filters);
+        ]);
 
         return response()->json([
             'data' => $reports

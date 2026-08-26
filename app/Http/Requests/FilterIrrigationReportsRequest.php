@@ -2,6 +2,10 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Farm;
+use App\Models\Field;
+use App\Models\Plot;
+use App\Models\Valve;
 use Illuminate\Foundation\Http\FormRequest;
 
 class FilterIrrigationReportsRequest extends FormRequest
@@ -22,14 +26,62 @@ class FilterIrrigationReportsRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'plot_ids' => 'required|array|min:1',
+            // Explicit hierarchical scope. At least one of these arrays is
+            // required; plot_ids and valves remain supported for old clients.
+            'field_ids' => 'nullable|array',
+            'field_ids.*' => 'integer|exists:fields,id',
+            'plot_ids' => 'nullable|array',
             'plot_ids.*' => 'integer|exists:plots,id',
-            'valves' => 'nullable|array|min:1',
-            'valves.*' => 'nullable|integer|exists:valves,id',
+            'valve_ids' => 'nullable|array',
+            'valve_ids.*' => 'integer|exists:valves,id',
+            'valves' => 'nullable|array',
+            'valves.*' => 'integer|exists:valves,id',
             'labour_id' => 'nullable|integer|exists:labours,id',
             'from_date' => 'required|date',
             'to_date' => 'required|date|after_or_equal:from_date'
         ];
+    }
+
+    /**
+     * Require a non-empty reporting scope while accepting either the new
+     * valve_ids key or the legacy valves alias.
+     */
+    protected function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            $scopeKeys = ['field_ids', 'plot_ids', 'valve_ids', 'valves'];
+            $hasScope = collect($scopeKeys)->contains(function (string $key): bool {
+                return is_array($this->input($key)) && count($this->input($key)) > 0;
+            });
+
+            if (! $hasScope) {
+                $validator->errors()->add(
+                    'plot_ids',
+                    'At least one field, plot, or valve must be selected.'
+                );
+            }
+
+            $farm = $this->route('farm');
+            $farmId = $farm instanceof Farm ? $farm->id : $farm;
+            if (! is_numeric($farmId)) {
+                return;
+            }
+
+            $fieldIds = $this->input('field_ids', []);
+            if ($fieldIds !== [] && Field::whereIn('id', $fieldIds)->where('farm_id', $farmId)->count() !== count(array_unique($fieldIds))) {
+                $validator->errors()->add('field_ids', 'All selected fields must belong to this farm.');
+            }
+
+            $plotIds = $this->input('plot_ids', []);
+            if ($plotIds !== [] && Plot::whereIn('id', $plotIds)->whereHas('field', fn ($query) => $query->where('farm_id', $farmId))->count() !== count(array_unique($plotIds))) {
+                $validator->errors()->add('plot_ids', 'All selected plots must belong to this farm.');
+            }
+
+            $valveIds = $this->input('valve_ids', $this->input('valves', []));
+            if ($valveIds !== [] && Valve::whereIn('id', $valveIds)->whereHas('plot.field', fn ($query) => $query->where('farm_id', $farmId))->count() !== count(array_unique($valveIds))) {
+                $validator->errors()->add('valve_ids', 'All selected valves must belong to this farm.');
+            }
+        });
     }
 
     /**

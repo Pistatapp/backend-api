@@ -66,7 +66,11 @@ class Irrigation extends Model
      */
     public function getDurationAttribute()
     {
-        return $this->start_time->diffInSeconds($this->end_time);
+        if ($this->start_time === null || $this->end_time === null) {
+            return 0;
+        }
+
+        return max(0, $this->end_time->getTimestamp() - $this->start_time->getTimestamp());
     }
 
     /**

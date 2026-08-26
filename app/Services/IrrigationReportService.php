@@ -2,33 +2,46 @@
 
 namespace App\Services;
 
+use App\Models\Farm;
 use App\Models\Irrigation;
-use App\Models\Valve;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
+/**
+ * Builds the farm irrigation report from the canonical calculation layer.
+ *
+ * A report row represents the portion of each completed irrigation interval
+ * that overlaps that local calendar day. The accumulated row is calculated
+ * from those unrounded daily portions and uses the scope area exactly once.
+ */
 class IrrigationReportService
 {
     public function __construct(
-        private IrrigationService $irrigationService
+        private IrrigationReportCalculationService $calculator,
     ) {}
 
     /**
-     * Get aggregated daily reports (irrigations + accumulated) using arbitrary filters.
-     *
-     * @param array $plotIds
-     * @param array $filters Must include 'from_date' and 'to_date' (Carbon instances)
-     * @return array
+     * @param array{
+     *     field_ids?: array<int, int>,
+     *     plot_ids?: array<int, int>,
+     *     valve_ids?: array<int, int>,
+     *     valves?: array<int, int>,
+     *     labour_id?: int|null,
+     *     from_date: Carbon,
+     *     to_date: Carbon
+     * } $scopeInput
      */
-    public function getAggregatedReports(array $plotIds, array $filters): array
+    public function getAggregatedReports(Farm $farm, array $scopeInput): array
     {
-        $irrigations = $this->getFilteredIrrigations($plotIds, $filters);
+        [$rangeStart, $rangeEnd] = $this->calculator->reportRange(
+            $this->asCarbon($scopeInput['from_date']),
+            $this->asCarbon($scopeInput['to_date']),
+        );
 
-        // Generate daily reports (already in cubic meters)
-        $dailyReports = $this->generateDailyReports($irrigations, $filters['from_date'], $filters['to_date']);
-
-        // Calculate accumulated values from daily reports
-        $accumulated = $this->calculateAccumulatedValues($dailyReports);
+        $scope = $this->calculator->normalizeScope($farm, $scopeInput);
+        $irrigations = $this->getFilteredIrrigations($farm, $scope, $scopeInput, $rangeStart, $rangeEnd);
+        $dailyReports = $this->generateDailyReports($irrigations, $scope, $rangeStart, $rangeEnd);
+        $accumulated = $this->calculateAccumulatedValues($irrigations, $dailyReports, $scope);
 
         return [
             'irrigations' => $dailyReports,
@@ -37,420 +50,205 @@ class IrrigationReportService
     }
 
     /**
-     * Get irrigation reports for a plot within a date range
-     *
-     * @param array $plotIds
-     * @param Carbon $fromDate
-     * @param Carbon $toDate
-     * @return array
+     * Backward-compatible service entry point for callers that already have
+     * an explicit farm and date range.
      */
-    public function getDateRangeReports(array $plotIds, Carbon $fromDate, Carbon $toDate): array
-    {
-        $irrigations = $this->getFilteredIrrigations($plotIds, [
+    public function getDateRangeReports(
+        Farm $farm,
+        array $scope,
+        Carbon $fromDate,
+        Carbon $toDate,
+    ): array {
+        return $this->getAggregatedReports($farm, array_merge($scope, [
             'from_date' => $fromDate,
-            'to_date' => $toDate
-        ]);
-
-        $dailyReports = $this->generateDailyReports($irrigations, $fromDate, $toDate);
-        $accumulated = $this->calculateAccumulatedValues($dailyReports);
-
-        return [
-            'irrigations' => $dailyReports,
-            'accumulated' => $accumulated
-        ];
+            'to_date' => $toDate,
+        ]));
     }
 
     /**
-     * Get irrigation reports for a plot with specific valves
-     *
-     * @param array $plotIds
-     * @param array $valveIds
-     * @param Carbon $fromDate
-     * @param Carbon $toDate
-     * @return array
+     * Legacy valve-specific callers now use the same normalized scope and
+     * interval semantics as the main report endpoint.
      */
-    public function getValveSpecificReports(array $plotIds, array $valveIds, Carbon $fromDate, Carbon $toDate): array
-    {
-        $irrigations = $this->getFilteredIrrigations($plotIds, [
-            'valves' => $valveIds,
+    public function getValveSpecificReports(
+        Farm $farm,
+        array $scope,
+        array $valveIds,
+        Carbon $fromDate,
+        Carbon $toDate,
+    ): array {
+        return $this->getAggregatedReports($farm, array_merge($scope, [
+            'valve_ids' => $valveIds,
             'from_date' => $fromDate,
-            'to_date' => $toDate
-        ]);
-
-        $dailyReports = $this->generateValveSpecificDailyReports($irrigations, $valveIds, $fromDate, $toDate);
-        $accumulated = $this->calculateAccumulatedValuesFromValveReports($dailyReports);
-
-        return [
-            'irrigations' => $dailyReports,
-            'accumulated' => $accumulated
-        ];
+            'to_date' => $toDate,
+        ]));
     }
 
     /**
-     * Get irrigation reports for a plot with specific labour
-     *
-     * @param array $plotIds
-     * @param int $labourId
-     * @param Carbon $fromDate
-     * @param Carbon $toDate
-     * @return array
+     * @return Collection<int, Irrigation>
      */
-    public function getLabourSpecificReports(array $plotIds, int $labourId, Carbon $fromDate, Carbon $toDate): array
-    {
-        $irrigations = $this->getFilteredIrrigations($plotIds, [
-            'labour_id' => $labourId,
-            'from_date' => $fromDate,
-            'to_date' => $toDate
-        ]);
+    private function getFilteredIrrigations(
+        Farm $farm,
+        NormalizedIrrigationReportScope $scope,
+        array $scopeInput,
+        Carbon $rangeStart,
+        Carbon $rangeEnd,
+    ): Collection {
+        if ($scope->relevantValveIds === []) {
+            return collect();
+        }
 
-        $dailyReports = $this->generateDailyReports($irrigations, $fromDate, $toDate);
-        $accumulated = $this->calculateAccumulatedValues($dailyReports);
-
-        return [
-            'irrigations' => $dailyReports,
-            'accumulated' => $accumulated
-        ];
-    }
-
-    /**
-     * Get filtered irrigations query
-     *
-     * @param array $plotIds
-     * @param array $filters
-     * @return Collection
-     */
-    private function getFilteredIrrigations(array $plotIds, array $filters): Collection
-    {
-        $query = Irrigation::whereHas('plots', function ($query) use ($plotIds) {
-                $query->whereIn('plots.id', $plotIds);
-            })
+        return Irrigation::query()
+            ->where('farm_id', $farm->id)
             ->filter('finished')
             ->verifiedByAdmin()
-            ->when($filters['labour_id'] ?? null, function ($query) use ($filters) {
-                $query->where('labour_id', $filters['labour_id']);
-            })->when($filters['valves'] ?? null, function ($query) use ($filters) {
-                $query->whereHas('valves', function ($query) use ($filters) {
-                    $query->whereIn('valves.id', $filters['valves']);
-                });
+            ->whereNotNull('end_time')
+            ->whereColumn('end_time', '>', 'start_time')
+            ->where('start_time', '<', $rangeEnd)
+            ->where('end_time', '>', $rangeStart)
+            ->when($scopeInput['labour_id'] ?? null, function ($query, $labourId) {
+                $query->where('labour_id', $labourId);
             })
-            ->whereBetween('start_time', [
-                $filters['from_date']->startOfDay(),
-                $filters['to_date']->endOfDay(),
-            ])
+            ->whereHas('valves', function ($query) use ($scope) {
+                $query->whereIn('valves.id', $scope->relevantValveIds);
+            })
             ->with([
-                'valves' => function ($query) use ($filters) {
-                    if (isset($filters['valves'])) {
-                        $query->whereIn('valves.id', $filters['valves']);
-                    }
+                'valves' => function ($query) use ($scope) {
+                    $query->whereIn('valves.id', $scope->relevantValveIds);
                 },
-                'labour'
-            ]);
-
-        return $query->get();
+                'labour',
+                'plots',
+            ])
+            ->distinct()
+            ->get();
     }
 
     /**
-     * Generate daily reports for date range
-     *
-     * @param Collection $irrigations
-     * @param Carbon $fromDate
-     * @param Carbon $toDate
-     * @return array
+     * @return list<array<string, mixed>>
      */
-    private function generateDailyReports(Collection $irrigations, Carbon $fromDate, Carbon $toDate): array
-    {
+    private function generateDailyReports(
+        Collection $irrigations,
+        NormalizedIrrigationReportScope $scope,
+        Carbon $rangeStart,
+        Carbon $rangeEnd,
+    ): array {
         $dailyReports = [];
-        $currentDate = $fromDate->copy();
+        $currentDate = $rangeStart->copy();
 
-        while ($currentDate->lte($toDate)) {
-            $dailyIrrigations = $irrigations->filter(function ($irrigation) use ($currentDate) {
-                $irrigationDate = $irrigation->start_time;
+        while ($currentDate->lt($rangeEnd)) {
+            $dayStart = $currentDate->copy();
+            $dayEnd = $currentDate->copy()->addDay();
 
-                return $irrigationDate instanceof Carbon && $irrigationDate->isSameDay($currentDate);
-            });
-
-            // Skip dates with no irrigations
-            if ($dailyIrrigations->isEmpty()) {
-                $currentDate->addDay();
-                continue;
+            $dailyReport = $this->calculateDailyTotals($irrigations, $scope, $dayStart, $dayEnd);
+            if ($dailyReport['total_count'] > 0) {
+                $dailyReports[] = $dailyReport;
             }
 
-            $dailyReport = $this->calculateDailyTotals($dailyIrrigations, $currentDate);
-
-            // Skip dates with all zero values
-            if (!$this->hasNonZeroValues($dailyReport)) {
-                $currentDate->addDay();
-                continue;
-            }
-
-            $dailyReports[] = $dailyReport;
-
-            $currentDate->addDay();
+            $currentDate = $dayEnd;
         }
 
         return $dailyReports;
     }
 
     /**
-     * Generate valve-specific daily reports
-     *
-     * @param Collection $irrigations
-     * @param array $valveIds
-     * @param Carbon $fromDate
-     * @param Carbon $toDate
-     * @return array
+     * @return array<string, mixed>
      */
-        private function generateValveSpecificDailyReports(Collection $irrigations, array $valveIds, Carbon $fromDate, Carbon $toDate): array
-    {
-        $dailyReports = [];
-        $currentDate = $fromDate->copy();
-
-        // Get valve names once for efficiency
-        $valveNames = Valve::whereIn('id', $valveIds)->pluck('name', 'id')->toArray();
-
-        while ($currentDate->lte($toDate)) {
-            $dailyIrrigations = $irrigations->filter(function ($irrigation) use ($currentDate) {
-                $irrigationDate = $irrigation->start_time;
-
-                return $irrigationDate instanceof Carbon && $irrigationDate->isSameDay($currentDate);
-            });
-
-            // Skip dates with no irrigations
-            if ($dailyIrrigations->isEmpty()) {
-                $currentDate->addDay();
-                continue;
-            }
-
-            $irrigationPerValve = [];
-            $hasNonZeroValveData = false;
-
-            foreach ($valveIds as $valveId) {
-                $valveIrrigations = $dailyIrrigations->filter(function ($irrigation) use ($valveId) {
-                    return $irrigation->valves->contains('id', $valveId);
-                });
-
-                $valveKey = $valveNames[$valveId] ?? "valve{$valveId}";
-                $valveReport = $this->calculateValveSpecificTotals($valveIrrigations, $valveId);
-                $irrigationPerValve[$valveKey] = $valveReport;
-
-                // Check if this valve has non-zero values
-                if ($this->hasNonZeroValveValues($valveReport)) {
-                    $hasNonZeroValveData = true;
-                }
-            }
-
-            // Skip dates where all valves have zero values
-            if (!$hasNonZeroValveData) {
-                $currentDate->addDay();
-                continue;
-            }
-
-            $dailyReports[] = [
-                'date' => jdate($currentDate)->format('Y/m/d'),
-                'irrigation_per_valve' => $irrigationPerValve
-            ];
-
-            $currentDate->addDay();
-        }
-
-        return $dailyReports;
-    }
-
-    /**
-     * Calculate daily totals for irrigations
-     *
-     * @param Collection $dailyIrrigations
-     * @param Carbon $date
-     * @return array
-     */
-    private function calculateDailyTotals(Collection $dailyIrrigations, Carbon $date): array
-    {
-        $totalDuration = 0;
-        $totalVolumeLiters = 0;
-        $totalIrrigationArea = 0;
-
-        foreach ($dailyIrrigations as $irrigation) {
-            /** @var \App\Models\Irrigation $irrigation */
-            $durationInSeconds = $this->calculateIrrigationDuration($irrigation);
-            $totalDuration += $durationInSeconds;
-            $totalVolumeLiters += $this->irrigationService->calculateVolumeLiters($irrigation->valves, $durationInSeconds);
-            $totalIrrigationArea += $this->irrigationService->calculateAreaHectares($irrigation->valves);
-        }
-
-        $totalVolume = $totalVolumeLiters / 1000;
-        $totalVolumePerHectare = $this->irrigationService->calculateVolumePerHectareFromTotals(
-            $totalVolumeLiters,
-            $totalIrrigationArea
-        );
-
-        return [
-            'date' => jdate($date)->format('Y/m/d'),
-            'total_duration' => to_time_format($totalDuration),
-            'total_volume' => $totalVolume,
-            'total_irrigation_area' => $totalIrrigationArea,
-            'total_volume_per_hectare' => $totalVolumePerHectare,
-            'total_count' => $dailyIrrigations->count()
-        ];
-    }
-
-    /**
-     * Calculate valve-specific totals
-     *
-     * @param Collection $valveIrrigations
-     * @param int $valveId
-     * @return array
-     */
-    private function calculateValveSpecificTotals(Collection $valveIrrigations, int $valveId): array
-    {
-        $totalDuration = 0;
-        $totalVolumeLiters = 0;
-        $totalIrrigationArea = 0;
-
-        foreach ($valveIrrigations as $irrigation) {
-            /** @var \App\Models\Irrigation $irrigation */
-            $durationInSeconds = $this->calculateIrrigationDuration($irrigation);
-            $totalDuration += $durationInSeconds;
-
-            /** @var \App\Models\Valve|null $valve */
-            $valve = $irrigation->valves->firstWhere('id', $valveId);
-            if ($valve) {
-                $totalVolumeLiters += $this->irrigationService->calculateVolumeLiters([$valve], $durationInSeconds);
-                $totalIrrigationArea += $valve->irrigation_area;
-            }
-        }
-
-        $totalVolume = $totalVolumeLiters / 1000;
-        $totalVolumePerHectare = $this->irrigationService->calculateVolumePerHectareFromTotals(
-            $totalVolumeLiters,
-            $totalIrrigationArea
-        );
-
-        return [
-            'total_duration' => to_time_format($totalDuration),
-            'total_volume' => $totalVolume,
-            'total_irrigation_area' => $totalIrrigationArea,
-            'total_volume_per_hectare' => $totalVolumePerHectare,
-            'total_count' => $valveIrrigations->count()
-        ];
-    }
-
-    /**
-     * Calculate accumulated values from daily reports
-     *
-     * @param array $dailyReports
-     * @return array
-     */
-    private function calculateAccumulatedValues(array $dailyReports): array
-    {
+    private function calculateDailyTotals(
+        Collection $irrigations,
+        NormalizedIrrigationReportScope $scope,
+        Carbon $dayStart,
+        Carbon $dayEnd,
+    ): array {
         $totalDurationSeconds = 0;
-        $totalVolume = 0;
-        $totalIrrigationArea = 0;
+        $totalVolumeLiters = 0.0;
         $totalCount = 0;
 
+        foreach ($irrigations as $irrigation) {
+            $durationInSeconds = $this->calculator->overlapSeconds(
+                $irrigation->start_time,
+                $irrigation->end_time,
+                $dayStart,
+                $dayEnd,
+            );
+
+            if ($durationInSeconds <= 0) {
+                continue;
+            }
+
+            $totalDurationSeconds += $durationInSeconds;
+            $totalVolumeLiters += $this->calculator->volumeLiters(
+                $irrigation->valves,
+                $durationInSeconds,
+            );
+            $totalCount++;
+        }
+
+        $totalVolumeM3 = $totalVolumeLiters / 1000;
+
+        return [
+            'date' => jdate($dayStart)->format('Y/m/d'),
+            'total_duration' => to_time_format($totalDurationSeconds),
+            'total_volume' => $totalVolumeM3,
+            'physical_area_m2' => $scope->physicalAreaM2,
+            'physical_area_ha' => $scope->physicalAreaHa(),
+            'area_source' => $scope->areaSource,
+            // Retained as a compatibility alias; it is now physical ha,
+            // never a sum of valve metadata or repeated event areas.
+            'total_irrigation_area' => $scope->physicalAreaHa(),
+            'total_volume_per_hectare' => $this->calculator->volumePerHectare(
+                $totalVolumeM3,
+                $scope->physicalAreaM2,
+            ),
+            'total_count' => $totalCount,
+        ];
+    }
+
+    /**
+     * @param list<array<string, mixed>> $dailyReports
+     * @return array<string, mixed>
+     */
+    private function calculateAccumulatedValues(
+        Collection $irrigations,
+        array $dailyReports,
+        NormalizedIrrigationReportScope $scope,
+    ): array {
+        $totalDurationSeconds = 0;
+        $totalVolumeM3 = 0.0;
+
         foreach ($dailyReports as $report) {
-            // Convert time format back to seconds for accumulation
             $totalDurationSeconds += $this->timeFormatToSeconds($report['total_duration']);
-            $totalVolume += $report['total_volume'];
-            $totalIrrigationArea += $report['total_irrigation_area'];
-            $totalCount += $report['total_count'];
+            $totalVolumeM3 += (float) $report['total_volume'];
         }
-
-        $totalVolumePerHectare = $this->irrigationService->calculateVolumePerHectareFromTotals(
-            $totalVolume * 1000,
-            $totalIrrigationArea
-        );
 
         return [
             'total_duration' => to_time_format($totalDurationSeconds),
-            'total_volume' => $totalVolume,
-            'total_volume_per_hectare' => $totalVolumePerHectare,
-            'total_count' => $totalCount
+            'total_volume' => $totalVolumeM3,
+            'physical_area_m2' => $scope->physicalAreaM2,
+            'physical_area_ha' => $scope->physicalAreaHa(),
+            'area_source' => $scope->areaSource,
+            'total_irrigation_area' => $scope->physicalAreaHa(),
+            'total_volume_per_hectare' => $this->calculator->volumePerHectare(
+                $totalVolumeM3,
+                $scope->physicalAreaM2,
+            ),
+            // Count each irrigation program once for the period, even when
+            // its interval crosses multiple daily rows.
+            'total_count' => $irrigations->count(),
         ];
     }
 
-    /**
-     * Calculate accumulated values from valve-specific reports
-     *
-     * @param array $dailyReports
-     * @return array
-     */
-    private function calculateAccumulatedValuesFromValveReports(array $dailyReports): array
-    {
-        $totalDurationSeconds = 0;
-        $totalVolume = 0;
-        $totalIrrigationArea = 0;
-        $totalCount = 0;
-
-        foreach ($dailyReports as $report) {
-            foreach ($report['irrigation_per_valve'] as $valveReport) {
-                $totalDurationSeconds += $this->timeFormatToSeconds($valveReport['total_duration']);
-                $totalVolume += $valveReport['total_volume'];
-                $totalIrrigationArea += $valveReport['total_irrigation_area'];
-                $totalCount += $valveReport['total_count'];
-            }
-        }
-
-        $totalVolumePerHectare = $this->irrigationService->calculateVolumePerHectareFromTotals(
-            $totalVolume * 1000,
-            $totalIrrigationArea
-        );
-
-        return [
-            'total_duration' => to_time_format($totalDurationSeconds),
-            'total_volume' => $totalVolume,
-            'total_volume_per_hectare' => $totalVolumePerHectare,
-            'total_count' => $totalCount
-        ];
-    }
-
-    /**
-     * Calculate irrigation duration from start_time to end_time
-     *
-     * @param \App\Models\Irrigation $irrigation
-     * @return int Duration in seconds
-     */
-    private function calculateIrrigationDuration(\App\Models\Irrigation $irrigation): int
-    {
-        return $irrigation->start_time->diffInSeconds($irrigation->end_time);
-    }
-
-    /**
-     * Convert time format (HH:MM:SS) to seconds
-     *
-     * @param string $timeFormat
-     * @return int
-     */
     private function timeFormatToSeconds(string $timeFormat): int
     {
-        $parts = explode(':', $timeFormat);
-        return ($parts[0] * 3600) + ($parts[1] * 60) + $parts[2];
+        $parts = array_map('intval', explode(':', $timeFormat));
+
+        return (($parts[0] ?? 0) * 3600)
+            + (($parts[1] ?? 0) * 60)
+            + ($parts[2] ?? 0);
     }
 
-    /**
-     * Check if a daily report has non-zero values
-     *
-     * @param array $report
-     * @return bool
-     */
-    private function hasNonZeroValues(array $report): bool
+    private function asCarbon(mixed $date): Carbon
     {
-        return $report['total_count'] > 0
-            || $report['total_volume'] > 0
-            || $report['total_volume_per_hectare'] > 0
-            || $this->timeFormatToSeconds($report['total_duration']) > 0;
-    }
-
-    /**
-     * Check if a valve-specific report has non-zero values
-     *
-     * @param array $valveReport
-     * @return bool
-     */
-    private function hasNonZeroValveValues(array $valveReport): bool
-    {
-        return $valveReport['total_count'] > 0
-            || $valveReport['total_volume'] > 0
-            || $valveReport['total_volume_per_hectare'] > 0
-            || $this->timeFormatToSeconds($valveReport['total_duration']) > 0;
+        return $date instanceof Carbon
+            ? $date
+            : Carbon::parse($date, IrrigationReportCalculationService::TIMEZONE);
     }
 }
