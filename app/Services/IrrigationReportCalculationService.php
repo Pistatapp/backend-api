@@ -190,6 +190,46 @@ class IrrigationReportCalculationService
         return $volumeM3 / ($physicalAreaM2 / 10000);
     }
 
+    /**
+     * Irrigated area in hectares for one irrigation program.
+     *
+     * Uses valve.irrigation_area (authoritative kart area in ha) and counts
+     * each Plot/Kart once even if multiple valves reference the same plot.
+     */
+    public function irrigatedAreaHectares(iterable $valves): float
+    {
+        $seenPlotKeys = [];
+        $totalHa = 0.0;
+
+        foreach ($valves as $valve) {
+            $plotId = (int) ($valve->plot_id ?? 0);
+            $key = $plotId > 0
+                ? 'plot:'.$plotId
+                : 'valve:'.(string) ($valve->id ?? spl_object_id($valve));
+
+            if (isset($seenPlotKeys[$key])) {
+                continue;
+            }
+
+            $seenPlotKeys[$key] = true;
+            $totalHa += (float) ($valve->irrigation_area ?? 0);
+        }
+
+        return $totalHa;
+    }
+
+    /**
+     * m³/ha from volume (m³) and irrigated hectare-occurrences (ha).
+     */
+    public function volumePerHectareFromHa(float $volumeM3, float $irrigatedAreaHa): ?float
+    {
+        if ($irrigatedAreaHa <= 0) {
+            return null;
+        }
+
+        return $volumeM3 / $irrigatedAreaHa;
+    }
+
     public function polygonArea(?array $coordinates): float
     {
         return $coordinates ? (float) calculate_polygon_area($coordinates) : 0.0;

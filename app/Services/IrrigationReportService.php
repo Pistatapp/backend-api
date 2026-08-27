@@ -11,8 +11,9 @@ use Illuminate\Support\Collection;
  * Builds the farm irrigation report from the canonical calculation layer.
  *
  * A report row represents the portion of each completed irrigation interval
- * that overlaps that local calendar day. The accumulated row is calculated
- * from those unrounded daily portions and uses the scope area exactly once.
+ * that overlaps that local calendar day. Daily and period m³/ha use
+ * irrigated hectare-occurrences from selected Plot/Kart irrigation areas
+ * (unique per program), never the sum of daily m³/ha values.
  */
 class IrrigationReportService
 {
@@ -150,6 +151,12 @@ class IrrigationReportService
     }
 
     /**
+     * Daily intensity:
+     *   Daily volume / Daily irrigated hectare-occurrences
+     *
+     * Each overlapping irrigation program contributes its unique selected
+     * Plot/Kart irrigation areas once for that day (not multiplied by hours).
+     *
      * @return array<string, mixed>
      */
     private function calculateDailyTotals(
@@ -160,6 +167,7 @@ class IrrigationReportService
     ): array {
         $totalDurationSeconds = 0;
         $totalVolumeLiters = 0.0;
+        $irrigatedAreaHa = 0.0;
         $totalCount = 0;
 
         foreach ($irrigations as $irrigation) {
@@ -179,6 +187,8 @@ class IrrigationReportService
                 $irrigation->valves,
                 $durationInSeconds,
             );
+            // Area participates once per daily irrigation occurrence.
+            $irrigatedAreaHa += $this->calculator->irrigatedAreaHectares($irrigation->valves);
             $totalCount++;
         }
 
@@ -188,21 +198,25 @@ class IrrigationReportService
             'date' => jdate($dayStart)->format('Y/m/d'),
             'total_duration' => to_time_format($totalDurationSeconds),
             'total_volume' => $totalVolumeM3,
-            'physical_area_m2' => $scope->physicalAreaM2,
-            'physical_area_ha' => $scope->physicalAreaHa(),
-            'area_source' => $scope->areaSource,
-            // Retained as a compatibility alias; it is now physical ha,
-            // never a sum of valve metadata or repeated event areas.
-            'total_irrigation_area' => $scope->physicalAreaHa(),
-            'total_volume_per_hectare' => $this->calculator->volumePerHectare(
+            'irrigated_area_ha' => $irrigatedAreaHa,
+            // Compatibility alias for older clients/tests.
+            'total_irrigation_area' => $irrigatedAreaHa,
+            'total_volume_per_hectare' => $this->calculator->volumePerHectareFromHa(
                 $totalVolumeM3,
-                $scope->physicalAreaM2,
+                $irrigatedAreaHa,
             ),
             'total_count' => $totalCount,
+            // Retained metadata; not used as the m³/ha denominator.
+            'physical_area_m2' => $scope->physicalAreaM2,
+            'physical_area_ha' => $scope->physicalAreaHa(),
+            'area_source' => 'irrigation_area_ha',
         ];
     }
 
     /**
+     * Period/footer intensity (must NOT sum daily m³/ha):
+     *   Period total volume / Period sum of irrigated hectare-occurrences
+     *
      * @param list<array<string, mixed>> $dailyReports
      * @return array<string, mixed>
      */
@@ -213,26 +227,33 @@ class IrrigationReportService
     ): array {
         $totalDurationSeconds = 0;
         $totalVolumeM3 = 0.0;
+        $totalIrrigatedAreaHa = 0.0;
 
         foreach ($dailyReports as $report) {
             $totalDurationSeconds += $this->timeFormatToSeconds($report['total_duration']);
             $totalVolumeM3 += (float) $report['total_volume'];
+            $totalIrrigatedAreaHa += (float) ($report['irrigated_area_ha']
+                ?? $report['total_irrigation_area']
+                ?? 0);
         }
 
         return [
             'total_duration' => to_time_format($totalDurationSeconds),
             'total_volume' => $totalVolumeM3,
-            'physical_area_m2' => $scope->physicalAreaM2,
-            'physical_area_ha' => $scope->physicalAreaHa(),
-            'area_source' => $scope->areaSource,
-            'total_irrigation_area' => $scope->physicalAreaHa(),
-            'total_volume_per_hectare' => $this->calculator->volumePerHectare(
+            'total_irrigated_area_ha' => $totalIrrigatedAreaHa,
+            // Compatibility alias.
+            'total_irrigation_area' => $totalIrrigatedAreaHa,
+            'total_volume_per_hectare' => $this->calculator->volumePerHectareFromHa(
                 $totalVolumeM3,
-                $scope->physicalAreaM2,
+                $totalIrrigatedAreaHa,
             ),
             // Count each irrigation program once for the period, even when
             // its interval crosses multiple daily rows.
             'total_count' => $irrigations->count(),
+            // Retained metadata; not used as the m³/ha denominator.
+            'physical_area_m2' => $scope->physicalAreaM2,
+            'physical_area_ha' => $scope->physicalAreaHa(),
+            'area_source' => 'irrigation_area_ha',
         ];
     }
 
