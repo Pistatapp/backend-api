@@ -12,11 +12,9 @@ class Authenticate extends Middleware
      */
     protected function redirectTo(Request $request): ?string
     {
-        // API clients may omit Accept: application/json. Never redirect an
-        // unauthenticated API request to the web login route (which is not
-        // registered in this API-only application); return the normal 401.
-        $isApiRequest = str_starts_with($request->getPathInfo(), '/api/');
-
-        return $isApiRequest || $request->expectsJson() ? null : route('login');
+        // This application exposes an API and has no registered web login
+        // route. Let Laravel return its standard 401 for every guard failure
+        // instead of attempting a redirect to a missing route.
+        return null;
     }
 }
