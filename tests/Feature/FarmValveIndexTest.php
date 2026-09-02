@@ -69,4 +69,12 @@ class FarmValveIndexTest extends TestCase
 
         $response->assertForbidden();
     }
+
+    public function test_unauthenticated_api_request_cannot_list_farm_valves(): void
+    {
+        $farm = Farm::factory()->create();
+
+        $this->get("/api/farms/{$farm->id}/valves")
+            ->assertUnauthorized();
+    }
 }
