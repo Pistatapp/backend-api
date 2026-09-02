@@ -139,19 +139,17 @@ class TractorTrajectoryServiceTest extends TestCase
     {
         $resolver = app(DeviceTrajectoryProfileResolver::class);
 
-        $teltonika = Tractor::factory()->create();
-        GpsDevice::factory()->for($teltonika)->create([
+        $teltonika = new Tractor();
+        $teltonika->setRelation('gpsDevice', new GpsDevice([
             'device_type' => null,
             'name' => 'تلتونیکا',
-            'imei' => 'test-persian-teltonika-'.uniqid(),
-        ]);
+        ]));
 
-        $hooshnics = Tractor::factory()->create();
-        GpsDevice::factory()->for($hooshnics)->create([
+        $hooshnics = new Tractor();
+        $hooshnics->setRelation('gpsDevice', new GpsDevice([
             'device_type' => 'tractor_gps',
             'name' => 'هوشنیکس 1',
-            'imei' => 'test-persian-hooshnics-'.uniqid(),
-        ]);
+        ]));
 
         $this->assertSame('TELTONIKA', $resolver->resolve($teltonika)['name']);
         $this->assertSame('HOOSHNICS_STANDARD', $resolver->resolve($hooshnics)['name']);
