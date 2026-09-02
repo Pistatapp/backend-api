@@ -23,26 +23,26 @@ class UpdateIrrigationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'labour_id' => 'required|exists:labours,id',
-            'pump_id' => 'required|exists:pumps,id',
+            'labour_id' => 'sometimes|required|exists:labours,id',
+            'pump_id' => 'sometimes|required|exists:pumps,id',
             'start_time' => [
-                'required',
+                'sometimes',
                 'date',
                 new \App\Rules\ValveTimeOverLap(),
                 new \App\Rules\PlotIrrigationTimeOverLap(),
             ],
             'end_time' => [
-                'required',
+                'sometimes',
                 'date',
                 'after:start_time',
                 new \App\Rules\ValveTimeOverLap(),
                 new \App\Rules\PlotIrrigationTimeOverLap(),
             ],
-            'plots' => 'required|array',
-            'plots.*' => 'required|integer|exists:plots,id',
-            'valves' => 'required|array',
-            'valves.*' => 'required|integer|exists:valves,id',
-            'note' => 'nullable|string|max:500',
+            'plots' => 'sometimes|required|array',
+            'plots.*' => 'integer|exists:plots,id',
+            'valves' => 'sometimes|required|array',
+            'valves.*' => 'integer|exists:valves,id',
+            'note' => 'sometimes|nullable|string|max:500',
         ];
     }
 
@@ -53,10 +53,34 @@ class UpdateIrrigationRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
-        $startDate = $this->filled('start_date') ? jalali_to_carbon($this->start_date) : null;
-        $endDate = $this->filled('end_date') ? jalali_to_carbon($this->end_date) : $startDate;
-        $startTime = $this->filled('start_time') ? Carbon::createFromFormat('H:i', $this->start_time) : null;
-        $endTime = $this->filled('end_time') ? Carbon::createFromFormat('H:i', $this->end_time) : null;
+        $irrigation = $this->route('irrigation');
+        $existingStart = $irrigation?->start_time;
+        $existingEnd = $irrigation?->end_time;
+        $hasTemporalInput = $this->hasAny(['start_date', 'end_date', 'start_time', 'end_time']);
+
+        if (! $hasTemporalInput) {
+            return;
+        }
+
+        // Resolve omitted date/time components from the persisted record. This
+        // makes a partial edit such as {end_time: "12:00"} a real partial edit
+        // instead of turning the other half of the interval into null/midnight.
+        $startDate = $this->filled('start_date')
+            ? jalali_to_carbon($this->start_date)
+            : $existingStart?->copy();
+        $endDate = $this->filled('end_date')
+            ? jalali_to_carbon($this->end_date)
+            : ($this->has('start_date') && $this->filled('start_date')
+                ? $startDate?->copy()
+                : $existingEnd?->copy());
+        $startTimeWasSent = $this->has('start_time');
+        $endTimeWasSent = $this->has('end_time');
+        $startTime = $this->filled('start_time')
+            ? $this->parseTime($this->start_time)
+            : $existingStart;
+        $endTime = $this->filled('end_time')
+            ? $this->parseTime($this->end_time)
+            : $existingEnd;
 
         $prepared = [];
 
@@ -67,7 +91,7 @@ class UpdateIrrigationRequest extends FormRequest
                 $startTime->minute,
                 $startTime->second
             );
-        } elseif ($startDate) {
+        } elseif ($startDate && ! $startTimeWasSent) {
             $prepared['start_time'] = $startDate->copy()->startOfDay();
         }
 
@@ -78,12 +102,21 @@ class UpdateIrrigationRequest extends FormRequest
                 $endTime->minute,
                 $endTime->second
             );
-        } elseif ($endDate) {
+        } elseif ($endDate && ! $endTimeWasSent) {
             $prepared['end_time'] = $endDate->copy()->startOfDay();
         }
 
         if (!empty($prepared)) {
             $this->merge($prepared);
+        }
+    }
+
+    private function parseTime(mixed $value): ?Carbon
+    {
+        try {
+            return Carbon::createFromFormat('H:i', (string) $value);
+        } catch (\Throwable) {
+            return null;
         }
     }
 }

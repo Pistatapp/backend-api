@@ -194,6 +194,7 @@ Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
     Route::post('/farms/{farm}/irrigations/filter-reports', [IrrigationController::class, 'filterReports']);
     Route::get('/farms/{farm}/irrigation-messages', [IrrigationController::class, 'getIrrigationMessages']);
     Route::patch('/irrigations/{irrigation}/verify', [IrrigationController::class, 'verify']);
+    Route::patch('/irrigations/{irrigation}/confirm-operator', [IrrigationController::class, 'confirmOperator']);
     Route::apiResource('farms.irrigations', IrrigationController::class)->shallow();
 
     Route::apiResource('farms.treatments', TreatmentController::class)->shallow();

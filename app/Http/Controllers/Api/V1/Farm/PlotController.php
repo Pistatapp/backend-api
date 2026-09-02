@@ -93,6 +93,7 @@ class PlotController extends Controller
      */
     public function getIrrigationStatistics(Plot $plot)
     {
+        $plot->load('valves');
         $rangeEnd = now()->setTimezone(IrrigationReportCalculationService::TIMEZONE);
         $rangeStart = $rangeEnd->copy()->subDays(30);
         $physicalAreaM2 = $this->calculator->polygonArea($plot->coordinates);
@@ -119,7 +120,8 @@ class PlotController extends Controller
 
         // Calculate statistics for last 30 days
         $totalDuration = 0;
-        $totalVolumeLiters = 0;
+        $totalVolumeLiters = 0.0;
+        $totalIrrigatedAreaHa = 0.0;
 
         foreach ($successfulIrrigations as $irrigation) {
             $durationInSeconds = $this->calculator->overlapSeconds(
@@ -130,10 +132,14 @@ class PlotController extends Controller
             );
             $totalDuration += $durationInSeconds;
             $totalVolumeLiters += $this->irrigationService->calculateVolumeLiters($irrigation->valves, $durationInSeconds);
+            $totalIrrigatedAreaHa += $this->calculator->irrigatedAreaHectares($irrigation->valves);
         }
 
         $totalVolumeM3 = $totalVolumeLiters / 1000;
-        $totalVolumePerHectare = $this->calculator->volumePerHectare($totalVolumeM3, $physicalAreaM2);
+        $totalVolumePerHectare = $this->calculator->volumePerHectareFromHa(
+            $totalVolumeM3,
+            $totalIrrigatedAreaHa,
+        );
 
         // Format latest successful irrigation if exists
         $latestIrrigationData = null;
@@ -157,9 +163,10 @@ class PlotController extends Controller
                 'total_volume_per_hectare_last_30_days' => $totalVolumePerHectare === null
                     ? null
                     : round($totalVolumePerHectare, 2),
+                'irrigation_area_ha' => $this->calculator->irrigatedAreaHectares($plot->valves),
                 'physical_area_m2' => $physicalAreaM2,
                 'physical_area_ha' => $physicalAreaM2 / 10000,
-                'area_source' => 'plot_polygon',
+                'area_source' => 'valve.irrigation_area',
             ]
         ]);
     }

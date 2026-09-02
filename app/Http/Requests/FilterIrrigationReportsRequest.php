@@ -67,18 +67,21 @@ class FilterIrrigationReportsRequest extends FormRequest
                 return;
             }
 
-            $fieldIds = $this->input('field_ids', []);
-            if ($fieldIds !== [] && Field::whereIn('id', $fieldIds)->where('farm_id', $farmId)->count() !== count(array_unique($fieldIds))) {
+            $fieldIds = $this->input('field_ids');
+            if (is_array($fieldIds) && $fieldIds !== [] && Field::whereIn('id', $fieldIds)->where('farm_id', $farmId)->count() !== count(array_unique($fieldIds))) {
                 $validator->errors()->add('field_ids', 'All selected fields must belong to this farm.');
             }
 
-            $plotIds = $this->input('plot_ids', []);
-            if ($plotIds !== [] && Plot::whereIn('id', $plotIds)->whereHas('field', fn ($query) => $query->where('farm_id', $farmId))->count() !== count(array_unique($plotIds))) {
+            $plotIds = $this->input('plot_ids');
+            if (is_array($plotIds) && $plotIds !== [] && Plot::whereIn('id', $plotIds)->whereHas('field', fn ($query) => $query->where('farm_id', $farmId))->count() !== count(array_unique($plotIds))) {
                 $validator->errors()->add('plot_ids', 'All selected plots must belong to this farm.');
             }
 
-            $valveIds = $this->input('valve_ids', $this->input('valves', []));
-            if ($valveIds !== [] && Valve::whereIn('id', $valveIds)->whereHas('plot.field', fn ($query) => $query->where('farm_id', $farmId))->count() !== count(array_unique($valveIds))) {
+            $valveIds = $this->input('valve_ids');
+            if ($valveIds === null) {
+                $valveIds = $this->input('valves');
+            }
+            if (is_array($valveIds) && $valveIds !== [] && Valve::whereIn('id', $valveIds)->whereHas('plot.field', fn ($query) => $query->where('farm_id', $farmId))->count() !== count(array_unique($valveIds))) {
                 $validator->errors()->add('valve_ids', 'All selected valves must belong to this farm.');
             }
         });
@@ -89,6 +92,15 @@ class FilterIrrigationReportsRequest extends FormRequest
      */
     protected function prepareForValidation()
     {
+        // Explicit nulls are valid for optional client scope fields. Normalize
+        // them so validation and downstream services never call array helpers
+        // on null.
+        foreach (['field_ids', 'plot_ids', 'valve_ids', 'valves'] as $key) {
+            if ($this->has($key) && $this->input($key) === null) {
+                $this->merge([$key => []]);
+            }
+        }
+
         $dates = ['from_date' => 'from_date', 'to_date' => 'to_date'];
 
         foreach ($dates as $input => $output) {

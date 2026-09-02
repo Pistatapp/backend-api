@@ -292,7 +292,7 @@ class IrrigationReportServiceTest extends TestCase
         $report = $this->report($farm, ['field_ids' => [$field->id]], '2026-08-10', '2026-08-10');
 
         $this->assertNotEqualsWithDelta(2.3, $report['accumulated']['physical_area_ha'], 0.0001);
-        $this->assertSame('irrigation_area_ha', $report['accumulated']['area_source']);
+        $this->assertSame('valve.irrigation_area', $report['accumulated']['area_source']);
         $this->assertEqualsWithDelta(510.0, $report['accumulated']['total_volume'], 0.0001);
         $this->assertEqualsWithDelta(2.3, $report['accumulated']['total_irrigated_area_ha'], 0.0001);
         $this->assertEqualsWithDelta(510 / 2.3, $report['accumulated']['total_volume_per_hectare'], 0.0001);

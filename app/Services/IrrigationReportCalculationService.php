@@ -22,10 +22,10 @@ class IrrigationReportCalculationService
     /**
      * Resolve a hierarchical request into a farm-scoped reporting scope.
      *
-     * A selected field is the reporting ancestor and owns the denominator;
-     * descendant selections cannot add area. Without a selected field,
-     * selected plots dominate their valves for area; valve-only selections
-     * contribute their unique parent plots.
+     * A selected field is the reporting ancestor for physical metadata;
+     * descendant selections cannot add physical geometry. Irrigation m³/ha
+     * is always derived from the selected/contributing valves' configured
+     * irrigation_area values, with each Plot/Kart counted once per program.
      */
     public function normalizeScope(Farm $farm, array $input): NormalizedIrrigationReportScope
     {
@@ -266,7 +266,10 @@ class IrrigationReportCalculationService
             }
 
             $seenPlotKeys[$key] = true;
-            $totalHa += (float) ($valve->irrigation_area ?? 0);
+            $valveAreaHa = (float) ($valve->irrigation_area ?? 0);
+            if ($valveAreaHa > 0) {
+                $totalHa += $valveAreaHa;
+            }
         }
 
         return $totalHa;

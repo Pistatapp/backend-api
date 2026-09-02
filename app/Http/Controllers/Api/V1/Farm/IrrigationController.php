@@ -12,13 +12,15 @@ use App\Models\Irrigation;
 use App\Models\Plot;
 use App\Services\IrrigationReportService;
 use App\Services\IrrigationService;
+use App\Services\IrrigationLifecycleService;
 use Illuminate\Http\Request;
 
 class IrrigationController extends Controller
 {
     public function __construct(
         private IrrigationReportService $irrigationReportService,
-        private IrrigationService $irrigationService
+        private IrrigationService $irrigationService,
+        private IrrigationLifecycleService $irrigationLifecycleService,
     ) {
         $this->authorizeResource(Irrigation::class);
     }
@@ -32,7 +34,8 @@ class IrrigationController extends Controller
             $farm,
             $request->query('status', 'all'),
             $request->query('date_range'),
-            $request->query('date')
+            $request->query('date'),
+            min(max((int) $request->query('per_page', 15), 1), 100)
         );
 
         return IrrigationResource::collection($irrigations);
@@ -73,16 +76,16 @@ class IrrigationController extends Controller
      */
     public function update(UpdateIrrigationRequest $request, Irrigation $irrigation)
     {
-        $irrigation->update([
-            'labour_id' => $request->labour_id,
-            'pump_id' => $request->pump_id,
-            'start_time' => $request->start_time,
-            'end_time' => $request->end_time,
-            'note' => $request->note,
-        ]);
+        $irrigation->update($request->only([
+            'labour_id', 'pump_id', 'start_time', 'end_time', 'note',
+        ]));
 
-        $irrigation->plots()->sync($request->plots);
-        $irrigation->valves()->sync($request->valves);
+        if ($request->has('plots')) {
+            $irrigation->plots()->sync($request->plots);
+        }
+        if ($request->has('valves')) {
+            $irrigation->valves()->sync($request->valves);
+        }
 
         return new IrrigationResource($irrigation->fresh());
     }
@@ -126,9 +129,9 @@ class IrrigationController extends Controller
     public function filterReports(FilterIrrigationReportsRequest $request, Farm $farm)
     {
         $reports = $this->irrigationReportService->getAggregatedReports($farm, [
-            'field_ids' => $request->input('field_ids', []),
-            'plot_ids' => $request->input('plot_ids', []),
-            'valve_ids' => $request->input('valve_ids', $request->input('valves', [])),
+            'field_ids' => $request->input('field_ids') ?? [],
+            'plot_ids' => $request->input('plot_ids') ?? [],
+            'valve_ids' => $request->input('valve_ids') ?? $request->input('valves') ?? [],
             'labour_id' => $request->input('labour_id'),
             'from_date' => $request->from_date,
             'to_date' => $request->to_date,
@@ -146,9 +149,15 @@ class IrrigationController extends Controller
     {
         $this->authorize('verify', $irrigation);
 
-        $irrigation->forceFill([
-            'is_verified_by_admin' => true,
-        ])->save();
+        $this->irrigationLifecycleService->confirmAdmin($irrigation, request()->user());
+
+        return new IrrigationResource($irrigation->fresh());
+    }
+
+    public function confirmOperator(Irrigation $irrigation)
+    {
+        $this->authorize('confirmOperator', $irrigation);
+        $this->irrigationLifecycleService->confirmOperator($irrigation, request()->user());
 
         return new IrrigationResource($irrigation->fresh());
     }

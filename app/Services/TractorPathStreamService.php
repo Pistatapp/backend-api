@@ -59,13 +59,13 @@ class TractorPathStreamService
 
             $tractorId = $tractor->id;
 
-            // Gateway stores PiStat date_time as UTC wall-clock strings; the app
-            // requests a Jalali civil day resolved in Asia/Tehran. Cover BOTH
-            // conventions so morning Tehran points stored as previous UTC date
-            // are not dropped from the trail.
+            // gps_data.date_time is the normalized device/event timestamp stored
+            // as a Tehran civil-time string. A route day is therefore a strict
+            // Tehran calendar day; widening this window to UTC wall-clock values
+            // leaks the previous night's points into today's route.
             [$startOfDay, $endOfDay] = $this->resolvePathDateWindow($date);
 
-            // Stream raw rows without Eloquent model hydration (single query; fallback handled in stream)
+            // Stream raw rows without Eloquent model hydration (single query).
             return response()->streamJson(
                 $this->streamPathPointsRaw($tractorId, $startOfDay, $endOfDay)
             );
@@ -82,34 +82,19 @@ class TractorPathStreamService
     }
 
     /**
-     * Widest [start, end] string window for a civil day under app TZ and UTC storage.
+     * Half-open [start, end) string window for one Tehran civil day.
      *
      * @return array{0: string, 1: string}
      */
     private function resolvePathDateWindow(Carbon $date): array
     {
-        $localStart = $date->copy()->startOfDay();
-        $localEnd = $date->copy()->endOfDay();
-
-        $utcStart = $localStart->copy()->timezone('UTC');
-        $utcEnd = $localEnd->copy()->timezone('UTC');
-
-        // gps_data.date_time is compared as a wall-clock string. For Asia/Tehran the
-        // local civil-day end (23:59:59) and its UTC instant (20:29:59) are the same
-        // moment — Carbon::gt() is false, so the old branch picked 20:29:59 and cut
-        // afternoon trails stored with local wall-clock timestamps (e.g. replay to 21:56).
-        $startCandidates = [
-            $localStart->format('Y-m-d H:i:s'),
-            $utcStart->format('Y-m-d H:i:s'),
-        ];
-        $endCandidates = [
-            $localEnd->format('Y-m-d H:i:s'),
-            $utcEnd->format('Y-m-d H:i:s'),
-        ];
+        $timezone = config('app.timezone', 'Asia/Tehran');
+        $localStart = $date->copy()->setTimezone($timezone)->startOfDay();
+        $nextLocalStart = $localStart->copy()->addDay();
 
         return [
-            min($startCandidates),
-            max($endCandidates),
+            $localStart->format('Y-m-d H:i:s'),
+            $nextLocalStart->format('Y-m-d H:i:s'),
         ];
     }
 
@@ -135,7 +120,7 @@ class TractorPathStreamService
             FROM gps_data
             WHERE tractor_id = ?
               AND date_time >= ?
-              AND date_time <= ?
+              AND date_time < ?
             '.$orderBy.'
         ');
         $stmt->execute([$tractorId, $startOfDay, $endOfDay]);
@@ -148,11 +133,6 @@ class TractorPathStreamService
         $rawRows = $this->collapseLogicalDuplicateRows($rawRows);
 
         if ($rawRows === []) {
-            $lastPoint = $this->getLastPointFromPreviousDateRaw($tractorId, $startOfDay);
-            if ($lastPoint) {
-                yield from $this->yieldSinglePoint($lastPoint);
-            }
-
             return;
         }
 
@@ -252,22 +232,6 @@ class TractorPathStreamService
             false,
             0
         );
-    }
-
-    /**
-     * Get the last point from previous date using raw query.
-     * Uses read-optimized connection with READ UNCOMMITTED isolation.
-     */
-    private function getLastPointFromPreviousDateRaw(int $tractorId, string $startOfDay): ?object
-    {
-        return $this->gpsReadTable('gps_data')
-            ->select(['id', 'coordinate', 'speed', 'status', 'directions', 'date_time'])
-            ->where('tractor_id', $tractorId)
-            ->where('date_time', '<', $startOfDay)
-            ->orderByDesc('date_time')
-            ->orderByDesc('id')
-            ->limit(1)
-            ->first();
     }
 
     /**

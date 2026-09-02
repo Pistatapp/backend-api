@@ -36,22 +36,16 @@ class IrrigationPolicy
      */
     public function update(User $user, Irrigation $irrigation): bool
     {
-        $creator = $irrigation->creator;
+        $lifecycle = app(\App\Services\IrrigationLifecycleService::class);
         $farmAdmin = $irrigation->farm->admins->contains($user);
-        $createdAtDiff = $irrigation->created_at->diffInHours(now());
-        $endTimeDiff = $irrigation->end_time->diffInHours(now());
 
-        // If user is creator and 72 hours have passed since irrigation creation, return false
-        if ($user->is($creator) && $createdAtDiff >= 72) {
-            return false;
+        if ($farmAdmin) {
+            return $lifecycle->canAdminEdit($irrigation) && $user->can('edit-irrigation-program');
         }
 
-        // If user is farm admin and 72 hours have passed since irrigation end_time, return false
-        if ($farmAdmin && $endTimeDiff >= 72) {
-            return false;
-        }
-
-        return $user->can('edit-irrigation-program');
+        return $user->is($irrigation->creator)
+            && $lifecycle->canOperatorEdit($irrigation)
+            && $user->can('edit-irrigation-program');
     }
 
     /**
@@ -59,22 +53,16 @@ class IrrigationPolicy
      */
     public function delete(User $user, Irrigation $irrigation): bool
     {
-        $creator = $irrigation->creator;
+        $lifecycle = app(\App\Services\IrrigationLifecycleService::class);
         $farmAdmin = $irrigation->farm->admins->contains($user);
-        $createdAtDiff = $irrigation->created_at->diffInHours(now());
-        $endTimeDiff = $irrigation->end_time->diffInHours(now());
 
-        // If user is creator and 72 hours have passed since irrigation creation, return false
-        if ($user->is($creator) && $createdAtDiff >= 72) {
-            return false;
+        if ($farmAdmin) {
+            return $lifecycle->canAdminEdit($irrigation) && $user->can('delete-irrigation-program');
         }
 
-        // If user is farm admin and 72 hours have passed since irrigation end_time, return false
-        if ($farmAdmin && $endTimeDiff >= 72) {
-            return false;
-        }
-
-        return $user->can('delete-irrigation-program');
+        return $user->is($irrigation->creator)
+            && $lifecycle->canOperatorEdit($irrigation)
+            && $user->can('delete-irrigation-program');
     }
 
     /**
@@ -82,14 +70,15 @@ class IrrigationPolicy
      */
     public function verify(User $user, Irrigation $irrigation): bool
     {
-        // Check if irrigation was verified by admin and if enough time has passed
-        if ($irrigation->is_verified_by_admin) {
-            $passedTimeSinceLastVerification = $irrigation->updated_at->diffInHours(now());
-            if ($passedTimeSinceLastVerification >= 24) {
-                return false;
-            }
-        }
+        $lifecycle = app(\App\Services\IrrigationLifecycleService::class);
+        return $irrigation->farm->admins->contains($user)
+            && $lifecycle->canAdminConfirm($irrigation);
+    }
 
-        return $irrigation->farm->admins->contains($user);
+    public function confirmOperator(User $user, Irrigation $irrigation): bool
+    {
+        $lifecycle = app(\App\Services\IrrigationLifecycleService::class);
+        return $user->is($irrigation->creator)
+            && $lifecycle->canOperatorConfirm($irrigation);
     }
 }

@@ -91,9 +91,10 @@ class IrrigationService
         $plot->load(['valves', 'trees']);
         $irrigation->load(['valves', 'plots']);
 
-        // Plot GIS geometry is the physical denominator for this endpoint.
-        $areaM2 = $this->calculator->polygonArea($plot->coordinates);
-        $areaHa = $areaM2 / 10000;
+        // GIS geometry remains physical-area metadata only. Irrigation
+        // intensity uses the configured valve coverage in hectares.
+        $physicalAreaM2 = $this->calculator->polygonArea($plot->coordinates);
+        $physicalAreaHa = $physicalAreaM2 / 10000;
 
         // Get tree count
         $treeCount = $plot->trees()->count();
@@ -120,25 +121,32 @@ class IrrigationService
         );
 
         // Calculate irrigation volume and area metrics
-        $volumeMetrics = $this->calculateVolumeMetrics($irrigation, $irrigationValves, $areaM2);
+        $volumeMetrics = $this->calculateVolumeMetrics($irrigation, $irrigationValves);
 
         return [
             'id' => $plot->id,
             'name' => $plot->name,
-            'area' => $areaM2,
-            'physical_area_m2' => $areaM2,
-            'physical_area_ha' => $areaHa,
-            'area_source' => 'plot_polygon',
+            'area' => $physicalAreaM2,
+            'physical_area_m2' => $physicalAreaM2,
+            'physical_area_ha' => $physicalAreaHa,
+            'irrigation_area_ha' => $this->calculator->irrigatedAreaHectares($irrigationValves),
+            'area_source' => 'valve.irrigation_area',
             'tree_count' => $treeCount,
             'latest_successful_irrigation' => $latestSuccessfulIrrigationData,
             'total_valve_count' => $valveStatistics['total_count'],
             'total_dripper_count' => $valveStatistics['total_dripper_count'],
             'dripper_flow_rate' => round($valveStatistics['dripper_flow_rate'], 2),
-            // Compatibility key: it now describes the physical plot area in
-            // hectares, never the sum of valve.irrigation_area metadata.
-            'irrigation_area' => round($areaHa, 4),
+            // Compatibility key for the configured irrigation coverage.
+            'irrigation_area' => round(
+                $this->calculator->irrigatedAreaHectares($irrigationValves),
+                4,
+            ),
             'irrigation_duration' => to_time_format($irrigationDuration),
-            'total_irrigation_area' => round($volumeMetrics['total_volume'], 2),
+            // Keep the legacy key semantically correct: it is an area, not a volume.
+            'total_irrigation_area' => round(
+                $this->calculator->irrigatedAreaHectares($irrigationValves),
+                4,
+            ),
             'total_volume_m3' => $volumeMetrics['total_volume'],
             'irrigation_area_per_hectare' => $volumeMetrics['total_volume_per_hectare'] === null
                 ? null
@@ -193,7 +201,9 @@ class IrrigationService
     {
         $irrigation->loadMissing('plots');
         $physicalAreaM2 = $this->calculator->physicalAreaForPlots($irrigation->plots);
-        $volumeMetrics = $this->calculateVolumeMetrics($irrigation, $irrigation->valves, $physicalAreaM2);
+        $irrigatedAreaHa = $this->calculator->irrigatedAreaHectares($irrigation->valves);
+        $volumeMetrics = $this->calculateVolumeMetrics($irrigation, $irrigation->valves);
+        $lifecycle = app(\App\Services\IrrigationLifecycleService::class);
 
         return [
             'irrigation_id' => $irrigation->id,
@@ -203,17 +213,23 @@ class IrrigationService
             'plots_names' => $irrigation->plots->pluck('name')->toArray(),
             'valves_names' => $irrigation->valves->pluck('name')->toArray(),
             'duration' => to_time_format($volumeMetrics['duration']),
-            'area_covered' => $physicalAreaM2 / 10000,
+            'area_covered' => $irrigatedAreaHa,
             'physical_area_m2' => $physicalAreaM2,
             'physical_area_ha' => $physicalAreaM2 / 10000,
-            'area_source' => 'plot_polygon',
+            'irrigation_area_ha' => $irrigatedAreaHa,
+            'area_source' => 'valve.irrigation_area',
             'irrigation_per_hectare' => $volumeMetrics['total_volume_per_hectare'] === null
                 ? null
                 : round($volumeMetrics['total_volume_per_hectare'], 2),
             'total_volume' => round($volumeMetrics['total_volume'], 2),
+            'lifecycle' => $lifecycle->payload($irrigation),
             'can' => [
                 'update' => $user->can('update', $irrigation),
                 'verify' => $user->can('verify', $irrigation),
+                'operator_confirm' => $user->can('confirmOperator', $irrigation),
+                'admin_confirm' => $user->can('verify', $irrigation),
+                'operator_edit' => $lifecycle->canOperatorEdit($irrigation),
+                'admin_edit' => $lifecycle->canAdminEdit($irrigation),
             ]
         ];
     }
@@ -266,13 +282,11 @@ class IrrigationService
      *
      * @param Irrigation $irrigation
      * @param Collection $irrigationValves
-     * @param float|null $physicalAreaM2
      * @return array
      */
     private function calculateVolumeMetrics(
         Irrigation $irrigation,
         Collection $irrigationValves,
-        ?float $physicalAreaM2 = null,
     ): array
     {
         $durationInSeconds = $this->calculator->durationSeconds(
@@ -282,10 +296,10 @@ class IrrigationService
 
         $totalVolumeLiters = $this->calculator->volumeLiters($irrigationValves, $durationInSeconds);
         $totalVolumeCubicMeters = $totalVolumeLiters / 1000;
-        $physicalAreaM2 ??= $this->calculator->physicalAreaForPlots($irrigation->plots ?? []);
-        $totalVolumePerHectare = $this->calculator->volumePerHectare(
+        $irrigatedAreaHa = $this->calculator->irrigatedAreaHectares($irrigationValves);
+        $totalVolumePerHectare = $this->calculator->volumePerHectareFromHa(
             $totalVolumeCubicMeters,
-            $physicalAreaM2,
+            $irrigatedAreaHa,
         );
 
         return [

@@ -38,6 +38,33 @@ class IrrigationReportCalculationServiceTest extends TestCase
         );
     }
 
+    public function test_t1_valve_irrigation_area_wins_over_mismatched_gis_area(): void
+    {
+        $valveAreaHa = $this->calculator->irrigatedAreaHectares([
+            (object) ['id' => 77, 'plot_id' => 18, 'irrigation_area' => 1.4],
+        ]);
+
+        $this->assertEqualsWithDelta(1.4, $valveAreaHa, 0.0001);
+        $this->assertEqualsWithDelta(
+            100.0,
+            $this->calculator->volumePerHectareFromHa(140.0, $valveAreaHa),
+            0.0001
+        );
+        $this->assertEqualsWithDelta(70.0, $this->calculator->volumePerHectare(140.0, 20_000.0), 0.0001);
+    }
+
+    public function test_invalid_valve_area_returns_safe_null_without_gis_fallback(): void
+    {
+        $area = $this->calculator->irrigatedAreaHectares([
+            (object) ['id' => 77, 'plot_id' => 18, 'irrigation_area' => 0],
+            (object) ['id' => 78, 'plot_id' => 19, 'irrigation_area' => -1],
+            (object) ['id' => 79, 'plot_id' => 20, 'irrigation_area' => null],
+        ]);
+
+        $this->assertSame(0.0, $area);
+        $this->assertNull($this->calculator->volumePerHectareFromHa(140.0, $area));
+    }
+
     /** T2: multiple karts sum unique irrigation areas. */
     public function test_t2_multiple_karts_sum_unique_irrigation_areas(): void
     {
@@ -101,6 +128,46 @@ class IrrigationReportCalculationServiceTest extends TestCase
         $this->assertNull($this->calculator->volumePerHectareFromHa(10.0, 0.0));
         $this->assertNull($this->calculator->volumePerHectareFromHa(10.0, -1.0));
         $this->assertNull($this->calculator->volumePerHectare(10.0, 0.0));
+    }
+
+    /** GIS area is never an implicit fallback when valve coverage is invalid. */
+    public function test_invalid_valve_area_does_not_fallback_to_physical_area(): void
+    {
+        $this->assertEqualsWithDelta(
+            100.0,
+            $this->calculator->volumePerHectareFromHa(140.0, 1.4),
+            0.0001,
+        );
+        // A 2.0 ha GIS polygon would produce 70.0; it must not be used.
+        $this->assertNotEqualsWithDelta(
+            70.0,
+            $this->calculator->volumePerHectareFromHa(140.0, 1.4),
+            0.0001,
+        );
+        $this->assertNull(
+            $this->calculator->volumePerHectareFromHa(140.0, 0.0),
+        );
+        $this->assertNull(
+            $this->calculator->volumePerHectareFromHa(140.0, -1.0),
+        );
+        $this->assertEqualsWithDelta(
+            1.4,
+            $this->calculator->irrigatedAreaHectares([
+                (object) ['plot_id' => 1, 'irrigation_area' => 1.4],
+                (object) ['plot_id' => 2, 'irrigation_area' => 0],
+                (object) ['plot_id' => 3, 'irrigation_area' => -0.5],
+            ]),
+            0.0001,
+        );
+    }
+
+    /** Production Field 9 fixture: period ratio uses total volume / area occurrences. */
+    public function test_field_9_period_fixture_uses_configured_valve_area_occurrences(): void
+    {
+        $period = $this->calculator->volumePerHectareFromHa(2725.44, 21.6);
+
+        $this->assertEqualsWithDelta(126.1777778, $period, 0.0000001);
+        $this->assertNotEqualsWithDelta(1053.31, $period, 0.01);
     }
 
     /** T2/T7: report dates are inclusive days represented by a half-open range. */

@@ -213,7 +213,7 @@ class IrrigationReportService
             // Retained metadata; not used as the m³/ha denominator.
             'physical_area_m2' => $scope->physicalAreaM2,
             'physical_area_ha' => $scope->physicalAreaHa(),
-            'area_source' => 'irrigation_area_ha',
+            'area_source' => 'valve.irrigation_area',
         ];
     }
 
@@ -257,7 +257,7 @@ class IrrigationReportService
             // Retained metadata; not used as the m³/ha denominator.
             'physical_area_m2' => $scope->physicalAreaM2,
             'physical_area_ha' => $scope->physicalAreaHa(),
-            'area_source' => 'irrigation_area_ha',
+            'area_source' => 'valve.irrigation_area',
         ];
     }
 

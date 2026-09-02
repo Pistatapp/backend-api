@@ -124,9 +124,9 @@ class TractorPathStreamServiceTest extends TestCase
     }
 
     /**
-     * Test service returns last point from previous date when no data for current date.
+     * A Tehran civil-day path must not synthesize a point from the previous day.
      */
-    public function test_returns_last_point_from_previous_date(): void
+    public function test_does_not_return_last_point_from_previous_date(): void
     {
         $this->skipIfMysqlNotAvailable();
         $this->setUpTractor();
@@ -147,8 +147,7 @@ class TractorPathStreamServiceTest extends TestCase
         $data = json_decode($content, true);
 
         $this->assertIsArray($data);
-        $this->assertCount(1, $data);
-        $this->assertEquals(5, $data[0]['speed']);
+        $this->assertSame([], $data);
     }
 
     /**
@@ -165,6 +164,7 @@ class TractorPathStreamServiceTest extends TestCase
 
         $this->insertGpsData($this->tractor->id, [
             ['date_time' => $yesterday->copy()->setTime(12, 0, 0), 'speed' => 5, 'status' => 1],
+            ['date_time' => $yesterday->copy()->setTime(23, 55, 0), 'speed' => 6, 'status' => 1],
             ['date_time' => $today->copy()->setTime(8, 0, 0), 'speed' => 10, 'status' => 1],
             ['date_time' => $today->copy()->setTime(8, 0, 10), 'speed' => 15, 'status' => 1],
             ['date_time' => $tomorrow->copy()->setTime(8, 0, 0), 'speed' => 20, 'status' => 1],
@@ -365,8 +365,8 @@ class TractorPathStreamServiceTest extends TestCase
 
             [$start, $end] = $method->invoke($service, Carbon::parse('2026-07-03', 'Asia/Tehran'));
 
-            $this->assertSame('2026-07-02 20:30:00', $start);
-            $this->assertSame('2026-07-03 23:59:59', $end);
+            $this->assertSame('2026-07-03 00:00:00', $start);
+            $this->assertSame('2026-07-04 00:00:00', $end);
         } finally {
             config(['app.timezone' => $originalTz]);
         }

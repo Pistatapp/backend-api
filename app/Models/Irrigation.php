@@ -24,6 +24,11 @@ class Irrigation extends Model
         'note',
         'status',
         'is_verified_by_admin',
+        'operator_confirmed_at',
+        'operator_confirmed_by',
+        'admin_confirmed_at',
+        'admin_confirmed_by',
+        'finalized_at',
     ];
 
     /**
@@ -46,6 +51,11 @@ class Irrigation extends Model
             'start_time' => 'datetime',
             'end_time' => 'datetime',
             'is_verified_by_admin' => 'boolean',
+            'operator_confirmed_at' => 'datetime',
+            'operator_confirmed_by' => 'integer',
+            'admin_confirmed_at' => 'datetime',
+            'admin_confirmed_by' => 'integer',
+            'finalized_at' => 'datetime',
             'status' => 'string',
         ];
     }
