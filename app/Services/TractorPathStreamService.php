@@ -36,6 +36,8 @@ class TractorPathStreamService
      */
     private bool $enablePathCorrection = true;
 
+    private ?bool $hasBatchIndexColumn = null;
+
     /**
      * Retrieves the tractor movement path for a specific date using GPS data analysis.
      * Optimized for sub-3s response times using raw queries and minimal processing.
@@ -120,16 +122,21 @@ class TractorPathStreamService
     private function streamPathPointsRaw(int $tractorId, string $startOfDay, string $endOfDay): \Generator
     {
         $pdo = $this->getGpsReadPdo();
+        $hasBatchIndex = $this->hasGpsDataColumn('batch_index');
+        $batchIndexSelect = $hasBatchIndex ? ', batch_index' : '';
+        $orderBy = $hasBatchIndex
+            ? 'ORDER BY date_time ASC, (batch_index IS NULL) ASC, batch_index ASC, id ASC'
+            : 'ORDER BY date_time ASC, id ASC';
 
         // Fetch as associative array (faster than FETCH_OBJ)
         // Select only required columns in optimal order
         $stmt = $pdo->prepare('
-            SELECT id, coordinate, speed, status, directions, date_time
+            SELECT id, coordinate, speed, status, directions, date_time'.$batchIndexSelect.'
             FROM gps_data
             WHERE tractor_id = ?
               AND date_time >= ?
               AND date_time <= ?
-            ORDER BY date_time ASC
+            '.$orderBy.'
         ');
         $stmt->execute([$tractorId, $startOfDay, $endOfDay]);
 
@@ -149,20 +156,64 @@ class TractorPathStreamService
             return;
         }
 
-        $points = iterator_to_array($this->processStreamOptimized($rawRows), false);
+        // Historical API must be lossless after persistence. The previous
+        // movement/stoppage state machine intentionally deferred and omitted
+        // many speed=0 points, which made DB and map trails diverge. Keep every
+        // logical row in device-time order; only exact replay duplicates were
+        // collapsed above. Coordinate correction remains point-preserving.
+        yield from $this->yieldCompleteTrail($rawRows);
+    }
 
-        // Safety net: movement/stoppage heuristics (or speed=0 trails) can collapse a
-        // real GPS day to 0–1 API points while Android needs >=2 for a polyline.
-        // Live WS still moves the marker from the ingest payload — classic symptom.
-        if (count($points) < 2 && count($rawRows) >= 2) {
-            yield from $this->yieldSimpleTrail($rawRows);
-
-            return;
+    /**
+     * Yield every persisted logical row while preserving the existing response
+     * keys consumed by Android/OSMDroid.
+     *
+     * @param array<int, array<string, mixed>> $rows
+     */
+    private function yieldCompleteTrail(array $rows): \Generator
+    {
+        if ($this->enablePathCorrection && $this->pathCorrector !== null) {
+            $correctedRows = [];
+            foreach (array_chunk($rows, self::GPS_CORRECTION_BATCH_SIZE) as $batch) {
+                $this->processCorrectionBatch($batch, $correctedRows);
+            }
+            $rows = $correctedRows;
         }
 
-        foreach ($points as $point) {
-            yield $point;
+        $lastIndex = count($rows) - 1;
+        foreach ($rows as $index => $row) {
+            yield $this->formatPointFromRow(
+                $row,
+                $index === 0,
+                $index === $lastIndex,
+                (int) ($row['speed'] ?? 0) === 0,
+                0
+            );
         }
+    }
+
+    private function hasGpsDataColumn(string $column): bool
+    {
+        if ($this->hasBatchIndexColumn !== null && $column === 'batch_index') {
+            return $this->hasBatchIndexColumn;
+        }
+
+        try {
+            $database = (string) config('database.connections.mysql_gps_read.database');
+            $row = $this->gpsReadSelectOne(
+                'SELECT COUNT(*) AS c FROM information_schema.columns WHERE table_schema = ? AND table_name = ? AND column_name = ?',
+                [$database, 'gps_data', $column]
+            );
+            $exists = ((int) ($row->c ?? 0)) > 0;
+        } catch (\Throwable) {
+            $exists = false;
+        }
+
+        if ($column === 'batch_index') {
+            $this->hasBatchIndexColumn = $exists;
+        }
+
+        return $exists;
     }
 
     /**
@@ -214,6 +265,7 @@ class TractorPathStreamService
             ->where('tractor_id', $tractorId)
             ->where('date_time', '<', $startOfDay)
             ->orderByDesc('date_time')
+            ->orderByDesc('id')
             ->limit(1)
             ->first();
     }

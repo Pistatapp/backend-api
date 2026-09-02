@@ -165,7 +165,7 @@ class IrrigationReportService
         Carbon $dayStart,
         Carbon $dayEnd,
     ): array {
-        $totalDurationSeconds = 0;
+        $dailyIntervals = [];
         $totalVolumeLiters = 0.0;
         $irrigatedAreaHa = 0.0;
         $totalCount = 0;
@@ -182,7 +182,10 @@ class IrrigationReportService
                 continue;
             }
 
-            $totalDurationSeconds += $durationInSeconds;
+            $dailyIntervals[] = [
+                'start' => max($irrigation->start_time->getTimestamp(), $dayStart->getTimestamp()),
+                'end' => min($irrigation->end_time->getTimestamp(), $dayEnd->getTimestamp()),
+            ];
             $totalVolumeLiters += $this->calculator->volumeLiters(
                 $irrigation->valves,
                 $durationInSeconds,
@@ -193,6 +196,7 @@ class IrrigationReportService
         }
 
         $totalVolumeM3 = $totalVolumeLiters / 1000;
+        $totalDurationSeconds = $this->calculator->unionDurationSeconds($dailyIntervals);
 
         return [
             'date' => jdate($dayStart)->format('Y/m/d'),

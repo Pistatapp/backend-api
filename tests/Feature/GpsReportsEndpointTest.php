@@ -121,6 +121,28 @@ class GpsReportsEndpointTest extends TestCase
         });
     }
 
+    public function test_gps_reports_endpoint_recovers_legacy_glued_batch_and_keeps_valid_items(): void
+    {
+        Queue::fake();
+
+        $good = '+Hooshnic\\:V1.07,3556.42915,05003.5422,000,260831,100000,004,004,1,3,1,868064071065855';
+        $bad = '+Hooshnic:V1.07,not-a-coordinate,05003.5422';
+        $raw = "NOISE\r\n\0{". '"data":"'.$good.'"}' . '{"data":"'.$bad.'"}TRAIL';
+
+        $response = $this->call('POST', '/api/gps/reports', [], [], [], [
+            'REMOTE_ADDR' => self::ALLOWED_IP,
+            'CONTENT_TYPE' => 'application/json',
+        ], $raw);
+
+        $response->assertStatus(200);
+        $response->assertJson(['success' => true]);
+        Queue::assertPushed(IngestGpsData::class, function (IngestGpsData $job) {
+            return count($job->data) === 1
+                && $job->data[0]['imei'] === '868064071065855'
+                && $job->data[0]['coordinate'] === [35.940486, 50.059037];
+        });
+    }
+
     public function test_gps_reports_endpoint_rejects_malformed_payload(): void
     {
         Queue::fake();

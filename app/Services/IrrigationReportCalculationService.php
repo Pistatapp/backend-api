@@ -164,6 +164,60 @@ class IrrigationReportCalculationService
     }
 
     /**
+     * Measure the union of half-open timestamp intervals.
+     *
+     * Intervals that overlap or touch represent one continuous period for
+     * elapsed-time reporting. The intervals are already expected to be
+     * clipped to the requested report day/range by the caller.
+     *
+     * @param iterable<array{start:int, end:int}> $intervals
+     */
+    public function unionDurationSeconds(iterable $intervals): int
+    {
+        $normalized = [];
+
+        foreach ($intervals as $interval) {
+            $start = (int) ($interval['start'] ?? 0);
+            $end = (int) ($interval['end'] ?? 0);
+
+            if ($end > $start) {
+                $normalized[] = [$start, $end];
+            }
+        }
+
+        usort($normalized, fn (array $left, array $right): int =>
+            ($left[0] <=> $right[0]) ?: ($left[1] <=> $right[1])
+        );
+
+        $totalSeconds = 0;
+        $mergedStart = null;
+        $mergedEnd = null;
+
+        foreach ($normalized as [$start, $end]) {
+            if ($mergedStart === null) {
+                $mergedStart = $start;
+                $mergedEnd = $end;
+                continue;
+            }
+
+            if ($start <= $mergedEnd) {
+                $mergedEnd = max($mergedEnd, $end);
+                continue;
+            }
+
+            $totalSeconds += $mergedEnd - $mergedStart;
+            $mergedStart = $start;
+            $mergedEnd = $end;
+        }
+
+        if ($mergedStart !== null) {
+            $totalSeconds += $mergedEnd - $mergedStart;
+        }
+
+        return $totalSeconds;
+    }
+
+    /**
      * Calculate liters from authoritative irrigation duration.
      */
     public function volumeLiters(iterable $valves, int|float $durationInSeconds): float

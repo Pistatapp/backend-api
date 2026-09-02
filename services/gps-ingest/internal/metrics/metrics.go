@@ -15,6 +15,12 @@ type Collector struct {
 	BatchFlushDurationMS   atomic.Uint64
 	BroadcastErrorsTotal   atomic.Uint64
 	BroadcastSentTotal     atomic.Uint64
+	BroadcastRetryTotal    atomic.Uint64
+	BroadcastPending       atomic.Uint64
+	BroadcastRetryPending  atomic.Uint64
+	BroadcastInFlight      atomic.Uint64
+	BroadcastDLQTotal      atomic.Uint64
+	BroadcastOutboxErrors  atomic.Uint64
 	SideEffectErrorsTotal  atomic.Uint64
 	SideEffectSentTotal    atomic.Uint64
 	IMEICacheL1Hits        atomic.Uint64
@@ -24,6 +30,9 @@ type Collector struct {
 	DroppedRowsTotal       atomic.Uint64
 	DroppedBroadcastTotal  atomic.Uint64
 	DroppedSideEffectTotal atomic.Uint64
+	PersistenceErrorsTotal atomic.Uint64
+	LedgerErrorsTotal      atomic.Uint64
+	QuarantinedItemsTotal  atomic.Uint64
 	IngestChannelDepth     atomic.Int64
 }
 
@@ -44,6 +53,12 @@ func (c *Collector) Handler() http.HandlerFunc {
 		fmt.Fprintf(w, "batch_flush_duration_ms %d\n", c.BatchFlushDurationMS.Load())
 		fmt.Fprintf(w, "broadcast_errors_total %d\n", c.BroadcastErrorsTotal.Load())
 		fmt.Fprintf(w, "broadcast_sent_total %d\n", c.BroadcastSentTotal.Load())
+		fmt.Fprintf(w, "broadcast_retry_total %d\n", c.BroadcastRetryTotal.Load())
+		fmt.Fprintf(w, "broadcast_pending %d\n", c.BroadcastPending.Load())
+		fmt.Fprintf(w, "broadcast_retry_pending %d\n", c.BroadcastRetryPending.Load())
+		fmt.Fprintf(w, "broadcast_inflight %d\n", c.BroadcastInFlight.Load())
+		fmt.Fprintf(w, "broadcast_dlq_total %d\n", c.BroadcastDLQTotal.Load())
+		fmt.Fprintf(w, "broadcast_outbox_errors_total %d\n", c.BroadcastOutboxErrors.Load())
 		fmt.Fprintf(w, "side_effect_errors_total %d\n", c.SideEffectErrorsTotal.Load())
 		fmt.Fprintf(w, "side_effect_sent_total %d\n", c.SideEffectSentTotal.Load())
 		fmt.Fprintf(w, "imei_cache_l1_hits %d\n", c.IMEICacheL1Hits.Load())
@@ -53,5 +68,8 @@ func (c *Collector) Handler() http.HandlerFunc {
 		fmt.Fprintf(w, "dropped_rows_total %d\n", c.DroppedRowsTotal.Load())
 		fmt.Fprintf(w, "dropped_broadcast_total %d\n", c.DroppedBroadcastTotal.Load())
 		fmt.Fprintf(w, "dropped_side_effect_total %d\n", c.DroppedSideEffectTotal.Load())
+		fmt.Fprintf(w, "persistence_errors_total %d\n", c.PersistenceErrorsTotal.Load())
+		fmt.Fprintf(w, "ledger_errors_total %d\n", c.LedgerErrorsTotal.Load())
+		fmt.Fprintf(w, "quarantined_items_total %d\n", c.QuarantinedItemsTotal.Load())
 	}
 }

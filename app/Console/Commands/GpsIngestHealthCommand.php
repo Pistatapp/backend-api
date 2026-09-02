@@ -83,17 +83,19 @@ class GpsIngestHealthCommand extends Command
             }
         }
 
-        // Code gate: clock resync must exist (stuck Jul-30 / 2068 clocks)
+        // Code gate: device timestamps must be preserved (offline/history safety).
         $ingestPath = app_path('Jobs/IngestGpsData.php');
-        $hasResync = File::exists($ingestPath) && str_contains(File::get($ingestPath), 'normalizeDeviceDateTime');
-        $report['clock_resync_code'] = $hasResync;
-        if (! $hasResync) {
+        $hasTimestampPolicy = File::exists($ingestPath)
+            && str_contains(File::get($ingestPath), 'normalizeDeviceDateTime')
+            && str_contains(File::get($ingestPath), 'retaining device timestamp');
+        $report['clock_resync_code'] = $hasTimestampPolicy;
+        if (! $hasTimestampPolicy) {
             $ok = false;
             if (! $this->option('json')) {
-                $this->error('IngestGpsData missing normalizeDeviceDateTime — stuck clocks will not land on today');
+                $this->error('IngestGpsData timestamp-preservation policy is missing');
             }
         } elseif (! $this->option('json')) {
-            $this->line('Clock resync code: present');
+            $this->line('Device timestamp preservation code: present');
         }
 
         if (! $this->option('json')) {

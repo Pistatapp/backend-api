@@ -32,6 +32,10 @@ func NewClient(cfg config.Config) *Client {
 }
 
 type Job struct {
+	OutboxID  int64
+	EventID   string
+	TraceID   string
+	Attempts  int
 	DeviceID  int64
 	TractorID int64
 	LastPoint validate.GpsPoint

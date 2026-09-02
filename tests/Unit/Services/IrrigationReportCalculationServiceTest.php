@@ -147,6 +147,20 @@ class IrrigationReportCalculationServiceTest extends TestCase
         $this->assertSame(0, $this->calculator->durationSeconds(null, $end));
     }
 
+    /** Overlapping and touching intervals count once; separate intervals add. */
+    public function test_union_duration_merges_overlapping_and_touching_intervals(): void
+    {
+        $this->assertSame(
+            7 * 3600,
+            $this->calculator->unionDurationSeconds([
+                ['start' => 8 * 3600, 'end' => 10 * 3600],
+                ['start' => 10 * 3600, 'end' => 12 * 3600],
+                ['start' => 11 * 3600, 'end' => 13 * 3600],
+                ['start' => 14 * 3600, 'end' => 16 * 3600],
+            ])
+        );
+    }
+
     /** Exact volume is preserved before presentation rounding. */
     public function test_keeps_fractional_liters_until_the_api_boundary(): void
     {

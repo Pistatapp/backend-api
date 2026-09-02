@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\GpsDevice;
 use App\Models\Tractor;
+use App\Services\GpsIngressLedger;
 use App\Services\NocMonitor;
 use App\Support\GpsDeviceCache;
 use Carbon\Carbon;
@@ -34,22 +35,11 @@ class IngestGpsData implements ShouldQueue
 
     public array $backoff = [2, 5, 10];
 
-    /**
-     * Device clocks older than this vs server time are treated as stuck/corrupt RTC
-     * and resynced — otherwise live WS works while path-for-today stays empty.
-     */
-    private const MAX_PAST_SKEW_SECONDS = 36 * 3600;
-
-    /** Align with IoT Gateway PiStatMaxFutureSkew. */
-    private const MAX_FUTURE_SKEW_SECONDS = 24 * 3600;
-
-    private const MIN_VALID_DATETIME = '2025-01-01 00:00:00';
-
-    private static ?bool $hasImeiDateTimeUnique = null;
-
     public function __construct(
         public array $data,
         public ?string $traceId = null,
+        public array $eventMetadata = [],
+        public ?string $gatewayReceivedAt = null,
     ) {
         $this->onConnection(config('queue.default', 'redis'));
         $this->onQueue('gps-processing');
@@ -74,7 +64,7 @@ class IngestGpsData implements ShouldQueue
 
     public function handle(): void
     {
-        if ($this->data === [] || ! isset($this->data[0]['imei'])) {
+        if ($this->data === []) {
             Log::warning('IngestGpsData: empty or missing IMEI in GPS batch', [
                 'batch_size' => count($this->data),
             ]);
@@ -82,102 +72,194 @@ class IngestGpsData implements ShouldQueue
             return;
         }
 
-        $deviceImei = (string) $this->data[0]['imei'];
-        $tractor = $this->resolveTractor($deviceImei);
+        $groups = [];
+        foreach ($this->data as $index => $item) {
+            $imei = is_array($item) && isset($item['imei']) && is_scalar($item['imei'])
+                ? trim((string) $item['imei'])
+                : '';
 
-        if (! $tractor) {
-            Log::warning('IngestGpsData: unbound IMEI has no tractor assignment; GPS batch discarded', [
-                'imei' => $deviceImei,
-                'batch_size' => count($this->data),
-            ]);
-            NocMonitor::emit(
-                'PISTAT_DELIVERY',
-                'drop',
-                $deviceImei,
-                $this->traceId,
-                'Unbound IMEI — no tractor assignment',
-                ['phase' => 'persist', 'batch_size' => count($this->data)],
-                'unbound IMEI'
-            );
+            if ($imei === '') {
+                $this->quarantineItem($item, (int) $index, 'Missing IMEI');
+                continue;
+            }
 
-            return;
+            $groups[$imei][] = ['item' => $item, 'index' => (int) $index];
         }
 
-        $records = $this->prepareBatch($this->data, $tractor->id, $deviceImei);
+        foreach ($groups as $deviceImei => $group) {
+            $tractor = $this->resolveTractor($deviceImei);
 
-        if ($records === []) {
-            NocMonitor::emit(
-                'PISTAT_DELIVERY',
-                'drop',
+            if (! $tractor) {
+                $reason = 'Unbound IMEI — no tractor assignment';
+                Log::warning('IngestGpsData: IMEI quarantined because it has no tractor assignment', [
+                    'imei' => $deviceImei,
+                    'batch_size' => count($group),
+                ]);
+                foreach ($group as $frame) {
+                    $this->quarantineItem($frame['item'], $frame['index'], $reason);
+                }
+                NocMonitor::emit(
+                    'PISTAT_DELIVERY',
+                    'quarantine',
+                    $deviceImei,
+                    $this->traceId,
+                    $reason,
+                    ['phase' => 'persist', 'batch_size' => count($group)],
+                    $reason
+                );
+
+                continue;
+            }
+
+            $records = $this->prepareBatch(
+                array_column($group, 'item'),
+                $tractor->id,
                 $deviceImei,
-                $this->traceId,
-                'PiStat prepareBatch produced zero rows',
-                ['phase' => 'persist'],
-                'empty prepared batch'
+                array_column($group, 'index')
             );
 
-            return;
-        }
+            if ($records === []) {
+                Log::warning('IngestGpsData: no valid rows remained after item validation', [
+                    'imei' => $deviceImei,
+                    'batch_size' => count($group),
+                    'tractor_id' => $tractor->id,
+                ]);
+                continue;
+            }
 
-        $persisted = $this->insertWithRecovery($records);
+            // Any persistence exception escapes the job. Laravel keeps the job
+            // pending/retryable instead of ACKing a partially written batch.
+            $persisted = $this->insertWithRecovery($records);
+            if ($persisted !== count($records)) {
+                throw new \RuntimeException(
+                    'IngestGpsData persisted '.$persisted.'/'.count($records).' rows for IMEI '.$deviceImei
+                );
+            }
 
-        if ($persisted < 1) {
+            foreach ($group as $frame) {
+                $this->markEventForIndex($frame['index'], GpsIngressLedger::PERSISTED);
+            }
+
             NocMonitor::emit(
                 'PISTAT_DELIVERY',
-                'error',
+                'success',
                 $deviceImei,
                 $this->traceId,
-                'PiStat mysql_gps persisted 0 rows',
+                'PiStat mysql_gps persisted',
                 [
-                    'phase' => 'persist',
+                    'phase' => 'persisted',
+                    'records' => $persisted,
                     'prepared' => count($records),
                     'tractor_id' => $tractor->id,
                     'database' => config('database.connections.mysql_gps.database'),
-                ],
-                'zero durable rows'
+                    'first_date_time' => $records[0]['date_time'] ?? null,
+                    'last_date_time' => $records[array_key_last($records)]['date_time'] ?? null,
+                ]
             );
 
-            throw new \RuntimeException(
-                'IngestGpsData persisted 0/'.count($records).' rows for IMEI '.$deviceImei
+            // Only broadcast after durable write — otherwise markers move while path stays empty.
+            BroadcastGpsEvents::dispatch(
+                array_column($group, 'item'),
+                $tractor->id,
+                $deviceImei,
+                $this->traceId
             );
         }
+    }
 
-        NocMonitor::emit(
-            'PISTAT_DELIVERY',
-            'success',
-            $deviceImei,
-            $this->traceId,
-            'PiStat mysql_gps persisted',
-            [
-                'phase' => 'persisted',
-                'records' => $persisted,
-                'prepared' => count($records),
-                'tractor_id' => $tractor->id,
-                'database' => config('database.connections.mysql_gps.database'),
-                'first_date_time' => $records[0]['date_time'] ?? null,
-                'last_date_time' => $records[array_key_last($records)]['date_time'] ?? null,
-            ]
-        );
+    public function failed(Throwable $e): void
+    {
+        foreach ($this->eventMetadata as $event) {
+            app(GpsIngressLedger::class)->mark(
+                (string) ($event['event_id'] ?? ''),
+                GpsIngressLedger::DLQ_REPLAYABLE,
+                $e->getMessage()
+            );
+        }
+    }
 
-        // Only broadcast after durable write — otherwise markers move while path stays empty.
-        BroadcastGpsEvents::dispatch($this->data, $tractor->id, $deviceImei, $this->traceId);
+    private function quarantineItem(mixed $item, int $index, string $reason): void
+    {
+        $event = $this->eventMetadataForIndex($index, $item);
+        app(GpsIngressLedger::class)->quarantine($event, $reason);
+        Log::warning('IngestGpsData: GPS item quarantined', [
+            'event_id' => $event['event_id'],
+            'imei' => $event['imei'],
+            'batch_index' => $index,
+            'reason' => $reason,
+        ]);
+    }
+
+    private function markEventForIndex(int $index, string $status): void
+    {
+        foreach ($this->eventMetadata as $event) {
+            if ((int) ($event['_job_index'] ?? $event['batch_index'] ?? -1) !== $index) {
+                continue;
+            }
+
+            app(GpsIngressLedger::class)->mark((string) $event['event_id'], $status);
+
+            return;
+        }
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function eventMetadataForIndex(int $index, mixed $item): array
+    {
+        foreach ($this->eventMetadata as $event) {
+            if ((int) ($event['_job_index'] ?? $event['batch_index'] ?? -1) === $index) {
+                return $event;
+            }
+        }
+
+        $raw = is_string($item)
+            ? $item
+            : (string) json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+        $imei = is_array($item) && isset($item['imei']) && is_scalar($item['imei'])
+            ? (string) $item['imei']
+            : null;
+        $dateTime = is_array($item) && isset($item['date_time']) && is_scalar($item['date_time'])
+            ? (string) $item['date_time']
+            : null;
+        $payloadHash = hash('sha256', $raw);
+
+        return [
+            'event_id' => hash('sha256', ($imei ?? '').'|'.($dateTime ?? '').'|'.$payloadHash.'|'.$index),
+            'trace_id' => $this->traceId,
+            'imei' => $imei,
+            'device_recorded_at' => $dateTime,
+            'gateway_received_at' => $this->gatewayReceivedAt ?? now()->format('Y-m-d H:i:s'),
+            'payload_hash' => $payloadHash,
+            'raw_payload' => $raw,
+            'batch_index' => $index,
+            'attempts' => 0,
+        ];
     }
 
     private function resolveTractor(string $imei): ?Tractor
     {
-        return Cache::remember("tractor_by_device_imei_{$imei}", 3600, function () use ($imei) {
-            $device = GpsDevice::where('imei', $imei)->with('tractor')->first();
-
-            if ($device && $device->tractor) {
-                $device->tractor->setRelation('gpsDevice', $device);
-
-                GpsDeviceCache::put($imei, $device->tractor->id, $device->id);
-
-                return $device->tractor;
+        $cacheKey = "tractor_by_device_imei_{$imei}";
+        $cachedTractorId = Cache::get($cacheKey);
+        if (is_numeric($cachedTractorId) && (int) $cachedTractorId > 0) {
+            $tractor = Tractor::find((int) $cachedTractorId);
+            if ($tractor) {
+                return $tractor;
             }
+        }
 
+        // Do not cache null: a device can be bound after an earlier quarantine.
+        $device = GpsDevice::where('imei', $imei)->with('tractor')->first();
+        if (! $device || ! $device->tractor) {
             return null;
-        });
+        }
+
+        $device->tractor->setRelation('gpsDevice', $device);
+        Cache::put($cacheKey, $device->tractor->id, 3600);
+        GpsDeviceCache::put($imei, $device->tractor->id, $device->id);
+
+        return $device->tractor;
     }
 
     /**
@@ -224,12 +306,6 @@ class IngestGpsData implements ShouldQueue
             }
         }
 
-        if ($written < 1) {
-            // Last resort: verify + force plain insert one by one with reconnect.
-            $this->ensureGpsConnection($gps);
-            $written = $this->insertRowsIndividually($gps, $records, true);
-        }
-
         Log::info('IngestGpsData: persist result', [
             'database' => $database,
             'prepared' => count($records),
@@ -237,6 +313,12 @@ class IngestGpsData implements ShouldQueue
             'imei' => $records[0]['imei'] ?? null,
             'tractor_id' => $records[0]['tractor_id'] ?? null,
         ]);
+
+        if ($written !== count($records)) {
+            throw new \RuntimeException(
+                'GPS persistence incomplete: '.$written.'/'.count($records).' rows written'
+            );
+        }
 
         return $written;
     }
@@ -281,10 +363,9 @@ class IngestGpsData implements ShouldQueue
     }
 
     /**
-     * Delta ingest: skip exact duplicates (imei + date_time + coordinate), update
-     * existing rows when the same GPS timestamp arrives with new telemetry, insert
-     * otherwise. Without a DB received_at column, the incoming batch always wins
-     * over an existing row for the same (imei, date_time) — last write is authoritative.
+     * Delta ingest: skip exact replay duplicates (imei + date_time + coordinate)
+     * and insert every other event. A different payload at the same device time
+     * is retained as a separate point; it must not overwrite the first frame.
      *
      * @param  \Illuminate\Database\Connection  $gps
      * @param  array<int, array<string, mixed>>  $chunk
@@ -295,39 +376,26 @@ class IngestGpsData implements ShouldQueue
             return 0;
         }
 
+        $originalCount = count($chunk);
         $chunk = $this->deduplicateIncomingChunk($chunk);
-        [$toInsert, $toUpdate, $skipped] = $this->resolveChunkDelta($gps, $chunk);
-        $written = $skipped;
-
-        foreach ($toUpdate as $update) {
-            $gps->table('gps_data')
-                ->where('id', $update['id'])
-                ->update($update['values']);
-            $written++;
-        }
+        [$toInsert, $skipped] = $this->resolveChunkDelta($gps, $chunk);
+        // Exact duplicate frames are valid retry deliveries. They already have
+        // one durable logical point, so count them as accepted without inserting
+        // another physical row.
+        $written = $skipped + ($originalCount - count($chunk));
 
         if ($toInsert === []) {
             return $written;
         }
 
-        if ($this->hasImeiDateTimeUniqueIndex()) {
-            $result = $gps->table('gps_data')->insertOrIgnore($toInsert);
-            if (is_bool($result)) {
-                $written += $result
-                    ? count($toInsert)
-                    : ($this->countExistingInChunk($gps, $toInsert) > 0 ? count($toInsert) : 0);
-            } else {
-                $affected = (int) $result;
-                if ($affected > 0) {
-                    $written += $affected;
-                } elseif ($this->countExistingInChunk($gps, $toInsert) > 0) {
-                    $written += count($toInsert);
-                }
-            }
-        } else {
-            $gps->table('gps_data')->insert($toInsert);
-            $written += count($toInsert);
-        }
+        // Never use insertOrIgnore: it turns a valid event into an untracked
+        // drop. Exact replay duplicates were handled above; any other database
+        // exception must retry or become a replayable DLQ event.
+        $gps->table('gps_data')->insert(array_map(
+            fn (array $row): array => $this->gpsInsertRow($row),
+            $toInsert
+        ));
+        $written += count($toInsert);
 
         return $written;
     }
@@ -352,7 +420,7 @@ class IngestGpsData implements ShouldQueue
     /**
      * @param  \Illuminate\Database\Connection  $gps
      * @param  array<int, array<string, mixed>>  $chunk
-     * @return array{0: array<int, array<string, mixed>>, 1: array<int, array{id: int, values: array<string, mixed>}>, 2: int}
+     * @return array{0: array<int, array<string, mixed>>, 1: int}
      */
     private function resolveChunkDelta($gps, array $chunk): array
     {
@@ -360,7 +428,7 @@ class IngestGpsData implements ShouldQueue
         $times = array_values(array_unique(array_column($chunk, 'date_time')));
 
         if ($imei === '' || $times === []) {
-            return [$chunk, [], 0];
+            return [$chunk, 0];
         }
 
         $existing = $gps->table('gps_data')
@@ -376,7 +444,6 @@ class IngestGpsData implements ShouldQueue
         }
 
         $toInsert = [];
-        $toUpdate = [];
         $skipped = 0;
 
         foreach ($chunk as $row) {
@@ -393,25 +460,17 @@ class IngestGpsData implements ShouldQueue
             }
 
             if ($matches !== []) {
-                $target = $matches[array_key_last($matches)];
-                $toUpdate[] = [
-                    'id' => (int) $target->id,
-                    'values' => [
-                        'tractor_id' => $row['tractor_id'],
-                        'coordinate' => $row['coordinate'],
-                        'speed' => $row['speed'],
-                        'status' => $row['status'],
-                        'directions' => $row['directions'],
-                    ],
-                ];
-
+                // Same device timestamp with a different payload is a separate
+                // event (often an offline correction), not an update that may
+                // overwrite the original route point.
+                $toInsert[] = $row;
                 continue;
             }
 
             $toInsert[] = $row;
         }
 
-        return [$toInsert, $toUpdate, $skipped];
+        return [$toInsert, $skipped];
     }
 
     private function normalizedCoordinateKey(mixed $coordinate): string
@@ -446,23 +505,29 @@ class IngestGpsData implements ShouldQueue
      * @param  \Illuminate\Database\Connection  $gps
      * @param  array<int, array<string, mixed>>  $chunk
      */
-    private function insertRowsIndividually($gps, array $chunk, bool $forcePlain = false): int
+    private function insertRowsIndividually($gps, array $chunk): int
     {
         $written = 0;
+        $failed = [];
 
         foreach ($chunk as $row) {
             $attempts = 0;
+            $rowWritten = false;
             while ($attempts < 3) {
                 $attempts++;
                 try {
                     $deltaWritten = $this->persistChunkWithDelta($gps, [$row]);
                     if ($deltaWritten > 0) {
                         $written += $deltaWritten;
+                        $rowWritten = true;
                     }
                     break;
                 } catch (Throwable $e) {
-                    if ($this->isDuplicateKeyException($e)) {
+                    if ($this->isDuplicateKeyException($e) && $this->rowAlreadyPersisted($gps, $row)) {
+                        // A concurrent retry won the insert. Count it only after
+                        // verifying the exact logical point exists.
                         $written++;
+                        $rowWritten = true;
                         break;
                     }
 
@@ -476,306 +541,183 @@ class IngestGpsData implements ShouldQueue
                     }
 
                     if (str_contains(strtolower($e->getMessage()), 'partition') && $attempts < 3) {
-                        // Land in p_future under server "now" so the trail is not dropped.
-                        $row['date_time'] = Carbon::now()->format('Y-m-d H:i:s');
-                        Log::critical('IngestGpsData: partition miss — rewriting date_time to server now', [
+                        // Retry without changing the device timestamp. A missing
+                        // partition is an infrastructure failure, not bad data.
+                        Log::critical('IngestGpsData: partition miss — retaining device timestamp and retrying', [
                             'imei' => $row['imei'] ?? null,
-                            'new_date_time' => $row['date_time'],
+                            'date_time' => $row['date_time'] ?? null,
                             'error' => $e->getMessage(),
                         ]);
                         $this->ensureGpsConnection($gps);
                         continue;
                     }
 
-                    Log::error('IngestGpsData: dropping unrecoverable gps_data row', [
+                    $failed[] = [
                         'imei' => $row['imei'] ?? null,
                         'date_time' => $row['date_time'] ?? null,
                         'error' => $e->getMessage(),
-                    ]);
+                    ];
                     break;
                 }
             }
+
+            if (! $rowWritten && $attempts >= 3 && $failed === []) {
+                $failed[] = [
+                    'imei' => $row['imei'] ?? null,
+                    'date_time' => $row['date_time'] ?? null,
+                    'error' => 'GPS row was not acknowledged by persistence',
+                ];
+            }
+        }
+
+        if ($failed !== []) {
+            Log::error('IngestGpsData: row persistence incomplete; job remains retryable', [
+                'failed_rows' => $failed,
+                'written_rows' => $written,
+            ]);
+            throw new \RuntimeException('GPS row persistence failed; '.count($failed).' row(s) remain retryable');
         }
 
         return $written;
-    }
-
-    private function hasImeiDateTimeUniqueIndex(): bool
-    {
-        if (self::$hasImeiDateTimeUnique !== null) {
-            return self::$hasImeiDateTimeUnique;
-        }
-
-        try {
-            $database = config('database.connections.mysql_gps.database');
-            $row = DB::connection('mysql_gps')->selectOne('
-                SELECT COUNT(*) AS count
-                FROM information_schema.statistics
-                WHERE table_schema = ?
-                  AND table_name = ?
-                  AND index_name = ?
-            ', [$database, 'gps_data', 'gps_data_imei_date_time_unique']);
-
-            self::$hasImeiDateTimeUnique = ((int) ($row->count ?? 0)) > 0;
-        } catch (Throwable) {
-            self::$hasImeiDateTimeUnique = false;
-        }
-
-        return self::$hasImeiDateTimeUnique;
     }
 
     private function isDuplicateKeyException(Throwable $e): bool
     {
         $message = strtolower($e->getMessage());
 
-        return str_contains($message, 'duplicate')
-            || str_contains($message, '1062');
+        return str_contains($message, 'duplicate') || str_contains($message, '1062');
+    }
+
+    private function rowAlreadyPersisted($gps, array $row): bool
+    {
+        try {
+            $existing = $gps->table('gps_data')
+                ->select(['coordinate'])
+                ->where('imei', (string) ($row['imei'] ?? ''))
+                ->where('date_time', (string) ($row['date_time'] ?? ''))
+                ->get();
+
+            $key = $this->normalizedCoordinateKey($row['coordinate'] ?? null);
+            foreach ($existing as $candidate) {
+                if ($this->normalizedCoordinateKey($candidate->coordinate) === $key) {
+                    return true;
+                }
+            }
+        } catch (Throwable) {
+            // The caller will retry the row and eventually surface a DLQ state.
+        }
+
+        return false;
     }
 
     /**
-     * Whitelist columns and coerce defaults. Skip/log frames that cannot be stored.
+     * Add tie-break metadata only when the additive migration is installed.
+     * Older production schemas keep the exact existing insert shape.
+     */
+    private function gpsInsertRow(array $row): array
+    {
+        $eventId = $row['_event_id'] ?? null;
+        $batchIndex = $row['_batch_index'] ?? null;
+        unset($row['_event_id'], $row['_batch_index']);
+
+        if ($this->hasGpsColumn('event_id') && $eventId !== null) {
+            $row['event_id'] = (string) $eventId;
+        }
+        if ($this->hasGpsColumn('batch_index') && $batchIndex !== null) {
+            $row['batch_index'] = (int) $batchIndex;
+        }
+
+        return $row;
+    }
+
+    private static array $gpsColumnExists = [];
+
+    private function hasGpsColumn(string $column): bool
+    {
+        if (array_key_exists($column, self::$gpsColumnExists)) {
+            return self::$gpsColumnExists[$column];
+        }
+
+        try {
+            $database = (string) config('database.connections.mysql_gps.database');
+            $row = DB::connection('mysql_gps')->selectOne(
+                'SELECT COUNT(*) AS c FROM information_schema.columns WHERE table_schema = ? AND table_name = ? AND column_name = ?',
+                [$database, 'gps_data', $column]
+            );
+            self::$gpsColumnExists[$column] = ((int) ($row->c ?? 0)) > 0;
+        } catch (Throwable) {
+            self::$gpsColumnExists[$column] = false;
+        }
+
+        return self::$gpsColumnExists[$column];
+    }
+
+    /**
+     * Whitelist columns and coerce defaults. Invalid direct-job frames are
+     * quarantined here; controller-originated frames are already item-validated.
      *
      * @return array<int, array<string, mixed>>
      */
-    private function prepareBatch(array $data, int $tractorId, string $fallbackImei): array
+    private function prepareBatch(array $data, int $tractorId, string $fallbackImei, array $sourceIndexes = []): array
     {
         $records = [];
 
         foreach ($data as $index => $item) {
+            $sourceIndex = (int) ($sourceIndexes[$index] ?? $index);
             if (! is_array($item)) {
-                Log::warning('IngestGpsData: skipping non-array GPS frame', [
-                    'index' => $index,
+                $this->quarantineItem($item, $sourceIndex, 'GPS frame is not an array');
+                Log::warning('IngestGpsData: invalid non-array GPS frame', [
+                    'index' => $sourceIndex,
                     'tractor_id' => $tractorId,
                 ]);
 
                 continue;
             }
 
-            $record = $this->sanitizeRow($item, $tractorId, $fallbackImei, $index);
+            $record = $this->sanitizeRow($item, $tractorId, $fallbackImei, $sourceIndex);
             if ($record !== null) {
+                $event = $this->eventMetadataForIndex($sourceIndex, $item);
+                $record['_event_id'] = $event['event_id'];
+                $record['_batch_index'] = $event['batch_index'] ?? $sourceIndex;
                 $records[] = $record;
+            } else {
+                $this->quarantineItem($item, $sourceIndex, 'GPS frame failed persistence validation');
             }
         }
 
-        // Unique (imei, date_time) + second-precision clocks: colliding rows in one
-        // batch (gateway retries, RTC resync to server "now") would otherwise be
-        // insertOrIgnore'd down to a single DB point while WS still shows live logs.
-        return $this->ensureUniqueDateTimes($records);
+        // Do not rewrite or stagger timestamps. Device time is the ordering key;
+        // id is the stable tie-breaker at the historical API layer.
+        return $records;
     }
 
     /**
-     * Normalize wire date_time to Y-m-d H:i:s. Resync stuck/corrupt device clocks so
-     * live traffic is stored under "today" and the path API can find it.
-     *
-     * Evidence on prod (tractor 38): MAX(date_time)=2026-07-30 while live WS still
-     * moved markers on 2026-08-01 — path-for-today was empty because rows kept the
-     * stuck Jul-30 clock.
+     * Normalize a valid device timestamp without replacing it with server time.
+     * Offline and out-of-order points are valid history and must remain replayable.
      */
-    private function normalizeDeviceDateTime(string $raw, string $imei, int $index): string
+    private function normalizeDeviceDateTime(string $raw, string $imei, int $index): ?string
     {
-        $now = Carbon::now();
-        $fallback = $now->format('Y-m-d H:i:s');
-
         if (trim($raw) === '') {
-            Log::warning('IngestGpsData: empty date_time — using server time', [
+            Log::warning('IngestGpsData: empty date_time — item quarantined', [
                 'imei' => $imei,
                 'index' => $index,
             ]);
 
-            return $fallback;
+            return null;
         }
 
         try {
             $dt = Carbon::parse($raw);
         } catch (Throwable) {
-            Log::warning('IngestGpsData: unparseable date_time — using server time', [
+            Log::warning('IngestGpsData: unparseable date_time — item quarantined', [
                 'imei' => $imei,
                 'index' => $index,
                 'raw' => $raw,
             ]);
 
-            return $fallback;
+            return null;
         }
 
-        $formatted = $dt->format('Y-m-d H:i:s');
-
-        if ($formatted < self::MIN_VALID_DATETIME) {
-            Log::warning('IngestGpsData: pre-2025 date_time — resync to server', [
-                'imei' => $imei,
-                'index' => $index,
-                'raw' => $formatted,
-            ]);
-
-            return $fallback;
-        }
-
-        if ($dt->lt($now->copy()->subSeconds(self::MAX_PAST_SKEW_SECONDS))) {
-            Log::warning('IngestGpsData: date_time too far in the past — resync to server', [
-                'imei' => $imei,
-                'index' => $index,
-                'raw' => $formatted,
-                'server_now' => $fallback,
-                'skew_hours' => round($dt->diffInSeconds($now) / 3600, 1),
-            ]);
-
-            return $fallback;
-        }
-
-        if ($dt->gt($now->copy()->addSeconds(self::MAX_FUTURE_SKEW_SECONDS))) {
-            Log::warning('IngestGpsData: date_time too far in the future — resync to server', [
-                'imei' => $imei,
-                'index' => $index,
-                'raw' => $formatted,
-                'server_now' => $fallback,
-            ]);
-
-            return $fallback;
-        }
-
-        return $formatted;
-    }
-
-    /**
-     * Normalize date_time and resolve (imei, date_time) collisions inside one packet.
-     *
-     * Same-second points are ordered by geographic progression (nearest-neighbor
-     * chain along the trail), then given consecutive seconds so
-     * gps_data_imei_date_time_unique + insertOrIgnore does not drop them.
-     *
-     * @param  array<int, array<string, mixed>>  $records
-     * @return array<int, array<string, mixed>>
-     */
-    private function ensureUniqueDateTimes(array $records): array
-    {
-        if ($records === []) {
-            return [];
-        }
-
-        $prepared = [];
-        foreach ($records as $index => $record) {
-            $dt = $this->normalizeDeviceDateTime(
-                (string) ($record['date_time'] ?? ''),
-                (string) ($record['imei'] ?? ''),
-                $index
-            );
-
-            [$lat, $lon] = $this->parseCoordinatePair($record['coordinate'] ?? null);
-            $prepared[] = [
-                'record' => $record,
-                'imei' => (string) ($record['imei'] ?? ''),
-                'date_time' => $dt,
-                'lat' => $lat,
-                'lon' => $lon,
-                'index' => $index,
-            ];
-        }
-
-        $byImei = [];
-        foreach ($prepared as $item) {
-            $byImei[$item['imei']][] = $item;
-        }
-
-        $resolved = [];
-        foreach ($byImei as $imeiItems) {
-            $resolved = array_merge($resolved, $this->assignUniqueDateTimesForImei($imeiItems));
-        }
-
-        usort($resolved, fn (array $a, array $b) => $a['index'] <=> $b['index']);
-
-        return array_map(static function (array $item) {
-            $record = $item['record'];
-            $record['date_time'] = $item['date_time'];
-
-            return $record;
-        }, $resolved);
-    }
-
-    /**
-     * @param  array<int, array{record: array<string, mixed>, imei: string, date_time: string, lat: float, lon: float, index: int}>  $items
-     * @return array<int, array{record: array<string, mixed>, imei: string, date_time: string, lat: float, lon: float, index: int}>
-     */
-    private function assignUniqueDateTimesForImei(array $items): array
-    {
-        $groups = [];
-        foreach ($items as $item) {
-            $groups[$item['date_time']][] = $item;
-        }
-        ksort($groups);
-
-        $used = [];
-        $out = [];
-        $previous = null;
-
-        foreach ($groups as $baseDateTime => $group) {
-            $ordered = count($group) > 1
-                ? $this->orderBySpatialProgression($group, $previous)
-                : $group;
-
-            $dt = $baseDateTime;
-            foreach ($ordered as $item) {
-                while (isset($used[$dt])) {
-                    $dt = Carbon::parse($dt)->addSecond()->format('Y-m-d H:i:s');
-                }
-
-                $item['date_time'] = $dt;
-                $used[$dt] = true;
-                $previous = $item;
-                $out[] = $item;
-                $dt = Carbon::parse($dt)->addSecond()->format('Y-m-d H:i:s');
-            }
-        }
-
-        return $out;
-    }
-
-    /**
-     * Nearest-neighbor chain: start nearest to previous point (or earliest packet
-     * index), then repeatedly append the spatially closest remaining point.
-     *
-     * @param  array<int, array{record: array<string, mixed>, imei: string, date_time: string, lat: float, lon: float, index: int}>  $group
-     * @param  array{lat: float, lon: float}|null  $previous
-     * @return array<int, array{record: array<string, mixed>, imei: string, date_time: string, lat: float, lon: float, index: int}>
-     */
-    private function orderBySpatialProgression(array $group, ?array $previous): array
-    {
-        $remaining = array_values($group);
-        $ordered = [];
-
-        if ($previous !== null) {
-            $startPos = 0;
-            $best = null;
-            foreach ($remaining as $i => $item) {
-                $d = $this->haversineMeters($previous['lat'], $previous['lon'], $item['lat'], $item['lon']);
-                if ($best === null || $d < $best) {
-                    $best = $d;
-                    $startPos = $i;
-                }
-            }
-            $current = $remaining[$startPos];
-            array_splice($remaining, $startPos, 1);
-        } else {
-            usort($remaining, fn (array $a, array $b) => $a['index'] <=> $b['index']);
-            $current = array_shift($remaining);
-        }
-
-        $ordered[] = $current;
-
-        while ($remaining !== []) {
-            $nearestPos = 0;
-            $best = null;
-            foreach ($remaining as $i => $item) {
-                $d = $this->haversineMeters($current['lat'], $current['lon'], $item['lat'], $item['lon']);
-                if ($best === null || $d < $best || ($d === $best && $item['index'] < $remaining[$nearestPos]['index'])) {
-                    $best = $d;
-                    $nearestPos = $i;
-                }
-            }
-            $current = $remaining[$nearestPos];
-            array_splice($remaining, $nearestPos, 1);
-            $ordered[] = $current;
-        }
-
-        return $ordered;
+        return $dt->format('Y-m-d H:i:s');
     }
 
     /**
@@ -802,17 +744,6 @@ class IngestGpsData implements ShouldQueue
         return [0.0, 0.0];
     }
 
-    private function haversineMeters(float $lat1, float $lon1, float $lat2, float $lon2): float
-    {
-        $earthRadius = 6371000.0;
-        $dLat = deg2rad($lat2 - $lat1);
-        $dLon = deg2rad($lon2 - $lon1);
-        $a = sin($dLat / 2) ** 2
-            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLon / 2) ** 2;
-
-        return 2 * $earthRadius * asin(min(1.0, sqrt($a)));
-    }
-
     /**
      * @param  array<string, mixed>  $item
      * @return array<string, mixed>|null
@@ -826,9 +757,18 @@ class IngestGpsData implements ShouldQueue
             return null;
         }
 
-        $imei = isset($item['imei']) && is_scalar($item['imei']) && (string) $item['imei'] !== ''
-            ? (string) $item['imei']
-            : $fallbackImei;
+        $imei = isset($item['imei']) && is_scalar($item['imei']) && trim((string) $item['imei']) !== ''
+            ? trim((string) $item['imei'])
+            : '';
+
+        if ($imei === '') {
+            Log::warning('IngestGpsData: GPS frame has no IMEI and cannot be mapped', [
+                'index' => $index,
+                'tractor_id' => $tractorId,
+            ]);
+
+            return null;
+        }
 
         $dateTime = $item['date_time'] ?? null;
         if (! is_scalar($dateTime) || (string) $dateTime === '') {
@@ -841,6 +781,11 @@ class IngestGpsData implements ShouldQueue
             return null;
         }
 
+        $normalizedDateTime = $this->normalizeDeviceDateTime((string) $dateTime, $imei, $index);
+        if ($normalizedDateTime === null) {
+            return null;
+        }
+
         return [
             'tractor_id' => $tractorId,
             'coordinate' => $coordinate,
@@ -848,7 +793,7 @@ class IngestGpsData implements ShouldQueue
             'status' => (int) ($item['status'] ?? 0),
             'directions' => $directions,
             'imei' => $imei,
-            'date_time' => (string) $dateTime,
+            'date_time' => $normalizedDateTime,
         ];
     }
 

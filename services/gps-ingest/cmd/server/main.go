@@ -15,6 +15,7 @@ import (
 	"github.com/pistat-hamgit/gps-ingest/internal/config"
 	"github.com/pistat-hamgit/gps-ingest/internal/device"
 	httpserver "github.com/pistat-hamgit/gps-ingest/internal/http"
+	"github.com/pistat-hamgit/gps-ingest/internal/ledger"
 	"github.com/pistat-hamgit/gps-ingest/internal/metrics"
 	"github.com/pistat-hamgit/gps-ingest/internal/pipeline"
 	"github.com/pistat-hamgit/gps-ingest/internal/storage"
@@ -55,12 +56,15 @@ func main() {
 		collector,
 	)
 	writer := storage.NewWriter(gpsDB)
+	eventLedger := ledger.NewStore(gpsDB, cfg.LedgerSpoolPath)
 	broadcaster := broadcast.NewClient(cfg)
+	broadcastOutbox := broadcast.NewStore(gpsDB)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	pipe := pipeline.New(cfg, collector, resolver, writer, broadcaster, mainDB, redisClient)
+	pipe := pipeline.New(cfg, collector, resolver, writer, broadcaster, mainDB, redisClient, eventLedger)
+	pipe.SetBroadcastOutbox(broadcastOutbox)
 	pipe.Start(ctx)
 
 	healthFn := func() bool {
@@ -77,7 +81,7 @@ func main() {
 		return depth/capacity < cfg.HealthChannelMaxDepthPct
 	}
 
-	server := httpserver.New(cfg.AllowedIPs, pipe, collector, healthFn)
+	server := httpserver.New(cfg.AllowedIPs, pipe, collector, healthFn, eventLedger)
 	httpServer := &http.Server{
 		Addr:              cfg.HTTPAddr,
 		Handler:           server.Handler(),

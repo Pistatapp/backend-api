@@ -107,7 +107,7 @@ class IngestGpsDataTest extends TestCase
     public function test_does_not_dispatch_broadcast_when_no_tractor_for_imei(): void
     {
         Queue::fake();
-        Log::fake();
+        Log::spy();
 
         $data = $this->sampleData();
         $job = new IngestGpsData($data);
@@ -115,10 +115,9 @@ class IngestGpsDataTest extends TestCase
 
         Queue::assertNotPushed(BroadcastGpsEvents::class);
 
-        Log::assertLogged(function ($log) {
-            return $log->level === 'warning'
-                && str_contains($log->message, 'unbound IMEI')
-                && ($log->context['imei'] ?? null) === '863070046120282';
+        Log::shouldHaveReceived('warning')->withArgs(function ($message, $context = []) {
+            return str_contains((string) $message, 'GPS item quarantined')
+                && ($context['imei'] ?? null) === '863070046120282';
         });
     }
 
@@ -130,34 +129,41 @@ class IngestGpsDataTest extends TestCase
         $this->assertCount(1, $middleware);
         $this->assertInstanceOf(WithoutOverlapping::class, $middleware[0]);
 
-        $reflection = new \ReflectionObject($middleware[0]);
-        $dontRelease = $reflection->getProperty('dontRelease');
-        $dontRelease->setAccessible(true);
-        $this->assertFalse($dontRelease->getValue($middleware[0]));
-
-        $releaseAfter = $reflection->getProperty('releaseAfter');
-        $releaseAfter->setAccessible(true);
-        $this->assertSame(3, $releaseAfter->getValue($middleware[0]));
+        $this->assertSame(3, $middleware[0]->releaseAfter);
+        $this->assertGreaterThan(0, $middleware[0]->expiresAfter);
     }
 
-    public function test_uses_first_item_imei_to_resolve_tractor(): void
+    public function test_processes_each_imei_against_its_own_tractor(): void
     {
         $this->skipIfMysqlGpsNotAvailable();
         Queue::fake();
 
         $farm = Farm::factory()->create();
         $tractor = Tractor::factory()->create(['farm_id' => $farm->id]);
+        $secondTractor = Tractor::factory()->create(['farm_id' => $farm->id]);
         GpsDevice::factory()->create([
             'tractor_id' => $tractor->id,
             'imei' => '863070046120282',
+        ]);
+        GpsDevice::factory()->create([
+            'tractor_id' => $secondTractor->id,
+            'imei' => '863070043373009',
         ]);
 
         $data = $this->sampleData();
         $job = new IngestGpsData($data);
         $job->handle();
 
+        Queue::assertPushed(BroadcastGpsEvents::class, 2);
         Queue::assertPushed(BroadcastGpsEvents::class, function (BroadcastGpsEvents $broadcastJob) use ($tractor) {
-            return $broadcastJob->tractorId === $tractor->id && count($broadcastJob->data) === 2;
+            return $broadcastJob->tractorId === $tractor->id
+                && count($broadcastJob->data) === 1
+                && $broadcastJob->data[0]['imei'] === '863070046120282';
+        });
+        Queue::assertPushed(BroadcastGpsEvents::class, function (BroadcastGpsEvents $broadcastJob) use ($secondTractor) {
+            return $broadcastJob->tractorId === $secondTractor->id
+                && count($broadcastJob->data) === 1
+                && $broadcastJob->data[0]['imei'] === '863070043373009';
         });
     }
 
@@ -189,7 +195,7 @@ class IngestGpsDataTest extends TestCase
         $this->assertSame(1, $count);
     }
 
-    public function test_replay_updates_existing_row_when_coordinate_differs(): void
+    public function test_replay_keeps_a_second_event_when_coordinate_differs(): void
     {
         $this->skipIfMysqlGpsNotAvailable();
         Queue::fake();
@@ -216,11 +222,8 @@ class IngestGpsDataTest extends TestCase
             ->where('date_time', $base['date_time'])
             ->get();
 
-        $this->assertCount(1, $rows);
-        $coord = json_decode($rows[0]->coordinate, true);
-        $this->assertEqualsWithDelta(35.999001, (float) $coord[0], 0.000001);
-        $this->assertEqualsWithDelta(50.999001, (float) $coord[1], 0.000001);
-        $this->assertSame(42, (int) $rows[0]->speed);
+        $this->assertCount(2, $rows);
+        $this->assertSame([10, 42], $rows->pluck('speed')->map(fn ($s) => (int) $s)->all());
     }
 
     public function test_incoming_batch_deduplicates_exact_coordinate_duplicates(): void
@@ -277,7 +280,7 @@ class IngestGpsDataTest extends TestCase
         Log::assertLogged(fn ($log) => $log->level === 'warning' && str_contains($log->message, 'missing field'));
     }
 
-    public function test_colliding_date_times_are_ordered_by_spatial_progression_then_staggered(): void
+    public function test_colliding_date_times_are_preserved_without_timestamp_rewrite(): void
     {
         $this->skipIfMysqlGpsNotAvailable();
         Queue::fake();
@@ -291,7 +294,7 @@ class IngestGpsDataTest extends TestCase
 
         $base = $this->sampleData()[0];
         $baseTime = Carbon::now()->subMinute()->format('Y-m-d H:i:s');
-        // Packet order is A, C, B (C is farther than B). Spatial chain must be A→B→C.
+        // Packet order is A, C, B. Device timestamps are equal and must remain equal.
         $batch = [
             array_merge($base, [
                 'date_time' => $baseTime,
@@ -315,29 +318,20 @@ class IngestGpsDataTest extends TestCase
 
         (new IngestGpsData($batch))->handle();
 
-        $endTime = Carbon::parse($baseTime)->addSeconds(2)->format('Y-m-d H:i:s');
         $rows = DB::connection('mysql_gps')
             ->table('gps_data')
             ->where('imei', '863070046120282')
-            ->where('date_time', '>=', $baseTime)
-            ->where('date_time', '<=', $endTime)
-            ->orderBy('date_time')
+            ->where('date_time', $baseTime)
+            ->orderBy('id')
             ->get(['date_time', 'speed', 'coordinate']);
 
         $this->assertCount(3, $rows);
-        $this->assertSame(
-            [
-                $baseTime,
-                Carbon::parse($baseTime)->addSecond()->format('Y-m-d H:i:s'),
-                Carbon::parse($baseTime)->addSeconds(2)->format('Y-m-d H:i:s'),
-            ],
-            $rows->pluck('date_time')->map(fn ($dt) => (string) $dt)->all()
-        );
-        // Speeds follow spatial order A(10) → B(12) → C(14), not packet order A,C,B.
-        $this->assertSame([10, 12, 14], $rows->pluck('speed')->map(fn ($s) => (int) $s)->all());
+        $this->assertSame([$baseTime, $baseTime, $baseTime], $rows->pluck('date_time')->map(fn ($dt) => (string) $dt)->all());
+        // Equal device timestamps use insertion id as the stable tie-breaker.
+        $this->assertSame([10, 14, 12], $rows->pluck('speed')->map(fn ($s) => (int) $s)->all());
     }
 
-    public function test_skewed_past_date_time_is_resynced_to_server_now(): void
+    public function test_skewed_past_date_time_is_preserved_for_offline_history(): void
     {
         $this->skipIfMysqlGpsNotAvailable();
         Queue::fake();
@@ -350,8 +344,6 @@ class IngestGpsDataTest extends TestCase
         ]);
 
         $stuck = Carbon::now()->subDays(2)->format('Y-m-d H:i:s');
-        $before = Carbon::now()->subSecond();
-
         $batch = [
             array_merge($this->sampleData()[0], [
                 'date_time' => $stuck,
@@ -370,9 +362,6 @@ class IngestGpsDataTest extends TestCase
             ->first(['date_time']);
 
         $this->assertNotNull($row);
-        $stored = Carbon::parse((string) $row->date_time);
-        $this->assertTrue($stored->gte($before), 'stuck Jul-style clock must be resynced to server now');
-        $this->assertTrue($stored->lte(Carbon::now()->addMinute()));
-        $this->assertNotSame($stuck, $stored->format('Y-m-d H:i:s'));
+        $this->assertSame($stuck, (string) $row->date_time);
     }
 }

@@ -8,7 +8,8 @@ import (
 )
 
 type Config struct {
-	HTTPAddr string
+	HTTPAddr        string
+	LedgerSpoolPath string
 
 	AllowedIPs map[string]struct{}
 
@@ -54,7 +55,8 @@ type Config struct {
 
 func Load() Config {
 	return Config{
-		HTTPAddr: getenv("GPS_INGEST_HTTP_ADDR", ":8081"),
+		HTTPAddr:        getenv("GPS_INGEST_HTTP_ADDR", ":8081"),
+		LedgerSpoolPath: getenv("GPS_INGEST_LEDGER_PATH", "/home/api/public_html/storage/app/gps-ingest-ledger-go.ndjson"),
 
 		AllowedIPs: parseIPAllowlist(getenv("GPS_REPORTS_RATE_LIMIT_EXEMPT_IPS", "94.101.187.206,127.0.0.1")),
 

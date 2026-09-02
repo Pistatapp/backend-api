@@ -175,6 +175,129 @@ class IrrigationReportServiceTest extends TestCase
         $this->assertArrayHasKey('total_count', $report['accumulated']);
     }
 
+    /** D1: three simultaneous Karts contribute two elapsed hours, not six. */
+    public function test_d1_three_simultaneous_karts_use_union_duration(): void
+    {
+        [$farm, $field, $plotOne, $plotTwo] = $this->makeScope();
+        $plotThree = Plot::factory()->create(['field_id' => $field->id]);
+
+        $this->makeIrrigation($farm, $plotOne, $this->makeValve($plotOne, 1000, 1, 0.5), '2026-08-10 10:00:00', '2026-08-10 12:00:00');
+        $this->makeIrrigation($farm, $plotTwo, $this->makeValve($plotTwo, 1000, 1, 0.4), '2026-08-10 10:00:00', '2026-08-10 12:00:00');
+        $this->makeIrrigation($farm, $plotThree, $this->makeValve($plotThree, 1000, 1, 0.7), '2026-08-10 10:00:00', '2026-08-10 12:00:00');
+
+        $report = $this->report($farm, ['field_ids' => [$field->id]], '2026-08-10', '2026-08-10');
+
+        $this->assertSame('02:00:00', $report['irrigations'][0]['total_duration']);
+        $this->assertSame('02:00:00', $report['accumulated']['total_duration']);
+        $this->assertEqualsWithDelta(6.0, $report['accumulated']['total_volume'], 0.0001);
+    }
+
+    /** D2: a single Plot keeps its own elapsed interval. */
+    public function test_d2_single_plot_duration_is_not_affected_by_other_plots(): void
+    {
+        [$farm, , $plot] = $this->makeScope();
+        $this->makeIrrigation($farm, $plot, $this->makeValve($plot, 1000, 1, 0.5), '2026-08-10 10:00:00', '2026-08-10 12:00:00');
+
+        $report = $this->report($farm, ['plot_ids' => [$plot->id]], '2026-08-10', '2026-08-10');
+
+        $this->assertSame('02:00:00', $report['accumulated']['total_duration']);
+    }
+
+    /** D3: partially overlapping intervals merge into one three-hour period. */
+    public function test_d3_partial_overlap_uses_union_duration(): void
+    {
+        [$farm, $field, $plotOne, $plotTwo] = $this->makeScope();
+        $this->makeIrrigation($farm, $plotOne, $this->makeValve($plotOne, 1000, 1, 0.5), '2026-08-10 10:00:00', '2026-08-10 12:00:00');
+        $this->makeIrrigation($farm, $plotTwo, $this->makeValve($plotTwo, 1000, 1, 0.4), '2026-08-10 11:00:00', '2026-08-10 13:00:00');
+
+        $report = $this->report($farm, ['field_ids' => [$field->id]], '2026-08-10', '2026-08-10');
+
+        $this->assertSame('03:00:00', $report['accumulated']['total_duration']);
+    }
+
+    /** D4: non-overlapping intervals remain additive. */
+    public function test_d4_non_overlapping_intervals_add_duration(): void
+    {
+        [$farm, $field, $plotOne, $plotTwo] = $this->makeScope();
+        $this->makeIrrigation($farm, $plotOne, $this->makeValve($plotOne, 1000, 1, 0.5), '2026-08-10 08:00:00', '2026-08-10 10:00:00');
+        $this->makeIrrigation($farm, $plotTwo, $this->makeValve($plotTwo, 1000, 1, 0.4), '2026-08-10 14:00:00', '2026-08-10 16:00:00');
+
+        $report = $this->report($farm, ['field_ids' => [$field->id]], '2026-08-10', '2026-08-10');
+
+        $this->assertSame('04:00:00', $report['accumulated']['total_duration']);
+    }
+
+    /** D5: duplicate records for one interval do not duplicate elapsed time. */
+    public function test_d5_duplicate_intervals_count_once_for_duration(): void
+    {
+        [$farm, , $plot] = $this->makeScope();
+        $valve = $this->makeValve($plot, 1000, 1, 0.5);
+        $this->makeIrrigation($farm, $plot, $valve, '2026-08-10 10:00:00', '2026-08-10 12:00:00');
+        $this->makeIrrigation($farm, $plot, $valve, '2026-08-10 10:00:00', '2026-08-10 12:00:00');
+
+        $report = $this->report($farm, ['plot_ids' => [$plot->id]], '2026-08-10', '2026-08-10');
+
+        $this->assertSame('02:00:00', $report['accumulated']['total_duration']);
+    }
+
+    /** D6: a cross-midnight interval is clipped per local Tehran calendar day. */
+    public function test_d6_cross_midnight_duration_is_split_by_day(): void
+    {
+        [$farm, , $plot] = $this->makeScope();
+        $this->makeIrrigation($farm, $plot, $this->makeValve($plot, 1000, 1, 0.5), '2026-08-10 22:00:00', '2026-08-11 02:00:00');
+
+        $report = $this->report($farm, ['plot_ids' => [$plot->id]], '2026-08-10', '2026-08-11');
+
+        $this->assertSame(['02:00:00', '02:00:00'], collect($report['irrigations'])->pluck('total_duration')->all());
+        $this->assertSame('04:00:00', $report['accumulated']['total_duration']);
+    }
+
+    /** I2: daily intensity aggregates volumes and area occurrences first. */
+    public function test_i2_daily_intensity_uses_daily_volume_over_area_occurrences(): void
+    {
+        [$farm, , $plotOne, $plotTwo] = $this->makeScope();
+        $this->makeIrrigation($farm, $plotOne, $this->makeValve($plotOne, 100000, 1, 0.5), '2026-08-10 10:00:00', '2026-08-10 11:00:00');
+        $this->makeIrrigation($farm, $plotTwo, $this->makeValve($plotTwo, 150000, 1, 0.5), '2026-08-10 12:00:00', '2026-08-10 13:00:00');
+
+        $report = $this->report($farm, ['plot_ids' => [$plotOne->id, $plotTwo->id]], '2026-08-10', '2026-08-10');
+
+        $this->assertEqualsWithDelta(250.0, $report['irrigations'][0]['total_volume'], 0.0001);
+        $this->assertEqualsWithDelta(1.0, $report['irrigations'][0]['irrigated_area_ha'], 0.0001);
+        $this->assertEqualsWithDelta(250.0, $report['irrigations'][0]['total_volume_per_hectare'], 0.0001);
+    }
+
+    /** I3: the same Kart on two days contributes two hectare-occurrences. */
+    public function test_i3_same_kart_on_two_days_counts_two_area_occurrences(): void
+    {
+        [$farm, , $plot] = $this->makeScope();
+        $this->makeIrrigation($farm, $plot, $this->makeValve($plot, 100000, 1, 0.5), '2026-08-10 10:00:00', '2026-08-10 11:00:00');
+        $this->makeIrrigation($farm, $plot, $this->makeValve($plot, 150000, 1, 0.5), '2026-08-11 10:00:00', '2026-08-11 11:00:00');
+
+        $report = $this->report($farm, ['plot_ids' => [$plot->id]], '2026-08-10', '2026-08-11');
+
+        $this->assertEqualsWithDelta(250.0, $report['accumulated']['total_volume'], 0.0001);
+        $this->assertEqualsWithDelta(1.0, $report['accumulated']['total_irrigated_area_ha'], 0.0001);
+        $this->assertEqualsWithDelta(250.0, $report['accumulated']['total_volume_per_hectare'], 0.0001);
+    }
+
+    /** I5: field polygon metadata is not the irrigated-area denominator. */
+    public function test_i5_physical_field_area_is_not_used_for_intensity(): void
+    {
+        [$farm, $field, $plot] = $this->makeScope();
+        $field->update([
+            'coordinates' => [[35.0, 51.0], [35.0, 51.01], [35.01, 51.01], [35.01, 51.0]],
+        ]);
+        $this->makeIrrigation($farm, $plot, $this->makeValve($plot, 510000, 1, 2.3), '2026-08-10 10:00:00', '2026-08-10 11:00:00');
+
+        $report = $this->report($farm, ['field_ids' => [$field->id]], '2026-08-10', '2026-08-10');
+
+        $this->assertNotEqualsWithDelta(2.3, $report['accumulated']['physical_area_ha'], 0.0001);
+        $this->assertSame('irrigation_area_ha', $report['accumulated']['area_source']);
+        $this->assertEqualsWithDelta(510.0, $report['accumulated']['total_volume'], 0.0001);
+        $this->assertEqualsWithDelta(2.3, $report['accumulated']['total_irrigated_area_ha'], 0.0001);
+        $this->assertEqualsWithDelta(510 / 2.3, $report['accumulated']['total_volume_per_hectare'], 0.0001);
+    }
+
     /** Off-scope valves stay excluded; period volume equals sum of daily volumes. */
     public function test_selected_plot_report_excludes_off_scope_valves(): void
     {
@@ -243,6 +366,14 @@ class IrrigationReportServiceTest extends TestCase
         $this->assertSame([], $report['irrigations']);
         $this->assertNull($report['accumulated']['total_volume_per_hectare']);
         $this->assertSame(0, $report['accumulated']['total_count']);
+    }
+
+    private function report(Farm $farm, array $scope, string $fromDate, string $toDate): array
+    {
+        return app(IrrigationReportService::class)->getAggregatedReports($farm, array_merge($scope, [
+            'from_date' => Carbon::parse($fromDate, IrrigationReportCalculationService::TIMEZONE),
+            'to_date' => Carbon::parse($toDate, IrrigationReportCalculationService::TIMEZONE),
+        ]));
     }
 
     /** @return array{0: Farm, 1: Field, 2: Plot, 3: Plot} */
