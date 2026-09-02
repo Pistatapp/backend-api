@@ -37,6 +37,11 @@ class FarmValveIndexTest extends TestCase
         $response = $this->actingAs($user, 'sanctum')
             ->getJson("/api/farms/{$farm->id}/valves");
 
+        fwrite(STDERR, 'DEBUG member='.($farm->users()->whereKey($user->id)->exists() ? 'yes' : 'no').' username='.($user->username ?? 'null').' response='.$response->getContent().PHP_EOL);
+        if ($response->status() !== 200) {
+            fwrite(STDERR, json_encode($response->json(), JSON_PRETTY_PRINT).PHP_EOL);
+        }
+
         $response->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonStructure([
