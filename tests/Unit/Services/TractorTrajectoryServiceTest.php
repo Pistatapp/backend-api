@@ -4,6 +4,7 @@ namespace Tests\Unit\Services;
 
 use App\Services\DeviceTrajectoryProfileResolver;
 use App\Services\TractorTrajectoryService;
+use Carbon\Carbon;
 use Tests\TestCase;
 
 class TractorTrajectoryServiceTest extends TestCase
@@ -53,12 +54,11 @@ class TractorTrajectoryServiceTest extends TestCase
         $rows = [];
         $coords = [[35.0, 51.0], [35.00005, 51.00004], [34.99996, 51.00006], [35.00004, 50.99995], [35.0, 51.00003]];
         foreach ($coords as $i => $coordinate) {
-            $rows[] = $this->row($i + 1, sprintf('2026-09-02 08:00:%02d', $i * 20), 0, $coordinate);
+            $rows[] = $this->row($i + 1, Carbon::parse('2026-09-02 08:00:00')->addSeconds($i * 20)->toDateTimeString(), 0, $coordinate);
         }
 
         $result = $this->service->analyze($rows, $this->profile());
 
-        fwrite(STDERR, json_encode(array_map(static fn (array $row): array => [$row['trajectory_classification'], $row['is_display_point']], $result['rows'])).PHP_EOL);
         $this->assertSame(1, $result['metrics']['stationary_cluster_count']);
         $this->assertEquals(0.0, $result['metrics']['operational_movement_distance_meters']);
         $this->assertCount(1, array_filter($result['rows'], fn ($row) => $row['is_display_point']));

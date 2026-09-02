@@ -32,7 +32,7 @@ class ValveController extends Controller
 
         $valves = Valve::query()
             ->whereHas('plot.field', function ($query) use ($farm) {
-                $query->whereKey($farm->id);
+                $query->where('farm_id', $farm->id);
             })
             ->with('plot')
             ->orderBy('id')
