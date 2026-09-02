@@ -39,7 +39,23 @@ class FarmValveIndexTest extends TestCase
 
         $response->assertOk()
             ->assertJsonCount(1, 'data')
+            ->assertJsonStructure([
+                'data' => [[
+                    'id',
+                    'plot_id',
+                    'name',
+                    'location',
+                    'is_open',
+                    'irrigation_area',
+                    'dripper_count',
+                    'dripper_flow_rate',
+                    'unique_id',
+                    'plot',
+                    'created_at',
+                ]],
+            ])
             ->assertJsonPath('data.0.id', $farmValve->id)
+            ->assertJsonPath('data.0.name', $farmValve->name)
             ->assertJsonPath('data.0.plot_id', $farmPlot->id);
     }
 
