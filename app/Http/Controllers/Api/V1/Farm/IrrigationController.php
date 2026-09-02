@@ -171,6 +171,11 @@ class IrrigationController extends Controller
      */
     public function getIrrigationMessages(Request $request, Farm $farm)
     {
+        abort_unless(
+            $farm->users()->whereKey($request->user()->id)->exists(),
+            403,
+        );
+
         // Determine verified filter value: if verified parameter is present, use it (0=false, 1=true), otherwise default to false
         $isVerified = $request->has('verified')
             ? (bool) $request->query('verified')

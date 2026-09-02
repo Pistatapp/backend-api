@@ -171,6 +171,15 @@ class IrrigationService
             ->whereNotNull('start_time')
             ->whereNotNull('end_time')
             ->whereColumn('end_time', '>', 'start_time')
+            // A completed irrigation review is private workflow data.  The
+            // farm route is authenticated, but farm membership alone is not
+            // sufficient to expose another operator's review message.
+            ->where(function ($query) use ($user) {
+                $query->where('created_by', $user->id)
+                    ->orWhereHas('farm.admins', function ($adminQuery) use ($user) {
+                        $adminQuery->whereKey($user->id);
+                    });
+            })
             ->with(['plots', 'valves'])
             ->latest()
             ->paginate($perPage);
