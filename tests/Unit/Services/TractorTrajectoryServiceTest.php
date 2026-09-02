@@ -2,6 +2,8 @@
 
 namespace Tests\Unit\Services;
 
+use App\Models\GpsDevice;
+use App\Models\Tractor;
 use App\Services\DeviceTrajectoryProfileResolver;
 use App\Services\TractorTrajectoryService;
 use Carbon\Carbon;
@@ -131,6 +133,26 @@ class TractorTrajectoryServiceTest extends TestCase
     {
         $this->assertSame('UNKNOWN', app(DeviceTrajectoryProfileResolver::class)->resolve(null)['name']);
         $this->assertArrayHasKey('noise_radius_meters', app(DeviceTrajectoryProfileResolver::class)->resolve(null));
+    }
+
+    public function test_profile_resolver_recognizes_persian_device_names(): void
+    {
+        $resolver = app(DeviceTrajectoryProfileResolver::class);
+
+        $teltonika = Tractor::factory()->create();
+        GpsDevice::factory()->for($teltonika)->create([
+            'device_type' => null,
+            'name' => 'تلتونیکا',
+        ]);
+
+        $hooshnics = Tractor::factory()->create();
+        GpsDevice::factory()->for($hooshnics)->create([
+            'device_type' => 'tractor_gps',
+            'name' => 'هوشنیکس 1',
+        ]);
+
+        $this->assertSame('TELTONIKA', $resolver->resolve($teltonika)['name']);
+        $this->assertSame('HOOSHNICS_STANDARD', $resolver->resolve($hooshnics)['name']);
     }
 
     private function profile(): array

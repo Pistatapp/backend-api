@@ -20,8 +20,8 @@ class DeviceTrajectoryProfileResolver
         ])));
 
         $profileName = match (true) {
-            str_contains($metadata, 'teltonika') => 'TELTONIKA',
-            str_contains($metadata, 'hoosh') => 'HOOSHNICS_STANDARD',
+            str_contains($metadata, 'teltonika') || str_contains($metadata, 'تلتونیکا') => 'TELTONIKA',
+            str_contains($metadata, 'hoosh') || str_contains($metadata, 'هوشنیکس') => 'HOOSHNICS_STANDARD',
             default => 'UNKNOWN',
         };
 
