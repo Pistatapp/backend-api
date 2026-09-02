@@ -25,9 +25,19 @@ class DeviceTrajectoryProfileResolver
             default => 'UNKNOWN',
         };
 
+        $defaults = [
+            'noise_radius_meters' => 15.0,
+            'max_plausible_speed_kmh' => 45.0,
+            'gap_seconds' => 600,
+        ];
+        $configured = config('trajectory.profiles.'.$profileName);
+        if (is_array($configured)) {
+            $defaults = array_merge($defaults, $configured);
+        }
+
         return [
             'name' => $profileName,
-            ...config('trajectory.profiles.'.$profileName, config('trajectory.profiles.UNKNOWN')),
+            ...$defaults,
         ];
     }
 }

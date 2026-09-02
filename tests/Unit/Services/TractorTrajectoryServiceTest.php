@@ -59,7 +59,7 @@ class TractorTrajectoryServiceTest extends TestCase
         $result = $this->service->analyze($rows, $this->profile());
 
         $this->assertSame(1, $result['metrics']['stationary_cluster_count']);
-        $this->assertSame(0, $result['metrics']['operational_movement_distance_meters']);
+        $this->assertEquals(0.0, $result['metrics']['operational_movement_distance_meters']);
         $this->assertCount(1, array_filter($result['rows'], fn ($row) => $row['is_display_point']));
         $this->assertCount(5, $result['rows']);
     }
