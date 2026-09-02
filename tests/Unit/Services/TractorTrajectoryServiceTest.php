@@ -58,6 +58,7 @@ class TractorTrajectoryServiceTest extends TestCase
 
         $result = $this->service->analyze($rows, $this->profile());
 
+        fwrite(STDERR, json_encode(array_map(static fn (array $row): array => [$row['trajectory_classification'], $row['is_display_point']], $result['rows'])).PHP_EOL);
         $this->assertSame(1, $result['metrics']['stationary_cluster_count']);
         $this->assertEquals(0.0, $result['metrics']['operational_movement_distance_meters']);
         $this->assertCount(1, array_filter($result['rows'], fn ($row) => $row['is_display_point']));
