@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\Farm;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ValveResource;
+use App\Models\Farm;
 use App\Models\Plot;
 use App\Models\Valve;
 use Illuminate\Http\Request;
@@ -13,6 +14,31 @@ class ValveController extends Controller
     public function __construct()
     {
         $this->authorizeResource(Valve::class, 'valve');
+    }
+
+    /**
+     * Display all valves belonging to a farm.
+     *
+     * This endpoint is used by the irrigation map and selection flows. The
+     * resource route is plot-scoped, so it cannot serve the farm-wide mobile
+     * request without this explicit read-only projection.
+     */
+    public function indexForFarm(Request $request, Farm $farm)
+    {
+        abort_unless(
+            $farm->users()->whereKey($request->user()->id)->exists(),
+            403,
+        );
+
+        $valves = Valve::query()
+            ->whereHas('plot.field', function ($query) use ($farm) {
+                $query->whereKey($farm->id);
+            })
+            ->with('plot')
+            ->orderBy('id')
+            ->get();
+
+        return ValveResource::collection($valves);
     }
 
     /**
