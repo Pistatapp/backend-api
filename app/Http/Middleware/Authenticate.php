@@ -15,6 +15,8 @@ class Authenticate extends Middleware
         // API clients may omit Accept: application/json. Never redirect an
         // unauthenticated API request to the web login route (which is not
         // registered in this API-only application); return the normal 401.
-        return $request->is('api/*') || $request->expectsJson() ? null : route('login');
+        $isApiRequest = str_starts_with($request->getPathInfo(), '/api/');
+
+        return $isApiRequest || $request->expectsJson() ? null : route('login');
     }
 }
