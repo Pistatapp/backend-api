@@ -143,12 +143,14 @@ class TractorTrajectoryServiceTest extends TestCase
         GpsDevice::factory()->for($teltonika)->create([
             'device_type' => null,
             'name' => 'تلتونیکا',
+            'imei' => 'test-persian-teltonika-'.uniqid(),
         ]);
 
         $hooshnics = Tractor::factory()->create();
         GpsDevice::factory()->for($hooshnics)->create([
             'device_type' => 'tractor_gps',
             'name' => 'هوشنیکس 1',
+            'imei' => 'test-persian-hooshnics-'.uniqid(),
         ]);
 
         $this->assertSame('TELTONIKA', $resolver->resolve($teltonika)['name']);
