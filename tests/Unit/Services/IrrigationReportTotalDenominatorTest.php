@@ -22,6 +22,23 @@ class IrrigationReportTotalDenominatorTest extends TestCase
         $this->assertSame(200.0, $calculator->volumePerHectareFromHa(780.0, 3.90));
     }
 
+    public function test_field_nine_period_example_uses_selected_valve_area_once(): void
+    {
+        $calculator = new IrrigationReportCalculationService();
+        $areas = [1.00, 1.00, 1.45, 1.45];
+        $valves = collect($areas)->values()->map(function (float $area, int $index): Valve {
+            $valve = new Valve(['irrigation_area' => $area]);
+            $valve->id = 77 + $index;
+
+            return $valve;
+        });
+
+        $denominator = $calculator->selectedValveAreaHectares($valves);
+
+        $this->assertSame(4.90, $denominator);
+        $this->assertEqualsWithDelta(979.2, $calculator->volumePerHectareFromHa(4798.08, $denominator), 0.000001);
+    }
+
     public function test_repeated_events_do_not_repeat_a_valves_area(): void
     {
         $calculator = new IrrigationReportCalculationService();
