@@ -18,8 +18,8 @@ class IrrigationReportTotalDenominatorTest extends TestCase
         $c = new Valve(['irrigation_area' => 1.45]);
         $c->id = 79;
 
-        $this->assertSame(3.90, $calculator->selectedValveAreaHectares([$a, $b, $c]));
-        $this->assertSame(200.0, $calculator->volumePerHectareFromHa(780.0, 3.90));
+        $this->assertEqualsWithDelta(3.90, $calculator->selectedValveAreaHectares([$a, $b, $c]), 0.000001);
+        $this->assertEqualsWithDelta(200.0, $calculator->volumePerHectareFromHa(780.0, 3.90), 0.000001);
     }
 
     public function test_field_nine_period_example_uses_selected_valve_area_once(): void
@@ -35,7 +35,7 @@ class IrrigationReportTotalDenominatorTest extends TestCase
 
         $denominator = $calculator->selectedValveAreaHectares($valves);
 
-        $this->assertSame(4.90, $denominator);
+        $this->assertEqualsWithDelta(4.90, $denominator, 0.000001);
         $this->assertEqualsWithDelta(979.2, $calculator->volumePerHectareFromHa(4798.08, $denominator), 0.000001);
     }
 
@@ -45,7 +45,7 @@ class IrrigationReportTotalDenominatorTest extends TestCase
         $valve = new Valve(['irrigation_area' => 1.25]);
         $valve->id = 77;
 
-        $this->assertSame(1.25, $calculator->selectedValveAreaHectares([$valve, $valve]));
+        $this->assertEqualsWithDelta(1.25, $calculator->selectedValveAreaHectares([$valve, $valve]), 0.000001);
     }
 
     public function test_invalid_areas_are_not_replaced_with_gis_area(): void
@@ -56,7 +56,7 @@ class IrrigationReportTotalDenominatorTest extends TestCase
         $negative = new Valve(['irrigation_area' => -1]);
         $negative->id = 78;
 
-        $this->assertSame(0.0, $calculator->selectedValveAreaHectares([$zero, $negative]));
+        $this->assertEqualsWithDelta(0.0, $calculator->selectedValveAreaHectares([$zero, $negative]), 0.000001);
         $this->assertNull($calculator->volumePerHectareFromHa(780.0, 0.0));
     }
 }

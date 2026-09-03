@@ -130,10 +130,10 @@ class IrrigationReportServiceTest extends TestCase
             'to_date' => Carbon::parse('2026-08-10', IrrigationReportCalculationService::TIMEZONE),
         ]);
 
-        // Volume = (50000+50000)*1h/1000 = 100 m³; area once = 0.5 ha → 200 m³/ha
+        // Volume = (50000+50000)*1h/1000 = 100 m³; selected valve areas = 1.0 ha → 100 m³/ha
         $this->assertEqualsWithDelta(100.0, $report['accumulated']['total_volume'], 0.0001);
-        $this->assertEqualsWithDelta(0.5, $report['accumulated']['total_irrigated_area_ha'], 0.0001);
-        $this->assertEqualsWithDelta(200.0, $report['accumulated']['total_volume_per_hectare'], 0.0001);
+        $this->assertEqualsWithDelta(1.0, $report['accumulated']['total_irrigated_area_ha'], 0.0001);
+        $this->assertEqualsWithDelta(100.0, $report['accumulated']['total_volume_per_hectare'], 0.0001);
     }
 
     /** T5: zero irrigated area returns null m³/ha. */
@@ -323,12 +323,8 @@ class IrrigationReportServiceTest extends TestCase
             collect($report['irrigations'])->sum('total_volume'),
             0.00001,
         );
-        // Period intensity uses hectare-occurrences, not sum of daily m³/ha.
-        $this->assertNotEqualsWithDelta(
-            collect($report['irrigations'])->sum('total_volume_per_hectare'),
-            $report['accumulated']['total_volume_per_hectare'],
-            0.00001,
-        );
+        // The total denominator is the selected valve area once: 0.4 / 0.01 = 40 m³/ha.
+        $this->assertEqualsWithDelta(40.0, $report['accumulated']['total_volume_per_hectare'], 0.00001);
     }
 
     /** Multi-day programs split detail rows; total denominator counts each selected valve once. */
