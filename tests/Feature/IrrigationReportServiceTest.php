@@ -331,7 +331,7 @@ class IrrigationReportServiceTest extends TestCase
         );
     }
 
-    /** Multi-day programs split volume by overlap; area participates once per day. */
+    /** Multi-day programs split detail rows; total denominator counts each selected valve once. */
     public function test_multi_day_program_splits_volume_and_repeats_area_per_day(): void
     {
         [$farm, , $plot] = $this->makeScope();
@@ -350,7 +350,8 @@ class IrrigationReportServiceTest extends TestCase
         $this->assertEqualsWithDelta(1.6, $report['irrigations'][0]['irrigated_area_ha'], 0.0001);
         $this->assertEqualsWithDelta(1.6, $report['irrigations'][1]['irrigated_area_ha'], 0.0001);
         $this->assertEqualsWithDelta(1.6, $report['irrigations'][2]['irrigated_area_ha'], 0.0001);
-        $this->assertEqualsWithDelta(4.8, $report['accumulated']['total_irrigated_area_ha'], 0.0001);
+        $this->assertEqualsWithDelta(1.6, $report['accumulated']['total_irrigated_area_ha'], 0.0001);
+        $this->assertEqualsWithDelta(4.8 / 1.6, $report['accumulated']['total_volume_per_hectare'], 0.0001);
     }
 
     public function test_empty_scope_returns_an_empty_safe_response(): void

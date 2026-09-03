@@ -50,7 +50,10 @@ class IrrigationReportCalculationService
             ->get();
 
         $valves = Valve::query()
-            ->whereIn('id', $requestedValveIds)
+            ->when(
+                $requestedValveIds !== [],
+                fn ($query) => $query->whereIn('id', $requestedValveIds)
+            )
             ->whereHas('plot.field', fn ($query) => $query->where('farm_id', $farm->id))
             ->when($fieldIds !== [], fn ($query) => $query->whereHas('plot', fn ($query) => $query->whereIn('field_id', $fieldIds)))
             ->when($plotIds !== [], fn ($query) => $query->whereIn('plot_id', $plotIds))
@@ -285,6 +288,32 @@ class IrrigationReportCalculationService
         }
 
         return $volumeM3 / $irrigatedAreaHa;
+    }
+
+    /**
+     * Total-row denominator: each selected valve contributes its configured
+     * irrigation area once, regardless of how many performed events used it.
+     */
+    public function selectedValveAreaHectares(iterable $valves): float
+    {
+        $seen = [];
+        $totalHa = 0.0;
+
+        foreach ($valves as $valve) {
+            $id = (int) ($valve->id ?? 0);
+            $key = $id > 0 ? 'valve:'.$id : 'object:'.spl_object_id($valve);
+            if (isset($seen[$key])) {
+                continue;
+            }
+
+            $seen[$key] = true;
+            $area = (float) ($valve->irrigation_area ?? 0);
+            if ($area > 0) {
+                $totalHa += $area;
+            }
+        }
+
+        return $totalHa;
     }
 
     public function polygonArea(?array $coordinates): float
