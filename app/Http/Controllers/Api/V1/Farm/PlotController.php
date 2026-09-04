@@ -97,6 +97,8 @@ class PlotController extends Controller
         $rangeEnd = now()->setTimezone(IrrigationReportCalculationService::TIMEZONE);
         $rangeStart = $rangeEnd->copy()->subDays(30);
         $physicalAreaM2 = $this->calculator->polygonArea($plot->coordinates);
+        $irrigationAreaHa = $this->calculator->irrigatedAreaHectares($plot->valves);
+        $treesCount = $plot->trees()->count();
 
         // Include any completed, verified program that overlaps the window.
         $successfulIrrigations = $plot->irrigations()
@@ -121,7 +123,6 @@ class PlotController extends Controller
         // Calculate statistics for last 30 days
         $totalDuration = 0;
         $totalVolumeLiters = 0.0;
-        $totalIrrigatedAreaHa = 0.0;
 
         foreach ($successfulIrrigations as $irrigation) {
             $durationInSeconds = $this->calculator->overlapSeconds(
@@ -132,13 +133,12 @@ class PlotController extends Controller
             );
             $totalDuration += $durationInSeconds;
             $totalVolumeLiters += $this->irrigationService->calculateVolumeLiters($irrigation->valves, $durationInSeconds);
-            $totalIrrigatedAreaHa += $this->calculator->irrigatedAreaHectares($irrigation->valves);
         }
 
         $totalVolumeM3 = $totalVolumeLiters / 1000;
         $totalVolumePerHectare = $this->calculator->volumePerHectareFromHa(
             $totalVolumeM3,
-            $totalIrrigatedAreaHa,
+            $irrigationAreaHa,
         );
 
         // Format latest successful irrigation if exists
@@ -156,6 +156,7 @@ class PlotController extends Controller
         return response()->json([
             'data' => [
                 'plot_name' => $plot->name,
+                'trees_count' => $treesCount,
                 'latest_successful_irrigation' => $latestIrrigationData,
                 'successful_irrigations_count_last_30_days' => $successfulIrrigations->count(),
                 'area_covered_duration_last_30_days' => to_time_format($totalDuration),
@@ -163,7 +164,7 @@ class PlotController extends Controller
                 'total_volume_per_hectare_last_30_days' => $totalVolumePerHectare === null
                     ? null
                     : round($totalVolumePerHectare, 2),
-                'irrigation_area_ha' => $this->calculator->irrigatedAreaHectares($plot->valves),
+                'irrigation_area_ha' => $irrigationAreaHa,
                 'physical_area_m2' => $physicalAreaM2,
                 'physical_area_ha' => $physicalAreaM2 / 10000,
                 'area_source' => 'valve.irrigation_area',
