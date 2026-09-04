@@ -214,6 +214,17 @@ class IrrigationReportCalculationServiceTest extends TestCase
         $this->assertSame(0, $this->calculator->durationSeconds(null, $end));
     }
 
+    public function test_clock_duration_ignores_legacy_calendar_span_and_wraps_midnight(): void
+    {
+        $start = Carbon::parse('2026-08-22 03:00:00', 'Asia/Tehran');
+        $sameClockNextCycle = Carbon::parse('2026-09-22 03:00:00', 'Asia/Tehran');
+        $beforeMidnight = Carbon::parse('2026-08-23 02:00:00', 'Asia/Tehran');
+
+        $this->assertSame(24 * 3600, $this->calculator->clockDurationSeconds($start, $sameClockNextCycle));
+        $this->assertSame(23 * 3600, $this->calculator->clockDurationSeconds($start, $beforeMidnight));
+        $this->assertSame(0, $this->calculator->clockDurationSeconds(null, $beforeMidnight));
+    }
+
     /** Overlapping and touching intervals count once; separate intervals add. */
     public function test_union_duration_merges_overlapping_and_touching_intervals(): void
     {

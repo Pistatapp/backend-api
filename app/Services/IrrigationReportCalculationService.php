@@ -167,6 +167,32 @@ class IrrigationReportCalculationService
     }
 
     /**
+     * Calculate the effective daily irrigation duration from the clock times.
+     *
+     * Irrigation programs are scheduled by start/end clock time. Some legacy
+     * rows contain a calendar end date from a later scheduling cycle, which
+     * must not turn a one-day run into several hundred hours in the detail
+     * metrics. Equal clock times represent a full 24-hour run.
+     */
+    public function clockDurationSeconds(?Carbon $start, ?Carbon $end): int
+    {
+        if ($start === null || $end === null) {
+            return 0;
+        }
+
+        $startSeconds = ((int) $start->format('H') * 3600)
+            + ((int) $start->format('i') * 60)
+            + (int) $start->format('s');
+        $endSeconds = ((int) $end->format('H') * 3600)
+            + ((int) $end->format('i') * 60)
+            + (int) $end->format('s');
+
+        $duration = $endSeconds - $startSeconds;
+
+        return $duration > 0 ? $duration : $duration + 24 * 3600;
+    }
+
+    /**
      * Measure the union of half-open timestamp intervals.
      *
      * Intervals that overlap or touch represent one continuous period for

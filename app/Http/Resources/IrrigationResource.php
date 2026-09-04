@@ -54,7 +54,7 @@ class IrrigationResource extends JsonResource
             'status' => $this->status,
             'is_verified_by_admin' => (bool) $this->is_verified_by_admin,
             'lifecycle' => app(\App\Services\IrrigationLifecycleService::class)->payload($this->resource),
-            'duration' => to_time_format($this->duration),
+            'duration' => to_time_format($this->getEffectiveDurationSeconds()),
             'plots_count' => $this->whenCounted('plots'),
             // area_covered is retained for compatibility and is the
             // configured valve irrigation coverage in hectares. GIS values
@@ -103,7 +103,7 @@ class IrrigationResource extends JsonResource
     private function getTotalVolume(): float
     {
         $liters = app(\App\Services\IrrigationReportCalculationService::class)
-            ->volumeLiters($this->valves, $this->duration);
+            ->volumeLiters($this->valves, $this->getEffectiveDurationSeconds());
 
         return $liters / 1000;
     }
@@ -122,5 +122,11 @@ class IrrigationResource extends JsonResource
 
         return app(\App\Services\IrrigationReportCalculationService::class)
             ->irrigatedAreaHectares($valves);
+    }
+
+    private function getEffectiveDurationSeconds(): int
+    {
+        return app(\App\Services\IrrigationReportCalculationService::class)
+            ->clockDurationSeconds($this->start_time, $this->end_time);
     }
 }
