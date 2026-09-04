@@ -88,7 +88,7 @@ class IrrigationService
     public function getStatisticsForPlot(Irrigation $irrigation, Plot $plot): array
     {
         // Load relationships
-        $plot->load(['valves', 'trees']);
+        $plot->load(['valves', 'field']);
         $irrigation->load(['valves', 'plots']);
 
         // GIS geometry remains physical-area metadata only. Irrigation
@@ -97,7 +97,7 @@ class IrrigationService
         $physicalAreaHa = $physicalAreaM2 / 10000;
 
         // Get tree count
-        $treeCount = $plot->trees()->count();
+        $treeCount = $this->calculator->treesInsidePlot($plot);
 
         // Get latest successful irrigation for this plot
         $latestSuccessfulIrrigation = $this->getLatestSuccessfulIrrigation($plot);

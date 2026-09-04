@@ -93,12 +93,12 @@ class PlotController extends Controller
      */
     public function getIrrigationStatistics(Plot $plot)
     {
-        $plot->load('valves');
+        $plot->load(['valves', 'field']);
         $rangeEnd = now()->setTimezone(IrrigationReportCalculationService::TIMEZONE);
         $rangeStart = $rangeEnd->copy()->subDays(30);
         $physicalAreaM2 = $this->calculator->polygonArea($plot->coordinates);
         $irrigationAreaHa = $this->calculator->irrigatedAreaHectares($plot->valves);
-        $treesCount = $plot->trees()->count();
+        $treesCount = $this->calculator->treesInsidePlot($plot);
 
         // Include any completed, verified program that overlaps the window.
         $successfulIrrigations = $plot->irrigations()

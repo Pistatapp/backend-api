@@ -364,6 +364,65 @@ class IrrigationReportCalculationService
     }
 
     /**
+     * Count trees physically located inside a Plot/Kart polygon.
+     *
+     * Rows are attached to fields in the production schema (they do not have
+     * a plot_id column), so a relational Plot::trees() query is not valid.
+     * Tree locations are the authoritative child geometry and are filtered
+     * against the plot polygon without changing any stored telemetry or tree
+     * records.
+     */
+    public function treesInsidePolygon(iterable $trees, ?array $polygon): int
+    {
+        if ($polygon === null || count($polygon) < 3) {
+            return 0;
+        }
+
+        return collect($trees)
+            ->filter(function ($tree) use ($polygon): bool {
+                $location = $tree->location ?? null;
+
+                if (is_string($location)) {
+                    $decoded = json_decode($location, true);
+                    $location = is_array($decoded) ? $decoded : explode(',', $location);
+                }
+
+                if (! is_array($location) || count($location) < 2) {
+                    return false;
+                }
+
+                $latitude = $location[0] ?? null;
+                $longitude = $location[1] ?? null;
+
+                if (! is_numeric($latitude) || ! is_numeric($longitude)) {
+                    return false;
+                }
+
+                return is_point_in_polygon(
+                    [(float) $latitude, (float) $longitude],
+                    $polygon,
+                );
+            })
+            ->count();
+    }
+
+    /**
+     * Count the trees in a Plot using its owning Field's valid tree relation.
+     */
+    public function treesInsidePlot(Plot $plot): int
+    {
+        $field = $plot->relationLoaded('field')
+            ? $plot->getRelation('field')
+            : $plot->field()->first();
+
+        if ($field === null) {
+            return 0;
+        }
+
+        return $this->treesInsidePolygon($field->trees()->get(), $plot->coordinates);
+    }
+
+    /**
      * @return list<int>
      */
     private function ids(mixed $ids): array

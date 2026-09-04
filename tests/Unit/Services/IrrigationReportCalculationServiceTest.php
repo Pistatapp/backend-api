@@ -161,6 +161,25 @@ class IrrigationReportCalculationServiceTest extends TestCase
         );
     }
 
+    public function test_tree_count_uses_tree_locations_inside_plot_polygon(): void
+    {
+        $polygon = [
+            [35.0000, 51.0000],
+            [35.0000, 51.0010],
+            [35.0010, 51.0010],
+            [35.0010, 51.0000],
+        ];
+
+        $count = $this->calculator->treesInsidePolygon([
+            (object) ['location' => [35.0005, 51.0005]],
+            (object) ['location' => json_encode([35.0007, 51.0007])],
+            (object) ['location' => [35.0020, 51.0020]],
+            (object) ['location' => 'not-a-coordinate'],
+        ], $polygon);
+
+        $this->assertSame(2, $count);
+    }
+
     /** Production Field 9 fixture: period ratio uses total volume / area occurrences. */
     public function test_field_9_period_fixture_uses_configured_valve_area_occurrences(): void
     {
