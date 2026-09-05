@@ -49,6 +49,11 @@ class Kernel extends ConsoleKernel
             ->dailyAt('08:00')
             ->withoutOverlapping();
 
+        $schedule->command('tractors:check-daily-start')
+            ->dailyAt('09:00')
+            ->timezone('Asia/Tehran')
+            ->withoutOverlapping();
+
         $schedule->job(new CheckFrostConditionsJob)
             ->dailyAt('06:00')
             ->withoutOverlapping();
