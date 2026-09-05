@@ -14,15 +14,15 @@ class TractorDailyStartWarningServiceTest extends TestCase
     public function test_only_tractors_without_a_log_are_selected(): void
     {
         $service = new TractorDailyStartWarningService();
-        $started = new Tractor(['id' => 1]);
-        $notStarted = new Tractor(['id' => 2]);
+        $started = new Tractor(['name' => 'started']);
+        $notStarted = new Tractor(['name' => 'not-started']);
 
         $result = $service->findMissingGpsLogs(
             new Collection([$started, $notStarted]),
-            fn (Tractor $tractor): bool => $tractor->id === 1
+            fn (Tractor $tractor): bool => $tractor->name === 'started'
         );
 
-        $this->assertSame([2], $result->pluck('id')->all());
+        $this->assertSame(['not-started'], $result->pluck('name')->all());
     }
 
     public function test_check_is_due_only_at_or_after_the_tehran_cutoff(): void
