@@ -61,14 +61,10 @@ class CalculateTaskGpsMetricsJob implements ShouldBeUnique, ShouldQueue
             ->analyze($taskZones);
 
         $inZoneDurationSeconds = $this->inZoneDurationSeconds($results);
-
-        if (! $this->hasValidInZoneWork($results, $inZoneDurationSeconds)) {
-            $this->setTaskStatusAndNotify('not_done', null);
-
-            return;
-        }
-
-        $efficiency = $this->calculateEfficiency($tractor, $inZoneDurationSeconds);
+        $taskCompleted = $this->hasValidInZoneWork($results, $inZoneDurationSeconds);
+        $efficiency = $taskCompleted
+            ? $this->calculateEfficiency($tractor, $inZoneDurationSeconds)
+            : 0;
 
         $timings = [
             'device_on_time' => $results['device_on_time'] ?? null,
@@ -83,19 +79,19 @@ class CalculateTaskGpsMetricsJob implements ShouldBeUnique, ShouldQueue
                 'date' => $this->task->date->toDateString(),
             ],
             [
-                'traveled_distance' => $results['movement_distance_km'],
-                'work_duration' => $results['movement_duration_seconds'],
-                'stoppage_count' => $results['stoppage_count'],
-                'stoppage_duration' => $results['stoppage_duration_seconds'],
-                'stoppage_duration_while_on' => $results['stoppage_duration_while_on_seconds'],
-                'stoppage_duration_while_off' => $results['stoppage_duration_while_off_seconds'],
-                'average_speed' => $results['average_speed'],
+                'traveled_distance' => $results['movement_distance_km'] ?? 0,
+                'work_duration' => $results['movement_duration_seconds'] ?? 0,
+                'stoppage_count' => $results['stoppage_count'] ?? 0,
+                'stoppage_duration' => $results['stoppage_duration_seconds'] ?? 0,
+                'stoppage_duration_while_on' => $results['stoppage_duration_while_on_seconds'] ?? 0,
+                'stoppage_duration_while_off' => $results['stoppage_duration_while_off_seconds'] ?? 0,
+                'average_speed' => $results['average_speed'] ?? 0,
                 'efficiency' => $efficiency,
                 'timings' => $timings,
             ]
         );
 
-        $this->setTaskStatusAndNotify('done', $metrics);
+        $this->setTaskStatusAndNotify($taskCompleted ? 'done' : 'not_done', $metrics);
     }
 
     /**
@@ -106,7 +102,7 @@ class CalculateTaskGpsMetricsJob implements ShouldBeUnique, ShouldQueue
     private function hasValidInZoneWork(array $results, int $inZoneDurationSeconds): bool
     {
         return ($results['has_zone_presence'] ?? false)
-            && $inZoneDurationSeconds > self::MIN_COMPLETION_ZONE_DURATION_SECONDS;
+            && $inZoneDurationSeconds >= self::MIN_COMPLETION_ZONE_DURATION_SECONDS;
     }
 
     /**

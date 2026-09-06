@@ -128,7 +128,11 @@ class CalculateTaskGpsMetricsJobTest extends TestCase
         $task->refresh();
 
         $this->assertSame('not_done', $task->status);
-        $this->assertNull(GpsMetricsCalculation::where('tractor_task_id', $task->id)->first());
+        $this->assertDatabaseHas('gps_metrics_calculations', [
+            'tractor_task_id' => $task->id,
+            'work_duration' => 0,
+            'efficiency' => 0,
+        ]);
     }
 
     public function test_marks_task_done_when_analyzer_finds_stoppage_only_in_zone(): void
@@ -171,7 +175,7 @@ class CalculateTaskGpsMetricsJobTest extends TestCase
         ]);
     }
 
-    public function test_marks_task_not_done_when_zone_presence_is_not_over_five_minutes(): void
+    public function test_marks_task_done_when_zone_presence_is_exactly_five_minutes(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-06-13 18:00:00'));
 
@@ -204,8 +208,9 @@ class CalculateTaskGpsMetricsJobTest extends TestCase
 
         $task->refresh();
 
-        $this->assertSame('not_done', $task->status);
-        $this->assertNull(GpsMetricsCalculation::where('tractor_task_id', $task->id)->first());
+        $this->assertSame('done', $task->status);
+        $metrics = GpsMetricsCalculation::where('tractor_task_id', $task->id)->firstOrFail();
+        $this->assertEqualsWithDelta(1.0416666667, (float) $metrics->efficiency, 0.000001);
     }
 
     private function createTask(string $taskDate, string $startTime, string $endTime): TractorTask

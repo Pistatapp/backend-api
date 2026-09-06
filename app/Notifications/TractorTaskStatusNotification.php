@@ -32,7 +32,7 @@ class TractorTaskStatusNotification extends Notification implements ShouldQueue
      */
     private function prepareNotificationData(): void
     {
-        $taskCompleted = $this->dailyReport && $this->dailyReport->traveled_distance > 0;
+        $taskCompleted = $this->dailyReport && $this->task->status === 'done';
 
         $duration = '';
         if ($taskCompleted) {

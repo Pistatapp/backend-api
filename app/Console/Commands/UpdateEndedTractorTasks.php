@@ -45,7 +45,6 @@ class UpdateEndedTractorTasks extends Command
                             continue;
                         }
 
-                        $task->update(['status' => 'done']);
                         CalculateTaskGpsMetricsJob::dispatch($task);
                     }
                 });

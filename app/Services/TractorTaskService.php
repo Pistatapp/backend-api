@@ -99,10 +99,23 @@ class TractorTaskService
     public function updateTaskStatus(TractorTask $task, ?bool $isCurrentlyInZone = null, ?Carbon $gpsTimestamp = null): void
     {
         $newStatus = $this->determineTaskStatus($task, $isCurrentlyInZone, $gpsTimestamp);
+
+        if ($newStatus === 'done' && ! $this->hasFinalMetrics($task)) {
+            // The task may be finalized by a live GPS event. Run the historical
+            // window calculation immediately so the final status and map state
+            // are correct without waiting for a queue worker.
+            CalculateTaskGpsMetricsJob::dispatchSync($task->fresh());
+
+            return;
+        }
+
         $task->update(['status' => $newStatus]);
         event(new TractorTaskStatusChanged($task, $newStatus, $isCurrentlyInZone));
+    }
 
-        CalculateTaskGpsMetricsJob::dispatchIf($newStatus === 'done', $task);
+    private function hasFinalMetrics(TractorTask $task): bool
+    {
+        return $task->gpsMetricsCalculation()->exists();
     }
 
     /**
@@ -110,10 +123,10 @@ class TractorTaskService
      *
      * Status Logic:
      * - not_started: Task time has not started yet
-     * - not_done: Task start time arrived but tractor never entered, OR task ended with less than 30% time in zone
+     * - not_done: Task ended with less than five minutes in the selected zones
      * - in_progress: Task time started and tractor has entered the area
      * - stopped: Task time has not finished yet, but tractor is working outside task zone
-     * - done: Task ended (regardless of zone status)
+     * - done: Task ended and historical GPS analysis confirms at least five minutes in a selected zone
      *
      * @param TractorTask $task
      * @param bool|null $isCurrentlyInZone Optional parameter to indicate if tractor is currently in zone

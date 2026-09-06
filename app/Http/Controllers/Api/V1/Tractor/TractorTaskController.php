@@ -69,7 +69,12 @@ class TractorTaskController extends Controller
         $taskEndDateTime = $task->getEndDateTime();
         $isTaskPassed = now()->greaterThan($taskEndDateTime);
 
-        CalculateTaskGpsMetricsJob::dispatchIf($isTaskPassed, $task);
+        if ($isTaskPassed) {
+            // A task created after its scheduled window must be evaluated
+            // before this response is returned. Otherwise the app renders the
+            // stale not_started state until an asynchronous worker catches up.
+            CalculateTaskGpsMetricsJob::dispatchSync($task->fresh());
+        }
 
         return new TractorTaskResource(
             $task->refresh()->load(['taskableItems.taskable', 'operation'])
@@ -99,7 +104,7 @@ class TractorTaskController extends Controller
         $tractorTask->syncTaskableItems(getModelClass($validated['taskable_type']), $validated['taskable_ids']);
         $this->syncTractorTaskValidatedData($tractorTask, $validated);
 
-        if ($gpsMetricsInputsChanged) {
+        if ($gpsMetricsInputsChanged || ! $tractorTask->gpsMetricsCalculation()->exists()) {
             $this->dispatchCalculateTaskGpsMetricsIfTaskEnded($tractorTask);
         }
 
@@ -184,10 +189,9 @@ class TractorTaskController extends Controller
 
         $taskEndDateTime = $tractorTask->getEndDateTime();
 
-        CalculateTaskGpsMetricsJob::dispatchIf(
-            now()->greaterThan($taskEndDateTime),
-            $tractorTask
-        );
+        if (now()->greaterThan($taskEndDateTime)) {
+            CalculateTaskGpsMetricsJob::dispatchSync($tractorTask->fresh());
+        }
     }
 
     /**
