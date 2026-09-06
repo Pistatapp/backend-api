@@ -13,6 +13,7 @@ use App\Services\TaskGpsMetricsAnalyzer;
 use App\Services\TractorTaskService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Notification;
 use Mockery;
 use Tests\TestCase;
@@ -211,6 +212,26 @@ class CalculateTaskGpsMetricsJobTest extends TestCase
         $this->assertSame('done', $task->status);
         $metrics = GpsMetricsCalculation::where('tractor_task_id', $task->id)->firstOrFail();
         $this->assertEqualsWithDelta(1.0416666667, (float) $metrics->efficiency, 0.000001);
+    }
+
+    public function test_ended_task_status_update_runs_historical_calculation_synchronously(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-13 18:00:00'));
+
+        $task = $this->createTask(
+            taskDate: '2026-06-01',
+            startTime: '08:00:00',
+            endTime: '10:00:00',
+        );
+        $task->update(['status' => 'not_started']);
+
+        Bus::fake();
+
+        app(TractorTaskService::class)->updateTaskStatus($task->fresh());
+
+        Bus::assertDispatchedSync(CalculateTaskGpsMetricsJob::class, function (CalculateTaskGpsMetricsJob $job) use ($task) {
+            return $job->task->id === $task->id;
+        });
     }
 
     private function createTask(string $taskDate, string $startTime, string $endTime): TractorTask
