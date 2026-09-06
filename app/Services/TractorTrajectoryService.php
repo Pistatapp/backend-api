@@ -81,7 +81,15 @@ class TractorTrajectoryService
             }
             $distanceFromPrevious[$i] = $this->distance($points[$i - 1], $points[$i]);
             $impliedSpeed[$i] = $distanceFromPrevious[$i] / $dt * 3.6;
-            if ($dt > (int) $profile['gap_seconds']) {
+            if ($this->startsNewSegment(
+                $i,
+                $dt,
+                $distanceFromPrevious[$i],
+                $impliedSpeed[$i],
+                $points,
+                $engineStopped,
+                $profile,
+            )) {
                 $segment[$i] = $segment[$i - 1] + 1;
             } else {
                 $segment[$i] = $segment[$i - 1];
@@ -312,6 +320,53 @@ class TractorTrajectoryService
             || ($net >= $profile['noise_radius_meters'] * (float) config('trajectory.movement.minimum_net_displacement_multiplier', 1.25)
                 && $positiveSteps >= $required - 1
                 && $ratio >= (float) config('trajectory.movement.minimum_directional_consistency', 0.55));
+    }
+
+    /**
+     * A device's reporting cadence is not the same thing as a route break.
+     *
+     * Hooshnics devices can legitimately report every 4–10 minutes while a
+     * tractor is moving. Keep those points in one displayed polyline when the
+     * endpoint transition is physically plausible. For a much longer gap,
+     * only a small displacement (or two engine-off endpoints) is bridged; a
+     * large displaced jump remains a separate segment instead of a misleading
+     * diagonal line.
+     *
+     * @param array<int,array<string,mixed>> $points
+     * @param array<int,bool> $engineStopped
+     * @param array<string,mixed> $profile
+     */
+    private function startsNewSegment(
+        int $index,
+        int $deltaSeconds,
+        float $distanceMeters,
+        float $impliedSpeedKmh,
+        array $points,
+        array $engineStopped,
+        array $profile,
+    ): bool {
+        $normalGapSeconds = (int) ($profile['gap_seconds'] ?? 180);
+        if ($deltaSeconds <= $normalGapSeconds) {
+            return false;
+        }
+
+        $maxPlausibleSpeed = (float) ($profile['max_plausible_speed_kmh'] ?? 45.0);
+        $reportedSpeed = (float) ($points[$index]['row']['speed'] ?? 0);
+        if ($impliedSpeedKmh > $maxPlausibleSpeed && $reportedSpeed <= $maxPlausibleSpeed) {
+            return true;
+        }
+
+        $maxBridgeGapSeconds = (int) ($profile['max_bridge_gap_seconds'] ?? 900);
+        if ($deltaSeconds <= $maxBridgeGapSeconds) {
+            return false;
+        }
+
+        $longGapRadius = (float) ($profile['long_gap_bridge_radius_meters'] ?? 75.0);
+        $previousIndex = $index - 1;
+        $bothEngineOff = ($engineStopped[$previousIndex] ?? false) && ($engineStopped[$index] ?? false);
+        $smallDisplacement = $distanceMeters <= $longGapRadius;
+
+        return !($bothEngineOff || $smallDisplacement);
     }
 
     private function stationaryDuration(int $index, array $classification, array $points): int

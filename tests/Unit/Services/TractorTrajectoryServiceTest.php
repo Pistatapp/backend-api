@@ -83,7 +83,7 @@ class TractorTrajectoryServiceTest extends TestCase
         $this->assertSame(TractorTrajectoryService::STATIONARY, $result['rows'][0]['trajectory_classification']);
     }
 
-    public function test_a_missing_sample_window_starts_a_new_display_segment_before_connecting_points(): void
+    public function test_normal_sparse_device_cadence_does_not_break_a_plausible_route(): void
     {
         $result = $this->service->analyze([
             $this->row(1, '2026-09-02 09:00:00', 4),
@@ -96,7 +96,7 @@ class TractorTrajectoryServiceTest extends TestCase
         ]);
 
         $this->assertSame(0, $result['rows'][0]['segment_id']);
-        $this->assertSame(1, $result['rows'][1]['segment_id']);
+        $this->assertSame(0, $result['rows'][1]['segment_id']);
     }
 
     public function test_speed_zero_progression_is_moving(): void
@@ -150,15 +150,26 @@ class TractorTrajectoryServiceTest extends TestCase
         $this->assertNotSame($result['rows'][0]['segment_id'], $result['rows'][2]['segment_id']);
     }
 
-    public function test_missing_data_gap_starts_a_new_segment(): void
+    public function test_long_displaced_missing_data_gap_starts_a_new_segment(): void
     {
         $result = $this->service->analyze([
             $this->row(1, '2026-09-02 13:00:00', 10),
-            $this->row(2, '2026-09-02 13:20:01', 10, [35.001, 51.001]),
+            $this->row(2, '2026-09-02 13:30:01', 10, [35.001, 51.001]),
         ], $this->profile());
 
         $this->assertSame(0, $result['rows'][0]['segment_id']);
         $this->assertSame(1, $result['rows'][1]['segment_id']);
+    }
+
+    public function test_long_engine_off_gap_with_parked_drift_stays_one_segment(): void
+    {
+        $result = $this->service->analyze([
+            $this->row(1, '2026-09-02 13:00:00', 0, [35.0, 51.0]) + ['status' => 0],
+            $this->row(2, '2026-09-02 16:00:00', 6, [35.0002, 51.0001]) + ['status' => 0],
+        ], $this->profile());
+
+        $this->assertSame(0, $result['rows'][0]['segment_id']);
+        $this->assertSame(0, $result['rows'][1]['segment_id']);
     }
 
     public function test_profile_resolver_has_centralized_device_classes(): void
@@ -189,7 +200,14 @@ class TractorTrajectoryServiceTest extends TestCase
 
     private function profile(): array
     {
-        return ['name' => 'TEST', 'noise_radius_meters' => 15.0, 'max_plausible_speed_kmh' => 45.0, 'gap_seconds' => 600];
+        return [
+            'name' => 'TEST',
+            'noise_radius_meters' => 15.0,
+            'max_plausible_speed_kmh' => 45.0,
+            'gap_seconds' => 180,
+            'max_bridge_gap_seconds' => 900,
+            'long_gap_bridge_radius_meters' => 75.0,
+        ];
     }
 
     private function row(int $id, string $dateTime, int $speed, array $coordinate = [35.0, 51.0]): array

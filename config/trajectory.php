@@ -8,18 +8,26 @@ return [
             'noise_radius_meters' => (float) env('GPS_TRAJECTORY_UNKNOWN_NOISE_RADIUS_M', 15.0),
             'max_plausible_speed_kmh' => (float) env('GPS_TRAJECTORY_UNKNOWN_MAX_SPEED_KMH', 45.0),
             // A missing sample window is a real route break. Connecting the
-            // points on either side creates a false diagonal on the map.
+            // points on either side can create a false diagonal on the map.
+            // It is only the normal sampling-gap threshold; the service also
+            // checks implied speed and displacement before breaking a route.
             'gap_seconds' => (int) env('GPS_TRAJECTORY_UNKNOWN_GAP_SECONDS', 180),
+            'max_bridge_gap_seconds' => (int) env('GPS_TRAJECTORY_UNKNOWN_MAX_BRIDGE_GAP_SECONDS', 900),
+            'long_gap_bridge_radius_meters' => (float) env('GPS_TRAJECTORY_UNKNOWN_LONG_GAP_BRIDGE_RADIUS_M', 75.0),
         ],
         'HOOSHNICS_STANDARD' => [
             'noise_radius_meters' => (float) env('GPS_TRAJECTORY_HOOSHNICS_NOISE_RADIUS_M', 15.0),
             'max_plausible_speed_kmh' => (float) env('GPS_TRAJECTORY_HOOSHNICS_MAX_SPEED_KMH', 45.0),
             'gap_seconds' => (int) env('GPS_TRAJECTORY_HOOSHNICS_GAP_SECONDS', 180),
+            'max_bridge_gap_seconds' => (int) env('GPS_TRAJECTORY_HOOSHNICS_MAX_BRIDGE_GAP_SECONDS', 900),
+            'long_gap_bridge_radius_meters' => (float) env('GPS_TRAJECTORY_HOOSHNICS_LONG_GAP_BRIDGE_RADIUS_M', 75.0),
         ],
         'TELTONIKA' => [
             'noise_radius_meters' => (float) env('GPS_TRAJECTORY_TELTONIKA_NOISE_RADIUS_M', 8.0),
             'max_plausible_speed_kmh' => (float) env('GPS_TRAJECTORY_TELTONIKA_MAX_SPEED_KMH', 45.0),
             'gap_seconds' => (int) env('GPS_TRAJECTORY_TELTONIKA_GAP_SECONDS', 180),
+            'max_bridge_gap_seconds' => (int) env('GPS_TRAJECTORY_TELTONIKA_MAX_BRIDGE_GAP_SECONDS', 900),
+            'long_gap_bridge_radius_meters' => (float) env('GPS_TRAJECTORY_TELTONIKA_LONG_GAP_BRIDGE_RADIUS_M', 75.0),
         ],
     ],
     'stationary' => [

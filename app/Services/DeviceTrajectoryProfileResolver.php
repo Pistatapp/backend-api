@@ -29,6 +29,8 @@ class DeviceTrajectoryProfileResolver
             'noise_radius_meters' => 15.0,
             'max_plausible_speed_kmh' => 45.0,
             'gap_seconds' => 600,
+            'max_bridge_gap_seconds' => 900,
+            'long_gap_bridge_radius_meters' => 75.0,
         ];
         $configured = config('trajectory.profiles.'.$profileName);
         if (is_array($configured)) {
