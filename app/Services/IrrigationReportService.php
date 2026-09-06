@@ -104,13 +104,12 @@ class IrrigationReportService
             ->verifiedByAdmin()
             ->whereNotNull('end_time')
             ->whereColumn('end_time', '>', 'start_time')
-            // Reports are grouped by the local calendar date on which an
-            // irrigation program starts. Keep the full program so an
-            // overnight run can be split into 21h + 3h, but do not pull the
-            // tail of a program that started before the requested range into
-            // the first report row.
-            ->where('start_time', '>=', $rangeStart)
+            // Select every program whose interval intersects the requested
+            // range. Daily clipping below decides the exact contribution;
+            // filtering by start_time would make results depend on range size
+            // and would drop valid tails crossing the range start.
             ->where('start_time', '<', $rangeEnd)
+            ->where('end_time', '>', $rangeStart)
             ->when($scopeInput['labour_id'] ?? null, function ($query, $labourId) {
                 $query->where('labour_id', $labourId);
             })
@@ -144,7 +143,14 @@ class IrrigationReportService
             $dayStart = $currentDate->copy();
             $dayEnd = $currentDate->copy()->addDay();
 
-            $dailyReport = $this->calculateDailyTotals($irrigations, $scope, $dayStart, $dayEnd);
+            $dailyReport = $this->calculateDailyTotals(
+                $irrigations,
+                $scope,
+                $dayStart,
+                $dayEnd,
+                $rangeStart,
+                $rangeEnd,
+            );
             if ($dailyReport['total_count'] > 0) {
                 $dailyReports[] = $dailyReport;
             }
@@ -169,6 +175,8 @@ class IrrigationReportService
         NormalizedIrrigationReportScope $scope,
         Carbon $dayStart,
         Carbon $dayEnd,
+        Carbon $rangeStart,
+        Carbon $rangeEnd,
     ): array {
         $dailyIntervals = [];
         $totalVolumeLiters = 0.0;
@@ -176,20 +184,28 @@ class IrrigationReportService
         $totalCount = 0;
 
         foreach ($irrigations as $irrigation) {
-            $durationInSeconds = $this->calculator->overlapSeconds(
+            $clippedInterval = $this->calculator->clipIntervalToDayAndRange(
                 $irrigation->start_time,
                 $irrigation->end_time,
                 $dayStart,
                 $dayEnd,
+                $rangeStart,
+                $rangeEnd,
             );
+
+            if ($clippedInterval === null) {
+                continue;
+            }
+
+            $durationInSeconds = $clippedInterval['seconds'];
 
             if ($durationInSeconds <= 0) {
                 continue;
             }
 
             $dailyIntervals[] = [
-                'start' => max($irrigation->start_time->getTimestamp(), $dayStart->getTimestamp()),
-                'end' => min($irrigation->end_time->getTimestamp(), $dayEnd->getTimestamp()),
+                'start' => $clippedInterval['start'],
+                'end' => $clippedInterval['end'],
             ];
             $totalVolumeLiters += $this->calculator->volumeLiters(
                 $irrigation->valves,

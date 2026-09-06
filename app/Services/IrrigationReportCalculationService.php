@@ -157,6 +157,49 @@ class IrrigationReportCalculationService
         return max(0, $end - $start);
     }
 
+    /**
+     * Clip one program interval to both a report day and the requested range.
+     *
+     * The returned timestamps are half-open [start, end) Unix timestamps. The
+     * report service uses this single rule for daily duration and volume so a
+     * program cannot be counted differently for different report ranges.
+     *
+     * @return array{start:int, end:int, seconds:int}|null
+     */
+    public function clipIntervalToDayAndRange(
+        ?Carbon $intervalStart,
+        ?Carbon $intervalEnd,
+        Carbon $dayStart,
+        Carbon $dayEnd,
+        Carbon $rangeStart,
+        Carbon $rangeEnd,
+    ): ?array {
+        if ($intervalStart === null || $intervalEnd === null) {
+            return null;
+        }
+
+        $clippedStart = max(
+            $intervalStart->getTimestamp(),
+            $dayStart->getTimestamp(),
+            $rangeStart->getTimestamp(),
+        );
+        $clippedEnd = min(
+            $intervalEnd->getTimestamp(),
+            $dayEnd->getTimestamp(),
+            $rangeEnd->getTimestamp(),
+        );
+
+        if ($clippedEnd <= $clippedStart) {
+            return null;
+        }
+
+        return [
+            'start' => $clippedStart,
+            'end' => $clippedEnd,
+            'seconds' => $clippedEnd - $clippedStart,
+        ];
+    }
+
     public function durationSeconds(?Carbon $start, ?Carbon $end): int
     {
         if ($start === null || $end === null) {

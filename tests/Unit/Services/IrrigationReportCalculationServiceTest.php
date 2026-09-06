@@ -222,6 +222,41 @@ class IrrigationReportCalculationServiceTest extends TestCase
         $this->assertSame(7200, $this->calculator->overlapSeconds($start, $end, $secondDayStart, $secondDayEnd));
     }
 
+    public function test_daily_slice_clips_program_day_and_report_boundaries_together(): void
+    {
+        $programStart = Carbon::parse('2026-08-10 03:00:00', 'Asia/Tehran');
+        $programEnd = Carbon::parse('2026-08-11 03:00:00', 'Asia/Tehran');
+        $dayStart = Carbon::parse('2026-08-10 00:00:00', 'Asia/Tehran');
+        $dayEnd = Carbon::parse('2026-08-11 00:00:00', 'Asia/Tehran');
+        $reportStart = Carbon::parse('2026-08-10 00:00:00', 'Asia/Tehran');
+        $reportEnd = Carbon::parse('2026-08-12 00:00:00', 'Asia/Tehran');
+
+        $slice = $this->calculator->clipIntervalToDayAndRange(
+            $programStart,
+            $programEnd,
+            $dayStart,
+            $dayEnd,
+            $reportStart,
+            $reportEnd,
+        );
+
+        $this->assertNotNull($slice);
+        $this->assertSame($dayStart->getTimestamp() + 3 * 3600, $slice['start']);
+        $this->assertSame($dayEnd->getTimestamp(), $slice['end']);
+        $this->assertSame(21 * 3600, $slice['seconds']);
+
+        $beforeProgram = $this->calculator->clipIntervalToDayAndRange(
+            $programStart,
+            $programEnd,
+            Carbon::parse('2026-08-09 00:00:00', 'Asia/Tehran'),
+            Carbon::parse('2026-08-10 00:00:00', 'Asia/Tehran'),
+            $reportStart,
+            $reportEnd,
+        );
+
+        $this->assertNull($beforeProgram);
+    }
+
     /** Duration helpers remain null-safe. */
     public function test_duration_is_exact_and_invalid_intervals_are_zero(): void
     {

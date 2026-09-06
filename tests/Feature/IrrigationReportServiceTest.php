@@ -252,8 +252,8 @@ class IrrigationReportServiceTest extends TestCase
         $this->assertSame('04:00:00', $report['accumulated']['total_duration']);
     }
 
-    /** A previous day's tail must not inflate the first selected report day. */
-    public function test_d7_excludes_previous_program_tail_and_splits_three_am_boundary(): void
+    /** Every program tail intersecting the report range contributes to its day. */
+    public function test_d7_includes_previous_program_tail_and_splits_three_am_boundary(): void
     {
         [$farm, , $plot] = $this->makeScope();
         $this->makeIrrigation(
@@ -273,13 +273,112 @@ class IrrigationReportServiceTest extends TestCase
 
         $report = $this->report($farm, ['plot_ids' => [$plot->id]], '2026-08-11', '2026-08-12');
 
-        $this->assertSame(['21:00:00', '03:00:00'], collect($report['irrigations'])->pluck('total_duration')->all());
-        $this->assertEqualsWithDelta(42.0, $report['irrigations'][0]['total_volume'], 0.0001);
+        $this->assertSame(['24:00:00', '03:00:00'], collect($report['irrigations'])->pluck('total_duration')->all());
+        $this->assertEqualsWithDelta(45.0, $report['irrigations'][0]['total_volume'], 0.0001);
         $this->assertEqualsWithDelta(6.0, $report['irrigations'][1]['total_volume'], 0.0001);
-        $this->assertSame('24:00:00', $report['accumulated']['total_duration']);
-        $this->assertEqualsWithDelta(48.0, $report['accumulated']['total_volume'], 0.0001);
-        $this->assertEqualsWithDelta(1.0, $report['accumulated']['total_irrigated_area_ha'], 0.0001);
-        $this->assertEqualsWithDelta(48.0, $report['accumulated']['total_volume_per_hectare'], 0.0001);
+        $this->assertSame('27:00:00', $report['accumulated']['total_duration']);
+        $this->assertEqualsWithDelta(51.0, $report['accumulated']['total_volume'], 0.0001);
+        $this->assertEqualsWithDelta(2.0, $report['accumulated']['total_irrigated_area_ha'], 0.0001);
+        $this->assertEqualsWithDelta(25.5, $report['accumulated']['total_volume_per_hectare'], 0.0001);
+    }
+
+    /**
+     * A cross-midnight program must produce identical daily rows whether the
+     * request is two days, the full month, or a wider containing range.
+     */
+    public function test_cross_midnight_daily_rows_are_independent_of_report_range(): void
+    {
+        [$farm, , $plot] = $this->makeScope();
+        $valve = $this->makeValve($plot, 1000, 1, 2.8);
+        $this->makeIrrigation(
+            $farm,
+            $plot,
+            $valve,
+            '2026-08-11 03:00:00',
+            '2026-08-12 03:00:00',
+        );
+
+        $ranges = [
+            ['2026-08-11', '2026-08-12'],
+            ['2026-08-01', '2026-08-31'],
+            ['2026-08-01', '2026-09-05'],
+        ];
+        $expected = [
+            '2026-08-11' => ['21:00:00', 21.0, 7.5],
+            '2026-08-12' => ['03:00:00', 3.0, 3.0 / 2.8],
+        ];
+
+        foreach ($ranges as [$fromDate, $toDate]) {
+            $report = $this->report($farm, ['valve_ids' => [$valve->id]], $fromDate, $toDate);
+            $rows = collect($report['irrigations'])->keyBy('date');
+
+            foreach ($expected as $gregorianDate => [$duration, $volume, $volumePerHa]) {
+                $jalaliDate = jdate(Carbon::parse($gregorianDate, IrrigationReportCalculationService::TIMEZONE))->format('Y/m/d');
+                $row = $rows->get($jalaliDate);
+
+                $this->assertNotNull($row, "Missing report row for {$gregorianDate} in {$fromDate}..{$toDate}");
+                $this->assertSame($duration, $row['total_duration']);
+                $this->assertEqualsWithDelta($volume, $row['total_volume'], 0.0001);
+                $this->assertEqualsWithDelta($volumePerHa, $row['total_volume_per_hectare'], 0.0001);
+            }
+
+            $this->assertEqualsWithDelta(24.0, $report['accumulated']['total_volume'], 0.0001);
+            $this->assertEqualsWithDelta(2.8, $report['accumulated']['total_irrigated_area_ha'], 0.0001);
+            $this->assertEqualsWithDelta(24.0 / 2.8, $report['accumulated']['total_volume_per_hectare'], 0.0001);
+        }
+    }
+
+    /** Production-style two-valve fixture keeps daily volume and total m³/ha stable. */
+    public function test_two_valve_cross_midnight_fixture_preserves_clipped_volume_and_unique_area(): void
+    {
+        [$farm, , $plot] = $this->makeScope();
+        $valveOne = $this->makeValve($plot, 4760, 4, 1.4);
+        $valveTwo = $this->makeValve($plot, 4760, 4, 1.4);
+        $irrigation = $this->makeIrrigation(
+            $farm,
+            $plot,
+            $valveOne,
+            '2026-08-11 03:00:00',
+            '2026-08-12 03:00:00',
+        );
+        $irrigation->valves()->attach($valveTwo->id);
+
+        foreach ([
+            ['2026-08-11', '2026-08-12'],
+            ['2026-08-01', '2026-08-31'],
+        ] as [$fromDate, $toDate]) {
+            $report = $this->report($farm, ['valve_ids' => [$valveOne->id, $valveTwo->id]], $fromDate, $toDate);
+            $rows = collect($report['irrigations'])->keyBy('date');
+            $firstDay = jdate(Carbon::parse('2026-08-11', IrrigationReportCalculationService::TIMEZONE))->format('Y/m/d');
+            $secondDay = jdate(Carbon::parse('2026-08-12', IrrigationReportCalculationService::TIMEZONE))->format('Y/m/d');
+
+            $this->assertSame('21:00:00', $rows[$firstDay]['total_duration']);
+            $this->assertSame('03:00:00', $rows[$secondDay]['total_duration']);
+            $this->assertEqualsWithDelta(799.68, $rows[$firstDay]['total_volume'], 0.0001);
+            $this->assertEqualsWithDelta(114.24, $rows[$secondDay]['total_volume'], 0.0001);
+            $this->assertEqualsWithDelta(913.92, $report['accumulated']['total_volume'], 0.0001);
+            $this->assertEqualsWithDelta(2.8, $report['accumulated']['total_irrigated_area_ha'], 0.0001);
+            $this->assertEqualsWithDelta(326.4, $report['accumulated']['total_volume_per_hectare'], 0.0001);
+        }
+    }
+
+    /** Multiple cross-midnight programs keep volume tied to each clipped slice. */
+    public function test_multiple_cross_midnight_programs_split_daily_volume_independently(): void
+    {
+        [$farm, $field, $plotOne, $plotTwo] = $this->makeScope();
+        $valveOne = $this->makeValve($plotOne, 1000, 1, 0.5);
+        $valveTwo = $this->makeValve($plotTwo, 2000, 1, 0.4);
+
+        $this->makeIrrigation($farm, $plotOne, $valveOne, '2026-08-11 22:00:00', '2026-08-12 02:00:00');
+        $this->makeIrrigation($farm, $plotTwo, $valveTwo, '2026-08-11 23:00:00', '2026-08-12 03:00:00');
+
+        $report = $this->report($farm, ['field_ids' => [$field->id]], '2026-08-11', '2026-08-12');
+
+        $this->assertSame(['02:00:00', '03:00:00'], collect($report['irrigations'])->pluck('total_duration')->all());
+        // Day 11: 2h × 1 m³/h + 1h × 2 m³/h = 4 m³.
+        $this->assertEqualsWithDelta(4.0, $report['irrigations'][0]['total_volume'], 0.0001);
+        // Day 12: 1h × 1 m³/h + 2h × 2 m³/h = 5 m³.
+        $this->assertEqualsWithDelta(5.0, $report['irrigations'][1]['total_volume'], 0.0001);
     }
 
     /** I2: daily intensity aggregates volumes and area occurrences first. */
