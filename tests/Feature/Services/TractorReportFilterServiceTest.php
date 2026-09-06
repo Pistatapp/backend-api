@@ -50,6 +50,7 @@ class TractorReportFilterServiceTest extends TestCase
         $this->assertSame('02:00:00', $result['accumulated']['effective_work_duration']);
         $this->assertSame('25.00', $result['expectations']['total_efficiency']);
         $this->assertCount(1, $result['reports']);
+        $this->assertSame('02:00:00', $result['reports'][0]['effective_work_duration']);
         $this->assertSame('01:00:00', $result['reports'][0]['task_execution_duration']);
         $this->assertSame('12.50', $result['reports'][0]['task_efficiency']);
     }

@@ -318,6 +318,12 @@ class TractorReportFilterService
                 'traveled_distance' => $this->formatDistance($report->traveled_distance ?? 0),
                 'avg_speed' => $this->formatSpeed($report->average_speed ?? 0),
                 'work_duration' => $this->formatDuration($report->work_duration ?? 0),
+                'effective_work_duration' => $this->formatDuration(
+                    $this->tractorEfficiencyService->observedWorkDurationSeconds(
+                        $report->work_duration,
+                        $report->stoppage_duration,
+                    )
+                ),
                 'stoppage_duration' => $this->formatDuration($report->stoppage_duration ?? 0),
                 'stoppage_count' => (int) ($report->stoppage_count ?? 0),
                 'task_execution_duration' => null,
