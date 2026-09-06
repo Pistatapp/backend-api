@@ -19,6 +19,13 @@ class IrrigationLifecycleService
     public const OPERATOR_HOURS = 48;
     public const ADMIN_HOURS = 72;
 
+    /**
+     * One-off production recovery access for irrigation 1193:
+     * Tat Kadkhoda / field 14 / plot 14-2, 1405/05/22 03:00 to
+     * 1405/06/23 03:00 (Asia/Tehran).
+     */
+    public const ADMIN_EDIT_OVERRIDE_IRRIGATION_ID = 1193;
+
     public function now(): Carbon
     {
         return Carbon::now(self::TIMEZONE);
@@ -75,6 +82,26 @@ class IrrigationLifecycleService
 
     public function canAdminEdit(Irrigation $irrigation): bool
     {
+        // Keep the exception narrowly scoped to the requested production
+        // record. A confirmed or explicitly finalized record remains locked.
+        if (
+            (int) $irrigation->getKey() === self::ADMIN_EDIT_OVERRIDE_IRRIGATION_ID
+            && ! $this->isAdminConfirmed($irrigation)
+            && $irrigation->finalized_at === null
+        ) {
+            return true;
+        }
+
+        return $this->canAdminEditWithinWindow($irrigation);
+    }
+
+    public function canAdminDelete(Irrigation $irrigation): bool
+    {
+        return $this->canAdminEditWithinWindow($irrigation);
+    }
+
+    private function canAdminEditWithinWindow(Irrigation $irrigation): bool
+    {
         if ($this->isFinal($irrigation)) {
             return false;
         }
@@ -93,9 +120,12 @@ class IrrigationLifecycleService
         return $this->canOperatorEdit($irrigation);
     }
 
+    /**
+     * Admin confirmation keeps the normal lifecycle window.
+     */
     public function canAdminConfirm(Irrigation $irrigation): bool
     {
-        return $this->canAdminEdit($irrigation);
+        return $this->canAdminEditWithinWindow($irrigation);
     }
 
     public function reportEligible(Irrigation $irrigation): bool

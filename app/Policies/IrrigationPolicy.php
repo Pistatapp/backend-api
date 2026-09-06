@@ -57,7 +57,7 @@ class IrrigationPolicy
         $farmAdmin = $irrigation->farm->admins->contains($user);
 
         if ($farmAdmin) {
-            return $lifecycle->canAdminEdit($irrigation) && $user->can('delete-irrigation-program');
+            return $lifecycle->canAdminDelete($irrigation) && $user->can('delete-irrigation-program');
         }
 
         return $user->is($irrigation->creator)

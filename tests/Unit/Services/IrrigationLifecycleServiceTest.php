@@ -44,7 +44,26 @@ class IrrigationLifecycleServiceTest extends TestCase
 
         $service = app(IrrigationLifecycleService::class);
         $this->assertTrue($service->isFinal($irrigation));
+        $this->assertFalse($service->canAdminEdit($irrigation));
         $this->assertFalse($service->reportEligible($irrigation));
+    }
+
+    public function test_requested_production_irrigation_remains_editable_for_farm_admin(): void
+    {
+        $irrigation = new Irrigation([
+            'start_time' => '2026-08-12 23:30:00',
+            'end_time' => '2026-09-13 23:30:00',
+            'status' => 'in-progress',
+        ]);
+        $irrigation->id = IrrigationLifecycleService::ADMIN_EDIT_OVERRIDE_IRRIGATION_ID;
+        Carbon::setTestNow(Carbon::parse('2026-09-20 12:00:00', 'Asia/Tehran'));
+
+        $service = app(IrrigationLifecycleService::class);
+
+        $this->assertTrue($service->isFinal($irrigation));
+        $this->assertTrue($service->canAdminEdit($irrigation));
+        $this->assertFalse($service->canAdminConfirm($irrigation));
+        $this->assertFalse($service->canAdminDelete($irrigation));
     }
 
     public function test_legacy_admin_verified_irrigation_remains_report_eligible(): void
