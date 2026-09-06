@@ -139,6 +139,7 @@ class TaskGpsMetricsAnalyzerTest extends TestCase
 
         $this->assertGreaterThan(0, $results['movement_distance_km']);
         $this->assertEquals(30, $results['movement_duration_seconds']);
+        $this->assertEquals(30, $results['in_zone_duration_seconds']);
         $this->assertEquals(0, $results['stoppage_count']);
         $this->assertGreaterThan(0, $results['average_speed']);
         $this->assertTrue($results['has_zone_presence']);
@@ -201,6 +202,7 @@ class TaskGpsMetricsAnalyzerTest extends TestCase
         // Should only count time from two segments (0-10s and 40-50s = 20s total)
         // Gap between segments (10-40s) should be ignored
         $this->assertEquals(20, $results['movement_duration_seconds']);
+        $this->assertEquals(20, $results['in_zone_duration_seconds']);
         $this->assertGreaterThan(0, $results['movement_distance_km']);
         $this->assertEquals(0, $results['stoppage_count']);
     }
@@ -1018,4 +1020,3 @@ class TaskGpsMetricsAnalyzerTest extends TestCase
         return $this->analyzer->analyze($polygon);
     }
 }
-

@@ -366,6 +366,11 @@ class TaskGpsMetricsAnalyzer
             // Merge metrics
             $totalMetrics['movement_distance'] += $segmentResults['metrics']['movement_distance'];
             $totalMetrics['movement_duration'] += $segmentResults['metrics']['movement_duration'];
+            $totalMetrics['in_zone_duration'] += max(
+                0,
+                $this->data[$segment['end']][self::IDX_TIMESTAMP]
+                    - $this->data[$segment['start']][self::IDX_TIMESTAMP]
+            );
             $totalMetrics['stoppage_duration'] += $segmentResults['metrics']['stoppage_duration'];
             $totalMetrics['stoppage_duration_while_on'] += $segmentResults['metrics']['stoppage_duration_while_on'];
             $totalMetrics['stoppage_duration_while_off'] += $segmentResults['metrics']['stoppage_duration_while_off'];
@@ -453,6 +458,7 @@ class TaskGpsMetricsAnalyzer
         return [
             'movement_distance' => 0.0,
             'movement_duration' => 0,
+            'in_zone_duration' => 0,
             'stoppage_duration' => 0,
             'stoppage_duration_while_on' => 0,
             'stoppage_duration_while_off' => 0,
@@ -694,6 +700,8 @@ class TaskGpsMetricsAnalyzer
             'movement_distance_meters' => round($metrics['movement_distance'] * self::METERS_PER_KILOMETER, 2),
             'movement_duration_seconds' => $metrics['movement_duration'],
             'movement_duration_formatted' => $this->formatTime($metrics['movement_duration']),
+            'in_zone_duration_seconds' => $metrics['in_zone_duration'],
+            'in_zone_duration_formatted' => $this->formatTime($metrics['in_zone_duration']),
             'stoppage_duration_seconds' => $metrics['stoppage_duration'],
             'stoppage_duration_formatted' => $this->formatTime($metrics['stoppage_duration']),
             'stoppage_duration_while_on_seconds' => $metrics['stoppage_duration_while_on'],
@@ -788,6 +796,8 @@ class TaskGpsMetricsAnalyzer
             'movement_distance_meters' => 0,
             'movement_duration_seconds' => 0,
             'movement_duration_formatted' => '00:00:00',
+            'in_zone_duration_seconds' => 0,
+            'in_zone_duration_formatted' => '00:00:00',
             'stoppage_duration_seconds' => 0,
             'stoppage_duration_formatted' => '00:00:00',
             'stoppage_duration_while_on_seconds' => 0,
@@ -803,4 +813,3 @@ class TaskGpsMetricsAnalyzer
         ];
     }
 }
-

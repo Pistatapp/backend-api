@@ -34,9 +34,11 @@ class UpdateEndedTractorTasks extends Command
             $now = Carbon::now();
             $today = $now->toDateString();
 
-            TractorTask::whereDate('date', $today)
-                ->whereIn('status', ['in_progress', 'stopped'])
-                ->whereTime('end_time', '<=', $now->format('H:i:s'))
+            // Include stale unfinished tasks from previous dates as well as
+            // today's tasks. The per-task datetime check below remains the
+            // authority for overnight windows and future tasks.
+            TractorTask::whereDate('date', '<=', $today)
+                ->whereIn('status', ['not_started', 'in_progress', 'stopped'])
                 ->chunk(100, function ($tasks) use ($now) {
                     foreach ($tasks as $task) {
                         if (! $now->greaterThan($task->getEndDateTime())) {

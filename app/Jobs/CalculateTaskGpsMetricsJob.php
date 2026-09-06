@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Events\TractorTaskStatusChanged;
 use App\Models\GpsMetricsCalculation;
 use App\Models\TractorTask;
 use App\Notifications\TractorTaskStatusNotification;
@@ -18,6 +19,8 @@ use Illuminate\Support\Facades\Notification;
 class CalculateTaskGpsMetricsJob implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+
+    private const MIN_COMPLETION_ZONE_DURATION_SECONDS = 5 * 60;
 
     /**
      * The number of times the job may be attempted.
@@ -57,17 +60,20 @@ class CalculateTaskGpsMetricsJob implements ShouldBeUnique, ShouldQueue
         $results = $gpsDataAnalyzer->loadRecordsFor($tractor, $taskStartTime, $taskEndTime)
             ->analyze($taskZones);
 
-        if (! $this->hasValidInZoneWork($results)) {
+        $inZoneDurationSeconds = $this->inZoneDurationSeconds($results);
+
+        if (! $this->hasValidInZoneWork($results, $inZoneDurationSeconds)) {
             $this->setTaskStatusAndNotify('not_done', null);
 
             return;
         }
 
-        $efficiency = $this->calculateEfficiency($tractor, $results['movement_duration_seconds']);
+        $efficiency = $this->calculateEfficiency($tractor, $inZoneDurationSeconds);
 
         $timings = [
             'device_on_time' => $results['device_on_time'] ?? null,
             'first_movement_time' => $results['first_movement_time'] ?? null,
+            'in_zone_duration_seconds' => $inZoneDurationSeconds,
         ];
 
         $metrics = GpsMetricsCalculation::updateOrCreate(
@@ -97,15 +103,24 @@ class CalculateTaskGpsMetricsJob implements ShouldBeUnique, ShouldQueue
      *
      * @param  array<string, mixed>  $results
      */
-    private function hasValidInZoneWork(array $results): bool
+    private function hasValidInZoneWork(array $results, int $inZoneDurationSeconds): bool
     {
-        if (! ($results['has_zone_presence'] ?? false)) {
-            return false;
+        return ($results['has_zone_presence'] ?? false)
+            && $inZoneDurationSeconds > self::MIN_COMPLETION_ZONE_DURATION_SECONDS;
+    }
+
+    /**
+     * Use the analyzer's elapsed in-zone duration. The fallback keeps the job
+     * compatible with older analyzers and queued payloads during deployment.
+     */
+    private function inZoneDurationSeconds(array $results): int
+    {
+        if (array_key_exists('in_zone_duration_seconds', $results)) {
+            return max(0, (int) $results['in_zone_duration_seconds']);
         }
 
-        return ($results['movement_duration_seconds'] ?? 0) > 0
-            || ($results['stoppage_duration_seconds'] ?? 0) > 0
-            || ($results['movement_distance_km'] ?? 0) > 0;
+        return max(0, (int) ($results['movement_duration_seconds'] ?? 0))
+            + max(0, (int) ($results['stoppage_duration_seconds'] ?? 0));
     }
 
     /**
@@ -129,6 +144,10 @@ class CalculateTaskGpsMetricsJob implements ShouldBeUnique, ShouldQueue
     private function setTaskStatusAndNotify(string $status, ?GpsMetricsCalculation $metrics): void
     {
         $this->task->update(['status' => $status]);
+        $this->task->status = $status;
+
+        // Notify the live map of the final status as well as farm admins.
+        event(new TractorTaskStatusChanged($this->task, $status, null));
 
         $farm = $this->task->tractor->farm;
 

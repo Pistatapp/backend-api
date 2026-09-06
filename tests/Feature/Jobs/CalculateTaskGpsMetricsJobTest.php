@@ -146,9 +146,10 @@ class CalculateTaskGpsMetricsJobTest extends TestCase
         $analyzer->shouldReceive('analyze')->once()->andReturn([
             'movement_distance_km' => 0,
             'movement_duration_seconds' => 0,
-            'stoppage_duration_seconds' => 120,
+            'in_zone_duration_seconds' => 360,
+            'stoppage_duration_seconds' => 360,
             'stoppage_count' => 1,
-            'stoppage_duration_while_on_seconds' => 120,
+            'stoppage_duration_while_on_seconds' => 360,
             'stoppage_duration_while_off_seconds' => 0,
             'average_speed' => 0,
             'device_on_time' => '09:15:00',
@@ -166,8 +167,45 @@ class CalculateTaskGpsMetricsJobTest extends TestCase
         $this->assertSame('done', $task->status);
         $this->assertDatabaseHas('gps_metrics_calculations', [
             'tractor_task_id' => $task->id,
-            'stoppage_duration' => 120,
+            'stoppage_duration' => 360,
         ]);
+    }
+
+    public function test_marks_task_not_done_when_zone_presence_is_not_over_five_minutes(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-13 18:00:00'));
+
+        $task = $this->createTask(
+            taskDate: '2026-06-05',
+            startTime: '09:00:00',
+            endTime: '12:00:00',
+        );
+
+        $analyzer = Mockery::mock(TaskGpsMetricsAnalyzer::class);
+        $analyzer->shouldReceive('loadRecordsFor')->once()->andReturnSelf();
+        $analyzer->shouldReceive('analyze')->once()->andReturn([
+            'movement_distance_km' => 2.0,
+            'movement_duration_seconds' => 299,
+            'in_zone_duration_seconds' => 300,
+            'stoppage_duration_seconds' => 0,
+            'stoppage_count' => 0,
+            'stoppage_duration_while_on_seconds' => 0,
+            'stoppage_duration_while_off_seconds' => 0,
+            'average_speed' => 24,
+            'device_on_time' => '09:00:00',
+            'first_movement_time' => '09:00:01',
+            'has_zone_presence' => true,
+        ]);
+
+        (new CalculateTaskGpsMetricsJob($task))->handle(
+            $analyzer,
+            app(TractorTaskService::class),
+        );
+
+        $task->refresh();
+
+        $this->assertSame('not_done', $task->status);
+        $this->assertNull(GpsMetricsCalculation::where('tractor_task_id', $task->id)->first());
     }
 
     private function createTask(string $taskDate, string $startTime, string $endTime): TractorTask
@@ -199,6 +237,7 @@ class CalculateTaskGpsMetricsJobTest extends TestCase
         return [
             'movement_distance_km' => 1.2,
             'movement_duration_seconds' => 600,
+            'in_zone_duration_seconds' => 600,
             'stoppage_duration_seconds' => 0,
             'stoppage_count' => 0,
             'stoppage_duration_while_on_seconds' => 0,
