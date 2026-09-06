@@ -104,8 +104,13 @@ class IrrigationReportService
             ->verifiedByAdmin()
             ->whereNotNull('end_time')
             ->whereColumn('end_time', '>', 'start_time')
+            // Reports are grouped by the local calendar date on which an
+            // irrigation program starts. Keep the full program so an
+            // overnight run can be split into 21h + 3h, but do not pull the
+            // tail of a program that started before the requested range into
+            // the first report row.
+            ->where('start_time', '>=', $rangeStart)
             ->where('start_time', '<', $rangeEnd)
-            ->where('end_time', '>', $rangeStart)
             ->when($scopeInput['labour_id'] ?? null, function ($query, $labourId) {
                 $query->where('labour_id', $labourId);
             })

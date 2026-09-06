@@ -252,6 +252,34 @@ class IrrigationReportServiceTest extends TestCase
         $this->assertSame('04:00:00', $report['accumulated']['total_duration']);
     }
 
+    /** A previous day's tail must not inflate the first selected report day. */
+    public function test_d7_excludes_previous_program_tail_and_splits_three_am_boundary(): void
+    {
+        [$farm, , $plot] = $this->makeScope();
+        $this->makeIrrigation(
+            $farm,
+            $plot,
+            $this->makeValve($plot, 1000, 1, 1.0),
+            '2026-08-10 03:00:00',
+            '2026-08-11 03:00:00',
+        );
+        $this->makeIrrigation(
+            $farm,
+            $plot,
+            $this->makeValve($plot, 2000, 1, 1.0),
+            '2026-08-11 03:00:00',
+            '2026-08-12 03:00:00',
+        );
+
+        $report = $this->report($farm, ['plot_ids' => [$plot->id]], '2026-08-11', '2026-08-12');
+
+        $this->assertSame(['21:00:00', '03:00:00'], collect($report['irrigations'])->pluck('total_duration')->all());
+        $this->assertEqualsWithDelta(42.0, $report['irrigations'][0]['total_volume'], 0.0001);
+        $this->assertEqualsWithDelta(6.0, $report['irrigations'][1]['total_volume'], 0.0001);
+        $this->assertSame('24:00:00', $report['accumulated']['total_duration']);
+        $this->assertEqualsWithDelta(48.0, $report['accumulated']['total_volume'], 0.0001);
+    }
+
     /** I2: daily intensity aggregates volumes and area occurrences first. */
     public function test_i2_daily_intensity_uses_daily_volume_over_area_occurrences(): void
     {
