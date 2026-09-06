@@ -24,6 +24,7 @@ class TractorTrajectoryServiceTest extends TestCase
             'trajectory.stationary.window_seconds' => 180,
             'trajectory.stationary.maximum_window_points' => 48,
             'trajectory.stationary.low_speed_kmh' => 2.0,
+            'trajectory.stationary.engine_off_max_speed_kmh' => 15.0,
             'trajectory.movement.minimum_progression_points' => 3,
             'trajectory.movement.minimum_net_displacement_multiplier' => 1.25,
             'trajectory.movement.minimum_directional_consistency' => 0.55,
@@ -65,6 +66,37 @@ class TractorTrajectoryServiceTest extends TestCase
         $this->assertEquals(0.0, $result['metrics']['operational_movement_distance_meters']);
         $this->assertCount(1, array_filter($result['rows'], fn ($row) => $row['is_display_point']));
         $this->assertCount(5, $result['rows']);
+    }
+
+    public function test_engine_off_jitter_with_nonzero_reported_speed_collapses_to_one_display_point(): void
+    {
+        $result = $this->service->analyze([
+            $this->row(1, '2026-09-02 08:00:00', 0, [35.0000, 51.0000]) + ['status' => 0],
+            $this->row(2, '2026-09-02 08:04:20', 6, [35.0004, 51.0002]) + ['status' => 0],
+            $this->row(3, '2026-09-02 08:08:40', 14, [34.9997, 51.0005]) + ['status' => 0],
+            $this->row(4, '2026-09-02 08:12:00', 4, [35.0002, 50.9996]) + ['status' => 0],
+        ], $this->profile());
+
+        $this->assertSame(1, $result['metrics']['stationary_cluster_count']);
+        $this->assertSame(0.0, $result['metrics']['operational_movement_distance_meters']);
+        $this->assertCount(1, array_filter($result['rows'], fn ($row) => $row['is_display_point']));
+        $this->assertSame(TractorTrajectoryService::STATIONARY, $result['rows'][0]['trajectory_classification']);
+    }
+
+    public function test_a_missing_sample_window_starts_a_new_display_segment_before_connecting_points(): void
+    {
+        $result = $this->service->analyze([
+            $this->row(1, '2026-09-02 09:00:00', 4),
+            $this->row(2, '2026-09-02 09:03:01', 4, [35.001, 51.001]),
+        ], [
+            'name' => 'TEST',
+            'noise_radius_meters' => 15.0,
+            'max_plausible_speed_kmh' => 45.0,
+            'gap_seconds' => 180,
+        ]);
+
+        $this->assertSame(0, $result['rows'][0]['segment_id']);
+        $this->assertSame(1, $result['rows'][1]['segment_id']);
     }
 
     public function test_speed_zero_progression_is_moving(): void

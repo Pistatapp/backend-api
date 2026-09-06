@@ -60,6 +60,10 @@ class TractorTrajectoryService
         $display = array_fill(0, $n, true);
         $distanceFromPrevious = array_fill(0, $n, 0.0);
         $impliedSpeed = array_fill(0, $n, 0.0);
+        $engineStopped = array_map(
+            fn (array $point): bool => $this->isEngineStopped($point['row']),
+            $points
+        );
 
         for ($i = 0; $i < $n; $i++) {
             if (!$points[$i]['valid']) {
@@ -120,7 +124,11 @@ class TractorTrajectoryService
 
         // Use bounded rolling windows. Coordinate-wise medians avoid a single
         // excursion pulling the stationary center away from observed points.
-        $stationary = array_fill(0, $n, false);
+        // An engine-off signal is stronger than low reported GPS speed. It
+        // prevents a parked device's small coordinate drift from becoming a
+        // route, while the existing rolling-window rules still handle devices
+        // that do not provide a reliable status signal.
+        $stationary = $engineStopped;
         $stationaryWindowSeconds = (int) config('trajectory.stationary.window_seconds', 180);
         $maximumWindowPoints = (int) config('trajectory.stationary.maximum_window_points', 48);
         $minimumWindowSeconds = (int) config('trajectory.stationary.minimum_window_seconds', 60);
@@ -200,7 +208,15 @@ class TractorTrajectoryService
                 continue;
             }
             $start = $i;
-            while ($i + 1 < $n && $classification[$i + 1] === self::STATIONARY && $segment[$i + 1] === $segment[$start]) {
+            while ($i + 1 < $n
+                && $classification[$i + 1] === self::STATIONARY
+                && (
+                    // A continuous engine-off session remains one parked
+                    // cluster even when the device reports sparsely.
+                    ($engineStopped[$i] ?? false) && ($engineStopped[$i + 1] ?? false)
+                    || $segment[$i + 1] === $segment[$start]
+                )
+            ) {
                 $i++;
             }
             $end = $i;
@@ -382,6 +398,19 @@ class TractorTrajectoryService
     private function validCoordinate(float $lat, float $lon): bool
     {
         return is_finite($lat) && is_finite($lon) && $lat >= -90 && $lat <= 90 && $lon >= -180 && $lon <= 180 && !($lat == 0.0 && $lon == 0.0);
+    }
+
+    private function isEngineStopped(array $row): bool
+    {
+        if (!array_key_exists('status', $row) || $row['status'] === null) {
+            return false;
+        }
+
+        return (int) $row['status'] === 0
+            && (float) ($row['speed'] ?? 0) <= (float) config(
+                'trajectory.stationary.engine_off_max_speed_kmh',
+                15.0
+            );
     }
 
     private function distance(array $a, array $b): float { return $this->distanceTo($a['lat'], $a['lon'], $b); }

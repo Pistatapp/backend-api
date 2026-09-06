@@ -7,17 +7,19 @@ return [
         'UNKNOWN' => [
             'noise_radius_meters' => (float) env('GPS_TRAJECTORY_UNKNOWN_NOISE_RADIUS_M', 15.0),
             'max_plausible_speed_kmh' => (float) env('GPS_TRAJECTORY_UNKNOWN_MAX_SPEED_KMH', 45.0),
-            'gap_seconds' => (int) env('GPS_TRAJECTORY_UNKNOWN_GAP_SECONDS', 600),
+            // A missing sample window is a real route break. Connecting the
+            // points on either side creates a false diagonal on the map.
+            'gap_seconds' => (int) env('GPS_TRAJECTORY_UNKNOWN_GAP_SECONDS', 180),
         ],
         'HOOSHNICS_STANDARD' => [
             'noise_radius_meters' => (float) env('GPS_TRAJECTORY_HOOSHNICS_NOISE_RADIUS_M', 15.0),
             'max_plausible_speed_kmh' => (float) env('GPS_TRAJECTORY_HOOSHNICS_MAX_SPEED_KMH', 45.0),
-            'gap_seconds' => (int) env('GPS_TRAJECTORY_HOOSHNICS_GAP_SECONDS', 600),
+            'gap_seconds' => (int) env('GPS_TRAJECTORY_HOOSHNICS_GAP_SECONDS', 180),
         ],
         'TELTONIKA' => [
             'noise_radius_meters' => (float) env('GPS_TRAJECTORY_TELTONIKA_NOISE_RADIUS_M', 8.0),
             'max_plausible_speed_kmh' => (float) env('GPS_TRAJECTORY_TELTONIKA_MAX_SPEED_KMH', 45.0),
-            'gap_seconds' => (int) env('GPS_TRAJECTORY_TELTONIKA_GAP_SECONDS', 600),
+            'gap_seconds' => (int) env('GPS_TRAJECTORY_TELTONIKA_GAP_SECONDS', 180),
         ],
     ],
     'stationary' => [
@@ -26,6 +28,10 @@ return [
         'window_seconds' => (int) env('GPS_TRAJECTORY_STATIONARY_ROLLING_SECONDS', 180),
         'maximum_window_points' => (int) env('GPS_TRAJECTORY_STATIONARY_MAX_POINTS', 48),
         'low_speed_kmh' => (float) env('GPS_TRAJECTORY_LOW_SPEED_KMH', 2.0),
+        // Some devices report a small non-zero speed while the engine is off.
+        // Status 0 is used only within this conservative ceiling so a
+        // contradictory high-speed row is not silently discarded.
+        'engine_off_max_speed_kmh' => (float) env('GPS_TRAJECTORY_ENGINE_OFF_MAX_SPEED_KMH', 15.0),
         'p95_multiplier' => (float) env('GPS_TRAJECTORY_STATIONARY_P95_MULTIPLIER', 1.0),
     ],
     'movement' => [
