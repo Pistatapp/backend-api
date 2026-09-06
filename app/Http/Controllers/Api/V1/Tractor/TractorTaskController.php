@@ -225,7 +225,7 @@ class TractorTaskController extends Controller
         $this->authorizeTractorAccess($tractor, $request);
 
         $query = TractorTask::query()
-            ->with(['operation', 'taskableItems.taskable', 'creator', 'tractor.driver'])
+            ->with(['operation', 'taskableItems.taskable', 'creator', 'tractor.driver', 'gpsMetricsCalculation'])
             ->where('tractor_id', $validated['tractor_id'])
             ->whereBetween('date', [$validated['start_date'], $validated['end_date']]);
 

@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\Tractor;
 use App\Models\GpsMetricsCalculation;
 use App\Services\GpsDataAnalyzer;
+use App\Services\TractorEfficiencyService;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -36,7 +37,10 @@ class CalculateGpsMetricsJob implements ShouldQueue
      *
      * @return void
      */
-    public function handle(GpsDataAnalyzer $gpsDataAnalyzer): void
+    public function handle(
+        GpsDataAnalyzer $gpsDataAnalyzer,
+        TractorEfficiencyService $tractorEfficiencyService
+    ): void
     {
         $dateString = $this->date->toDateString();
 
@@ -48,8 +52,11 @@ class CalculateGpsMetricsJob implements ShouldQueue
             return;
         }
 
-        // Calculate efficiency
-        $efficiency = $this->calculateEfficiency($results['movement_duration_seconds']);
+        // Total productivity is based on the complete observed working
+        // interval, including stoppage time observed by GPS.
+        $effectiveWorkDuration = (int) $results['movement_duration_seconds']
+            + (int) $results['stoppage_duration_seconds'];
+        $efficiency = $tractorEfficiencyService->calculate($this->tractor, $effectiveWorkDuration);
 
         // Build timings array from analyzer results
         $timings = [
@@ -78,21 +85,4 @@ class CalculateGpsMetricsJob implements ShouldQueue
         );
     }
 
-    /**
-     * Calculate efficiency based on work duration.
-     *
-     * @param int $workDurationSeconds
-     * @return float
-     */
-    private function calculateEfficiency(int $workDurationSeconds): float
-    {
-        $expectedDailyWorkHours = $this->tractor->expected_daily_work_time ?? 8;
-        $expectedDailyWorkSeconds = $expectedDailyWorkHours * 3600;
-
-        if ($expectedDailyWorkSeconds <= 0) {
-            return 0;
-        }
-
-        return ($workDurationSeconds / $expectedDailyWorkSeconds) * 100;
-    }
 }

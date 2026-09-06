@@ -67,7 +67,7 @@ class TractorController extends Controller
             'gpsDevice',
             'farm',
             'gpsMetricsCalculations' => function ($query) {
-                $query->latest('date')->limit(7);
+                $query->whereNull('tractor_task_id')->latest('date')->limit(7);
             },
         ]);
 

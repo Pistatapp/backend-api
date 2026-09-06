@@ -48,6 +48,34 @@ class TractorTaskResource extends JsonResource
             'end_time' => $this->end_time->format('H:i:s'),
             'status' => $this->status,
             'is_current' => $this->isCurrent(),
+            'task_execution_duration' => $this->whenLoaded('gpsMetricsCalculation', function () {
+                if (! $this->gpsMetricsCalculation) {
+                    return null;
+                }
+
+                $timings = is_array($this->gpsMetricsCalculation->timings)
+                    ? $this->gpsMetricsCalculation->timings
+                    : [];
+                $seconds = array_key_exists('in_zone_duration_seconds', $timings)
+                    ? (int) $timings['in_zone_duration_seconds']
+                    : (int) $this->gpsMetricsCalculation->work_duration
+                        + (int) $this->gpsMetricsCalculation->stoppage_duration;
+
+                return to_time_format(max(0, $seconds));
+            }),
+            'task_efficiency' => $this->whenLoaded('gpsMetricsCalculation', function () {
+                if (! $this->gpsMetricsCalculation) {
+                    return null;
+                }
+
+                $seconds = app(\App\Services\TractorEfficiencyService::class)
+                    ->taskPresenceDurationSeconds($this->gpsMetricsCalculation);
+
+                return number_format(
+                    app(\App\Services\TractorEfficiencyService::class)->calculate($this->tractor, $seconds),
+                    2
+                );
+            }),
             $this->mergeWhen($this->data, [
                 'consumed_water' => data_get($this->data, 'consumed_water'),
                 'consumed_fertilizer' => data_get($this->data, 'consumed_fertilizer'),

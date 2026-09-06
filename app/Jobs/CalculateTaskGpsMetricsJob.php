@@ -8,6 +8,7 @@ use App\Models\TractorTask;
 use App\Notifications\TractorTaskStatusNotification;
 use App\Services\TaskGpsMetricsAnalyzer;
 use App\Services\TractorTaskService;
+use App\Services\TractorEfficiencyService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -47,7 +48,11 @@ class CalculateTaskGpsMetricsJob implements ShouldBeUnique, ShouldQueue
     /**
      * Execute the job.
      */
-    public function handle(TaskGpsMetricsAnalyzer $gpsDataAnalyzer, TractorTaskService $tractorTaskService): void
+    public function handle(
+        TaskGpsMetricsAnalyzer $gpsDataAnalyzer,
+        TractorTaskService $tractorTaskService,
+        TractorEfficiencyService $tractorEfficiencyService
+    ): void
     {
         $this->task->loadMissing('tractor.farm.admins');
 
@@ -63,7 +68,7 @@ class CalculateTaskGpsMetricsJob implements ShouldBeUnique, ShouldQueue
         $inZoneDurationSeconds = $this->inZoneDurationSeconds($results);
         $taskCompleted = $this->hasValidInZoneWork($results, $inZoneDurationSeconds);
         $efficiency = $taskCompleted
-            ? $this->calculateEfficiency($tractor, $inZoneDurationSeconds)
+            ? $tractorEfficiencyService->calculate($tractor, $inZoneDurationSeconds)
             : 0;
 
         $timings = [
@@ -117,21 +122,6 @@ class CalculateTaskGpsMetricsJob implements ShouldBeUnique, ShouldQueue
 
         return max(0, (int) ($results['movement_duration_seconds'] ?? 0))
             + max(0, (int) ($results['stoppage_duration_seconds'] ?? 0));
-    }
-
-    /**
-     * Calculate efficiency based on work duration.
-     */
-    private function calculateEfficiency($tractor, int $workDurationSeconds): float
-    {
-        $expectedDailyWorkHours = $tractor->expected_daily_work_time ?? 8;
-        $expectedDailyWorkSeconds = $expectedDailyWorkHours * 3600;
-
-        if ($expectedDailyWorkSeconds <= 0) {
-            return 0;
-        }
-
-        return ($workDurationSeconds / $expectedDailyWorkSeconds) * 100;
     }
 
     /**

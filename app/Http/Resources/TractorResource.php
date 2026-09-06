@@ -29,10 +29,21 @@ class TractorResource extends JsonResource
             'last_service_at' => $this->last_service_at,
             'last_service_notified_at' => $this->last_service_notified_at,
             'one_week_efficiency_chart_data' => $this->whenLoaded('gpsMetricsCalculations', function () {
-                return $this->gpsMetricsCalculations->map(function ($report) {
+                $efficiencyService = app(\App\Services\TractorEfficiencyService::class);
+
+                return $this->gpsMetricsCalculations->map(function ($report) use ($efficiencyService) {
                     return [
                         'date' => jdate($report->date)->format('Y-m-d'),
-                        'efficiency' => number_format($report->efficiency, 2),
+                        'efficiency' => number_format(
+                            $efficiencyService->calculate(
+                                $this->resource,
+                                $efficiencyService->observedWorkDurationSeconds(
+                                    $report->work_duration,
+                                    $report->stoppage_duration
+                                )
+                            ),
+                            2
+                        ),
                     ];
                 });
             }),
