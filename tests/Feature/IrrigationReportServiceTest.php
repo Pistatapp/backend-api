@@ -278,6 +278,8 @@ class IrrigationReportServiceTest extends TestCase
         $this->assertEqualsWithDelta(6.0, $report['irrigations'][1]['total_volume'], 0.0001);
         $this->assertSame('24:00:00', $report['accumulated']['total_duration']);
         $this->assertEqualsWithDelta(48.0, $report['accumulated']['total_volume'], 0.0001);
+        $this->assertEqualsWithDelta(1.0, $report['accumulated']['total_irrigated_area_ha'], 0.0001);
+        $this->assertEqualsWithDelta(48.0, $report['accumulated']['total_volume_per_hectare'], 0.0001);
     }
 
     /** I2: daily intensity aggregates volumes and area occurrences first. */
@@ -306,6 +308,21 @@ class IrrigationReportServiceTest extends TestCase
         $this->assertEqualsWithDelta(250.0, $report['accumulated']['total_volume'], 0.0001);
         $this->assertEqualsWithDelta(1.0, $report['accumulated']['total_irrigated_area_ha'], 0.0001);
         $this->assertEqualsWithDelta(250.0, $report['accumulated']['total_volume_per_hectare'], 0.0001);
+    }
+
+    /** A valve repeated across programs contributes its area once to the period denominator. */
+    public function test_accumulated_denominator_counts_repeated_valve_once(): void
+    {
+        [$farm, , $plot] = $this->makeScope();
+        $valve = $this->makeValve($plot, 1000, 1, 0.5);
+        $this->makeIrrigation($farm, $plot, $valve, '2026-08-10 10:00:00', '2026-08-10 11:00:00');
+        $this->makeIrrigation($farm, $plot, $valve, '2026-08-11 10:00:00', '2026-08-11 11:00:00');
+
+        $report = $this->report($farm, ['plot_ids' => [$plot->id]], '2026-08-10', '2026-08-11');
+
+        $this->assertEqualsWithDelta(2.0, $report['accumulated']['total_volume'], 0.0001);
+        $this->assertEqualsWithDelta(0.5, $report['accumulated']['total_irrigated_area_ha'], 0.0001);
+        $this->assertEqualsWithDelta(4.0, $report['accumulated']['total_volume_per_hectare'], 0.0001);
     }
 
     /** I5: field polygon metadata is not the irrigated-area denominator. */

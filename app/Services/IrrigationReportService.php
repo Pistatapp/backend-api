@@ -224,7 +224,7 @@ class IrrigationReportService
 
     /**
      * Period/footer intensity (must NOT sum daily m³/ha):
-     *   Period total volume / sum of selected unique valve areas
+     *   Period total volume / sum of participating unique valve areas
      *
      * @param list<array<string, mixed>> $dailyReports
      * @return array<string, mixed>
@@ -236,7 +236,14 @@ class IrrigationReportService
     ): array {
         $totalDurationSeconds = 0;
         $totalVolumeM3 = 0.0;
-        $totalIrrigatedAreaHa = $this->calculator->selectedValveAreaHectares($scope->valves);
+        // Only valves attached to an irrigation included in this report are
+        // part of the period denominator. The calculator deduplicates valve
+        // IDs, so a valve that runs on multiple days contributes its area
+        // once, while selected-but-unused valves contribute nothing.
+        $participatingValves = $irrigations->flatMap(
+            static fn (Irrigation $irrigation) => $irrigation->valves,
+        );
+        $totalIrrigatedAreaHa = $this->calculator->selectedValveAreaHectares($participatingValves);
 
         foreach ($dailyReports as $report) {
             $totalDurationSeconds += $this->timeFormatToSeconds($report['total_duration']);
