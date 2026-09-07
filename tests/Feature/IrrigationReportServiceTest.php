@@ -489,6 +489,63 @@ class IrrigationReportServiceTest extends TestCase
         $this->assertSame('-', $report['accumulated']['total_duration']);
     }
 
+    /** The calculation-export contract exposes the same clipped slices as the table. */
+    public function test_calculation_details_are_authoritative_and_range_independent(): void
+    {
+        [$farm, , $plot] = $this->makeScope();
+        $valveOne = $this->makeValve($plot, 4760, 4, 1.4);
+        $valveTwo = $this->makeValve($plot, 3400, 4, 1.0);
+        $irrigation = $this->makeIrrigation(
+            $farm,
+            $plot,
+            $valveOne,
+            '2026-08-11 03:00:00',
+            '2026-08-12 03:00:00',
+        );
+        $irrigation->valves()->attach($valveTwo->id);
+
+        $reports = [];
+        foreach ([
+            ['2026-08-11', '2026-08-12'],
+            ['2026-08-01', '2026-08-31'],
+        ] as [$fromDate, $toDate]) {
+            $report = $this->report($farm, [
+                'valve_ids' => [$valveOne->id, $valveTwo->id],
+            ], $fromDate, $toDate);
+            $reports[] = collect($report['calculation_details']['days'])->keyBy('date');
+
+            $details = $report['calculation_details'];
+            $this->assertSame('Asia/Tehran', $details['timezone']);
+            $this->assertSame(2, count($details['total']['participating_valves']));
+            $this->assertEqualsWithDelta(2.4, $details['total']['unique_participating_area_ha'], 0.0001);
+            $this->assertEqualsWithDelta(326.4, $details['total']['total_m3_per_ha'], 0.0001);
+        }
+
+        $dayOne = jdate(Carbon::parse('2026-08-11', IrrigationReportCalculationService::TIMEZONE))->format('Y/m/d');
+        $dayTwo = jdate(Carbon::parse('2026-08-12', IrrigationReportCalculationService::TIMEZONE))->format('Y/m/d');
+
+        foreach ($reports as $days) {
+            $this->assertSame('21:00:00', $days[$dayOne]['union_duration']);
+            $this->assertSame('03:00:00', $days[$dayTwo]['union_duration']);
+            $this->assertEqualsWithDelta(685.44, $days[$dayOne]['total_volume_m3'], 0.0001);
+            $this->assertEqualsWithDelta(97.92, $days[$dayTwo]['total_volume_m3'], 0.0001);
+
+            $firstProgram = $days[$dayOne]['programs'][0];
+            $this->assertSame(21.0, $firstProgram['duration_hours']);
+            $this->assertCount(2, $firstProgram['valves']);
+            $this->assertEqualsWithDelta(399.84, $firstProgram['valves'][0]['volume_m3'], 0.0001);
+            $this->assertEqualsWithDelta(285.60, $firstProgram['valves'][1]['volume_m3'], 0.0001);
+            $this->assertSame(
+                '2026-08-11T03:00:00+03:30',
+                $firstProgram['clipped_start'],
+            );
+            $this->assertSame(
+                '2026-08-12T00:00:00+03:30',
+                $firstProgram['clipped_end'],
+            );
+        }
+    }
+
     /** I5: field polygon metadata is not the irrigated-area denominator. */
     public function test_i5_physical_field_area_is_not_used_for_intensity(): void
     {
