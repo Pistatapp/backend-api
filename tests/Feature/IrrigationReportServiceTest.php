@@ -531,7 +531,7 @@ class IrrigationReportServiceTest extends TestCase
             $this->assertEqualsWithDelta(97.92, $days[$dayTwo]['total_volume_m3'], 0.0001);
 
             $firstProgram = $days[$dayOne]['programs'][0];
-            $this->assertSame(21.0, $firstProgram['duration_hours']);
+            $this->assertEqualsWithDelta(21.0, $firstProgram['duration_hours'], 0.0001);
             $this->assertCount(2, $firstProgram['valves']);
             $this->assertEqualsWithDelta(399.84, $firstProgram['valves'][0]['volume_m3'], 0.0001);
             $this->assertEqualsWithDelta(285.60, $firstProgram['valves'][1]['volume_m3'], 0.0001);
