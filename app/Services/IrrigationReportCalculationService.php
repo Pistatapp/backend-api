@@ -25,7 +25,8 @@ class IrrigationReportCalculationService
      * A selected field is the reporting ancestor for physical metadata;
      * descendant selections cannot add physical geometry. Irrigation m³/ha
      * is always derived from the selected/contributing valves' configured
-     * irrigation_area values, with each Plot/Kart counted once per program.
+     * irrigation_area values. Physical polygon areas are retained only as
+     * metadata and are never used as the irrigation denominator.
      */
     public function normalizeScope(Farm $farm, array $input): NormalizedIrrigationReportScope
     {
@@ -297,7 +298,7 @@ class IrrigationReportCalculationService
         $durationInHours = max(0, (float) $durationInSeconds) / 3600;
         $totalVolumeLiters = 0.0;
 
-        foreach ($valves as $valve) {
+        foreach ($this->uniqueValvesById($valves) as $valve) {
             $totalVolumeLiters +=
                 ((float) ($valve->dripper_count ?? 0))
                 * ((float) ($valve->dripper_flow_rate ?? 0))
@@ -305,6 +306,32 @@ class IrrigationReportCalculationService
         }
 
         return $totalVolumeLiters;
+    }
+
+    /**
+     * Deduplicate relation results before a valve contributes volume or area.
+     * Eloquent pivot joins are not allowed to turn one physical valve into
+     * multiple irrigation contributions.
+     *
+     * @return list<object>
+     */
+    public function uniqueValvesById(iterable $valves): array
+    {
+        $seen = [];
+        $unique = [];
+
+        foreach ($valves as $valve) {
+            $id = (int) ($valve->id ?? 0);
+            $key = $id > 0 ? 'valve:'.$id : 'object:'.spl_object_id($valve);
+            if (isset($seen[$key])) {
+                continue;
+            }
+
+            $seen[$key] = true;
+            $unique[] = $valve;
+        }
+
+        return $unique;
     }
 
     public function volumePerHectare(float $volumeM3, float $physicalAreaM2): ?float
@@ -365,7 +392,20 @@ class IrrigationReportCalculationService
      */
     public function selectedValveAreaHectares(iterable $valves): float
     {
+        return $this->selectedValveAreaHectaresWithDiagnostics($valves)['area_ha'];
+    }
+
+    /**
+     * Calculate the authoritative valve-area denominator and expose invalid
+     * valve IDs instead of silently replacing them with GIS area or using a
+     * partial denominator. A valve is counted once by its database ID.
+     *
+     * @return array{area_ha: float, invalid_valve_ids: list<int>}
+     */
+    public function selectedValveAreaHectaresWithDiagnostics(iterable $valves): array
+    {
         $seen = [];
+        $invalidValveIds = [];
         $totalHa = 0.0;
 
         foreach ($valves as $valve) {
@@ -376,13 +416,25 @@ class IrrigationReportCalculationService
             }
 
             $seen[$key] = true;
-            $area = (float) ($valve->irrigation_area ?? 0);
-            if ($area > 0) {
-                $totalHa += $area;
+            $rawArea = method_exists($valve, 'getAttribute')
+                ? $valve->getAttribute('irrigation_area')
+                : ($valve->irrigation_area ?? null);
+            $area = is_numeric($rawArea) ? (float) $rawArea : null;
+
+            if ($area === null || ! is_finite($area) || $area <= 0) {
+                if ($id > 0) {
+                    $invalidValveIds[] = $id;
+                }
+                continue;
             }
+
+            $totalHa += $area;
         }
 
-        return $totalHa;
+        return [
+            'area_ha' => $totalHa,
+            'invalid_valve_ids' => array_values(array_unique($invalidValveIds)),
+        ];
     }
 
     public function polygonArea(?array $coordinates): float

@@ -12,8 +12,8 @@ use Illuminate\Support\Collection;
  *
  * A report row represents the portion of each completed irrigation interval
  * that overlaps that local calendar day. Daily and period m³/ha use
- * irrigated hectare-occurrences from selected Plot/Kart irrigation areas
- * (unique per program), never the sum of daily m³/ha values.
+ * irrigated hectare-occurrences from the participating valves' configured
+ * irrigation_area values, never the sum of daily m³/ha values.
  */
 class IrrigationReportService
 {
@@ -42,7 +42,13 @@ class IrrigationReportService
         $scope = $this->calculator->normalizeScope($farm, $scopeInput);
         $irrigations = $this->getFilteredIrrigations($farm, $scope, $scopeInput, $rangeStart, $rangeEnd);
         $dailyReports = $this->generateDailyReports($irrigations, $scope, $rangeStart, $rangeEnd);
-        $accumulated = $this->calculateAccumulatedValues($irrigations, $dailyReports, $scope);
+        $accumulated = $this->calculateAccumulatedValues(
+            $irrigations,
+            $dailyReports,
+            $scope,
+            $rangeStart,
+            $rangeEnd,
+        );
 
         return [
             'irrigations' => $dailyReports,
@@ -163,10 +169,11 @@ class IrrigationReportService
 
     /**
      * Daily intensity:
-     *   Daily volume / Daily irrigated hectare-occurrences
+     *   Daily volume / unique participating valve irrigation areas
      *
-     * Each overlapping irrigation program contributes its unique selected
-     * Plot/Kart irrigation areas once for that day (not multiplied by hours).
+     * A valve is counted once for the day even when it appears in multiple
+     * programs or relational rows. The area set is built only from programs
+     * with a positive clipped interval on this day.
      *
      * @return array<string, mixed>
      */
@@ -180,7 +187,7 @@ class IrrigationReportService
     ): array {
         $dailyIntervals = [];
         $totalVolumeLiters = 0.0;
-        $irrigatedAreaHa = 0.0;
+        $dailyValves = [];
         $totalCount = 0;
 
         foreach ($irrigations as $irrigation) {
@@ -211,13 +218,19 @@ class IrrigationReportService
                 $irrigation->valves,
                 $durationInSeconds,
             );
-            // Area participates once per daily irrigation occurrence.
-            $irrigatedAreaHa += $this->calculator->irrigatedAreaHectares($irrigation->valves);
+            foreach ($irrigation->valves as $valve) {
+                $valveId = (int) ($valve->id ?? 0);
+                $key = $valveId > 0 ? (string) $valveId : 'object:'.spl_object_id($valve);
+                $dailyValves[$key] = $valve;
+            }
             $totalCount++;
         }
 
         $totalVolumeM3 = $totalVolumeLiters / 1000;
         $totalDurationSeconds = $this->calculator->unionDurationSeconds($dailyIntervals);
+        $areaDiagnostics = $this->calculator->selectedValveAreaHectaresWithDiagnostics($dailyValves);
+        $hasInvalidArea = $areaDiagnostics['invalid_valve_ids'] !== [];
+        $irrigatedAreaHa = $hasInvalidArea ? null : $areaDiagnostics['area_ha'];
 
         return [
             'date' => jdate($dayStart)->format('Y/m/d'),
@@ -228,13 +241,14 @@ class IrrigationReportService
             'total_irrigation_area' => $irrigatedAreaHa,
             'total_volume_per_hectare' => $this->calculator->volumePerHectareFromHa(
                 $totalVolumeM3,
-                $irrigatedAreaHa,
+                $irrigatedAreaHa ?? 0.0,
             ),
             'total_count' => $totalCount,
             // Retained metadata; not used as the m³/ha denominator.
             'physical_area_m2' => $scope->physicalAreaM2,
             'physical_area_ha' => $scope->physicalAreaHa(),
             'area_source' => 'valve.irrigation_area',
+            'invalid_irrigation_area_valve_ids' => $areaDiagnostics['invalid_valve_ids'],
         ];
     }
 
@@ -249,32 +263,50 @@ class IrrigationReportService
         Collection $irrigations,
         array $dailyReports,
         NormalizedIrrigationReportScope $scope,
+        Carbon $rangeStart,
+        Carbon $rangeEnd,
     ): array {
-        $totalDurationSeconds = 0;
         $totalVolumeM3 = 0.0;
-        // Only valves attached to an irrigation included in this report are
-        // part of the period denominator. The calculator deduplicates valve
-        // IDs, so a valve that runs on multiple days contributes its area
-        // once, while selected-but-unused valves contribute nothing.
-        $participatingValves = $irrigations->flatMap(
-            static fn (Irrigation $irrigation) => $irrigation->valves,
-        );
-        $totalIrrigatedAreaHa = $this->calculator->selectedValveAreaHectares($participatingValves);
+        $participatingValves = [];
+
+        // The period denominator is based on valves with an actual positive
+        // interval inside the requested range, not merely selected valves.
+        foreach ($irrigations as $irrigation) {
+            if ($this->calculator->overlapSeconds(
+                $irrigation->start_time,
+                $irrigation->end_time,
+                $rangeStart,
+                $rangeEnd,
+            ) <= 0) {
+                continue;
+            }
+
+            foreach ($irrigation->valves as $valve) {
+                $valveId = (int) ($valve->id ?? 0);
+                $key = $valveId > 0 ? (string) $valveId : 'object:'.spl_object_id($valve);
+                $participatingValves[$key] = $valve;
+            }
+        }
+
+        $areaDiagnostics = $this->calculator->selectedValveAreaHectaresWithDiagnostics($participatingValves);
+        $hasInvalidArea = $areaDiagnostics['invalid_valve_ids'] !== [];
+        $totalIrrigatedAreaHa = $hasInvalidArea ? null : $areaDiagnostics['area_ha'];
 
         foreach ($dailyReports as $report) {
-            $totalDurationSeconds += $this->timeFormatToSeconds($report['total_duration']);
             $totalVolumeM3 += (float) $report['total_volume'];
         }
 
         return [
-            'total_duration' => to_time_format($totalDurationSeconds),
+            // A range has no additive elapsed-time meaning; daily rows carry
+            // the union duration and the product contract keeps this cell '-'.
+            'total_duration' => '-',
             'total_volume' => $totalVolumeM3,
             'total_irrigated_area_ha' => $totalIrrigatedAreaHa,
             // Compatibility alias.
             'total_irrigation_area' => $totalIrrigatedAreaHa,
             'total_volume_per_hectare' => $this->calculator->volumePerHectareFromHa(
                 $totalVolumeM3,
-                $totalIrrigatedAreaHa,
+                $totalIrrigatedAreaHa ?? 0.0,
             ),
             // Count each irrigation program once for the period, even when
             // its interval crosses multiple daily rows.
@@ -283,16 +315,8 @@ class IrrigationReportService
             'physical_area_m2' => $scope->physicalAreaM2,
             'physical_area_ha' => $scope->physicalAreaHa(),
             'area_source' => 'valve.irrigation_area',
+            'invalid_irrigation_area_valve_ids' => $areaDiagnostics['invalid_valve_ids'],
         ];
-    }
-
-    private function timeFormatToSeconds(string $timeFormat): int
-    {
-        $parts = array_map('intval', explode(':', $timeFormat));
-
-        return (($parts[0] ?? 0) * 3600)
-            + (($parts[1] ?? 0) * 60)
-            + ($parts[2] ?? 0);
     }
 
     private function asCarbon(mixed $date): Carbon

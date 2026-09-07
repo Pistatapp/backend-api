@@ -151,6 +151,8 @@ class IrrigationReportServiceTest extends TestCase
 
         $this->assertNull($report['irrigations'][0]['total_volume_per_hectare']);
         $this->assertNull($report['accumulated']['total_volume_per_hectare']);
+        $this->assertSame([$valve->id], $report['irrigations'][0]['invalid_irrigation_area_valve_ids']);
+        $this->assertSame([$valve->id], $report['accumulated']['invalid_irrigation_area_valve_ids']);
     }
 
     /** T6: legacy Android `valves` request key remains supported. */
@@ -188,7 +190,7 @@ class IrrigationReportServiceTest extends TestCase
         $report = $this->report($farm, ['field_ids' => [$field->id]], '2026-08-10', '2026-08-10');
 
         $this->assertSame('02:00:00', $report['irrigations'][0]['total_duration']);
-        $this->assertSame('02:00:00', $report['accumulated']['total_duration']);
+        $this->assertSame('-', $report['accumulated']['total_duration']);
         $this->assertEqualsWithDelta(6.0, $report['accumulated']['total_volume'], 0.0001);
     }
 
@@ -200,7 +202,7 @@ class IrrigationReportServiceTest extends TestCase
 
         $report = $this->report($farm, ['plot_ids' => [$plot->id]], '2026-08-10', '2026-08-10');
 
-        $this->assertSame('02:00:00', $report['accumulated']['total_duration']);
+        $this->assertSame('-', $report['accumulated']['total_duration']);
     }
 
     /** D3: partially overlapping intervals merge into one three-hour period. */
@@ -212,7 +214,7 @@ class IrrigationReportServiceTest extends TestCase
 
         $report = $this->report($farm, ['field_ids' => [$field->id]], '2026-08-10', '2026-08-10');
 
-        $this->assertSame('03:00:00', $report['accumulated']['total_duration']);
+        $this->assertSame('-', $report['accumulated']['total_duration']);
     }
 
     /** D4: non-overlapping intervals remain additive. */
@@ -224,7 +226,7 @@ class IrrigationReportServiceTest extends TestCase
 
         $report = $this->report($farm, ['field_ids' => [$field->id]], '2026-08-10', '2026-08-10');
 
-        $this->assertSame('04:00:00', $report['accumulated']['total_duration']);
+        $this->assertSame('-', $report['accumulated']['total_duration']);
     }
 
     /** D5: duplicate records for one interval do not duplicate elapsed time. */
@@ -237,7 +239,7 @@ class IrrigationReportServiceTest extends TestCase
 
         $report = $this->report($farm, ['plot_ids' => [$plot->id]], '2026-08-10', '2026-08-10');
 
-        $this->assertSame('02:00:00', $report['accumulated']['total_duration']);
+        $this->assertSame('-', $report['accumulated']['total_duration']);
     }
 
     /** D6: a cross-midnight interval is clipped per local Tehran calendar day. */
@@ -249,7 +251,7 @@ class IrrigationReportServiceTest extends TestCase
         $report = $this->report($farm, ['plot_ids' => [$plot->id]], '2026-08-10', '2026-08-11');
 
         $this->assertSame(['02:00:00', '02:00:00'], collect($report['irrigations'])->pluck('total_duration')->all());
-        $this->assertSame('04:00:00', $report['accumulated']['total_duration']);
+        $this->assertSame('-', $report['accumulated']['total_duration']);
     }
 
     /** Every program tail intersecting the report range contributes to its day. */
@@ -276,7 +278,7 @@ class IrrigationReportServiceTest extends TestCase
         $this->assertSame(['24:00:00', '03:00:00'], collect($report['irrigations'])->pluck('total_duration')->all());
         $this->assertEqualsWithDelta(45.0, $report['irrigations'][0]['total_volume'], 0.0001);
         $this->assertEqualsWithDelta(6.0, $report['irrigations'][1]['total_volume'], 0.0001);
-        $this->assertSame('27:00:00', $report['accumulated']['total_duration']);
+        $this->assertSame('-', $report['accumulated']['total_duration']);
         $this->assertEqualsWithDelta(51.0, $report['accumulated']['total_volume'], 0.0001);
         $this->assertEqualsWithDelta(2.0, $report['accumulated']['total_irrigated_area_ha'], 0.0001);
         $this->assertEqualsWithDelta(25.5, $report['accumulated']['total_volume_per_hectare'], 0.0001);
@@ -424,6 +426,69 @@ class IrrigationReportServiceTest extends TestCase
         $this->assertEqualsWithDelta(4.0, $report['accumulated']['total_volume_per_hectare'], 0.0001);
     }
 
+    /** A valve used by multiple programs on one day contributes area once. */
+    public function test_daily_denominator_counts_repeated_valve_once(): void
+    {
+        [$farm, , $plot] = $this->makeScope();
+        $valve = $this->makeValve($plot, 1000, 1, 0.5);
+        $this->makeIrrigation($farm, $plot, $valve, '2026-08-10 10:00:00', '2026-08-10 11:00:00');
+        $this->makeIrrigation($farm, $plot, $valve, '2026-08-10 10:30:00', '2026-08-10 11:30:00');
+
+        $report = $this->report($farm, ['plot_ids' => [$plot->id]], '2026-08-10', '2026-08-10');
+
+        $this->assertSame('01:30:00', $report['irrigations'][0]['total_duration']);
+        $this->assertEqualsWithDelta(2.0, $report['irrigations'][0]['total_volume'], 0.0001);
+        $this->assertEqualsWithDelta(0.5, $report['irrigations'][0]['irrigated_area_ha'], 0.0001);
+        $this->assertEqualsWithDelta(4.0, $report['irrigations'][0]['total_volume_per_hectare'], 0.0001);
+    }
+
+    /** A selected valve with no eligible event is excluded from the total area. */
+    public function test_inactive_selected_valve_is_excluded_from_total_denominator(): void
+    {
+        [$farm, , $plot] = $this->makeScope();
+        $active = $this->makeValve($plot, 1000, 1, 0.5);
+        $inactive = $this->makeValve($plot, 1000, 1, 2.0);
+        $this->makeIrrigation($farm, $plot, $active, '2026-08-10 10:00:00', '2026-08-10 11:00:00');
+
+        $report = $this->report($farm, [
+            'plot_ids' => [$plot->id],
+            'valve_ids' => [$active->id, $inactive->id],
+        ], '2026-08-10', '2026-08-10');
+
+        $this->assertEqualsWithDelta(1.0, $report['accumulated']['total_volume'], 0.0001);
+        $this->assertEqualsWithDelta(0.5, $report['accumulated']['total_irrigated_area_ha'], 0.0001);
+        $this->assertEqualsWithDelta(2.0, $report['accumulated']['total_volume_per_hectare'], 0.0001);
+    }
+
+    /** Production flow fixture: both daily slices and total use the same clipping. */
+    public function test_production_flow_fixture_splits_volume_and_uses_unique_valve_area(): void
+    {
+        [$farm, , $plot] = $this->makeScope();
+        $valveOne = $this->makeValve($plot, 4760, 4, 1.4);
+        $valveTwo = $this->makeValve($plot, 3400, 4, 1.0);
+        $irrigation = $this->makeIrrigation(
+            $farm,
+            $plot,
+            $valveOne,
+            '2026-08-11 03:00:00',
+            '2026-08-12 03:00:00',
+        );
+        $irrigation->valves()->attach($valveTwo->id);
+
+        $report = $this->report($farm, [
+            'valve_ids' => [$valveOne->id, $valveTwo->id],
+        ], '2026-08-11', '2026-08-12');
+
+        $rows = collect($report['irrigations']);
+        $this->assertSame(['21:00:00', '03:00:00'], $rows->pluck('total_duration')->all());
+        $this->assertEqualsWithDelta(685.44, $rows[0]['total_volume'], 0.0001);
+        $this->assertEqualsWithDelta(97.92, $rows[1]['total_volume'], 0.0001);
+        $this->assertEqualsWithDelta(783.36, $report['accumulated']['total_volume'], 0.0001);
+        $this->assertEqualsWithDelta(2.4, $report['accumulated']['total_irrigated_area_ha'], 0.0001);
+        $this->assertEqualsWithDelta(326.4, $report['accumulated']['total_volume_per_hectare'], 0.0001);
+        $this->assertSame('-', $report['accumulated']['total_duration']);
+    }
+
     /** I5: field polygon metadata is not the irrigated-area denominator. */
     public function test_i5_physical_field_area_is_not_used_for_intensity(): void
     {
@@ -486,7 +551,7 @@ class IrrigationReportServiceTest extends TestCase
 
         $durations = collect($report['irrigations'])->pluck('total_duration')->all();
         $this->assertSame(['14:00:00', '24:00:00', '10:00:00'], $durations);
-        $this->assertSame('48:00:00', $report['accumulated']['total_duration']);
+        $this->assertSame('-', $report['accumulated']['total_duration']);
         $this->assertEqualsWithDelta(1.6, $report['irrigations'][0]['irrigated_area_ha'], 0.0001);
         $this->assertEqualsWithDelta(1.6, $report['irrigations'][1]['irrigated_area_ha'], 0.0001);
         $this->assertEqualsWithDelta(1.6, $report['irrigations'][2]['irrigated_area_ha'], 0.0001);

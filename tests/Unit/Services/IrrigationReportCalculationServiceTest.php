@@ -302,4 +302,20 @@ class IrrigationReportCalculationServiceTest extends TestCase
 
         $this->assertEqualsWithDelta(2.4329861111, $liters, 0.0000001);
     }
+
+    /** Duplicate valve relation rows cannot duplicate its physical volume. */
+    public function test_volume_deduplicates_duplicate_valve_relation_rows(): void
+    {
+        $valve = (object) [
+            'id' => 77,
+            'dripper_count' => 1000,
+            'dripper_flow_rate' => 1,
+        ];
+
+        $this->assertEqualsWithDelta(
+            1000.0,
+            $this->calculator->volumeLiters([$valve, $valve], 3600),
+            0.0001,
+        );
+    }
 }
