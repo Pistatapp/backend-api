@@ -379,8 +379,8 @@ class IrrigationReportServiceTest extends TestCase
         $this->assertSame(['02:00:00', '03:00:00'], collect($report['irrigations'])->pluck('total_duration')->all());
         // Day 11: 2h × 1 m³/h + 1h × 2 m³/h = 4 m³.
         $this->assertEqualsWithDelta(4.0, $report['irrigations'][0]['total_volume'], 0.0001);
-        // Day 12: 1h × 1 m³/h + 2h × 2 m³/h = 5 m³.
-        $this->assertEqualsWithDelta(5.0, $report['irrigations'][1]['total_volume'], 0.0001);
+        // Day 12: 2h × 1 m³/h + 3h × 2 m³/h = 8 m³.
+        $this->assertEqualsWithDelta(8.0, $report['irrigations'][1]['total_volume'], 0.0001);
     }
 
     /** I2: daily intensity aggregates volumes and area occurrences first. */
