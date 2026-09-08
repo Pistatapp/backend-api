@@ -33,9 +33,72 @@ class TractorEfficiencyService
         );
     }
 
+    /**
+     * Return task presence for a report period without counting the same
+     * observed interval twice when tasks overlap on a day.
+     *
+     * @param Collection<int, GpsMetricsCalculation> $taskMetrics
+     * @param Collection<int, GpsMetricsCalculation> $dailyMetrics
+     */
+    public function taskPresenceDurationForPeriod(
+        Collection $taskMetrics,
+        ?Collection $dailyMetrics = null
+    ): int {
+        $dailyByDate = ($dailyMetrics ?? collect())
+            ->sortBy(fn (GpsMetricsCalculation $metrics): int => (int) $metrics->getKey())
+            ->groupBy(fn (GpsMetricsCalculation $metrics): string => $metrics->date->toDateString())
+            ->map(fn (Collection $metrics): GpsMetricsCalculation => $metrics->first());
+
+        return (int) $taskMetrics
+            ->groupBy(fn (GpsMetricsCalculation $metrics): string => $metrics->date->toDateString())
+            ->sum(function (Collection $metrics, string $date) use ($dailyByDate): int {
+                $presenceSeconds = (int) $metrics->sum(
+                    fn (GpsMetricsCalculation $metric): int => $this->taskPresenceDurationSeconds($metric)
+                );
+                $dailyMetric = $dailyByDate->get($date);
+
+                if ($dailyMetric) {
+                    $presenceSeconds = min(
+                        $presenceSeconds,
+                        $this->observedWorkDurationSeconds(
+                            $dailyMetric->work_duration,
+                            $dailyMetric->stoppage_duration
+                        )
+                    );
+                }
+
+                return max(0, $presenceSeconds);
+            });
+    }
+
     public function calculate(Tractor $tractor, int $durationSeconds): float
     {
         $expectedSeconds = ((float) ($tractor->expected_daily_work_time ?? 8)) * 3600;
+
+        if ($expectedSeconds <= 0) {
+            return 0.0;
+        }
+
+        return ($durationSeconds / $expectedSeconds) * 100;
+    }
+
+    /**
+     * Calculate productivity using the configured denominator for a report
+     * period. Daily reports use the same denominator as tractor details.
+     */
+    public function calculateForPeriod(
+        Tractor $tractor,
+        int $durationSeconds,
+        ?string $period = null,
+        int $workingDays = 0
+    ): float {
+        $expectedSeconds = match ($period) {
+            'month', 'specific_month' => ((float) ($tractor->expected_monthly_work_time ?? 0)) * 3600,
+            'year' => ((float) ($tractor->expected_yearly_work_time ?? 0)) * 3600,
+            'persian_year' => ((float) ($tractor->expected_daily_work_time ?? 8))
+                * 3600 * max(0, $workingDays),
+            default => ((float) ($tractor->expected_daily_work_time ?? 8)) * 3600,
+        };
 
         if ($expectedSeconds <= 0) {
             return 0.0;
@@ -56,8 +119,9 @@ class TractorEfficiencyService
         Collection $taskMetrics,
         ?GpsMetricsCalculation $totalMetrics = null
     ): float {
-        $presenceSeconds = (int) $taskMetrics->sum(
-            fn (GpsMetricsCalculation $metrics): int => $this->taskPresenceDurationSeconds($metrics)
+        $presenceSeconds = $this->taskPresenceDurationForPeriod(
+            $taskMetrics,
+            $totalMetrics ? collect([$totalMetrics]) : collect()
         );
 
         if ($totalMetrics) {

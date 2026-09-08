@@ -167,23 +167,7 @@ class ActiveTractorService
      */
     private function getTaskBasedEfficiency(Tractor $tractor, Carbon $date): float
     {
-        $dateString = $date->toDateString();
-
-        $taskMetrics = GpsMetricsCalculation::where('tractor_id', $tractor->id)
-            ->where('date', $dateString)
-            ->whereNotNull('tractor_task_id')
-            ->get();
-
-        $totalMetrics = GpsMetricsCalculation::where('tractor_id', $tractor->id)
-            ->where('date', $dateString)
-            ->whereNull('tractor_task_id')
-            ->first();
-
-        return $this->tractorEfficiencyService->calculateTaskEfficiency(
-            $tractor,
-            $taskMetrics,
-            $totalMetrics
-        );
+        return $this->tractorEfficiencyService->taskBasedEfficiencyForDate($tractor, $date);
     }
 
     /**

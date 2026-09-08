@@ -41,6 +41,11 @@ class TractorReportFilterService
         // Get the filtered reports
         $this->tasks = $query->get();
 
+        // A task/operation filter removes the daily aggregate from the main
+        // query. Keep the aggregate rows available as the same daily cap used
+        // by the tractor details endpoint when calculating task presence.
+        $dailyMetrics = $this->getDailyMetricsForFilters($tractor, $filters);
+
         // Map to report format (enrich daily aggregates with scheduled task data when needed)
         $reports = $this->mapReportsToArray(
             $this->prepareReportsForMapping($this->tasks, $tractor)
@@ -51,7 +56,16 @@ class TractorReportFilterService
         // are excluded when an authoritative daily aggregate exists so the
         // same GPS interval is never counted twice.
         $rawWorkDuration = $this->effectiveWorkDuration($summaryReports);
-        $expectations = $this->calculateExpectations($rawWorkDuration, $tractor, $filters);
+        $taskBasedWorkDuration = $this->tractorEfficiencyService->taskPresenceDurationForPeriod(
+            $this->tasks->filter(fn (GpsMetricsCalculation $report) => $report->tractor_task_id !== null),
+            $dailyMetrics
+        );
+        $expectations = $this->calculateExpectations(
+            $rawWorkDuration,
+            $taskBasedWorkDuration,
+            $tractor,
+            $filters
+        );
 
         return [
             'reports' => $reports,
@@ -117,6 +131,19 @@ class TractorReportFilterService
                 $q->where('operation_id', $filters['operation']);
             });
         }
+    }
+
+    /**
+     * Load the authoritative daily aggregate rows for the selected period.
+     * These rows are intentionally not affected by the optional operation
+     * filter because they represent the complete tractor day.
+     */
+    private function getDailyMetricsForFilters(Tractor $tractor, array $filters): Collection
+    {
+        $query = $tractor->gpsMetricsCalculations()->whereNull('tractor_task_id');
+        $this->applyDateFilters($query, $filters);
+
+        return $query->get();
     }
 
     /**
@@ -283,14 +310,20 @@ class TractorReportFilterService
      */
     private function prepareReportsForSummary(Collection $reports): Collection
     {
-        $dailyDates = $reports
+        $dailyReports = $reports
             ->filter(fn (GpsMetricsCalculation $report) => $report->tractor_task_id === null)
-            ->map(fn (GpsMetricsCalculation $report) => $report->date->toDateString())
-            ->unique();
+            ->sortBy(fn (GpsMetricsCalculation $report): int => (int) $report->getKey())
+            ->groupBy(fn (GpsMetricsCalculation $report): string => $report->date->toDateString())
+            ->map(fn (Collection $reports): GpsMetricsCalculation => $reports->first());
+        $dailyDates = $dailyReports->keys();
+        $dailyIds = $dailyReports->map(fn (GpsMetricsCalculation $report) => $report->getKey());
 
-        return $reports->reject(function (GpsMetricsCalculation $report) use ($dailyDates) {
-            return $report->tractor_task_id !== null
-                && $dailyDates->contains($report->date->toDateString());
+        return $reports->filter(function (GpsMetricsCalculation $report) use ($dailyDates, $dailyIds) {
+            if ($report->tractor_task_id === null) {
+                return $dailyIds->contains($report->getKey());
+            }
+
+            return ! $dailyDates->contains($report->date->toDateString());
         })->values();
     }
 
@@ -422,7 +455,12 @@ class TractorReportFilterService
      * @param array $filters
      * @return array
      */
-    private function calculateExpectations(int $totalWorkDuration, Tractor $tractor, array $filters = []): array
+    private function calculateExpectations(
+        int $totalWorkDuration,
+        int $taskBasedWorkDuration,
+        Tractor $tractor,
+        array $filters = []
+    ): array
     {
         $dailyExpectedWork = $tractor->expected_daily_work_time * 3600;
         $workingDays = $this->prepareReportsForSummary($this->tasks)
@@ -430,18 +468,29 @@ class TractorReportFilterService
             ->unique()
             ->count();
 
-        // Calculate efficiency based on period type
-        $efficiency = match ($filters['period'] ?? 'day') {
-            'month', 'specific_month' => $totalWorkDuration / ($tractor->expected_monthly_work_time * 3600) * 100,
-            'year' => $totalWorkDuration / ($tractor->expected_yearly_work_time * 3600) * 100,
-            'persian_year' => $workingDays > 0 ? ($totalWorkDuration / ($dailyExpectedWork * $workingDays)) * 100 : 0,
-            default => $totalWorkDuration / $dailyExpectedWork * 100, // For daily and operation views
-        };
+        // Both total and task-based percentages use the same denominator as
+        // the detail endpoint. Do not cap the result: tractor details expose
+        // the real percentage when observed work exceeds the expectation.
+        $period = $filters['period'] ?? null;
+        $efficiency = $this->tractorEfficiencyService->calculateForPeriod(
+            $tractor,
+            $totalWorkDuration,
+            $period,
+            $workingDays
+        );
+        $taskBasedEfficiency = $this->tractorEfficiencyService->calculateForPeriod(
+            $tractor,
+            $taskBasedWorkDuration,
+            $period,
+            $workingDays
+        );
 
         return [
             'expected_daily_work' => $this->formatDuration($dailyExpectedWork),
             'total_work_duration' => $this->formatDuration($totalWorkDuration),
-            'total_efficiency' => $this->formatPercentage(min(100, $efficiency)),
+            'total_efficiency' => $this->formatPercentage($efficiency),
+            'task_based_work_duration' => $this->formatDuration($taskBasedWorkDuration),
+            'task_based_efficiency' => $this->formatPercentage($taskBasedEfficiency),
         ];
     }
 

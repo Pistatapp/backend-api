@@ -53,13 +53,8 @@ class TractorTaskResource extends JsonResource
                     return null;
                 }
 
-                $timings = is_array($this->gpsMetricsCalculation->timings)
-                    ? $this->gpsMetricsCalculation->timings
-                    : [];
-                $seconds = array_key_exists('in_zone_duration_seconds', $timings)
-                    ? (int) $timings['in_zone_duration_seconds']
-                    : (int) $this->gpsMetricsCalculation->work_duration
-                        + (int) $this->gpsMetricsCalculation->stoppage_duration;
+                $seconds = app(\App\Services\TractorEfficiencyService::class)
+                    ->taskPresenceDurationSeconds($this->gpsMetricsCalculation);
 
                 return to_time_format(max(0, $seconds));
             }),
@@ -68,11 +63,13 @@ class TractorTaskResource extends JsonResource
                     return null;
                 }
 
-                $seconds = app(\App\Services\TractorEfficiencyService::class)
-                    ->taskPresenceDurationSeconds($this->gpsMetricsCalculation);
+                $efficiencyService = app(\App\Services\TractorEfficiencyService::class);
 
                 return number_format(
-                    app(\App\Services\TractorEfficiencyService::class)->calculate($this->tractor, $seconds),
+                    $efficiencyService->calculate(
+                        $this->tractor,
+                        $efficiencyService->taskPresenceDurationSeconds($this->gpsMetricsCalculation)
+                    ),
                     2
                 );
             }),
