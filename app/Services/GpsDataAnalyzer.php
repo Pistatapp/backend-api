@@ -10,6 +10,12 @@ class GpsDataAnalyzer
     private array $data = [];
     private array $results = [];
 
+    public function __construct(
+        private ?GpsLogContinuityGuard $continuityGuard = null,
+    ) {
+        $this->continuityGuard ??= new GpsLogContinuityGuard();
+    }
+
     private const MIN_STOPPAGE_DURATION_SECONDS = 60;
     private const CONSECUTIVE_MOVEMENTS_FOR_FIRST_MOVEMENT = 3;
     private const EARTH_RADIUS_KM = 6371;
@@ -36,6 +42,7 @@ class GpsDataAnalyzer
         $gpsData = $tractor->gpsData()
             ->whereBetween('gps_data.date_time', [$startDateTime, $endDateTime])
             ->orderBy('gps_data.date_time')
+            ->orderBy('gps_data.id')
             ->get(['date_time', 'coordinate', 'speed', 'status', 'imei']);
 
         $this->parseRecords($gpsData);
@@ -51,6 +58,7 @@ class GpsDataAnalyzer
     private function parseRecords(iterable $data): void
     {
         $this->data = [];
+        $previousRecord = null;
 
         foreach ($data as $record) {
             $parsedRecord = is_object($record)
@@ -58,7 +66,19 @@ class GpsDataAnalyzer
                 : $this->parseArrayRecord($record);
 
             if ($parsedRecord !== null) {
+                if ($previousRecord !== null && $this->continuityGuard->isOutlier(
+                    $previousRecord[self::IDX_LAT],
+                    $previousRecord[self::IDX_LON],
+                    $previousRecord[self::IDX_TIMESTAMP],
+                    $parsedRecord[self::IDX_LAT],
+                    $parsedRecord[self::IDX_LON],
+                    $parsedRecord[self::IDX_TIMESTAMP],
+                )) {
+                    continue;
+                }
+
                 $this->data[] = $parsedRecord;
+                $previousRecord = $parsedRecord;
             }
         }
     }

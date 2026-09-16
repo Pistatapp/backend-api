@@ -47,4 +47,11 @@ return [
         'minimum_net_displacement_multiplier' => (float) env('GPS_TRAJECTORY_MIN_NET_DISPLACEMENT_MULTIPLIER', 1.25),
         'minimum_directional_consistency' => (float) env('GPS_TRAJECTORY_MIN_DIRECTIONAL_CONSISTENCY', 0.55),
     ],
+    'continuity' => [
+        // A jump larger than one kilometre in the normal sampling interval is
+        // ignored by derived path and productivity calculations. Raw GPS rows
+        // remain untouched for zero-log-loss and auditability.
+        'max_distance_meters' => (float) env('GPS_TRAJECTORY_MAX_CONSECUTIVE_DISTANCE_M', 1000.0),
+        'max_check_interval_seconds' => (int) env('GPS_TRAJECTORY_MAX_CONSECUTIVE_INTERVAL_S', 180),
+    ],
 ];

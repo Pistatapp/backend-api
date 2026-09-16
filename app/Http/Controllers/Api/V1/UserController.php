@@ -24,10 +24,14 @@ class UserController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
+        $hasSearch = $request->filled('search');
 
-        $query = User::query();
+        $query = User::query()->with('farms', 'profile');
 
-        if (!$user->hasRole('root')) {
+        // Searching is also used to find an existing account before attaching it
+        // to a farm. Such an account may not have a farm yet and may have been
+        // created by the user registration flow (created_by = null).
+        if (!$hasSearch && !$user->hasRole('root')) {
             $workingEnvironment = $user->workingEnvironment();
             $workingEnvironmentId = $workingEnvironment?->id;
             $request->merge(['_working_environment_id' => $workingEnvironmentId]);
@@ -39,8 +43,13 @@ class UserController extends Controller
 
         $query->where('id', '!=', $user->id);
 
-        if ($request->has('search') && !is_null($request->query('search'))) {
+        if ($hasSearch) {
             $search = $request->query('search');
+
+            // Root/super-admin accounts cannot be assigned as farm operators;
+            // keep them out of the attach-user search as well.
+            $query->withoutRole(['root', 'super-admin']);
+
             $users = $query->where(function ($q) use ($search) {
                 $q->whereHas('profile', function ($profileQuery) use ($search) {
                     $profileQuery->where('name', 'like', '%' . $search . '%');
@@ -48,7 +57,7 @@ class UserController extends Controller
                 ->orWhere('mobile', 'like', '%' . $search . '%');
             })->get();
         } else {
-            $users = $query->with('farms', 'profile')->paginate();
+            $users = $query->paginate();
         }
 
 

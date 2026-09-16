@@ -9,6 +9,7 @@ use Illuminate\Notifications\Notification;
 use App\Models\TractorTask;
 use App\Models\TractorTaskTaskable;
 use App\Models\GpsMetricsCalculation;
+use App\Services\TractorEfficiencyService;
 
 class TractorTaskStatusNotification extends Notification implements ShouldQueue
 {
@@ -33,15 +34,19 @@ class TractorTaskStatusNotification extends Notification implements ShouldQueue
     private function prepareNotificationData(): void
     {
         $taskCompleted = $this->dailyReport && $this->task->status === 'done';
-
-        $duration = '';
-        if ($taskCompleted) {
-            $hours = floor($this->dailyReport->work_duration / 3600);
-            $minutes = floor(($this->dailyReport->work_duration % 3600) / 60);
-            $duration = sprintf("%d:%02d", $hours, $minutes);
-        }
+        $efficiencyService = app(TractorEfficiencyService::class);
+        $presenceDurationSeconds = $this->dailyReport
+            ? $efficiencyService->taskPresenceDurationSeconds($this->dailyReport)
+            : 0;
+        $efficiency = $presenceDurationSeconds > 0
+            ? $efficiencyService->calculate($this->task->tractor, $presenceDurationSeconds)
+            : 0;
 
         $date = jdate($this->task->date)->format('Y/m/d');
+        $startTime = $this->task->start_time->format('H:i');
+        $endTime = $this->task->end_time->format('H:i');
+        $duration = to_time_format($presenceDurationSeconds);
+        $efficiency = number_format($efficiency, 2, '.', '');
 
         $this->task->loadMissing('tractor', 'operation');
 
@@ -49,17 +54,24 @@ class TractorTaskStatusNotification extends Notification implements ShouldQueue
 
         $this->success = $taskCompleted;
         $this->message = $taskCompleted
-            ? __('On :date, tractor :tractor_name successfully completed :operation operation in :taskable_type :taskable_name for :duration.', [
+            ? __('On :date, tractor :tractor_name completed :operation operation in :taskable_type :taskable_name during :start_time to :end_time with :duration of presence and :efficiency% efficiency.', [
                 'date' => $date,
                 'tractor_name' => $this->task->tractor->name,
                 'duration' => $duration,
+                'efficiency' => $efficiency,
+                'start_time' => $startTime,
+                'end_time' => $endTime,
                 'taskable_type' => $this->getTaskableTypeName(),
                 'taskable_name' => $taskableNamesList,
                 'operation' => $this->task->operation->name
             ])
-            : __('On :date, tractor :tractor_name did not complete the assigned task and did not enter :taskable_type :taskable_name for :operation operation at the scheduled time.', [
+            : __('On :date, tractor :tractor_name did not complete :operation operation in :taskable_type :taskable_name during :start_time to :end_time. Presence: :duration; efficiency: :efficiency%.', [
                 'date' => $date,
                 'tractor_name' => $this->task->tractor->name,
+                'duration' => $duration,
+                'efficiency' => $efficiency,
+                'start_time' => $startTime,
+                'end_time' => $endTime,
                 'taskable_type' => $this->getTaskableTypeName(),
                 'taskable_name' => $taskableNamesList,
                 'operation' => $this->task->operation->name
@@ -133,6 +145,7 @@ class TractorTaskStatusNotification extends Notification implements ShouldQueue
                 'message' => $this->message,
                 'success' => $this->success ? 'true' : 'false',
                 'color' => $this->success ? 'success' : 'danger',
+                'task_id' => (string) $this->task->id,
             ]);
     }
 
@@ -148,6 +161,7 @@ class TractorTaskStatusNotification extends Notification implements ShouldQueue
             'message' => $this->message,
             'success' => $this->success,
             'color' => $this->success ? 'success' : 'danger',
+            'task_id' => $this->task->id,
         ];
     }
 }

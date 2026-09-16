@@ -16,7 +16,14 @@ class NotificationController extends Controller
      */
     public function index(Request $request)
     {
-        $unreadNotifications = $request->user()->unreadNotifications;
+        // Do not load the user's entire unread-notification history into one
+        // response. High-frequency status notifications can otherwise keep
+        // the dashboard notification panel loading indefinitely.
+        $unreadNotifications = $request->user()
+            ->unreadNotifications()
+            ->latest()
+            ->limit(50)
+            ->get();
 
         return NotificationResource::collection($unreadNotifications);
     }

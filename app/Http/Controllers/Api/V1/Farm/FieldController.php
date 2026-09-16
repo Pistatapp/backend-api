@@ -6,9 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\FieldResource;
 use App\Models\Farm;
 use App\Models\Field;
+use App\Models\CropType;
 use App\Helpers\UniqueId;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class FieldController extends Controller
 {
@@ -45,6 +47,7 @@ class FieldController extends Controller
             'area' => 'required|numeric|min:0',
             'crop_type_id' => ['nullable', Rule::exists('crop_types', 'id')->where('is_active', true)],
         ]);
+        $this->ensureCropTypeMatchesFarm($farm, $request->crop_type_id);
 
         $field = $farm->fields()->create(array_merge([
             'name' => $request->name,
@@ -92,6 +95,7 @@ class FieldController extends Controller
             'area' => 'required|numeric|min:0',
             'crop_type_id' => ['nullable', Rule::exists('crop_types', 'id')->where('is_active', true)],
         ]);
+        $this->ensureCropTypeMatchesFarm($field->farm()->firstOrFail(), $request->crop_type_id);
 
         $field->update([
             'name' => $request->name,
@@ -115,5 +119,23 @@ class FieldController extends Controller
         $field->delete();
 
         return response()->noContent();
+    }
+
+    private function ensureCropTypeMatchesFarm(Farm $farm, mixed $cropTypeId): void
+    {
+        if ($cropTypeId === null || $cropTypeId === '') {
+            return;
+        }
+
+        $matches = CropType::query()
+            ->whereKey($cropTypeId)
+            ->where('crop_id', $farm->crop_id)
+            ->exists();
+
+        if (!$matches) {
+            throw ValidationException::withMessages([
+                'crop_type_id' => ['رقم انتخاب‌شده با محصول این باغ سازگار نیست.'],
+            ]);
+        }
     }
 }

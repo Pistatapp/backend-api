@@ -27,12 +27,12 @@ class FarmController extends Controller
     {
         if ($request->user()->hasRole('root')) {
             $farms = Farm::withCount(['trees', 'fields', 'labours', 'tractors', 'plans'])
-                ->with('admins')
+                ->with(['admins', 'crop'])
                 ->get();
         } else {
             $farms = $request->user()->farms()
                 ->withCount(['trees', 'fields', 'labours', 'tractors', 'plans'])
-                ->with('admins')
+                ->with(['admins', 'crop'])
                 ->get();
         }
 
@@ -109,7 +109,7 @@ class FarmController extends Controller
             'crop_id' => $request->crop_id
         ]);
 
-        return new FarmResource($farm->fresh());
+        return new FarmResource($farm->fresh()->load('crop'));
     }
 
     /**
@@ -151,16 +151,17 @@ class FarmController extends Controller
      */
     public function attachUserToFarm(AttachUserToFarmRequest $request, Farm $farm)
     {
-        $user = User::find($request->input('user_id'));
+        $user = User::findOrFail($request->input('user_id'));
         $this->authorize('attach', $user);
 
         $role = $request->input('role');
         $permissions = $request->getValidatedPermissions();
 
-        $farm->users()->attach($user->id, [
+        // Do not create duplicate farm_user rows when the action is retried.
+        $farm->users()->syncWithoutDetaching([$user->id => [
             'role' => $role,
             'is_owner' => false,
-        ]);
+        ]]);
 
         // Assign role to user
         $user->assignRole($role);
@@ -189,11 +190,13 @@ class FarmController extends Controller
      */
     public function detachUserFromFarm(Request $request, Farm $farm)
     {
+        $this->authorize('manageUsers', $farm);
+
         $request->validate([
             'user_id' => 'required|exists:users,id',
         ]);
 
-        $user = User::find($request->input('user_id'));
+        $user = User::findOrFail($request->input('user_id'));
         $this->authorize('detach', $user);
 
         // If user has this farm as their working environment, remove it

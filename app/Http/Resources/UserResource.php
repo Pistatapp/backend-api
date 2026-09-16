@@ -17,7 +17,9 @@ class UserResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'name' => $this->profile->name,
+            // A user can exist briefly after requesting a verification code but
+            // before completing registration, so a profile is not guaranteed.
+            'name' => $this->profile?->name,
             'mobile' => $this->mobile,
             'username' => $this->username,
             'is_active' => $this->is_active,

@@ -36,7 +36,7 @@ class TractorTaskCreated extends KavenegarBaseNotification implements ShouldQueu
             return ['kavenegar'];
         }
 
-        // If notifiable is a User (farm admin), send database
+        // If notifiable is a User, send database
         return ['database'];
     }
 

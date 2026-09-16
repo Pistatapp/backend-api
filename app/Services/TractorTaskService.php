@@ -7,7 +7,6 @@ use App\Events\TractorTaskStatusChanged;
 use App\Models\Tractor;
 use App\Models\TractorTask;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Cache;
 
 class TractorTaskService
 {
@@ -24,16 +23,16 @@ class TractorTaskService
     {
         $date = $timestamp->toDateString();
 
-        $currentTask = Cache::remember("tractor_task_{$tractor->id}_{$date}", 60, function () use ($tractor, $date, $timestamp) {
-            return TractorTask::where('tractor_id', $tractor->id)
-                ->whereDate('date', $date)
-                ->where('start_time', '<=', $timestamp->format('H:i:s'))
-                ->where('end_time', '>=', $timestamp->format('H:i:s'))
-                ->with(['taskableItems.taskable'])
-                ->first();
-        });
-
-        return $currentTask;
+        // This lookup is time-dependent. Caching by tractor and date can keep
+        // a null result from before the task window (or an old task) alive
+        // while new GPS points are being processed, so every live point must
+        // be evaluated against the timestamp it carries.
+        return TractorTask::where('tractor_id', $tractor->id)
+            ->whereDate('date', $date)
+            ->where('start_time', '<=', $timestamp->format('H:i:s'))
+            ->where('end_time', '>=', $timestamp->format('H:i:s'))
+            ->with(['taskableItems.taskable'])
+            ->first();
     }
 
     /**

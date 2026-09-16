@@ -19,6 +19,12 @@ class TractorTrajectoryService
 
     private const EARTH_RADIUS_METERS = 6371000.0;
 
+    public function __construct(
+        private ?GpsLogContinuityGuard $continuityGuard = null,
+    ) {
+        $this->continuityGuard ??= new GpsLogContinuityGuard();
+    }
+
     /**
      * @param array<int, array<string,mixed>> $rows
      * @return array{rows: array<int,array<string,mixed>>, metrics: array<string,mixed>}
@@ -65,24 +71,54 @@ class TractorTrajectoryService
             $points
         );
 
+        // Keep raw rows in the result, but never let an impossible short-gap
+        // frame become the predecessor of the next accepted point.
+        $continuityPreviousIndex = null;
+
         for ($i = 0; $i < $n; $i++) {
             if (!$points[$i]['valid']) {
                 $classification[$i] = self::INVALID_COORDINATE;
                 $display[$i] = false;
-                continue;
-            }
-            if ($i === 0 || !$points[$i - 1]['valid'] || $points[$i]['timestamp'] === null || $points[$i - 1]['timestamp'] === null) {
+                $continuityPreviousIndex = null;
                 continue;
             }
 
-            $dt = $points[$i]['timestamp'] - $points[$i - 1]['timestamp'];
-            if ($dt <= 0) {
+            if ($points[$i]['timestamp'] === null) {
+                $continuityPreviousIndex = null;
                 continue;
             }
-            $distanceFromPrevious[$i] = $this->distance($points[$i - 1], $points[$i]);
+
+            if ($continuityPreviousIndex !== null && $this->continuityGuard->isOutlier(
+                $points[$continuityPreviousIndex]['lat'],
+                $points[$continuityPreviousIndex]['lon'],
+                $points[$continuityPreviousIndex]['timestamp'],
+                $points[$i]['lat'],
+                $points[$i]['lon'],
+                $points[$i]['timestamp'],
+            )) {
+                $classification[$i] = self::UNCERTAIN;
+                $display[$i] = false;
+                $segment[$i] = $segment[$continuityPreviousIndex];
+                continue;
+            }
+
+            $previousIndex = $continuityPreviousIndex;
+            if ($previousIndex === null) {
+                $continuityPreviousIndex = $i;
+                continue;
+            }
+
+            $dt = $points[$i]['timestamp'] - $points[$previousIndex]['timestamp'];
+            if ($dt <= 0) {
+                $continuityPreviousIndex = $i;
+                continue;
+            }
+
+            $distanceFromPrevious[$i] = $this->distance($points[$previousIndex], $points[$i]);
             $impliedSpeed[$i] = $distanceFromPrevious[$i] / $dt * 3.6;
             if ($this->startsNewSegment(
                 $i,
+                $previousIndex,
                 $dt,
                 $distanceFromPrevious[$i],
                 $impliedSpeed[$i],
@@ -101,8 +137,10 @@ class TractorTrajectoryService
                 && (float) ($points[$i]['row']['speed'] ?? 0) <= $profile['max_plausible_speed_kmh']) {
                 $classification[$i] = self::UNCERTAIN;
                 $display[$i] = false;
-                $segment[$i] = $segment[$i - 1] + 1;
+                $segment[$i] = $segment[$previousIndex] + 1;
             }
+
+            $continuityPreviousIndex = $i;
         }
 
         // A point is a spike only when both neighboring legs are implausible and
@@ -145,7 +183,9 @@ class TractorTrajectoryService
         $p95Multiplier = (float) config('trajectory.stationary.p95_multiplier', 1.0);
 
         for ($i = 0; $i < $n; $i++) {
-            if (!$points[$i]['valid'] || $classification[$i] === self::TRANSIENT_SPIKE) {
+            if (!$points[$i]['valid']
+                || $classification[$i] === self::TRANSIENT_SPIKE
+                || ($classification[$i] === self::UNCERTAIN && !$display[$i])) {
                 continue;
             }
             $window = [];
@@ -153,7 +193,9 @@ class TractorTrajectoryService
                 if (count($window) >= $maximumWindowPoints) {
                     break;
                 }
-                if (!$points[$j]['valid'] || $classification[$j] === self::TRANSIENT_SPIKE) {
+                if (!$points[$j]['valid']
+                    || $classification[$j] === self::TRANSIENT_SPIKE
+                    || ($classification[$j] === self::UNCERTAIN && !$display[$j])) {
                     break;
                 }
                 if ($j < $i && $this->positiveDelta($points[$j], $points[$i]) > $stationaryWindowSeconds) {
@@ -338,6 +380,7 @@ class TractorTrajectoryService
      */
     private function startsNewSegment(
         int $index,
+        int $previousIndex,
         int $deltaSeconds,
         float $distanceMeters,
         float $impliedSpeedKmh,
@@ -362,7 +405,6 @@ class TractorTrajectoryService
         }
 
         $longGapRadius = (float) ($profile['long_gap_bridge_radius_meters'] ?? 75.0);
-        $previousIndex = $index - 1;
         $bothEngineOff = ($engineStopped[$previousIndex] ?? false) && ($engineStopped[$index] ?? false);
         $smallDisplacement = $distanceMeters <= $longGapRadius;
 

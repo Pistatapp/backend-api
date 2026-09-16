@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Farm;
 use App\Rules\AllowedRoleAssignment;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -13,7 +14,10 @@ class AttachUserToFarmRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        $farm = $this->route('farm');
+
+        return $farm instanceof Farm
+            && $this->user()?->can('manageUsers', $farm) === true;
     }
 
     /**

@@ -15,7 +15,9 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
+use App\Models\User;
 
 class CalculateTaskGpsMetricsJob implements ShouldBeUnique, ShouldQueue
 {
@@ -137,8 +139,45 @@ class CalculateTaskGpsMetricsJob implements ShouldBeUnique, ShouldQueue
 
         $farm = $this->task->tractor->farm;
 
-        if ($farm && $farm->admins) {
-            Notification::send($farm->admins, new TractorTaskStatusNotification($this->task, $metrics));
+        if (! $farm) {
+            return;
         }
+
+        $admins = $farm->admins;
+        $adminsToNotify = $this->adminsWithoutStatusNotification($admins);
+
+        if ($adminsToNotify->isEmpty()) {
+            return;
+        }
+
+        Notification::send($adminsToNotify, new TractorTaskStatusNotification($this->task, $metrics));
+    }
+
+    /**
+     * A task can be recalculated after its first finalization. Keep the
+     * administrator notification a one-time event for that task.
+     *
+     * @param \Illuminate\Support\Collection<int, \App\Models\User> $admins
+     * @return \Illuminate\Support\Collection<int, \App\Models\User>
+     */
+    private function adminsWithoutStatusNotification($admins)
+    {
+        if ($admins->isEmpty()) {
+            return $admins;
+        }
+
+        $adminIds = $admins->modelKeys();
+        $notifiedAdminIds = DB::table('notifications')
+            ->where('type', TractorTaskStatusNotification::class)
+            ->where('notifiable_type', User::class)
+            ->whereIn('notifiable_id', $adminIds)
+            ->whereJsonContains('data->task_id', $this->task->id)
+            ->pluck('notifiable_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        return $admins
+            ->reject(fn (User $admin) => in_array((int) $admin->getKey(), $notifiedAdminIds, true))
+            ->values();
     }
 }

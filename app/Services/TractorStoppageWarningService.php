@@ -39,7 +39,7 @@ class TractorStoppageWarningService
         $threshold = (int) ($warning->parameters['hours'] ?? 1) * 3600; // Convert hours to seconds
 
         // Get all tractors with their daily reports for this farm
-        $tractors = Tractor::with(['gpsMetricsCalculations' => function ($query) {
+        $tractors = Tractor::with(['farm.users', 'farm.admins', 'gpsMetricsCalculations' => function ($query) {
             $query->whereDate('date', today());
         }])->where('farm_id', $workingEnvironment)->get();
 
@@ -50,9 +50,20 @@ class TractorStoppageWarningService
                 continue;
             }
 
-            // Send notification to all users associated with the tractor's farm
+            $farm = $tractor->farm;
+            $adminIds = $farm->admins->modelKeys();
+            $recipients = $farm->users
+                ->reject(fn ($user) => in_array($user->id, $adminIds, true))
+                ->values();
+
+            if ($recipients->isEmpty()) {
+                continue;
+            }
+
+            // Keep dashboard tractor warnings away from farm admins. Admins
+            // only receive the final task report notification.
             Notification::send(
-                $tractor->farm->users,
+                $recipients,
                 new TractorStoppageNotification(
                     $tractor,
                     $dailyReport->stoppage_duration,

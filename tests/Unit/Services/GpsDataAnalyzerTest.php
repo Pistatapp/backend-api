@@ -78,6 +78,36 @@ class GpsDataAnalyzerTest extends TestCase
         $this->assertGreaterThan(0, $results['average_speed']);
     }
 
+    public function test_short_distance_jump_is_excluded_without_poisoning_the_next_point(): void
+    {
+        $baseTime = Carbon::now()->setTime(8, 0, 0);
+
+        $results = $this->getAnalyzerResults([
+            [
+                'date_time' => $baseTime->copy(),
+                'coordinate' => [35.0000, 51.0000],
+                'speed' => 8,
+                'status' => 1,
+            ],
+            [
+                'date_time' => $baseTime->copy()->addSeconds(5),
+                'coordinate' => [35.0100, 51.0000],
+                'speed' => 8,
+                'status' => 1,
+            ],
+            [
+                'date_time' => $baseTime->copy()->addSeconds(10),
+                'coordinate' => [35.0002, 51.0000],
+                'speed' => 8,
+                'status' => 1,
+            ],
+        ]);
+
+        $this->assertEquals(10, $results['movement_duration_seconds']);
+        $this->assertGreaterThan(0, $results['movement_distance_meters']);
+        $this->assertLessThan(100, $results['movement_distance_meters']);
+    }
+
     /**
      * Test stoppage detection with minimum duration threshold.
      */
@@ -999,4 +1029,3 @@ class GpsDataAnalyzerTest extends TestCase
         return $this->analyzer->analyze();
     }
 }
-

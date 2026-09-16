@@ -136,6 +136,20 @@ class TractorTrajectoryServiceTest extends TestCase
         $this->assertFalse($result['rows'][1]['is_display_point']);
     }
 
+    public function test_short_distance_jump_hides_only_the_bad_second_row(): void
+    {
+        $result = $this->service->analyze([
+            $this->row(1, '2026-09-02 11:30:00', 8, [35.0000, 51.0000]),
+            $this->row(2, '2026-09-02 11:30:05', 8, [35.0100, 51.0000]),
+            $this->row(3, '2026-09-02 11:30:10', 8, [35.0002, 51.0000]),
+        ], $this->profile());
+
+        $this->assertCount(3, $result['rows']);
+        $this->assertSame(TractorTrajectoryService::UNCERTAIN, $result['rows'][1]['trajectory_classification']);
+        $this->assertFalse($result['rows'][1]['is_display_point']);
+        $this->assertTrue($result['rows'][2]['is_display_point']);
+    }
+
     public function test_invalid_coordinate_is_retained_but_not_displayed(): void
     {
         $result = $this->service->analyze([

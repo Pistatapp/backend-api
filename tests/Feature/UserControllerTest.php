@@ -214,6 +214,102 @@ class UserControllerTest extends TestCase
             ]);
     }
 
+    public function test_search_finds_registered_user_without_creator_or_farm(): void
+    {
+        $registeredUser = User::factory()->create([
+            'mobile' => '09129998887',
+            'created_by' => null,
+        ]);
+        $registeredUser->profile()->create(['name' => 'Registered User']);
+
+        $response = $this->actingAs($this->adminUser, 'sanctum')
+            ->getJson('/api/users?search=09129998887');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.0.id', $registeredUser->id)
+            ->assertJsonPath('data.0.mobile', '09129998887');
+    }
+
+    public function test_global_user_search_finds_registered_user_without_creator(): void
+    {
+        $registeredUser = User::factory()->create([
+            'mobile' => '09129998886',
+            'created_by' => null,
+        ]);
+        $registeredUser->profile()->create(['name' => 'Registered User']);
+
+        $response = $this->actingAs($this->adminUser, 'sanctum')
+            ->getJson('/api/search?q=09129998886&type=users');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.0.id', $registeredUser->id)
+            ->assertJsonPath('data.0.mobile', '09129998886');
+    }
+
+    public function test_search_handles_account_without_a_profile(): void
+    {
+        $registeredUser = User::factory()->create([
+            'mobile' => '09129998884',
+            'created_by' => null,
+        ]);
+
+        $response = $this->actingAs($this->adminUser, 'sanctum')
+            ->getJson('/api/users?search=09129998884');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.0.id', $registeredUser->id)
+            ->assertJsonPath('data.0.name', null);
+    }
+
+    public function test_admin_can_attach_registered_user_and_retries_do_not_duplicate_membership(): void
+    {
+        $registeredUser = User::factory()->create([
+            'mobile' => '09129998885',
+            'created_by' => null,
+        ]);
+        $registeredUser->profile()->create(['name' => 'Registered User']);
+
+        $payload = [
+            'user_id' => $registeredUser->id,
+            'role' => 'operator',
+        ];
+
+        $this->actingAs($this->adminUser, 'sanctum')
+            ->postJson("/api/farms/{$this->farm->id}/attach_user", $payload)
+            ->assertStatus(200);
+
+        $this->actingAs($this->adminUser, 'sanctum')
+            ->postJson("/api/farms/{$this->farm->id}/attach_user", $payload)
+            ->assertStatus(200);
+
+        $this->assertDatabaseCount('farm_user', 2);
+        $this->assertDatabaseHas('farm_user', [
+            'farm_id' => $this->farm->id,
+            'user_id' => $registeredUser->id,
+            'role' => 'operator',
+            'is_owner' => false,
+        ]);
+        $this->assertTrue($registeredUser->fresh()->hasRole('operator'));
+    }
+
+    public function test_admin_cannot_attach_user_to_a_farm_they_do_not_belong_to(): void
+    {
+        $otherFarm = Farm::factory()->create();
+        $registeredUser = User::factory()->create(['created_by' => null]);
+
+        $response = $this->actingAs($this->adminUser, 'sanctum')
+            ->postJson("/api/farms/{$otherFarm->id}/attach_user", [
+                'user_id' => $registeredUser->id,
+                'role' => 'operator',
+            ]);
+
+        $response->assertForbidden();
+        $this->assertDatabaseMissing('farm_user', [
+            'farm_id' => $otherFarm->id,
+            'user_id' => $registeredUser->id,
+        ]);
+    }
+
     // -------------------------------------------------------------------------
     // Store
     // -------------------------------------------------------------------------

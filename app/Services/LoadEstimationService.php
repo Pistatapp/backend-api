@@ -2,16 +2,30 @@
 
 namespace App\Services;
 
+use App\Exceptions\CultivarRequiredForLoadEstimation;
+use App\Exceptions\CropRequiredForLoadEstimation;
+use App\Exceptions\CultivarProductMismatchForLoadEstimation;
 use App\Models\CropType;
+use App\Models\Field;
+use InvalidArgumentException;
 
 class LoadEstimationService
 {
+    public const FORMULA_VERSION = LoadEstimationCultivarResolver::FORMULA_VERSION;
+    public const MAX_AVERAGE_BUD_COUNT = 10_000;
+    public const MAX_TREE_COUNT = 1_000_000;
+    public const MAX_CLUSTER_WEIGHT_GRAMS = 10_000;
+
+    private const CONDITIONS = ['excellent', 'good', 'normal', 'bad'];
+
+    public function __construct(
+        private LoadEstimationCultivarResolver $cultivarResolver
+    ) {
+    }
+
     /**
-     * Update the load estimation table for a crop type.
-     *
-     * @param CropType $cropType
-     * @param array $rows
-     * @return void
+     * Keep the legacy configuration endpoint operational. These rows are not
+     * used by the farm calculation anymore.
      */
     public function updateTable(CropType $cropType, array $rows): void
     {
@@ -22,70 +36,114 @@ class LoadEstimationService
     }
 
     /**
-     * Calculate the estimated yields for all conditions.
+     * Calculate a traceable estimate from the Field's persisted CropType code.
      *
-     * @param int $averageBudCount
-     * @param int $treeCount
-     * @param array $loadEstimationTableRows
-     * @param array<string, float>|null $clusterWeightOverrides
-     * @return array
+     * @param array{excellent: float|int, good: float|int, normal: float|int, bad: float|int} $clusterWeights
+     * @return array<string, mixed>
      */
-    public function calculateEstimatedYields(
+    public function estimate(
+        Field $field,
         int $averageBudCount,
         int $treeCount,
-        array $loadEstimationTableRows,
-        ?array $clusterWeightOverrides = null
-    ): array
-    {
-        $conditions = ['excellent', 'good', 'normal', 'bad'];
-        $estimatedYields = [];
+        array $clusterWeights
+    ): array {
+        $cropType = $field->relationLoaded('cropType')
+            ? $field->cropType
+            : $field->cropType()->first();
 
-        foreach ($conditions as $condition) {
-            foreach ($loadEstimationTableRows as $row) {
-                if ($row['condition'] === $condition) {
-                    $clusterWeightOverride = ($clusterWeightOverrides ?? [])[$condition] ?? null;
-                    $estimatedYields[$condition] = $this->calculateEstimatedYield(
-                        $averageBudCount,
-                        $treeCount,
-                        $row,
-                        $clusterWeightOverride
-                    );
-                    break;
-                }
-            }
+        if (!$cropType) {
+            throw new CultivarRequiredForLoadEstimation();
         }
 
-        return $estimatedYields;
+        $farm = $field->relationLoaded('farm')
+            ? $field->farm
+            : $field->farm()->with('crop')->first();
+        $crop = $farm?->relationLoaded('crop') ? $farm->crop : $farm?->crop()->first();
+
+        if (!$crop) {
+            throw new CropRequiredForLoadEstimation();
+        }
+
+        if ((int) $cropType->crop_id !== (int) $crop->id) {
+            throw new CultivarProductMismatchForLoadEstimation();
+        }
+
+        $cultivar = $this->cultivarResolver->resolve($cropType);
+        $results = $this->calculateResults(
+            $averageBudCount,
+            $treeCount,
+            $clusterWeights,
+            $cultivar['bud_to_fruit_cluster_conversion'],
+            $cultivar['estimated_to_actual_yield_ratio'],
+        );
+
+        return [
+            'farm_id' => (int) $field->farm_id,
+            'field_id' => (int) $field->id,
+            'crop' => [
+                'id' => (int) $crop->id,
+                'name' => (string) $crop->name,
+            ],
+            'cultivar' => [
+                'id' => $cultivar['id'],
+                'code' => $cultivar['code'],
+                'name' => $cultivar['name'],
+            ],
+            'coefficients' => [
+                'bud_to_fruit_cluster_conversion' => $cultivar['bud_to_fruit_cluster_conversion'],
+                'estimated_to_actual_yield_ratio' => $cultivar['estimated_to_actual_yield_ratio'],
+            ],
+            'inputs' => [
+                'average_bud_count' => $averageBudCount,
+                'tree_count' => $treeCount,
+                'cluster_weight_grams' => array_map('floatval', $clusterWeights),
+            ],
+            'results' => $results,
+            // Additive aliases keep the existing Android response contract valid
+            // while clients migrate to data.results.*.
+            'excellent' => $results['excellent'],
+            'good' => $results['good'],
+            'normal' => $results['normal'],
+            'bad' => $results['bad'],
+            'formula_version' => $cultivar['formula_version'],
+        ];
     }
 
     /**
-     * Calculate the estimated yield for a single condition.
-     *
-     * @param int $averageBudCount
-     * @param int $treeCount
-     * @param array $conditionRow
-     * @param float|null $clusterWeightOverride
-     * @return array
+     * @param array<string, float|int> $clusterWeights
+     * @return array<string, array<string, float>>
      */
-    private function calculateEstimatedYield(
+    public function calculateResults(
         int $averageBudCount,
         int $treeCount,
-        array $conditionRow,
-        ?float $clusterWeightOverride = null
-    ): array
-    {
-        $clusterWeight = $clusterWeightOverride ?? $conditionRow['fruit_cluster_weight'];
+        array $clusterWeights,
+        float $budToFruitClusterConversion,
+        float $estimatedToActualYieldRatio
+    ): array {
+        $results = [];
 
-        $estimatedYieldForSingleTreeGrams = $averageBudCount * $clusterWeight
-            * $conditionRow['bud_to_fruit_conversion']
-            * $conditionRow['estimated_to_actual_yield_ratio'];
+        foreach (self::CONDITIONS as $condition) {
+            if (!array_key_exists($condition, $clusterWeights)) {
+                throw new InvalidArgumentException("Missing cluster weight for {$condition}.");
+            }
 
-        $estimatedYieldForSingleTreeKg = $estimatedYieldForSingleTreeGrams / 1000;
-        $estimatedYield = $estimatedYieldForSingleTreeKg * $treeCount;
+            $loadGrams = (float) $clusterWeights[$condition]
+                * $averageBudCount
+                * $budToFruitClusterConversion
+                * $estimatedToActualYieldRatio;
+            $loadKgPerTree = $loadGrams / 1000;
+            $totalPlotLoadKg = $loadKgPerTree * $treeCount;
 
-        return [
-            'estimated_yield_per_tree_kg' => ceil($estimatedYieldForSingleTreeKg),
-            'estimated_yield_total_kg' => round($estimatedYield),
-        ];
+            $results[$condition] = [
+                'load_grams' => $loadGrams,
+                'load_kg_per_tree' => $loadKgPerTree,
+                'total_plot_load_kg' => $totalPlotLoadKg,
+                // Backward-compatible aliases now preserve the exact value.
+                'estimated_yield_per_tree_kg' => $loadKgPerTree,
+                'estimated_yield_total_kg' => $totalPlotLoadKg,
+            ];
+        }
+
+        return $results;
     }
 }

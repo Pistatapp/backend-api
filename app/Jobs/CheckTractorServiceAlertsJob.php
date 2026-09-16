@@ -32,7 +32,7 @@ class CheckTractorServiceAlertsJob implements ShouldQueue
         }
 
         Tractor::whereIn('farm_id', $warnings->keys())
-            ->with('farm.users')
+            ->with(['farm.users', 'farm.admins'])
             ->chunk(100, function ($tractors) use ($warnings): void {
                 foreach ($tractors as $tractor) {
                     $warning = $warnings->get($tractor->farm_id);
@@ -68,8 +68,17 @@ class CheckTractorServiceAlertsJob implements ShouldQueue
                         continue;
                     }
 
+                    $adminIds = $tractor->farm->admins->modelKeys();
+                    $recipients = $tractor->farm->users
+                        ->reject(fn ($user) => in_array($user->id, $adminIds, true))
+                        ->values();
+
+                    if ($recipients->isEmpty()) {
+                        continue;
+                    }
+
                     Notification::send(
-                        $tractor->farm->users,
+                        $recipients,
                         new TractorServiceAlertNotification($tractor, $intervalHours, $intervalKm)
                     );
 

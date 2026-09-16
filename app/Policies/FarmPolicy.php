@@ -55,4 +55,13 @@ class FarmPolicy
     {
         return $farm->users->contains($user);
     }
+
+    /**
+     * Determine whether the user can manage memberships for this farm.
+     */
+    public function manageUsers(User $user, Farm $farm): bool
+    {
+        return $user->hasAnyRole(['admin', 'super-admin'])
+            && $farm->users()->whereKey($user->id)->exists();
+    }
 }

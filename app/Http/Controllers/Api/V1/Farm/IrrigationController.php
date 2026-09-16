@@ -176,10 +176,10 @@ class IrrigationController extends Controller
             403,
         );
 
-        // Determine verified filter value: if verified parameter is present, use it (0=false, 1=true), otherwise default to false
-        $isVerified = $request->has('verified')
-            ? (bool) $request->query('verified')
-            : false;
+        // Request::boolean handles both query-string values ("false"/"true")
+        // and numeric values (0/1). A direct PHP cast would turn "false"
+        // into true and show the wrong review list.
+        $isVerified = $request->boolean('verified');
 
         $messages = $this->irrigationService->getIrrigationMessages($farm, $isVerified, $request->user());
 

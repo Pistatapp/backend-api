@@ -137,20 +137,18 @@ class SearchService
         // Exclude the current user
         $query->where('id', '!=', $user->id);
 
-        // Exclude super-admin users from search
-        $query->withoutRole('super-admin');
+        // User search is used to find existing accounts before they are added
+        // to a farm. Registration-created accounts have created_by = null, so
+        // scoping admins by created_by would make those accounts impossible to
+        // find. Privileged accounts are not valid farm operator targets.
+        $query->withoutRole(['root', 'super-admin']);
 
-        // If user is admin or super-admin, filter by created_by
-        if ($user->hasAnyRole(['admin', 'super-admin'])) {
-            $query->where('created_by', $user->id);
-        }
-
-        // Apply working environment filter if not root
-        if (!$user->hasRole('root') && !isset($filters['skip_working_environment'])) {
-            $workingEnvironment = $user->workingEnvironment();
-            if ($workingEnvironment) {
-                $query->with('farms');
-            }
+        // When a farm is supplied, return only users who are not members of it.
+        // This keeps attach-user pickers from offering an already attached user.
+        if (isset($filters['farm_id'])) {
+            $query->whereDoesntHave('farms', function (Builder $farmQuery) use ($filters) {
+                $farmQuery->whereKey($filters['farm_id']);
+            });
         }
 
         return $query;

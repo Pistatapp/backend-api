@@ -60,10 +60,8 @@ class TractorTaskController extends Controller
 
         $task->syncTaskableItems(getModelClass($validated['taskable_type']), $validated['taskable_ids']);
 
-        $farmAdmins = $tractor->farm->admins;
         $driver = $tractor->driver;
 
-        Notification::send($farmAdmins, new TractorTaskCreated($task));
         Notification::send($driver, new TractorTaskCreated($task));
 
         $taskEndDateTime = $task->getEndDateTime();

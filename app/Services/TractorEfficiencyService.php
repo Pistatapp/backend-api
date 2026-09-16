@@ -51,7 +51,7 @@ class TractorEfficiencyService
 
         return (int) $taskMetrics
             ->groupBy(fn (GpsMetricsCalculation $metrics): string => $metrics->date->toDateString())
-            ->sum(function (Collection $metrics, string $date) use ($dailyByDate): int {
+            ->map(function (Collection $metrics, string $date) use ($dailyByDate): int {
                 $presenceSeconds = (int) $metrics->sum(
                     fn (GpsMetricsCalculation $metric): int => $this->taskPresenceDurationSeconds($metric)
                 );
@@ -68,7 +68,8 @@ class TractorEfficiencyService
                 }
 
                 return max(0, $presenceSeconds);
-            });
+            })
+            ->sum();
     }
 
     public function calculate(Tractor $tractor, int $durationSeconds): float

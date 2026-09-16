@@ -39,7 +39,9 @@ class TractorInactivityWarningService
         $threshold = (int) ($warning->parameters['days'] ?? 1) * 86400; // Convert days to seconds
 
         // Get all tractors for this farm
-        $tractors = Tractor::where('farm_id', $workingEnvironment)->get();
+        $tractors = Tractor::with(['farm.users', 'farm.admins'])
+            ->where('farm_id', $workingEnvironment)
+            ->get();
 
         foreach ($tractors as $tractor) {
             // Get the last activity time from the tractor
@@ -55,8 +57,15 @@ class TractorInactivityWarningService
                 continue;
             }
 
-            // Send notification to all users associated with the tractor's farm
-            $users = $tractor->farm->users;
+            $farm = $tractor->farm;
+            $adminIds = $farm->admins->modelKeys();
+            $users = $farm->users
+                ->reject(fn ($user) => in_array($user->id, $adminIds, true))
+                ->values();
+
+            if ($users->isEmpty()) {
+                continue;
+            }
 
             Notification::send(
                 $users,
