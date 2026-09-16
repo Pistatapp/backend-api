@@ -31,6 +31,10 @@ class FieldResource extends JsonResource
             'attachments' => AttachmentResource::collection($this->whenLoaded('attachments')),
             'reports' => FarmReportResource::collection($this->whenLoaded('reports')),
             'irrigations' => IrrigationResource::collection($this->whenLoaded('irrigations')),
+            'can' => [
+                'update' => $request->user()?->can('update', $this->resource) ?? false,
+                'delete' => $request->user()?->can('delete', $this->resource) ?? false,
+            ],
         ];
     }
 }

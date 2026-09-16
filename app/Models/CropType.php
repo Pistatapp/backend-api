@@ -16,7 +16,14 @@ class CropType extends Model implements HasMedia
      *
      * @var string[]
      */
-    protected $fillable = ['name', 'standard_day_degree', 'created_by', 'is_active', 'load_estimation_data'];
+    protected $fillable = [
+        'name',
+        'standard_day_degree',
+        'created_by',
+        'is_active',
+        'load_estimation_data',
+        'load_estimation_code',
+    ];
 
     /**
      * The attributes with default values.

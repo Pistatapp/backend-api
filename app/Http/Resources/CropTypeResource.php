@@ -20,6 +20,7 @@ class CropTypeResource extends JsonResource
             'standard_day_degree' => $this->standard_day_degree,
             'is_active' => $this->is_active,
             'load_estimation_data' => $this->load_estimation_data,
+            'load_estimation_code' => $this->load_estimation_code,
             'phonology_guide_files' => PhonologyGuideFileResource::collection($this->whenLoaded('phonologyGuideFiles')),
             'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),
             'is_global' => $this->isGlobal(),

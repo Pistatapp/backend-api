@@ -36,7 +36,7 @@ class TreePolicy
      */
     public function update(User $user, Tree $tree): bool
     {
-        return $tree->row->field->farm->users->contains($user) && $user->can('draw-field-block-row-tree');
+        return $tree->row->field->farm->userCanManageFieldStructure($user);
     }
 
     /**
@@ -44,7 +44,6 @@ class TreePolicy
      */
     public function delete(User $user, Tree $tree): bool
     {
-        return $tree->row->field->farm->users->contains($user) && $user->can('draw-field-block-row-tree');
+        return $tree->row->field->farm->userCanManageFieldStructure($user);
     }
 }
-

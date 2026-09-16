@@ -68,7 +68,12 @@ class CropTypeController extends Controller
     {
         $this->authorize('view', $crop);
 
-        $data = $request->only(['name', 'standard_day_degree', 'load_estimation_data']);
+        $data = $request->only([
+            'name',
+            'standard_day_degree',
+            'load_estimation_data',
+            'load_estimation_code',
+        ]);
 
         if ($request->user()->hasRole('admin')) {
             $data['created_by'] = $request->user()->id;
@@ -84,7 +89,13 @@ class CropTypeController extends Controller
      */
     public function update(UpdateCropTypeRequest $request, CropType $cropType)
     {
-        $cropType->update($request->only(['name', 'standard_day_degree', 'is_active', 'load_estimation_data']));
+        $cropType->update($request->only([
+            'name',
+            'standard_day_degree',
+            'is_active',
+            'load_estimation_data',
+            'load_estimation_code',
+        ]));
 
         return new CropTypeResource($cropType->fresh()->load('creator'));
     }

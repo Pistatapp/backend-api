@@ -37,6 +37,14 @@ class RowPolicy
      */
     public function delete(User $user, Row $row): bool
     {
-        return $row->field->farm->users->contains($user) && $user->can('draw-field-block-row-tree');
+        return $row->field->farm->userCanManageFieldStructure($user);
+    }
+
+    /**
+     * Admins and operators may edit rows belonging to their farm.
+     */
+    public function update(User $user, Row $row): bool
+    {
+        return $row->field->farm->userCanManageFieldStructure($user);
     }
 }

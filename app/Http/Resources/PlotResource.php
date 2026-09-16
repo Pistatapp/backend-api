@@ -23,6 +23,10 @@ class PlotResource extends JsonResource
             'area' => calculate_polygon_area($this->coordinates),
             'created_at' => jdate($this->created_at)->format('Y/m/d'),
             'attachments' => AttachmentResource::collection($this->whenLoaded('attachments')),
+            'can' => [
+                'update' => $request->user()?->can('update', $this->resource) ?? false,
+                'delete' => $request->user()?->can('delete', $this->resource) ?? false,
+            ],
         ];
     }
 }

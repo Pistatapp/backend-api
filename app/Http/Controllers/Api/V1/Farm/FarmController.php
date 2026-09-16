@@ -27,12 +27,12 @@ class FarmController extends Controller
     {
         if ($request->user()->hasRole('root')) {
             $farms = Farm::withCount(['trees', 'fields', 'labours', 'tractors', 'plans'])
-                ->with('admins')
+                ->with(['admins', 'crop'])
                 ->get();
         } else {
             $farms = $request->user()->farms()
                 ->withCount(['trees', 'fields', 'labours', 'tractors', 'plans'])
-                ->with('admins')
+                ->with(['admins', 'crop'])
                 ->get();
         }
 
@@ -109,7 +109,9 @@ class FarmController extends Controller
             'crop_id' => $request->crop_id
         ]);
 
-        return new FarmResource($farm->fresh());
+        // Return the canonical crop relation with the updated farm so clients
+        // can immediately refresh their farm context after changing product.
+        return new FarmResource($farm->fresh()->load('crop'));
     }
 
     /**

@@ -69,6 +69,35 @@ class Farm extends Model
     }
 
     /**
+     * Check whether a user has one of the roles assigned to this farm.
+     *
+     * Farm permissions are intentionally resolved from the farm_user pivot,
+     * not from the user's global Spatie role. This prevents an operator (or a
+     * user with an admin role in another farm) from editing this farm's data.
+     */
+    public function userHasFarmRole(User $user, array $roles): bool
+    {
+        if ($user->hasRole('root')) {
+            return true;
+        }
+
+        return $this->users()
+            ->where('users.id', $user->getKey())
+            ->wherePivotIn('role', $roles)
+            ->exists();
+    }
+
+    public function userIsFarmAdmin(User $user): bool
+    {
+        return $this->userHasFarmRole($user, ['admin']);
+    }
+
+    public function userCanManageFieldStructure(User $user): bool
+    {
+        return $this->userHasFarmRole($user, ['admin', 'operator']);
+    }
+
+    /**
      * Get the admins of the farm.
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany

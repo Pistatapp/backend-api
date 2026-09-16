@@ -9,6 +9,7 @@ use Pion\Laravel\ChunkUpload\Receiver\FileReceiver;
 use Pion\Laravel\ChunkUpload\Exceptions\UploadMissingFileException;
 use Illuminate\Http\UploadedFile;
 use Pion\Laravel\ChunkUpload\Handler\HandlerFactory;
+use Illuminate\Support\Str;
 
 class FileUploadController extends Controller
 {
@@ -24,6 +25,8 @@ class FileUploadController extends Controller
      */
     public function upload(Request $request)
     {
+        $this->validateReleaseUpload($request);
+
         // create the file receiver
         $receiver = new FileReceiver("file", $request, HandlerFactory::classFromRequest($request));
 
@@ -61,21 +64,17 @@ class FileUploadController extends Controller
     protected function saveFile(UploadedFile $file)
     {
         $fileName = $this->createFilename($file);
-        // Group files by mime type
-        $mime = str_replace('/', '-', $file->getMimeType());
-        // Group files by the date (week)
-        $dateFolder = date('Y-m-W');
+        $filePath = 'app-releases/staging/'.date('Y-m-d').'/';
+        $storedPath = $file->storeAs($filePath, $fileName, 'local');
 
-        // Relative path consumed by AppReleaseController: storage_path('app/'.$path.$name)
-        $filePath = "{$mime}/{$dateFolder}/";
-        $finalPath = storage_path('app/public/'.$filePath);
-
-        $file->move($finalPath, $fileName);
+        if ($storedPath === false) {
+            abort(500, 'Unable to stage the application package.');
+        }
 
         return response()->json([
             'path' => $filePath,
             'name' => $fileName,
-            'mime_type' => $mime,
+            'mime_type' => 'application/vnd.android.package-archive',
         ]);
     }
 
@@ -86,12 +85,32 @@ class FileUploadController extends Controller
      */
     protected function createFilename(UploadedFile $file)
     {
-        $extension = $file->getClientOriginalExtension();
-        $filename = str_replace("." . $extension, "", $file->getClientOriginalName()); // Filename without extension
+        $filename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+        $filename = preg_replace('/[^A-Za-z0-9._-]/', '-', $filename) ?: 'pistat-release';
 
-        // Add timestamp hash to name of the file
-        $filename .= "_" . md5(time()) . "." . $extension;
+        return Str::limit($filename, 150, '').'_'.Str::uuid().'.apk';
+    }
 
-        return $filename;
+    private function validateReleaseUpload(Request $request): void
+    {
+        $name = (string) ($request->input('resumableFilename')
+            ?: $request->file('file')?->getClientOriginalName());
+        $declaredSize = (int) $request->input(
+            'resumableTotalSize',
+            $request->file('file')?->getSize() ?: 0
+        );
+
+        if ($name === '' || basename($name) !== $name || !preg_match('/^[A-Za-z0-9._-]+\.apk$/i', $name)) {
+            abort(422, 'Only APK files with a safe filename are accepted.');
+        }
+
+        if ($declaredSize < 1 || $declaredSize > config('app-release.max_file_size')) {
+            abort(422, 'The APK exceeds the permitted size.');
+        }
+
+        $identifier = (string) $request->input('resumableIdentifier', '');
+        if ($identifier !== '' && !preg_match('/^[A-Za-z0-9._-]+$/', $identifier)) {
+            abort(422, 'Invalid upload identifier.');
+        }
     }
 }

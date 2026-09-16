@@ -23,6 +23,10 @@ class RowResource extends JsonResource
             'length' => $this->length,
             'reports' => FarmReportResource::collection($this->whenLoaded('reports')),
             'created_at' => jdate($this->created_at)->format('Y/m/d'),
+            'can' => [
+                'update' => $request->user()?->can('update', $this->resource) ?? false,
+                'delete' => $request->user()?->can('delete', $this->resource) ?? false,
+            ],
         ];
     }
 }

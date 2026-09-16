@@ -37,7 +37,7 @@ class FarmPolicy
      */
     public function update(User $user, Farm $farm): bool
     {
-        return $farm->users->contains($user) && $user->can('edit-farm');
+        return $farm->userIsFarmAdmin($user);
     }
 
     /**
@@ -45,7 +45,7 @@ class FarmPolicy
      */
     public function delete(User $user, Farm $farm): bool
     {
-        return $farm->users->contains($user) && $user->can('delete-farm');
+        return $farm->userIsFarmAdmin($user);
     }
 
     /**

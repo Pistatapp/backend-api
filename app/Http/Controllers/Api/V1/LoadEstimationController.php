@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Exceptions\CultivarRequiredForLoadEstimation;
+use App\Exceptions\CropRequiredForLoadEstimation;
+use App\Exceptions\CultivarProductMismatchForLoadEstimation;
+use App\Exceptions\UnsupportedCultivarForLoadEstimation;
 use App\Http\Controllers\Controller;
 use App\Models\CropType;
 use App\Models\Farm;
-use App\Models\Field;
-use App\Models\LoadEstimationTable;
 use App\Services\LoadEstimationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,15 +22,17 @@ class LoadEstimationController extends Controller
     }
 
     /**
-     * Display the specified resource.
+     * Display the legacy configuration resource.
      */
     public function show(CropType $cropType)
     {
+        $this->authorize('view', $cropType);
+
         return response()->json(['data' => $cropType->loadEstimationTable]);
     }
 
     /**
-     * Update the specified resource in storage.
+     * Update the legacy table resource. Farm estimation does not consume it.
      */
     public function update(Request $request, CropType $cropType)
     {
@@ -39,13 +43,7 @@ class LoadEstimationController extends Controller
         return $this->successResponse();
     }
 
-    /**
-     * Validate the incoming request.
-     *
-     * @param \Illuminate\Http\Request $request
-     * @return void
-     */
-    private function validateRequest(Request $request)
+    private function validateRequest(Request $request): void
     {
         $request->validate([
             'rows' => 'required|array',
@@ -61,56 +59,120 @@ class LoadEstimationController extends Controller
         ]);
     }
 
-    /**
-     * Return a success response.
-     *
-     * @return \Illuminate\Http\JsonResponse
-     */
-    private function successResponse()
+    private function successResponse(): JsonResponse
     {
         return response()->json([], JsonResponse::HTTP_OK);
     }
 
     /**
-     * Estimate the yield for a field.
+     * Estimate a Field selected from the requested Farm.
      *
-     * @param \Illuminate\Http\Request $request
-     * @param \App\Models\Farm $farm
-     * @return \Illuminate\Http\JsonResponse
+     * The route keeps field_id for backward compatibility. The field is
+     * resolved through the farm relation so a cross-farm identifier cannot be
+     * used to calculate another farm's estimate.
      */
-    public function estimate(Request $request, Farm $farm)
+    public function estimate(Request $request, Farm $farm): JsonResponse
     {
         $request->validate([
-            'field_id' => 'required|integer|exists:fields,id',
-            'average_bud_count' => 'required|integer|min:0',
-            'tree_count' => 'required|integer|min:0',
+            'field_id' => ['required', 'integer'],
+            'average_bud_count' => [
+                'required',
+                'integer',
+                'min:0',
+                'max:' . LoadEstimationService::MAX_AVERAGE_BUD_COUNT,
+            ],
+            'tree_count' => [
+                'required',
+                'integer',
+                'min:0',
+                'max:' . LoadEstimationService::MAX_TREE_COUNT,
+            ],
             'cluster_weight' => 'required|array|size:4',
-            'cluster_weight.excellent' => 'required|numeric|min:0',
-            'cluster_weight.good' => 'required|numeric|min:0',
-            'cluster_weight.normal' => 'required|numeric|min:0',
-            'cluster_weight.bad' => 'required|numeric|min:0',
+            'cluster_weight.excellent' => [
+                'required',
+                'numeric',
+                'min:0',
+                'max:' . LoadEstimationService::MAX_CLUSTER_WEIGHT_GRAMS,
+            ],
+            'cluster_weight.good' => [
+                'required',
+                'numeric',
+                'min:0',
+                'max:' . LoadEstimationService::MAX_CLUSTER_WEIGHT_GRAMS,
+            ],
+            'cluster_weight.normal' => [
+                'required',
+                'numeric',
+                'min:0',
+                'max:' . LoadEstimationService::MAX_CLUSTER_WEIGHT_GRAMS,
+            ],
+            'cluster_weight.bad' => [
+                'required',
+                'numeric',
+                'min:0',
+                'max:' . LoadEstimationService::MAX_CLUSTER_WEIGHT_GRAMS,
+            ],
         ]);
 
-        $field = Field::findOrFail($request->field_id);
-        $cropType = $field->cropType;
-        $loadEstimationTable = LoadEstimationTable::where('crop_type_id', $cropType->id)->first();
-
-        if (!$loadEstimationTable) {
-            return response()->json([
-                'message' => __(
-                    'Load estimation table not found for crop type :crop_type',
-                    ['crop_type' => $cropType->name]
-                )
-            ], JsonResponse::HTTP_NOT_FOUND);
-        }
-
-        $estimatedYields = $this->loadEstimationService->calculateEstimatedYields(
-            $request->average_bud_count,
-            $request->tree_count,
-            $loadEstimationTable->rows,
-            $request->input('cluster_weight')
+        abort_unless(
+            $farm->users()->whereKey($request->user()->id)->exists(),
+            JsonResponse::HTTP_FORBIDDEN
         );
 
-        return response()->json(['data' => $estimatedYields]);
+        $field = $farm->fields()
+            ->with('cropType')
+            ->whereKey($request->integer('field_id'))
+            ->first();
+
+        abort_unless($field, JsonResponse::HTTP_NOT_FOUND);
+        $farm->loadMissing('crop');
+        $field->setRelation('farm', $farm);
+
+        try {
+            $estimate = $this->loadEstimationService->estimate(
+                $field,
+                (int) $request->integer('average_bud_count'),
+                (int) $request->integer('tree_count'),
+                $request->input('cluster_weight'),
+            );
+        } catch (CultivarRequiredForLoadEstimation $exception) {
+            return $this->cultivarErrorResponse(
+                $exception->getMessage(),
+                CultivarRequiredForLoadEstimation::ERROR_CODE
+            );
+        } catch (UnsupportedCultivarForLoadEstimation $exception) {
+            return $this->cultivarErrorResponse(
+                $exception->getMessage(),
+                UnsupportedCultivarForLoadEstimation::ERROR_CODE
+            );
+        } catch (CropRequiredForLoadEstimation $exception) {
+            return $this->structuredEstimateError(
+                $exception->getMessage(),
+                CropRequiredForLoadEstimation::ERROR_CODE,
+                'crop_id'
+            );
+        } catch (CultivarProductMismatchForLoadEstimation $exception) {
+            return $this->structuredEstimateError(
+                $exception->getMessage(),
+                CultivarProductMismatchForLoadEstimation::ERROR_CODE,
+                'crop_type_id'
+            );
+        }
+
+        return response()->json(['data' => $estimate]);
+    }
+
+    private function cultivarErrorResponse(string $message, string $errorCode): JsonResponse
+    {
+        return $this->structuredEstimateError($message, $errorCode, 'crop_type_id');
+    }
+
+    private function structuredEstimateError(string $message, string $errorCode, string $field): JsonResponse
+    {
+        return response()->json([
+            'message' => $message,
+            'error_code' => $errorCode,
+            'field' => $field,
+        ], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
     }
 }

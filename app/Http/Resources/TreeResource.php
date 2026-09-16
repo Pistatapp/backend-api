@@ -24,6 +24,10 @@ class TreeResource extends JsonResource
             'created_at' => jdate($this->created_at)->format('Y/m/d H:i:s'),
             'attachments' => AttachmentResource::collection($this->whenLoaded('attachments')),
             'reports' => FarmReportResource::collection($this->whenLoaded('reports')),
+            'can' => [
+                'update' => $request->user()?->can('update', $this->resource) ?? false,
+                'delete' => $request->user()?->can('delete', $this->resource) ?? false,
+            ],
         ];
     }
 }

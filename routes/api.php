@@ -71,6 +71,7 @@ Route::controller(AuthController::class)->prefix('auth')->group(function () {
     Route::post('logout', 'logout')->middleware('auth:sanctum');
     Route::get('permissions', 'permissions')->middleware('auth:sanctum');
     Route::post('/refresh', 'refreshToken')->middleware('auth:sanctum');
+    Route::post('fcm-token', 'updateFcmToken')->middleware('auth:sanctum');
 });
 
 Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
@@ -234,8 +235,11 @@ Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
         Route::post('/mark_all_as_read', 'markAllAsRead');
     });
 
-    Route::post('app-releases', [AppReleaseController::class, 'store']);
+    Route::post('app-releases', [AppReleaseController::class, 'store'])->middleware('role:root');
     Route::get('app-releases/latest', [AppReleaseController::class, 'latest']);
+    Route::get('app-releases/{appRelease}/download', [AppReleaseController::class, 'download'])
+        ->middleware('throttle:20,1')
+        ->name('app-releases.download');
 
     // User Preferences Routes
     Route::prefix('preferences')->group(function () {
@@ -244,12 +248,10 @@ Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
         Route::delete('/', [UserPreferenceController::class, 'reset']);
     });
 
-    Route::post('upload', [FileUploadController::class, 'upload']);
+    Route::post('upload', [FileUploadController::class, 'upload'])->middleware('role:root');
 
     Broadcast::routes();
 });
-
-Route::get('app-releases/{appRelease}/download', [AppReleaseController::class, 'download']);
 
 Route::middleware(['auth:sanctum', 'ensure.username'])->prefix('v1')->group(function () {
     Route::apiResource('warnings', WarningController::class)->only(['index', 'store']);

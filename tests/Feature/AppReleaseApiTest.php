@@ -245,7 +245,8 @@ class AppReleaseApiTest extends TestCase
                     'mime_type' => 'application-octet-stream',
                 ],
             ])
-            ->assertStatus(500);
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['file']);
     }
 
     public function test_store_rejects_release_notes_longer_than_allowed(): void

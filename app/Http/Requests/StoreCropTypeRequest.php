@@ -26,6 +26,13 @@ class StoreCropTypeRequest extends FormRequest
             'name' => 'required|string|max:255|unique:crop_types,name',
             'standard_day_degree' => 'nullable|numeric',
             'load_estimation_data' => ['nullable', 'array', new LoadEstimationData],
+            'load_estimation_code' => [
+                'nullable',
+                'string',
+                'max:64',
+                'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/',
+                'unique:crop_types,load_estimation_code',
+            ],
         ];
     }
 }

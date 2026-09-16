@@ -36,7 +36,7 @@ class PlotPolicy
      */
     public function update(User $user, Plot $plot): bool
     {
-        return $plot->field->farm->users->contains($user) && $user->can('draw-field-block-row-tree');
+        return $plot->field->farm->userCanManageFieldStructure($user);
     }
 
     /**
@@ -44,7 +44,6 @@ class PlotPolicy
      */
     public function delete(User $user, Plot $plot): bool
     {
-        return $plot->field->farm->users->contains($user) && $user->can('draw-field-block-row-tree');
+        return $plot->field->farm->userCanManageFieldStructure($user);
     }
 }
-

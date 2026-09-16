@@ -44,6 +44,15 @@ return [
             'throw' => false,
         ],
 
+        // Application packages are private artifacts. They must only be
+        // served through the authenticated release download endpoint.
+        'app_releases' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private/app-releases'),
+            'visibility' => 'private',
+            'throw' => true,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

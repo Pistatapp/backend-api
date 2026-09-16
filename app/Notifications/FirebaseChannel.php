@@ -112,16 +112,34 @@ class FirebaseChannel
      */
     protected function preparePayload($fcmToken, $title, $body, $data)
     {
-        return [
-            "message" => [
-                "token" => $fcmToken,
-                "notification" => [
-                    "title" => $title,
-                    "body" => $body,
-                ],
-                'data' => $data,
-            ]
+        $message = [
+            'token' => $fcmToken,
+            'data' => array_map(static function ($value): string {
+                if (is_scalar($value) || $value === null) {
+                    return (string) $value;
+                }
+
+                return (string) json_encode(
+                    $value,
+                    JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+                );
+            }, $data),
         ];
+
+        // Update messages are data-only so Android can route the tap to the
+        // update flow even when the app is in the background.
+        if (($data['action'] ?? null) !== 'app_update') {
+            $message['notification'] = [
+                'title' => $title,
+                'body' => $body,
+            ];
+        } else {
+            $message['android'] = [
+                'priority' => 'HIGH',
+            ];
+        }
+
+        return ['message' => $message];
     }
 
     /**

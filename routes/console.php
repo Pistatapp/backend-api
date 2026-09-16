@@ -3,6 +3,7 @@
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
+use Illuminate\Support\Facades\Storage;
 use App\Models\VolkOilSpray;
 use App\Models\Tractor;
 use App\Jobs\CalculateColdRequirementJob;
@@ -61,3 +62,16 @@ Schedule::command('tractor:check-service-alerts')
 Schedule::command('telescope:prune --hours=24')
     ->daily()
     ->withoutOverlapping();
+
+Schedule::call(function () {
+    $disk = Storage::disk('local');
+    $cutoff = now()->subDay()->timestamp;
+
+    foreach ($disk->allFiles('app-releases/staging') as $file) {
+        if ($disk->lastModified($file) < $cutoff) {
+            $disk->delete($file);
+        }
+    }
+})->name('prune-stale-app-release-staging-files')
+    ->hourly()
+    ->withoutOverlapping(30);

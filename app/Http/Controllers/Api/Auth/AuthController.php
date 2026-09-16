@@ -243,4 +243,20 @@ class AuthController extends Controller
             'permissions' => $permissions,
         ]);
     }
+
+    /**
+     * Update the current device's FCM token without rotating the auth token.
+     */
+    public function updateFcmToken(Request $request)
+    {
+        $validated = $request->validate([
+            'fcm_token' => ['required', 'string', 'max:4096'],
+        ]);
+
+        $request->user()->update([
+            'fcm_token' => $validated['fcm_token'],
+        ]);
+
+        return response()->noContent();
+    }
 }
