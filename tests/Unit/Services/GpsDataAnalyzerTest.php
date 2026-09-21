@@ -208,6 +208,81 @@ class GpsDataAnalyzerTest extends TestCase
         $this->assertEquals(0, $results['stoppage_duration_seconds']);
         // Short stoppage counted as movement
         $this->assertEquals(60, $results['movement_duration_seconds']);
+        $this->assertEquals(20, $results['working_duration_seconds']);
+    }
+
+    public function test_working_duration_accepts_continuous_moving_interval(): void
+    {
+        $baseTime = Carbon::now()->setTime(8, 0, 0);
+
+        $results = $this->getAnalyzerResults([
+            ['date_time' => $baseTime, 'coordinate' => [35.0, 51.0], 'speed' => 5, 'status' => 1],
+            ['date_time' => $baseTime->copy()->addSeconds(30), 'coordinate' => [35.001, 51.0], 'speed' => 5, 'status' => 1],
+        ]);
+
+        $this->assertSame(30, $results['working_duration_seconds']);
+    }
+
+    public function test_working_duration_excludes_stopped_interval(): void
+    {
+        $baseTime = Carbon::now()->setTime(8, 0, 0);
+
+        $results = $this->getAnalyzerResults([
+            ['date_time' => $baseTime, 'coordinate' => [35.0, 51.0], 'speed' => 0, 'status' => 1],
+            ['date_time' => $baseTime->copy()->addSeconds(30), 'coordinate' => [35.0, 51.0], 'speed' => 0, 'status' => 1],
+        ]);
+
+        $this->assertSame(0, $results['working_duration_seconds']);
+    }
+
+    public function test_working_duration_excludes_short_stoppage(): void
+    {
+        $baseTime = Carbon::now()->setTime(8, 0, 0);
+
+        $results = $this->getAnalyzerResults([
+            ['date_time' => $baseTime, 'coordinate' => [35.0, 51.0], 'speed' => 5, 'status' => 1],
+            ['date_time' => $baseTime->copy()->addSeconds(30), 'coordinate' => [35.0, 51.0], 'speed' => 0, 'status' => 1],
+            ['date_time' => $baseTime->copy()->addSeconds(89), 'coordinate' => [35.0, 51.0], 'speed' => 0, 'status' => 1],
+            ['date_time' => $baseTime->copy()->addSeconds(119), 'coordinate' => [35.001, 51.0], 'speed' => 5, 'status' => 1],
+        ]);
+
+        $this->assertSame(30, $results['working_duration_seconds']);
+    }
+
+    public function test_working_duration_excludes_intervals_longer_than_three_minutes(): void
+    {
+        $baseTime = Carbon::now()->setTime(8, 0, 0);
+
+        $results = $this->getAnalyzerResults([
+            ['date_time' => $baseTime, 'coordinate' => [35.0, 51.0], 'speed' => 5, 'status' => 1],
+            ['date_time' => $baseTime->copy()->addSeconds(181), 'coordinate' => [35.001, 51.0], 'speed' => 5, 'status' => 1],
+        ]);
+
+        $this->assertSame(0, $results['working_duration_seconds']);
+    }
+
+    public function test_working_duration_accepts_low_positive_speed(): void
+    {
+        $baseTime = Carbon::now()->setTime(8, 0, 0);
+
+        $results = $this->getAnalyzerResults([
+            ['date_time' => $baseTime, 'coordinate' => [35.0, 51.0], 'speed' => 1, 'status' => 1],
+            ['date_time' => $baseTime->copy()->addSeconds(30), 'coordinate' => [35.001, 51.0], 'speed' => 1, 'status' => 1],
+        ]);
+
+        $this->assertSame(30, $results['working_duration_seconds']);
+    }
+
+    public function test_working_duration_excludes_status_zero(): void
+    {
+        $baseTime = Carbon::now()->setTime(8, 0, 0);
+
+        $results = $this->getAnalyzerResults([
+            ['date_time' => $baseTime, 'coordinate' => [35.0, 51.0], 'speed' => 10, 'status' => 0],
+            ['date_time' => $baseTime->copy()->addSeconds(30), 'coordinate' => [35.001, 51.0], 'speed' => 10, 'status' => 0],
+        ]);
+
+        $this->assertSame(0, $results['working_duration_seconds']);
     }
 
     /**

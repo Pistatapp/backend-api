@@ -52,9 +52,11 @@ class CalculateGpsMetricsJob implements ShouldQueue
             return;
         }
 
+        $workingDurationSeconds = (int) ($results['working_duration_seconds'] ?? 0);
+
         $efficiency = $tractorEfficiencyService->calculate(
             $this->tractor,
-            $results['movement_duration_seconds']
+            $workingDurationSeconds
         );
 
         // Build timings array from analyzer results
@@ -72,7 +74,7 @@ class CalculateGpsMetricsJob implements ShouldQueue
             ],
             [
                 'traveled_distance' => $results['movement_distance_km'],
-                'work_duration' => $results['movement_duration_seconds'],
+                'work_duration' => $workingDurationSeconds,
                 'stoppage_count' => $results['stoppage_count'],
                 'stoppage_duration' => $results['stoppage_duration_seconds'],
                 'stoppage_duration_while_on' => $results['stoppage_duration_while_on_seconds'],

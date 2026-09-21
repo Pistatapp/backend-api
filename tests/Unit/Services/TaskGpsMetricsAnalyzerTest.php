@@ -172,13 +172,13 @@ class TaskGpsMetricsAnalyzerTest extends TestCase
             // Exit zone
             [
                 'date_time' => $baseTime->copy()->addSeconds(20),
-                'coordinate' => [35.01, 51.01], // Outside
+                'coordinate' => [35.006, 51.006], // Outside
                 'speed' => 10,
                 'status' => 1,
             ],
             [
                 'date_time' => $baseTime->copy()->addSeconds(30),
-                'coordinate' => [35.02, 51.02], // Outside
+                'coordinate' => [35.007, 51.007], // Outside
                 'speed' => 10,
                 'status' => 1,
             ],
@@ -234,19 +234,19 @@ class TaskGpsMetricsAnalyzerTest extends TestCase
             // Outside zone for 100 seconds (gap)
             [
                 'date_time' => $baseTime->copy()->addSeconds(20),
-                'coordinate' => [35.01, 51.01], // Outside
+                'coordinate' => [35.004, 51.004], // Outside
                 'speed' => 10,
                 'status' => 1,
             ],
             [
                 'date_time' => $baseTime->copy()->addSeconds(50),
-                'coordinate' => [35.02, 51.02], // Outside
+                'coordinate' => [35.006, 51.006], // Outside
                 'speed' => 10,
                 'status' => 1,
             ],
             [
                 'date_time' => $baseTime->copy()->addSeconds(110),
-                'coordinate' => [35.03, 51.03], // Outside
+                'coordinate' => [35.007, 51.007], // Outside
                 'speed' => 10,
                 'status' => 1,
             ],
@@ -378,7 +378,75 @@ class TaskGpsMetricsAnalyzerTest extends TestCase
         $this->assertEquals(0, $results['stoppage_count']);
         $this->assertEquals(0, $results['stoppage_duration_seconds']);
         $this->assertEquals(60, $results['movement_duration_seconds']); // All 60 seconds
+        $this->assertEquals(20, $results['working_duration_seconds']);
         $this->assertGreaterThan(0, $results['movement_distance_km']);
+    }
+
+    public function test_working_interval_inside_task_is_counted(): void
+    {
+        $baseTime = Carbon::now()->setTime(8, 0, 0);
+        $polygon = $this->createSquarePolygon(35.0, 51.0, 0.01);
+
+        $results = $this->getAnalyzerResults([
+            ['date_time' => $baseTime, 'coordinate' => [35.0, 51.0], 'speed' => 5, 'status' => 1],
+            ['date_time' => $baseTime->copy()->addSeconds(30), 'coordinate' => [35.001, 51.001], 'speed' => 5, 'status' => 1],
+        ], $polygon);
+
+        $this->assertSame(30, $results['working_duration_seconds']);
+    }
+
+    public function test_stopped_interval_inside_task_is_excluded_from_working_time(): void
+    {
+        $baseTime = Carbon::now()->setTime(8, 0, 0);
+        $polygon = $this->createSquarePolygon(35.0, 51.0, 0.01);
+
+        $results = $this->getAnalyzerResults([
+            ['date_time' => $baseTime, 'coordinate' => [35.0, 51.0], 'speed' => 0, 'status' => 1],
+            ['date_time' => $baseTime->copy()->addSeconds(30), 'coordinate' => [35.0, 51.0], 'speed' => 0, 'status' => 1],
+        ], $polygon);
+
+        $this->assertSame(0, $results['working_duration_seconds']);
+    }
+
+    public function test_working_interval_outside_task_is_excluded(): void
+    {
+        $baseTime = Carbon::now()->setTime(8, 0, 0);
+        $polygon = $this->createSquarePolygon(35.0, 51.0, 0.01);
+
+        $results = $this->getAnalyzerResults([
+            ['date_time' => $baseTime, 'coordinate' => [36.0, 52.0], 'speed' => 5, 'status' => 1],
+            ['date_time' => $baseTime->copy()->addSeconds(30), 'coordinate' => [36.001, 52.001], 'speed' => 5, 'status' => 1],
+        ], $polygon);
+
+        $this->assertSame(0, $results['working_duration_seconds']);
+    }
+
+    public function test_working_interval_longer_than_three_minutes_is_excluded_inside_task(): void
+    {
+        $baseTime = Carbon::now()->setTime(8, 0, 0);
+        $polygon = $this->createSquarePolygon(35.0, 51.0, 0.01);
+
+        $results = $this->getAnalyzerResults([
+            ['date_time' => $baseTime, 'coordinate' => [35.0, 51.0], 'speed' => 5, 'status' => 1],
+            ['date_time' => $baseTime->copy()->addSeconds(181), 'coordinate' => [35.001, 51.001], 'speed' => 5, 'status' => 1],
+        ], $polygon);
+
+        $this->assertSame(0, $results['working_duration_seconds']);
+    }
+
+    public function test_overlapping_polygons_inside_one_task_count_an_interval_once(): void
+    {
+        $baseTime = Carbon::now()->setTime(8, 0, 0);
+        $firstPolygon = $this->createSquarePolygon(35.0, 51.0, 0.01);
+        $secondPolygon = $this->createSquarePolygon(35.001, 51.001, 0.01);
+
+        $results = $this->getAnalyzerResults([
+            ['date_time' => $baseTime, 'coordinate' => [35.0, 51.0], 'speed' => 5, 'status' => 1],
+            ['date_time' => $baseTime->copy()->addSeconds(30), 'coordinate' => [35.001, 51.001], 'speed' => 5, 'status' => 1],
+        ], [$firstPolygon, $secondPolygon]);
+
+        $this->assertSame(30, $results['working_duration_seconds']);
+        $this->assertCount(1, $results['working_intervals']);
     }
 
     /**
@@ -408,20 +476,20 @@ class TaskGpsMetricsAnalyzerTest extends TestCase
             // Exit zone
             [
                 'date_time' => $baseTime->copy()->addSeconds(20),
-                'coordinate' => [35.01, 51.01], // Outside
+                'coordinate' => [35.004, 51.004], // Outside
                 'speed' => 10,
                 'status' => 1,
             ],
             // Stop outside zone for 100 seconds
             [
                 'date_time' => $baseTime->copy()->addSeconds(30),
-                'coordinate' => [35.01, 51.01],
+                'coordinate' => [35.004, 51.004],
                 'speed' => 0,
                 'status' => 1,
             ],
             [
                 'date_time' => $baseTime->copy()->addSeconds(130),
-                'coordinate' => [35.01, 51.01],
+                'coordinate' => [35.004, 51.004],
                 'speed' => 0,
                 'status' => 1,
             ],
@@ -727,12 +795,12 @@ class TaskGpsMetricsAnalyzerTest extends TestCase
             ['date_time' => $baseTime->copy(), 'coordinate' => [35.0, 51.0], 'speed' => 10, 'status' => 1],
             ['date_time' => $baseTime->copy()->addSeconds(10), 'coordinate' => [35.001, 51.001], 'speed' => 10, 'status' => 1],
             // Exit
-            ['date_time' => $baseTime->copy()->addSeconds(20), 'coordinate' => [35.01, 51.01], 'speed' => 10, 'status' => 1],
+            ['date_time' => $baseTime->copy()->addSeconds(20), 'coordinate' => [35.004, 51.004], 'speed' => 10, 'status' => 1],
             // Segment 2
             ['date_time' => $baseTime->copy()->addSeconds(30), 'coordinate' => [35.001, 51.001], 'speed' => 10, 'status' => 1],
             ['date_time' => $baseTime->copy()->addSeconds(40), 'coordinate' => [35.002, 51.002], 'speed' => 10, 'status' => 1],
             // Exit
-            ['date_time' => $baseTime->copy()->addSeconds(50), 'coordinate' => [35.01, 51.01], 'speed' => 10, 'status' => 1],
+            ['date_time' => $baseTime->copy()->addSeconds(50), 'coordinate' => [35.004, 51.004], 'speed' => 10, 'status' => 1],
             // Segment 3
             ['date_time' => $baseTime->copy()->addSeconds(60), 'coordinate' => [35.0, 51.0], 'speed' => 10, 'status' => 1],
             ['date_time' => $baseTime->copy()->addSeconds(70), 'coordinate' => [35.001, 51.001], 'speed' => 10, 'status' => 1],
@@ -871,7 +939,7 @@ class TaskGpsMetricsAnalyzerTest extends TestCase
         $baseTime = Carbon::now()->setTime(8, 0, 0);
 
         $zoneA = $this->createSquarePolygon(35.0, 51.0, 0.01);
-        $zoneB = $this->createSquarePolygon(36.0, 52.0, 0.01);
+        $zoneB = $this->createSquarePolygon(35.006, 51.006, 0.01);
 
         $zoneAStringRing = array_map(
             fn (array $vertex) => $vertex[0] . ',' . $vertex[1],
@@ -897,13 +965,13 @@ class TaskGpsMetricsAnalyzerTest extends TestCase
             ],
             [
                 'date_time' => $baseTime->copy()->addSeconds(20),
-                'coordinate' => [36.0, 52.0],
+                'coordinate' => [35.006, 51.006],
                 'speed' => 10,
                 'status' => 1,
             ],
             [
                 'date_time' => $baseTime->copy()->addSeconds(30),
-                'coordinate' => [36.001, 52.001],
+                'coordinate' => [35.007, 51.007],
                 'speed' => 10,
                 'status' => 1,
             ],

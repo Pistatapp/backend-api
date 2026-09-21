@@ -60,6 +60,7 @@ class CalculateTaskGpsMetricsJobTest extends TestCase
         (new CalculateTaskGpsMetricsJob($task))->handle(
             $analyzer,
             app(TractorTaskService::class),
+            app(\App\Services\TractorEfficiencyService::class),
         );
 
         $task->refresh();
@@ -83,6 +84,7 @@ class CalculateTaskGpsMetricsJobTest extends TestCase
         (new CalculateTaskGpsMetricsJob($task))->handle(
             $analyzer,
             app(TractorTaskService::class),
+            app(\App\Services\TractorEfficiencyService::class),
         );
 
         $task->refresh();
@@ -124,6 +126,7 @@ class CalculateTaskGpsMetricsJobTest extends TestCase
         (new CalculateTaskGpsMetricsJob($task))->handle(
             $analyzer,
             app(TractorTaskService::class),
+            app(\App\Services\TractorEfficiencyService::class),
         );
 
         $task->refresh();
@@ -165,6 +168,7 @@ class CalculateTaskGpsMetricsJobTest extends TestCase
         (new CalculateTaskGpsMetricsJob($task))->handle(
             $analyzer,
             app(TractorTaskService::class),
+            app(\App\Services\TractorEfficiencyService::class),
         );
 
         $task->refresh();
@@ -191,6 +195,7 @@ class CalculateTaskGpsMetricsJobTest extends TestCase
         $analyzer->shouldReceive('analyze')->once()->andReturn([
             'movement_distance_km' => 2.0,
             'movement_duration_seconds' => 299,
+            'working_duration_seconds' => 299,
             'in_zone_duration_seconds' => 300,
             'stoppage_duration_seconds' => 0,
             'stoppage_count' => 0,
@@ -205,6 +210,7 @@ class CalculateTaskGpsMetricsJobTest extends TestCase
         (new CalculateTaskGpsMetricsJob($task))->handle(
             $analyzer,
             app(TractorTaskService::class),
+            app(\App\Services\TractorEfficiencyService::class),
         );
 
         $task->refresh();
@@ -263,6 +269,7 @@ class CalculateTaskGpsMetricsJobTest extends TestCase
         return [
             'movement_distance_km' => 1.2,
             'movement_duration_seconds' => 600,
+            'working_duration_seconds' => 600,
             'in_zone_duration_seconds' => 600,
             'stoppage_duration_seconds' => 0,
             'stoppage_count' => 0,

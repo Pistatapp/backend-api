@@ -54,7 +54,7 @@ class ActiveTractorService
 
         // Query GpsMetricsCalculation for daily aggregate (tractor_task_id is null)
         $metrics = GpsMetricsCalculation::where('tractor_id', $tractor->id)
-            ->where('date', $dateString)
+            ->whereDate('date', $dateString)
             ->whereNull('tractor_task_id')
             ->first();
 
@@ -82,8 +82,8 @@ class ActiveTractorService
         return [
             'id' => $tractor->id,
             'name' => $tractor->name,
-            'on_time' => $metrics->timings['device_on_time'], // Not stored in GpsMetricsCalculation
-            'start_working_time' => $metrics->timings['first_movement_time'], // Not stored in GpsMetricsCalculation
+            'on_time' => $metrics->timings['device_on_time'] ?? null,
+            'start_working_time' => $metrics->timings['first_movement_time'] ?? null,
             'speed' => $metrics->average_speed,
             'status' => 0, // Not stored in GpsMetricsCalculation, default to 0 (off)
             'traveled_distance' => $metrics->traveled_distance,
@@ -118,7 +118,7 @@ class ActiveTractorService
 
         // Calculate total efficiency
         $workDurationSeconds = $this->tractorEfficiencyService->workingDurationSeconds(
-            $results['movement_duration_seconds']
+            $results['working_duration_seconds']
         );
         $totalEfficiency = $this->calculateEfficiency($tractor, $workDurationSeconds);
 
@@ -133,7 +133,7 @@ class ActiveTractorService
             'speed' => $averageSpeed,
             'status' => $latestStatus,
             'traveled_distance' => $results['movement_distance_km'],
-            'work_duration' => $results['movement_duration_formatted'],
+            'work_duration' => $results['working_duration_formatted'],
             'stoppage_count' => $stoppageCount,
             'stoppage_duration' => $results['stoppage_duration_formatted'],
             'stoppage_duration_while_on' => $results['stoppage_duration_while_on_formatted'],

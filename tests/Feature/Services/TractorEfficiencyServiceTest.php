@@ -143,6 +143,47 @@ class TractorEfficiencyServiceTest extends TestCase
         );
     }
 
+    public function test_overlapping_task_working_intervals_are_counted_once_per_day(): void
+    {
+        $tractor = Tractor::factory()->create(['expected_daily_work_time' => 8]);
+        $firstTask = TractorTask::factory()->create(['tractor_id' => $tractor->id]);
+        $secondTask = TractorTask::factory()->create(['tractor_id' => $tractor->id]);
+
+        $total = GpsMetricsCalculation::factory()->create([
+            'tractor_id' => $tractor->id,
+            'tractor_task_id' => null,
+            'date' => '2026-09-05',
+            'work_duration' => 3600,
+            'stoppage_duration' => 0,
+        ]);
+        $firstMetric = GpsMetricsCalculation::factory()->create([
+            'tractor_id' => $tractor->id,
+            'tractor_task_id' => $firstTask->id,
+            'date' => '2026-09-05',
+            'work_duration' => 300,
+            'timings' => [
+                'working_intervals' => [['start' => 1000, 'end' => 1300]],
+            ],
+        ]);
+        $secondMetric = GpsMetricsCalculation::factory()->create([
+            'tractor_id' => $tractor->id,
+            'tractor_task_id' => $secondTask->id,
+            'date' => '2026-09-05',
+            'work_duration' => 300,
+            'timings' => [
+                'working_intervals' => [['start' => 1200, 'end' => 1500]],
+            ],
+        ]);
+
+        $efficiency = app(TractorEfficiencyService::class)->calculateTaskEfficiency(
+            $tractor,
+            collect([$firstMetric, $secondMetric]),
+            $total
+        );
+
+        $this->assertEqualsWithDelta((500 / 28800) * 100, $efficiency, 0.000001);
+    }
+
     public function test_zero_expected_work_returns_zero_without_division_by_zero(): void
     {
         $tractor = Tractor::factory()->create(['expected_daily_work_time' => 0]);

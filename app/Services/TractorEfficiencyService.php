@@ -83,8 +83,9 @@ class TractorEfficiencyService
     }
 
     /**
-     * Return working time inside task zones without counting overlapping task
-     * rows beyond the authoritative daily working duration.
+     * Return working time inside task zones using the union of canonical
+     * working intervals. Legacy rows without intervals retain their stored
+     * duration as a compatibility fallback.
      *
      * @param Collection<int, GpsMetricsCalculation> $taskMetrics
      * @param Collection<int, GpsMetricsCalculation> $dailyMetrics
@@ -101,9 +102,7 @@ class TractorEfficiencyService
         return (int) $taskMetrics
             ->groupBy(fn (GpsMetricsCalculation $metrics): string => $metrics->date->toDateString())
             ->map(function (Collection $metrics, string $date) use ($dailyByDate): int {
-                $workingSeconds = (int) $metrics->sum(
-                    fn (GpsMetricsCalculation $metric): int => $this->taskWorkingDurationSeconds($metric)
-                );
+                $workingSeconds = $this->taskWorkingDurationForDate($metrics);
                 $dailyMetric = $dailyByDate->get($date);
 
                 if ($dailyMetric) {
@@ -116,6 +115,72 @@ class TractorEfficiencyService
                 return max(0, $workingSeconds);
             })
             ->sum();
+    }
+
+    /**
+     * Merge task intervals for one date so overlapping tasks contribute once.
+     * Rows created before canonical intervals were persisted use work_duration.
+     *
+     * @param Collection<int, GpsMetricsCalculation> $metrics
+     */
+    private function taskWorkingDurationForDate(Collection $metrics): int
+    {
+        $intervals = [];
+        $legacySeconds = 0;
+
+        foreach ($metrics as $metric) {
+            $timings = is_array($metric->timings) ? $metric->timings : [];
+
+            if (! array_key_exists('working_intervals', $timings)) {
+                $legacySeconds += $this->taskWorkingDurationSeconds($metric);
+                continue;
+            }
+
+            foreach ((array) $timings['working_intervals'] as $interval) {
+                if (! is_array($interval)) {
+                    continue;
+                }
+
+                $start = $interval['start'] ?? null;
+                $end = $interval['end'] ?? null;
+                if (! is_numeric($start) || ! is_numeric($end) || (int) $end <= (int) $start) {
+                    continue;
+                }
+
+                $intervals[] = [(int) $start, (int) $end];
+            }
+        }
+
+        return $this->unionIntervalSeconds($intervals) + $legacySeconds;
+    }
+
+    /**
+     * @param array<int, array{0: int, 1: int}> $intervals
+     */
+    private function unionIntervalSeconds(array $intervals): int
+    {
+        if ($intervals === []) {
+            return 0;
+        }
+
+        usort($intervals, function (array $left, array $right): int {
+            return $left[0] <=> $right[0] ?: $left[1] <=> $right[1];
+        });
+
+        $total = 0;
+        [$currentStart, $currentEnd] = $intervals[0];
+
+        foreach (array_slice($intervals, 1) as [$start, $end]) {
+            if ($start <= $currentEnd) {
+                $currentEnd = max($currentEnd, $end);
+                continue;
+            }
+
+            $total += $currentEnd - $currentStart;
+            [$currentStart, $currentEnd] = [$start, $end];
+        }
+
+        return $total + ($currentEnd - $currentStart);
     }
 
     public function calculate(Tractor $tractor, int $durationSeconds): float
@@ -184,12 +249,12 @@ class TractorEfficiencyService
     public function taskBasedEfficiencyForDate(Tractor $tractor, Carbon $date): float
     {
         $taskMetrics = GpsMetricsCalculation::where('tractor_id', $tractor->id)
-            ->where('date', $date->toDateString())
+            ->whereDate('date', $date->toDateString())
             ->whereNotNull('tractor_task_id')
             ->get();
 
         $totalMetrics = GpsMetricsCalculation::where('tractor_id', $tractor->id)
-            ->where('date', $date->toDateString())
+            ->whereDate('date', $date->toDateString())
             ->whereNull('tractor_task_id')
             ->first();
 
