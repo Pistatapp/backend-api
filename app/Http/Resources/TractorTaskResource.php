@@ -68,7 +68,7 @@ class TractorTaskResource extends JsonResource
                 return number_format(
                     $efficiencyService->calculate(
                         $this->tractor,
-                        $efficiencyService->taskPresenceDurationSeconds($this->gpsMetricsCalculation)
+                        $efficiencyService->taskWorkingDurationSeconds($this->gpsMetricsCalculation)
                     ),
                     2
                 );

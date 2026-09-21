@@ -83,9 +83,6 @@ class RecalculateFarmGpsMetrics extends Command
             foreach ($datesByTractor->get($tractor->id, collect()) as $dateRow) {
                 $date = Carbon::parse((string) $dateRow->gps_date, config('app.timezone', 'Asia/Tehran'));
                 $results = $gpsDataAnalyzer->loadRecordsFor($tractor, $date)->analyze();
-                $effectiveWorkDuration = max(0, (int) $results['movement_duration_seconds'])
-                    + max(0, (int) $results['stoppage_duration_seconds']);
-
                 $attributes = [
                     'tractor_id' => $tractor->id,
                     'date' => $date->toDateString(),
@@ -99,7 +96,10 @@ class RecalculateFarmGpsMetrics extends Command
                     'stoppage_duration_while_on' => $results['stoppage_duration_while_on_seconds'],
                     'stoppage_duration_while_off' => $results['stoppage_duration_while_off_seconds'],
                     'average_speed' => $results['average_speed'],
-                    'efficiency' => $tractorEfficiencyService->calculate($tractor, $effectiveWorkDuration),
+                    'efficiency' => $tractorEfficiencyService->calculate(
+                        $tractor,
+                        $results['movement_duration_seconds']
+                    ),
                     'timings' => [
                         'device_on_time' => $results['device_on_time'],
                         'first_movement_time' => $results['first_movement_time'],

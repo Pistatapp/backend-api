@@ -38,8 +38,11 @@ class TractorTaskStatusNotification extends Notification implements ShouldQueue
         $presenceDurationSeconds = $this->dailyReport
             ? $efficiencyService->taskPresenceDurationSeconds($this->dailyReport)
             : 0;
-        $efficiency = $presenceDurationSeconds > 0
-            ? $efficiencyService->calculate($this->task->tractor, $presenceDurationSeconds)
+        $workingDurationSeconds = $this->dailyReport
+            ? $efficiencyService->taskWorkingDurationSeconds($this->dailyReport)
+            : 0;
+        $efficiency = $workingDurationSeconds > 0
+            ? $efficiencyService->calculate($this->task->tractor, $workingDurationSeconds)
             : 0;
 
         $date = jdate($this->task->date)->format('Y/m/d');

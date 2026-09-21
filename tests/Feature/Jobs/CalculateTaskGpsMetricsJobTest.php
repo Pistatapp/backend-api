@@ -211,7 +211,7 @@ class CalculateTaskGpsMetricsJobTest extends TestCase
 
         $this->assertSame('done', $task->status);
         $metrics = GpsMetricsCalculation::where('tractor_task_id', $task->id)->firstOrFail();
-        $this->assertEqualsWithDelta(1.0416666667, (float) $metrics->efficiency, 0.000001);
+        $this->assertEqualsWithDelta((299 / (8 * 3600)) * 100, (float) $metrics->efficiency, 0.000001);
     }
 
     public function test_ended_task_status_update_runs_historical_calculation_synchronously(): void

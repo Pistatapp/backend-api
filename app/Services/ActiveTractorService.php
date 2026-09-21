@@ -71,9 +71,8 @@ class ActiveTractorService
 
         // Calculate efficiency (always recalculate based on current expected_daily_work_time)
         // This ensures efficiency reflects any changes to expected_daily_work_time
-        $totalWorkDurationSeconds = $this->tractorEfficiencyService->observedWorkDurationSeconds(
-            $metrics->work_duration,
-            $metrics->stoppage_duration
+        $totalWorkDurationSeconds = $this->tractorEfficiencyService->workingDurationSeconds(
+            $metrics->work_duration
         );
         $totalEfficiency = $this->calculateEfficiency($tractor, $totalWorkDurationSeconds);
 
@@ -118,8 +117,9 @@ class ActiveTractorService
         $stoppageCount = $results['stoppage_count'];
 
         // Calculate total efficiency
-        $workDurationSeconds = (int) $results['movement_duration_seconds']
-            + (int) $results['stoppage_duration_seconds'];
+        $workDurationSeconds = $this->tractorEfficiencyService->workingDurationSeconds(
+            $results['movement_duration_seconds']
+        );
         $totalEfficiency = $this->calculateEfficiency($tractor, $workDurationSeconds);
 
         // Calculate task-based efficiency from task records
@@ -151,7 +151,7 @@ class ActiveTractorService
      *
      * @param Tractor $tractor
      * @param int $workDurationSeconds Work duration in seconds
-     * @return float Efficiency percentage (0-100)
+     * @return float Efficiency percentage
      */
     private function calculateEfficiency(Tractor $tractor, int $workDurationSeconds): float
     {
@@ -159,11 +159,11 @@ class ActiveTractorService
     }
 
     /**
-     * Get task-based efficiency from total zone presence for the given date.
+     * Get task-based efficiency from working time inside task zones for the given date.
      *
      * @param Tractor $tractor
      * @param Carbon $date
-     * @return float Average efficiency percentage (0-100)
+     * @return float Efficiency percentage
      */
     private function getTaskBasedEfficiency(Tractor $tractor, Carbon $date): float
     {
@@ -230,7 +230,7 @@ class ActiveTractorService
             return $record->date->toDateString();
         });
 
-        // Group task records by date and calculate presence-based efficiency
+        // Group task records by date and calculate working-time efficiency
         // from the same daily duration rule used by the detail endpoint.
         $taskEfficiencyMap = $taskEfficiencyRecords->groupBy(function ($record) {
             return $record->date->toDateString();
@@ -258,9 +258,8 @@ class ActiveTractorService
                     'efficiency' => number_format(
                         $this->calculateEfficiency(
                             $tractor,
-                            $this->tractorEfficiencyService->observedWorkDurationSeconds(
-                                $totalRecord->work_duration,
-                                $totalRecord->stoppage_duration
+                            $this->tractorEfficiencyService->workingDurationSeconds(
+                                $totalRecord->work_duration
                             )
                         ),
                         2

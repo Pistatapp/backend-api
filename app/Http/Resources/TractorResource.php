@@ -37,9 +37,8 @@ class TractorResource extends JsonResource
                         'efficiency' => number_format(
                             $efficiencyService->calculate(
                                 $this->resource,
-                                $efficiencyService->observedWorkDurationSeconds(
-                                    $report->work_duration,
-                                    $report->stoppage_duration
+                                $efficiencyService->workingDurationSeconds(
+                                    $report->work_duration
                                 )
                             ),
                             2

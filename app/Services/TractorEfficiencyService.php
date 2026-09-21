@@ -17,6 +17,11 @@ class TractorEfficiencyService
         return max(0, (int) $movementSeconds) + max(0, (int) $stoppageSeconds);
     }
 
+    public function workingDurationSeconds(?int $movementSeconds): int
+    {
+        return max(0, (int) $movementSeconds);
+    }
+
     public function taskPresenceDurationSeconds(GpsMetricsCalculation $metrics): int
     {
         $timings = is_array($metrics->timings) ? $metrics->timings : [];
@@ -31,6 +36,11 @@ class TractorEfficiencyService
             $metrics->work_duration,
             $metrics->stoppage_duration
         );
+    }
+
+    public function taskWorkingDurationSeconds(GpsMetricsCalculation $metrics): int
+    {
+        return $this->workingDurationSeconds($metrics->work_duration);
     }
 
     /**
@@ -68,6 +78,42 @@ class TractorEfficiencyService
                 }
 
                 return max(0, $presenceSeconds);
+            })
+            ->sum();
+    }
+
+    /**
+     * Return working time inside task zones without counting overlapping task
+     * rows beyond the authoritative daily working duration.
+     *
+     * @param Collection<int, GpsMetricsCalculation> $taskMetrics
+     * @param Collection<int, GpsMetricsCalculation> $dailyMetrics
+     */
+    public function taskWorkingDurationForPeriod(
+        Collection $taskMetrics,
+        ?Collection $dailyMetrics = null
+    ): int {
+        $dailyByDate = ($dailyMetrics ?? collect())
+            ->sortBy(fn (GpsMetricsCalculation $metrics): int => (int) $metrics->getKey())
+            ->groupBy(fn (GpsMetricsCalculation $metrics): string => $metrics->date->toDateString())
+            ->map(fn (Collection $metrics): GpsMetricsCalculation => $metrics->first());
+
+        return (int) $taskMetrics
+            ->groupBy(fn (GpsMetricsCalculation $metrics): string => $metrics->date->toDateString())
+            ->map(function (Collection $metrics, string $date) use ($dailyByDate): int {
+                $workingSeconds = (int) $metrics->sum(
+                    fn (GpsMetricsCalculation $metric): int => $this->taskWorkingDurationSeconds($metric)
+                );
+                $dailyMetric = $dailyByDate->get($date);
+
+                if ($dailyMetric) {
+                    $workingSeconds = min(
+                        $workingSeconds,
+                        $this->workingDurationSeconds($dailyMetric->work_duration)
+                    );
+                }
+
+                return max(0, $workingSeconds);
             })
             ->sum();
     }
@@ -110,8 +156,8 @@ class TractorEfficiencyService
 
     /**
      * Calculate task productivity for one day from all task metric rows.
-     * The cap prevents overlapping task rows from counting the same observed
-     * working interval twice.
+     * The cap prevents overlapping task rows from exceeding daily working
+     * time.
      *
      * @param Collection<int, GpsMetricsCalculation> $taskMetrics
      */
@@ -120,22 +166,19 @@ class TractorEfficiencyService
         Collection $taskMetrics,
         ?GpsMetricsCalculation $totalMetrics = null
     ): float {
-        $presenceSeconds = $this->taskPresenceDurationForPeriod(
+        $workingSeconds = $this->taskWorkingDurationForPeriod(
             $taskMetrics,
             $totalMetrics ? collect([$totalMetrics]) : collect()
         );
 
         if ($totalMetrics) {
-            $presenceSeconds = min(
-                $presenceSeconds,
-                $this->observedWorkDurationSeconds(
-                    $totalMetrics->work_duration,
-                    $totalMetrics->stoppage_duration
-                )
+            $workingSeconds = min(
+                $workingSeconds,
+                $this->workingDurationSeconds($totalMetrics->work_duration)
             );
         }
 
-        return $this->calculate($tractor, max(0, $presenceSeconds));
+        return $this->calculate($tractor, max(0, $workingSeconds));
     }
 
     public function taskBasedEfficiencyForDate(Tractor $tractor, Carbon $date): float

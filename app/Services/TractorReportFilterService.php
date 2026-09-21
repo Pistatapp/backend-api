@@ -56,7 +56,7 @@ class TractorReportFilterService
         // are excluded when an authoritative daily aggregate exists so the
         // same GPS interval is never counted twice.
         $rawWorkDuration = $this->effectiveWorkDuration($summaryReports);
-        $taskBasedWorkDuration = $this->tractorEfficiencyService->taskPresenceDurationForPeriod(
+        $taskBasedWorkDuration = $this->tractorEfficiencyService->taskWorkingDurationForPeriod(
             $this->tasks->filter(fn (GpsMetricsCalculation $report) => $report->tractor_task_id !== null),
             $dailyMetrics
         );
@@ -331,7 +331,7 @@ class TractorReportFilterService
     {
         return (int) $reports->sum(
             fn (GpsMetricsCalculation $report): int => $this->tractorEfficiencyService
-                ->observedWorkDurationSeconds($report->work_duration, $report->stoppage_duration)
+                ->workingDurationSeconds($report->work_duration)
         );
     }
 
@@ -352,10 +352,7 @@ class TractorReportFilterService
                 'avg_speed' => $this->formatSpeed($report->average_speed ?? 0),
                 'work_duration' => $this->formatDuration($report->work_duration ?? 0),
                 'effective_work_duration' => $this->formatDuration(
-                    $this->tractorEfficiencyService->observedWorkDurationSeconds(
-                        $report->work_duration,
-                        $report->stoppage_duration,
-                    )
+                    $this->tractorEfficiencyService->workingDurationSeconds($report->work_duration)
                 ),
                 'stoppage_duration' => $this->formatDuration($report->stoppage_duration ?? 0),
                 'stoppage_count' => (int) ($report->stoppage_count ?? 0),
@@ -373,7 +370,7 @@ class TractorReportFilterService
                     $result['task_efficiency'] = $this->formatPercentage(
                         $this->tractorEfficiencyService->calculate(
                             $task->tractor,
-                            $this->tractorEfficiencyService->taskPresenceDurationSeconds($report)
+                            $this->tractorEfficiencyService->taskWorkingDurationSeconds($report)
                         )
                     );
                 }

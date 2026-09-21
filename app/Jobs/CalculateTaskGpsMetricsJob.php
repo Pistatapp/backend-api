@@ -70,7 +70,10 @@ class CalculateTaskGpsMetricsJob implements ShouldBeUnique, ShouldQueue
         $inZoneDurationSeconds = $this->inZoneDurationSeconds($results);
         $taskCompleted = $this->hasValidInZoneWork($results, $inZoneDurationSeconds);
         $efficiency = $taskCompleted
-            ? $tractorEfficiencyService->calculate($tractor, $inZoneDurationSeconds)
+            ? $tractorEfficiencyService->calculate(
+                $tractor,
+                $results['movement_duration_seconds'] ?? 0
+            )
             : 0;
 
         $timings = [

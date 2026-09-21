@@ -52,11 +52,10 @@ class CalculateGpsMetricsJob implements ShouldQueue
             return;
         }
 
-        // Total productivity is based on the complete observed working
-        // interval, including stoppage time observed by GPS.
-        $effectiveWorkDuration = (int) $results['movement_duration_seconds']
-            + (int) $results['stoppage_duration_seconds'];
-        $efficiency = $tractorEfficiencyService->calculate($this->tractor, $effectiveWorkDuration);
+        $efficiency = $tractorEfficiencyService->calculate(
+            $this->tractor,
+            $results['movement_duration_seconds']
+        );
 
         // Build timings array from analyzer results
         $timings = [

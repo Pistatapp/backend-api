@@ -33,6 +33,7 @@ class ActiveTractorServiceTest extends TestCase
             'tractor_id' => $tractor->id,
             'tractor_task_id' => $failedTask->id,
             'date' => '2026-09-03',
+            'work_duration' => 0,
             'efficiency' => 0,
             'timings' => ['in_zone_duration_seconds' => 0],
         ]);
@@ -40,6 +41,7 @@ class ActiveTractorServiceTest extends TestCase
             'tractor_id' => $tractor->id,
             'tractor_task_id' => $completedTask->id,
             'date' => '2026-09-04',
+            'work_duration' => 3600,
             'efficiency' => 12.5,
             'timings' => ['in_zone_duration_seconds' => 3600],
         ]);
@@ -85,7 +87,7 @@ class ActiveTractorServiceTest extends TestCase
             Carbon::parse('2026-09-05')
         );
 
-        $this->assertSame('25.00', $performance['efficiencies']['total']);
-        $this->assertSame('12.50', $performance['efficiencies']['task-based']);
+        $this->assertSame('12.50', $performance['efficiencies']['total']);
+        $this->assertSame('6.25', $performance['efficiencies']['task-based']);
     }
 }
