@@ -132,6 +132,7 @@ Route::middleware(['auth:sanctum', 'ensure.username'])->group(function () {
     Route::get('/farms/{farm}/tractors/active', [ActiveTractorController::class, 'index'])->can('view', 'farm');
     Route::get('/farms/{farm}/tractors/working', [ActiveTractorController::class, 'getWorkingTractors'])->can('view', 'farm');
     Route::get('/tractors/{tractor}/path', [ActiveTractorController::class, 'getPath'])->can('view', 'tractor');
+    Route::get('/v2/tractors/{tractor}/path', [ActiveTractorController::class, 'getPathV2'])->can('view', 'tractor');
     Route::get('/tractors/{tractor}/performance', [ActiveTractorController::class, 'getPerformance'])->can('view', 'tractor');
     Route::get('/tractors/{tractor}/weekly-efficiency-chart', [ActiveTractorController::class, 'getWeeklyEfficiencyChart'])->can('view', 'tractor');
 

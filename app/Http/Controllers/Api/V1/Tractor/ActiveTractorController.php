@@ -9,14 +9,17 @@ use Illuminate\Http\Request;
 use App\Models\Farm;
 use App\Services\ActiveTractorService;
 use App\Services\TractorPathStreamService;
+use App\Services\TractorPathPaginationService;
 use App\Services\TractorStartMovementTimeDetectionService;
 use Carbon\Carbon;
+use InvalidArgumentException;
 
 class ActiveTractorController extends Controller
 {
     public function __construct(
         private ActiveTractorService $activeTractorService,
         private TractorPathStreamService $tractorPathStreamService,
+        private TractorPathPaginationService $tractorPathPaginationService,
         private TractorStartMovementTimeDetectionService $tractorStartMovementTimeDetectionService
     ) {}
 
@@ -59,6 +62,33 @@ class ActiveTractorController extends Controller
         $date = jalali_to_carbon($request->date);
 
         return $this->tractorPathStreamService->getTractorPath($tractor, $date);
+    }
+
+    /**
+     * Versioned cursor-paginated historical path. The authorization policy is
+     * intentionally the same as the legacy endpoint.
+     */
+    public function getPathV2(Request $request, Tractor $tractor)
+    {
+        $validated = $request->validate([
+            'date' => 'required|shamsi_date',
+            'cursor' => 'nullable|string|max:8192',
+            'limit' => 'nullable|integer|min:1|max:1000',
+        ]);
+
+        try {
+            return response()->json($this->tractorPathPaginationService->page(
+                $tractor,
+                jalali_to_carbon($validated['date']),
+                $validated['cursor'] ?? null,
+                (int) ($validated['limit'] ?? config('trajectory.historical_path.default_page_size', 1000)),
+            ));
+        } catch (InvalidArgumentException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+                'code' => 'PATH_CURSOR_INVALID',
+            ], 422);
+        }
     }
 
     /**

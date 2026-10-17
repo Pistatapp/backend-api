@@ -26,16 +26,23 @@ class GpsLogContinuityGuard
         }
 
         $elapsedSeconds = $currentTimestamp - $previousTimestamp;
-        if ($elapsedSeconds < 0 || $elapsedSeconds > $this->maximumCheckIntervalSeconds()) {
+        if ($elapsedSeconds <= 0) {
             return false;
         }
 
-        return $this->distanceMeters(
+        $distance = $this->distanceMeters(
             $previousLatitude,
             $previousLongitude,
             $currentLatitude,
             $currentLongitude,
-        ) > $this->maximumDistanceMeters();
+        );
+        $speedAllowance = $elapsedSeconds / 3600 * $this->maximumPlausibleSpeedKmh() * 1000;
+        $allowedDistance = min(
+            $this->maximumRelocationMeters(),
+            max($this->maximumDistanceMeters(), $speedAllowance),
+        );
+
+        return $distance > $allowedDistance;
     }
 
     private function maximumDistanceMeters(): float
@@ -43,9 +50,17 @@ class GpsLogContinuityGuard
         return (float) config('trajectory.continuity.max_distance_meters', 1000.0);
     }
 
-    private function maximumCheckIntervalSeconds(): int
+    private function maximumPlausibleSpeedKmh(): float
     {
-        return max(0, (int) config('trajectory.continuity.max_check_interval_seconds', 180));
+        return max(1.0, (float) config('trajectory.continuity.max_plausible_speed_kmh', 45.0));
+    }
+
+    private function maximumRelocationMeters(): float
+    {
+        return max(
+            $this->maximumDistanceMeters(),
+            (float) config('trajectory.continuity.max_relocation_meters', 5000.0),
+        );
     }
 
     private function distanceMeters(

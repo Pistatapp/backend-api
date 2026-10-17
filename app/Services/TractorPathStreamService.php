@@ -25,15 +25,42 @@ class TractorPathStreamService
     {
         try {
             [$startOfDay, $endOfDay] = $this->resolvePathDateWindow($date);
+            $rawCount = $this->countPathRows($tractor, $startOfDay, $endOfDay);
+            $legacyMaximum = (int) config('trajectory.historical_path.legacy_max_rows', 20000);
+            if ($rawCount > $legacyMaximum) {
+                return response()->json([
+                    'message' => 'Historical path requires the versioned paginated endpoint.',
+                    'code' => 'PATH_REQUIRES_PAGINATION',
+                    'meta' => [
+                        'raw_count' => $rawCount,
+                        'legacy_max_rows' => $legacyMaximum,
+                        'endpoint' => '/api/v2/tractors/'.$tractor->id.'/path',
+                    ],
+                ], 413);
+            }
+
             return response()->streamJson($this->streamPathPointsRaw($tractor, $startOfDay, $endOfDay));
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Failed to get tractor path (streamed)', [
                 'tractor_id' => $tractor->id,
                 'date' => $date->toDateString(),
                 'error' => $e->getMessage(),
             ]);
-            return response()->streamJson(new \EmptyIterator());
+            return response()->json([
+                'message' => 'Historical path is temporarily unavailable.',
+                'code' => 'PATH_UNAVAILABLE',
+            ], 503);
         }
+    }
+
+    private function countPathRows(Tractor $tractor, string $startOfDay, string $endOfDay): int
+    {
+        $row = $this->gpsReadSelectOne(
+            'SELECT COUNT(*) AS row_count FROM gps_data WHERE tractor_id = ? AND date_time >= ? AND date_time < ?',
+            [$tractor->id, $startOfDay, $endOfDay],
+        );
+
+        return max(0, (int) ($row->row_count ?? 0));
     }
 
     /** @return array{0:string,1:string} */

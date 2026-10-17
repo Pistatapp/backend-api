@@ -52,6 +52,20 @@ return [
         // ignored by derived path and productivity calculations. Raw GPS rows
         // remain untouched for zero-log-loss and auditability.
         'max_distance_meters' => (float) env('GPS_TRAJECTORY_MAX_CONSECUTIVE_DISTANCE_M', 1000.0),
-        'max_check_interval_seconds' => (int) env('GPS_TRAJECTORY_MAX_CONSECUTIVE_INTERVAL_S', 180),
+        // A long quiet period may contain a legitimate relocation and is
+        // segmented by TractorTrajectoryService. A very large relocation is
+        // still rejected even when its elapsed time is long.
+        'max_relocation_meters' => (float) env('GPS_TRAJECTORY_MAX_RELOCATION_M', 5000.0),
+        'max_plausible_speed_kmh' => (float) env('GPS_TRAJECTORY_CONTINUITY_MAX_SPEED_KMH', 45.0),
+    ],
+    'historical_path' => [
+        // The v1 response remains bounded for legacy clients. New clients use
+        // the signed cursor contract below and fetch the complete day.
+        'legacy_max_rows' => (int) env('GPS_TRAJECTORY_LEGACY_MAX_ROWS', 20000),
+        'default_page_size' => (int) env('GPS_TRAJECTORY_PAGE_SIZE', 1000),
+        'max_page_size' => (int) env('GPS_TRAJECTORY_MAX_PAGE_SIZE', 1000),
+        // Context/lookahead covers the trajectory analyzer's bounded rolling
+        // window and immediate-neighbour spike checks at page boundaries.
+        'context_rows' => (int) env('GPS_TRAJECTORY_PAGE_CONTEXT_ROWS', 64),
     ],
 ];
