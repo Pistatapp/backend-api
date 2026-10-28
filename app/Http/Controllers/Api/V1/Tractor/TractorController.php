@@ -119,9 +119,26 @@ class TractorController extends Controller
     /**
      * Get devices of the user which are not assigned to any tractor.
      */
-    public function getAvailableDevices(Request $request)
+    public function getAvailableDevices(Request $request, Farm $farm)
     {
-        $gpsDevices = $request->user()->gpsDevices()->whereDoesntHave('tractor')->get();
+        $user = $request->user();
+
+        if (!$user->hasRole('root')) {
+            abort_unless(
+                $user->can('assign-gps-device') && $farm->users()->whereKey($user->id)->exists(),
+                403,
+                'User must have access to this farm and permission to assign GPS devices.'
+            );
+        }
+
+        $query = $user->hasRole('root')
+            ? GpsDevice::query()
+            : $user->gpsDevices();
+
+        $gpsDevices = $query
+            ->whereDoesntHave('tractor')
+            ->orderBy('id')
+            ->get();
 
         return response()->json([
             'data' => $gpsDevices->map(function ($device) {
@@ -171,6 +188,12 @@ class TractorController extends Controller
 
         // Authorize the assignments
         $this->authorize('makeAssignments', [$tractor, $device, $driver]);
+
+        if ($device->tractor_id !== null && (int) $device->tractor_id !== (int) $tractor->id) {
+            return response()->json([
+                'message' => __('The selected GPS device is already assigned to another tractor.'),
+            ], 422);
+        }
 
         // Remove existing assignments first
         if ($tractor->driver) {

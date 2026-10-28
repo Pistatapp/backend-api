@@ -68,8 +68,8 @@ class TractorPolicy
             return Response::deny('User must have permission to assign GPS devices.');
         }
 
-        // User must be in tractor farm users list
-        if (!$tractor->farm->users->contains($user)) {
+        // Root manages assignments across farms; other users stay farm-scoped.
+        if (!$user->hasRole('root') && !$tractor->farm->users->contains($user)) {
             return Response::deny('User must have access to this farm.');
         }
 

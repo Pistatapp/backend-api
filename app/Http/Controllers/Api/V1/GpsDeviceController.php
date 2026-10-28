@@ -34,21 +34,16 @@ class GpsDeviceController extends Controller
      */
     public function store(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'user_id' => 'required|exists:users,id',
             'name' => 'required|string|max:255',
             'imei' => 'required|string|max:255|unique:gps_devices,imei',
             'sim_number' => 'required|string|max:255|unique:gps_devices,sim_number',
         ]);
 
-        $device = GpsDevice::create([
-            'user_id' => $request->user_id,
-            'name' => $request->name,
-            'imei' => $request->imei,
-            'sim_number' => $request->sim_number,
-        ]);
+        $device = GpsDevice::create($validated);
 
-        return new GpsDeviceResource($device);
+        return new GpsDeviceResource($device->load('user'));
     }
 
     /**
@@ -65,21 +60,16 @@ class GpsDeviceController extends Controller
      */
     public function update(Request $request, GpsDevice $gpsDevice)
     {
-        $request->validate([
+        $validated = $request->validate([
             'user_id' => 'required|exists:users,id',
             'name' => 'required|string|max:255',
             'imei' => 'required|string|max:255|unique:gps_devices,imei,' . $gpsDevice->id,
             'sim_number' => 'required|string|max:255|unique:gps_devices,sim_number,' . $gpsDevice->id,
         ]);
 
-        $gpsDevice->update([
-            'user_id' => $request->user_id,
-            'name' => $request->name,
-            'imei' => $request->imei,
-            'sim_number' => $request->sim_number,
-        ]);
+        $gpsDevice->update($validated);
 
-        return new GpsDeviceResource($gpsDevice->fresh());
+        return new GpsDeviceResource($gpsDevice->fresh()->load('user'));
     }
 
     /**
