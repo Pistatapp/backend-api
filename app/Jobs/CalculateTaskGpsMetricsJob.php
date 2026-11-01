@@ -53,9 +53,10 @@ class CalculateTaskGpsMetricsJob implements ShouldBeUnique, ShouldQueue
     public function handle(
         TaskGpsMetricsAnalyzer $gpsDataAnalyzer,
         TractorTaskService $tractorTaskService,
-        TractorEfficiencyService $tractorEfficiencyService
+        ?TractorEfficiencyService $tractorEfficiencyService = null
     ): void
     {
+        $tractorEfficiencyService ??= app(TractorEfficiencyService::class);
         $this->task->loadMissing('tractor.farm.admins');
 
         $taskStartTime = $this->task->getStartDateTime();
@@ -69,14 +70,24 @@ class CalculateTaskGpsMetricsJob implements ShouldBeUnique, ShouldQueue
 
         $inZoneDurationSeconds = $this->inZoneDurationSeconds($results);
         $taskCompleted = $this->hasValidInZoneWork($results, $inZoneDurationSeconds);
+        $taskWorkDurationSeconds = (int) (
+            $results['task_work_duration_seconds']
+            ?? $results['working_duration_seconds']
+            ?? 0
+        );
         $efficiency = $taskCompleted
-            ? $tractorEfficiencyService->calculate($tractor, $inZoneDurationSeconds)
+            ? $tractorEfficiencyService->calculate(
+                $tractor,
+                $taskWorkDurationSeconds
+            )
             : 0;
 
         $timings = [
             'device_on_time' => $results['device_on_time'] ?? null,
             'first_movement_time' => $results['first_movement_time'] ?? null,
             'in_zone_duration_seconds' => $inZoneDurationSeconds,
+            'task_work_duration_seconds' => $taskWorkDurationSeconds,
+            'working_intervals' => $results['working_intervals'] ?? [],
         ];
 
         $metrics = GpsMetricsCalculation::updateOrCreate(
@@ -87,7 +98,7 @@ class CalculateTaskGpsMetricsJob implements ShouldBeUnique, ShouldQueue
             ],
             [
                 'traveled_distance' => $results['movement_distance_km'] ?? 0,
-                'work_duration' => $results['movement_duration_seconds'] ?? 0,
+                'work_duration' => $taskWorkDurationSeconds,
                 'stoppage_count' => $results['stoppage_count'] ?? 0,
                 'stoppage_duration' => $results['stoppage_duration_seconds'] ?? 0,
                 'stoppage_duration_while_on' => $results['stoppage_duration_while_on_seconds'] ?? 0,

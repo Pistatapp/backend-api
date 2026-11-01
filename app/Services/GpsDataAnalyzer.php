@@ -17,6 +17,7 @@ class GpsDataAnalyzer
     }
 
     private const MIN_STOPPAGE_DURATION_SECONDS = 60;
+    private const MAX_WORKING_INTERVAL_SECONDS = 180;
     private const CONSECUTIVE_MOVEMENTS_FOR_FIRST_MOVEMENT = 3;
     private const EARTH_RADIUS_KM = 6371;
     private const SECONDS_PER_HOUR = 3600;
@@ -196,6 +197,7 @@ class GpsDataAnalyzer
      *
      * Movement = status == 1 && speed > 0
      * Stoppage = speed == 0 (stoppages < 60s counted as movement)
+     * Working duration uses separate interval semantics and never includes stoppages.
      * firstMovementTime = timestamp when 3 consecutive movements detected
      */
     public function analyze(): array
@@ -235,6 +237,8 @@ class GpsDataAnalyzer
                 null
             );
 
+            $this->addWorkingDuration($metrics, $previousPoint, $timeDiff);
+
             $this->processStateTransition(
                 $pointData,
                 $previousPoint,
@@ -263,6 +267,7 @@ class GpsDataAnalyzer
         return [
             'movement_distance' => 0.0,
             'movement_duration' => 0,
+            'working_duration' => 0,
             'stoppage_duration' => 0,
             'stoppage_duration_while_on' => 0,
             'stoppage_duration_while_off' => 0,
@@ -312,6 +317,22 @@ class GpsDataAnalyzer
             'is_moving' => ($point[self::IDX_STATUS] === 1 && $point[self::IDX_SPEED] > 0),
             'is_stopped' => ($point[self::IDX_SPEED] === 0),
         ];
+    }
+
+    /**
+     * Add only continuous intervals that begin with a working GPS point.
+     * The existing movement state machine remains responsible for path and
+     * stoppage metrics, including its short-stop compatibility behavior.
+     */
+    private function addWorkingDuration(array &$metrics, array $previousPoint, int $timeDiff): void
+    {
+        if ($timeDiff <= 0 || $timeDiff > self::MAX_WORKING_INTERVAL_SECONDS) {
+            return;
+        }
+
+        if ($previousPoint['status'] === 1 && $previousPoint['speed'] > 0) {
+            $metrics['working_duration'] += $timeDiff;
+        }
     }
 
 
@@ -504,6 +525,8 @@ class GpsDataAnalyzer
             'movement_distance_meters' => round($metrics['movement_distance'] * self::METERS_PER_KILOMETER, 2),
             'movement_duration_seconds' => $metrics['movement_duration'],
             'movement_duration_formatted' => $this->formatTime($metrics['movement_duration']),
+            'working_duration_seconds' => $metrics['working_duration'],
+            'working_duration_formatted' => $this->formatTime($metrics['working_duration']),
             'stoppage_duration_seconds' => $metrics['stoppage_duration'],
             'stoppage_duration_formatted' => $this->formatTime($metrics['stoppage_duration']),
             'stoppage_duration_while_on_seconds' => $metrics['stoppage_duration_while_on'],
@@ -639,6 +662,8 @@ class GpsDataAnalyzer
             'movement_distance_meters' => 0,
             'movement_duration_seconds' => 0,
             'movement_duration_formatted' => '00:00:00',
+            'working_duration_seconds' => 0,
+            'working_duration_formatted' => '00:00:00',
             'stoppage_duration_seconds' => 0,
             'stoppage_duration_formatted' => '00:00:00',
             'stoppage_duration_while_on_seconds' => 0,

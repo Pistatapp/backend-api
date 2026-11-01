@@ -62,9 +62,10 @@ class TractorEfficiencyServiceTest extends TestCase
             $total
         );
 
-        // 7,200 seconds of task rows are capped to the 7,200 seconds of
-        // observed total work; 7,200 / 28,800 * 100 = 25%.
-        $this->assertSame(25.0, $efficiency);
+        // Task work is moving-only (the explicit work_duration values), and
+        // the authoritative daily total caps it at 3,600 seconds because the
+        // legacy row has no proven engine-on state.
+        $this->assertEqualsWithDelta((200 / 28800) * 100, $efficiency, 0.0001);
     }
 
     public function test_task_presence_falls_back_for_legacy_metrics_without_timing(): void

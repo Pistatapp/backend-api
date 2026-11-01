@@ -199,9 +199,10 @@ class TaskGpsMetricsAnalyzerTest extends TestCase
 
         $results = $this->getAnalyzerResults($gpsData, $polygon);
 
-        // Should only count time from two segments (0-10s and 40-50s = 20s total)
-        // Gap between segments (10-40s) should be ignored
-        $this->assertEquals(20, $results['movement_duration_seconds']);
+        // Task work counts only valid moving intervals from the two segments
+        // (0-10s and 40-50s). Legacy movement_duration includes short-stop
+        // compatibility time and is not the task KPI source.
+        $this->assertEquals(20, $results['task_work_duration_seconds']);
         $this->assertEquals(20, $results['in_zone_duration_seconds']);
         $this->assertGreaterThan(0, $results['movement_distance_km']);
         $this->assertEquals(0, $results['stoppage_count']);
@@ -267,8 +268,8 @@ class TaskGpsMetricsAnalyzerTest extends TestCase
 
         $results = $this->getAnalyzerResults($gpsData, $polygon);
 
-        // Total should be 25 seconds (10 + 15), gap of 100s ignored
-        $this->assertEquals(25, $results['movement_duration_seconds']);
+        // Total task work is 25 seconds (10 + 15); the 100s gap is unknown.
+        $this->assertEquals(25, $results['task_work_duration_seconds']);
         $this->assertGreaterThan(0, $results['movement_distance_km']);
     }
 
@@ -740,8 +741,8 @@ class TaskGpsMetricsAnalyzerTest extends TestCase
 
         $results = $this->getAnalyzerResults($gpsData, $polygon);
 
-        // Total should be 30 seconds (10 + 10 + 10)
-        $this->assertEquals(30, $results['movement_duration_seconds']);
+        // Total task work is 30 seconds (10 + 10 + 10).
+        $this->assertEquals(30, $results['task_work_duration_seconds']);
         $this->assertGreaterThan(0, $results['movement_distance_km']);
     }
 
@@ -912,8 +913,10 @@ class TaskGpsMetricsAnalyzerTest extends TestCase
         $results = $this->getAnalyzerResults($gpsData, [$zoneAStringRing, $zoneBStringRing]);
 
         $this->assertTrue($results['has_zone_presence']);
-        // Both zones count as in-zone; tractor moves through A then B without leaving task areas
-        $this->assertEquals(30, $results['movement_duration_seconds']);
+        // The first ring contributes one valid interval. The large jump into
+        // the second ring is an outlier, so no unsupported interval is
+        // credited from that discontinuity.
+        $this->assertEquals(10, $results['task_work_duration_seconds']);
         $this->assertGreaterThan(0, $results['movement_distance_km']);
     }
 

@@ -52,11 +52,11 @@ class TractorReportFilterService
         );
         $summaryReports = $this->prepareReportsForSummary($this->tasks);
         $accumulated = $this->calculateAccumulatedValues($summaryReports);
-        // Total productivity uses the complete observed duration. Task rows
-        // are excluded when an authoritative daily aggregate exists so the
-        // same GPS interval is never counted twice.
+        // Total productivity uses policy-accounted duty work plus movement
+        // overtime. Task rows are excluded when an authoritative daily
+        // aggregate exists so the same GPS interval is never counted twice.
         $rawWorkDuration = $this->effectiveWorkDuration($summaryReports);
-        $taskBasedWorkDuration = $this->tractorEfficiencyService->taskPresenceDurationForPeriod(
+        $taskBasedWorkDuration = $this->tractorEfficiencyService->taskWorkingDurationForPeriod(
             $this->tasks->filter(fn (GpsMetricsCalculation $report) => $report->tractor_task_id !== null),
             $dailyMetrics
         );
@@ -331,7 +331,7 @@ class TractorReportFilterService
     {
         return (int) $reports->sum(
             fn (GpsMetricsCalculation $report): int => $this->tractorEfficiencyService
-                ->observedWorkDurationSeconds($report->work_duration, $report->stoppage_duration)
+                ->totalCountableWorkDurationSeconds($report)
         );
     }
 
@@ -345,6 +345,7 @@ class TractorReportFilterService
     {
         return $reports->map(function (GpsMetricsCalculation $report) {
             $task = $report->tractorTask;
+            $accounting = $this->tractorEfficiencyService->accountingForMetrics($report);
 
             $result = [
                 'date' => jdate($report->date)->format('Y/m/d'),
@@ -352,11 +353,11 @@ class TractorReportFilterService
                 'avg_speed' => $this->formatSpeed($report->average_speed ?? 0),
                 'work_duration' => $this->formatDuration($report->work_duration ?? 0),
                 'effective_work_duration' => $this->formatDuration(
-                    $this->tractorEfficiencyService->observedWorkDurationSeconds(
-                        $report->work_duration,
-                        $report->stoppage_duration,
-                    )
+                    $this->tractorEfficiencyService->dutyWorkDurationSeconds($report)
                 ),
+                'duty_work_duration' => $this->formatDuration((int) ($accounting['duty_work_seconds'] ?? 0)),
+                'overtime_duration' => $this->formatDuration((int) ($accounting['overtime_seconds'] ?? 0)),
+                'total_countable_work_duration' => $this->formatDuration((int) ($accounting['total_countable_work_seconds'] ?? 0)),
                 'stoppage_duration' => $this->formatDuration($report->stoppage_duration ?? 0),
                 'stoppage_count' => (int) ($report->stoppage_count ?? 0),
                 'task_execution_duration' => null,
@@ -368,12 +369,12 @@ class TractorReportFilterService
 
                 if ($report->tractor_task_id !== null) {
                     $result['task_execution_duration'] = $this->formatDuration(
-                        $this->tractorEfficiencyService->taskPresenceDurationSeconds($report)
+                        $this->tractorEfficiencyService->taskWorkingDurationSeconds($report)
                     );
                     $result['task_efficiency'] = $this->formatPercentage(
                         $this->tractorEfficiencyService->calculate(
                             $task->tractor,
-                            $this->tractorEfficiencyService->taskPresenceDurationSeconds($report)
+                            $this->tractorEfficiencyService->taskWorkingDurationSeconds($report)
                         )
                     );
                 }
@@ -436,6 +437,13 @@ class TractorReportFilterService
             'effective_work_duration' => $this->formatDuration(
                 $this->effectiveWorkDuration($reports)
             ),
+            'duty_work_duration' => $this->formatDuration((int) $reports->sum(
+                fn (GpsMetricsCalculation $report): int => $this->tractorEfficiencyService->dutyWorkDurationSeconds($report)
+            )),
+            'overtime_duration' => $this->formatDuration((int) $reports->sum(
+                fn (GpsMetricsCalculation $report): int => (int) ($this->tractorEfficiencyService->accountingForMetrics($report)['overtime_seconds'] ?? 0)
+            )),
+            'total_countable_work_duration' => $this->formatDuration($this->effectiveWorkDuration($reports)),
             'stoppage_duration' => $this->formatDuration($rawReports->sum('stoppage_duration') ?? 0),
             'stoppage_count' => (int) $rawReports->sum('stoppage_count') ?? 0,
             // New accumulated values from task data
@@ -462,7 +470,7 @@ class TractorReportFilterService
         array $filters = []
     ): array
     {
-        $dailyExpectedWork = $tractor->expected_daily_work_time * 3600;
+        $dailyExpectedWork = $this->tractorEfficiencyService->expectedDailyWorkSeconds($tractor);
         $workingDays = $this->prepareReportsForSummary($this->tasks)
             ->map(fn (GpsMetricsCalculation $report) => $report->date->toDateString())
             ->unique()

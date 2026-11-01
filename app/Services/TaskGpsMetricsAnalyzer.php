@@ -29,6 +29,7 @@ class TaskGpsMetricsAnalyzer
     }
 
     private const MIN_STOPPAGE_DURATION_SECONDS = 60;
+    private const MAX_WORKING_INTERVAL_SECONDS = 180;
     private const CONSECUTIVE_MOVEMENTS_FOR_FIRST_MOVEMENT = 3;
     private const EARTH_RADIUS_KM = 6371;
     private const SECONDS_PER_HOUR = 3600;
@@ -43,6 +44,7 @@ class TaskGpsMetricsAnalyzer
     private const IDX_TIMESTAMP = 4;
     private const IDX_SPEED = 5;
     private const IDX_STATUS = 6;
+    private const IDX_OUTLIER = 7;
 
     /**
      * Load GPS records for a tractor on a specific date
@@ -76,19 +78,22 @@ class TaskGpsMetricsAnalyzer
                 : $this->parseArrayRecord($record);
 
             if ($parsedRecord !== null) {
-                if ($previousRecord !== null && $this->continuityGuard->isOutlier(
+                $isOutlier = $previousRecord !== null && $this->continuityGuard->isOutlier(
                     $previousRecord[self::IDX_LAT],
                     $previousRecord[self::IDX_LON],
                     $previousRecord[self::IDX_TIMESTAMP],
                     $parsedRecord[self::IDX_LAT],
                     $parsedRecord[self::IDX_LON],
                     $parsedRecord[self::IDX_TIMESTAMP],
-                )) {
-                    continue;
-                }
+                );
 
-                $this->data[] = $parsedRecord;
-                $previousRecord = $parsedRecord;
+                // Keep a valid-but-discontinuous point so zone entry/exit is
+                // still visible. Its adjacent interval is excluded from task
+                // work and it cannot become the continuity predecessor.
+                $this->data[] = $parsedRecord + [self::IDX_OUTLIER => $isOutlier];
+                if (! $isOutlier) {
+                    $previousRecord = $parsedRecord;
+                }
             }
         }
     }
@@ -386,6 +391,11 @@ class TaskGpsMetricsAnalyzer
             // Merge metrics
             $totalMetrics['movement_distance'] += $segmentResults['metrics']['movement_distance'];
             $totalMetrics['movement_duration'] += $segmentResults['metrics']['movement_duration'];
+            $totalMetrics['working_duration'] += $segmentResults['metrics']['working_duration'];
+            $totalMetrics['working_intervals'] = array_merge(
+                $totalMetrics['working_intervals'],
+                $segmentResults['metrics']['working_intervals']
+            );
             $totalMetrics['in_zone_duration'] += max(
                 0,
                 $this->data[$segment['end']][self::IDX_TIMESTAMP]
@@ -449,6 +459,8 @@ class TaskGpsMetricsAnalyzer
 
             $timeDiff = $pointData['timestamp'] - $previousPoint['timestamp'];
 
+            $this->addWorkingInterval($metrics, $previousPoint, $pointData, $timeDiff);
+
             $this->processStateTransition(
                 $pointData,
                 $previousPoint,
@@ -471,6 +483,36 @@ class TaskGpsMetricsAnalyzer
     }
 
     /**
+     * Record only continuous intervals that begin with a working GPS point.
+     * The existing movement state machine remains unchanged for path and
+     * stoppage metrics, including its short-stop compatibility behavior.
+     *
+     * @param array<string, mixed> $metrics
+     * @param array<string, mixed> $previousPoint
+     * @param array<string, mixed> $pointData
+     */
+    private function addWorkingInterval(
+        array &$metrics,
+        array $previousPoint,
+        array $pointData,
+        int $timeDiff
+    ): void {
+        if ($timeDiff <= 0 || $timeDiff > self::MAX_WORKING_INTERVAL_SECONDS
+            || ($previousPoint['is_outlier'] ?? false)
+            || ($pointData['is_outlier'] ?? false)) {
+            return;
+        }
+
+        if ($previousPoint['status'] === 1 && $previousPoint['speed'] > 0) {
+            $metrics['working_duration'] += $timeDiff;
+            $metrics['working_intervals'][] = [
+                'start' => $previousPoint['timestamp'],
+                'end' => $pointData['timestamp'],
+            ];
+        }
+    }
+
+    /**
      * Initialize metrics counters
      */
     private function initializeMetrics(): array
@@ -478,6 +520,8 @@ class TaskGpsMetricsAnalyzer
         return [
             'movement_distance' => 0.0,
             'movement_duration' => 0,
+            'working_duration' => 0,
+            'working_intervals' => [],
             'in_zone_duration' => 0,
             'stoppage_duration' => 0,
             'stoppage_duration_while_on' => 0,
@@ -524,6 +568,7 @@ class TaskGpsMetricsAnalyzer
             'timestamp' => $point[self::IDX_TIMESTAMP],
             'speed' => $point[self::IDX_SPEED],
             'status' => $point[self::IDX_STATUS],
+            'is_outlier' => (bool) ($point[self::IDX_OUTLIER] ?? false),
             'index' => $index,
             'is_moving' => ($point[self::IDX_STATUS] === 1 && $point[self::IDX_SPEED] > 0),
             'is_stopped' => ($point[self::IDX_SPEED] === 0),
@@ -720,6 +765,11 @@ class TaskGpsMetricsAnalyzer
             'movement_distance_meters' => round($metrics['movement_distance'] * self::METERS_PER_KILOMETER, 2),
             'movement_duration_seconds' => $metrics['movement_duration'],
             'movement_duration_formatted' => $this->formatTime($metrics['movement_duration']),
+            'working_duration_seconds' => $metrics['working_duration'],
+            'working_duration_formatted' => $this->formatTime($metrics['working_duration']),
+            'task_work_duration_seconds' => $metrics['working_duration'],
+            'task_work_duration_formatted' => $this->formatTime($metrics['working_duration']),
+            'working_intervals' => $metrics['working_intervals'],
             'in_zone_duration_seconds' => $metrics['in_zone_duration'],
             'in_zone_duration_formatted' => $this->formatTime($metrics['in_zone_duration']),
             'stoppage_duration_seconds' => $metrics['stoppage_duration'],
@@ -816,6 +866,11 @@ class TaskGpsMetricsAnalyzer
             'movement_distance_meters' => 0,
             'movement_duration_seconds' => 0,
             'movement_duration_formatted' => '00:00:00',
+            'working_duration_seconds' => 0,
+            'working_duration_formatted' => '00:00:00',
+            'task_work_duration_seconds' => 0,
+            'task_work_duration_formatted' => '00:00:00',
+            'working_intervals' => [],
             'in_zone_duration_seconds' => 0,
             'in_zone_duration_formatted' => '00:00:00',
             'stoppage_duration_seconds' => 0,

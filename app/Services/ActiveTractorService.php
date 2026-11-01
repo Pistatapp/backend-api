@@ -13,6 +13,7 @@ class ActiveTractorService
     public function __construct(
         private GpsDataAnalyzer $gpsDataAnalyzer,
         private TractorEfficiencyService $tractorEfficiencyService,
+        private TractorWorkTimeAccountingService $workTimeAccountingService,
     ) {}
 
     /**
@@ -54,7 +55,7 @@ class ActiveTractorService
 
         // Query GpsMetricsCalculation for daily aggregate (tractor_task_id is null)
         $metrics = GpsMetricsCalculation::where('tractor_id', $tractor->id)
-            ->where('date', $dateString)
+            ->whereDate('date', $dateString)
             ->whereNull('tractor_task_id')
             ->first();
 
@@ -71,10 +72,9 @@ class ActiveTractorService
 
         // Calculate efficiency (always recalculate based on current expected_daily_work_time)
         // This ensures efficiency reflects any changes to expected_daily_work_time
-        $totalWorkDurationSeconds = $this->tractorEfficiencyService->observedWorkDurationSeconds(
-            $metrics->work_duration,
-            $metrics->stoppage_duration
-        );
+        $accounting = $this->tractorEfficiencyService->accountingForMetrics($metrics);
+        $dutyWorkDurationSeconds = $this->tractorEfficiencyService->dutyWorkDurationSeconds($metrics);
+        $totalWorkDurationSeconds = $this->tractorEfficiencyService->totalCountableWorkDurationSeconds($metrics);
         $totalEfficiency = $this->calculateEfficiency($tractor, $totalWorkDurationSeconds);
 
         // Calculate task-based efficiency from task records
@@ -83,12 +83,22 @@ class ActiveTractorService
         return [
             'id' => $tractor->id,
             'name' => $tractor->name,
-            'on_time' => $metrics->timings['device_on_time'], // Not stored in GpsMetricsCalculation
-            'start_working_time' => $metrics->timings['first_movement_time'], // Not stored in GpsMetricsCalculation
+            'on_time' => $metrics->timings['device_on_time'] ?? null,
+            'start_working_time' => $metrics->timings['first_movement_time'] ?? null,
             'speed' => $metrics->average_speed,
             'status' => 0, // Not stored in GpsMetricsCalculation, default to 0 (off)
             'traveled_distance' => $metrics->traveled_distance,
             'work_duration' => $workDurationFormatted,
+            'effective_work_duration' => to_time_format($dutyWorkDurationSeconds),
+            'scheduled_duty_duration' => to_time_format((int) ($accounting['scheduled_duty_seconds'] ?? 0)),
+            'duty_moving_duration' => to_time_format((int) ($accounting['duty_moving_seconds'] ?? $metrics->work_duration)),
+            'duty_engine_on_stopped_duration' => to_time_format((int) ($accounting['duty_engine_on_stopped_seconds'] ?? $metrics->stoppage_duration_while_on)),
+            'duty_work_duration' => to_time_format($dutyWorkDurationSeconds),
+            'overtime_duration' => to_time_format((int) ($accounting['overtime_seconds'] ?? 0)),
+            'total_countable_work_duration' => to_time_format($totalWorkDurationSeconds),
+            'unknown_gap_duration' => to_time_format((int) ($accounting['unknown_gap_seconds'] ?? 0)),
+            'duty_fulfillment_percent' => $accounting['duty_fulfillment_percent'] ?? null,
+            'total_work_ratio_percent' => $accounting['total_work_ratio_percent'] ?? null,
             'stoppage_count' => $metrics->stoppage_count,
             'stoppage_duration' => $stoppageDurationFormatted,
             'stoppage_duration_while_on' => $stoppageDurationWhileOnFormatted,
@@ -112,15 +122,16 @@ class ActiveTractorService
     private function getTractorPerformanceFromGpsData(Tractor $tractor, Carbon $date): array
     {
         $results = $this->gpsDataAnalyzer->loadRecordsFor($tractor, $date)->analyze();
+        $accounting = $this->workTimeAccountingService->calculate($tractor, $date);
 
         $averageSpeed = $results['average_speed'];
         $latestStatus = $results['latest_status'];
         $stoppageCount = $results['stoppage_count'];
 
         // Calculate total efficiency
-        $workDurationSeconds = (int) $results['movement_duration_seconds']
-            + (int) $results['stoppage_duration_seconds'];
-        $totalEfficiency = $this->calculateEfficiency($tractor, $workDurationSeconds);
+        $dutyWorkDurationSeconds = (int) $accounting['duty_work_seconds'];
+        $totalWorkDurationSeconds = (int) $accounting['total_countable_work_seconds'];
+        $totalEfficiency = $this->calculateEfficiency($tractor, $totalWorkDurationSeconds);
 
         // Calculate task-based efficiency from task records
         $taskBasedEfficiency = $this->getTaskBasedEfficiency($tractor, $date);
@@ -133,7 +144,17 @@ class ActiveTractorService
             'speed' => $averageSpeed,
             'status' => $latestStatus,
             'traveled_distance' => $results['movement_distance_km'],
-            'work_duration' => $results['movement_duration_formatted'],
+            'work_duration' => $results['working_duration_formatted'],
+            'effective_work_duration' => to_time_format($dutyWorkDurationSeconds),
+            'scheduled_duty_duration' => to_time_format((int) $accounting['scheduled_duty_seconds']),
+            'duty_moving_duration' => to_time_format((int) $accounting['duty_moving_seconds']),
+            'duty_engine_on_stopped_duration' => to_time_format((int) $accounting['duty_engine_on_stopped_seconds']),
+            'duty_work_duration' => to_time_format($dutyWorkDurationSeconds),
+            'overtime_duration' => to_time_format((int) $accounting['overtime_seconds']),
+            'total_countable_work_duration' => to_time_format($totalWorkDurationSeconds),
+            'unknown_gap_duration' => to_time_format((int) $accounting['unknown_gap_seconds']),
+            'duty_fulfillment_percent' => $accounting['duty_fulfillment_percent'],
+            'total_work_ratio_percent' => $accounting['total_work_ratio_percent'],
             'stoppage_count' => $stoppageCount,
             'stoppage_duration' => $results['stoppage_duration_formatted'],
             'stoppage_duration_while_on' => $results['stoppage_duration_while_on_formatted'],
@@ -151,7 +172,7 @@ class ActiveTractorService
      *
      * @param Tractor $tractor
      * @param int $workDurationSeconds Work duration in seconds
-     * @return float Efficiency percentage (0-100)
+     * @return float Efficiency percentage
      */
     private function calculateEfficiency(Tractor $tractor, int $workDurationSeconds): float
     {
@@ -159,11 +180,11 @@ class ActiveTractorService
     }
 
     /**
-     * Get task-based efficiency from total zone presence for the given date.
+     * Get task-based efficiency from working time inside task zones for the given date.
      *
      * @param Tractor $tractor
      * @param Carbon $date
-     * @return float Average efficiency percentage (0-100)
+     * @return float Efficiency percentage
      */
     private function getTaskBasedEfficiency(Tractor $tractor, Carbon $date): float
     {
@@ -187,6 +208,16 @@ class ActiveTractorService
             'status' => 0,
             'traveled_distance' => 0,
             'work_duration' => '00:00:00',
+            'effective_work_duration' => '00:00:00',
+            'scheduled_duty_duration' => '00:00:00',
+            'duty_moving_duration' => '00:00:00',
+            'duty_engine_on_stopped_duration' => '00:00:00',
+            'duty_work_duration' => '00:00:00',
+            'overtime_duration' => '00:00:00',
+            'total_countable_work_duration' => '00:00:00',
+            'unknown_gap_duration' => '00:00:00',
+            'duty_fulfillment_percent' => null,
+            'total_work_ratio_percent' => null,
             'stoppage_count' => 0,
             'stoppage_duration' => '00:00:00',
             'stoppage_duration_while_on' => '00:00:00',
@@ -230,7 +261,7 @@ class ActiveTractorService
             return $record->date->toDateString();
         });
 
-        // Group task records by date and calculate presence-based efficiency
+        // Group task records by date and calculate working-time efficiency
         // from the same daily duration rule used by the detail endpoint.
         $taskEfficiencyMap = $taskEfficiencyRecords->groupBy(function ($record) {
             return $record->date->toDateString();
@@ -258,10 +289,7 @@ class ActiveTractorService
                     'efficiency' => number_format(
                         $this->calculateEfficiency(
                             $tractor,
-                            $this->tractorEfficiencyService->observedWorkDurationSeconds(
-                                $totalRecord->work_duration,
-                                $totalRecord->stoppage_duration
-                            )
+                            $this->tractorEfficiencyService->totalCountableWorkDurationSeconds($totalRecord)
                         ),
                         2
                     ),

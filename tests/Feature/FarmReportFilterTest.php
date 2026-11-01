@@ -7,6 +7,7 @@ use App\Models\FarmReport;
 use App\Models\Field;
 use App\Models\Labour;
 use App\Models\Operation;
+use App\Models\Permission;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Morilog\Jalali\Jalalian;
@@ -32,6 +33,10 @@ class FarmReportFilterTest extends TestCase
             'is_owner' => true,
             'role' => 'admin'
         ]);
+
+        // The policy intentionally requires this permission. Keep it scoped to
+        // the positive test user instead of granting permissions globally.
+        $this->user->givePermissionTo(Permission::findOrCreate('view-feature-reports', 'web'));
     }
 
     #[Test]
