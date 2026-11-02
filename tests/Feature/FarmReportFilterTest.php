@@ -25,7 +25,7 @@ class FarmReportFilterTest extends TestCase
     {
         parent::setUp();
 
-        $this->user = User::factory()->create();
+        $this->user = User::factory()->create(['is_active' => true]);
         $this->farm = Farm::factory()->create();
 
         // Attach user to farm
@@ -54,7 +54,6 @@ class FarmReportFilterTest extends TestCase
     {
         $response = $this->actingAs($this->user, 'sanctum')
             ->postJson("/api/farms/{$this->farm->id}/farm_reports/filter", []);
-
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['filters']);
     }

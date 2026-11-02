@@ -4,8 +4,12 @@ namespace App\Providers;
 
 use App\Models\Irrigation;
 use App\Models\Labour;
+use App\Models\FarmReport;
+use App\Models\Tractor;
+use App\Policies\FarmReportPolicy;
 use App\Policies\IrrigationPolicy;
 use App\Policies\LabourPolicy;
+use App\Policies\TractorPolicy;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 
 class AuthServiceProvider extends ServiceProvider
@@ -18,6 +22,8 @@ class AuthServiceProvider extends ServiceProvider
     protected $policies = [
         Irrigation::class => IrrigationPolicy::class,
         Labour::class => LabourPolicy::class,
+        FarmReport::class => FarmReportPolicy::class,
+        Tractor::class => TractorPolicy::class,
     ];
 
     /**

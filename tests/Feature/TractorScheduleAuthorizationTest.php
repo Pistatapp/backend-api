@@ -27,7 +27,7 @@ class TractorScheduleAuthorizationTest extends TestCase
     public function a_farm_admin_with_permission_can_update_tractor_schedule(): void
     {
         $farm = Farm::factory()->create();
-        $user = User::factory()->create();
+        $user = User::factory()->create(['is_active' => true]);
         $user->givePermissionTo($this->defineTractor);
         $farm->users()->attach($user->id, ['is_owner' => true, 'role' => 'admin']);
         $tractor = Tractor::factory()->create(['farm_id' => $farm->id]);
@@ -54,7 +54,7 @@ class TractorScheduleAuthorizationTest extends TestCase
     public function a_farm_member_without_schedule_permission_is_denied(): void
     {
         $farm = Farm::factory()->create();
-        $user = User::factory()->create();
+        $user = User::factory()->create(['is_active' => true]);
         $farm->users()->attach($user->id, ['is_owner' => true, 'role' => 'admin']);
         $tractor = Tractor::factory()->create(['farm_id' => $farm->id, 'start_work_time' => '08:00']);
 
@@ -79,7 +79,7 @@ class TractorScheduleAuthorizationTest extends TestCase
     {
         $userFarm = Farm::factory()->create();
         $otherFarm = Farm::factory()->create();
-        $user = User::factory()->create();
+        $user = User::factory()->create(['is_active' => true]);
         $user->givePermissionTo($this->defineTractor);
         $userFarm->users()->attach($user->id, ['is_owner' => true, 'role' => 'admin']);
         $tractor = Tractor::factory()->create([
