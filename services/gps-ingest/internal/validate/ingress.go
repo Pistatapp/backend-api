@@ -204,11 +204,59 @@ func parseNormalizedIngress(item map[string]any, index int) (GpsPoint, string, s
 	if strings.TrimSpace(eventID) == "" {
 		eventID, _ = item["eventId"].(string)
 	}
+	eventID = strings.TrimSpace(eventID)
+	sourceProtocol := strings.ToLower(strings.TrimSpace(firstIngressString(item["source_protocol"], item["protocol"])))
+	eventTimeUTC := firstIngressString(item["event_time_utc"])
+	eventTimeTehran := firstIngressString(item["event_time_tehran"])
+	eventDateJalali := firstIngressString(item["event_date_jalali"])
+	timezone := firstIngressString(item["timezone"])
+	timeProvenance := firstIngressString(item["time_provenance"])
+	otherOriginalFields, _ := item["other_original_gps_fields"].(map[string]any)
+	istartek := sourceProtocol == "istartek" || strings.HasPrefix(strings.ToLower(eventID), "ist-")
+	if istartek {
+		missing := make([]string, 0, 5)
+		if eventID == "" {
+			missing = append(missing, "event_id")
+		}
+		if eventTimeUTC == "" {
+			missing = append(missing, "event_time_utc")
+		}
+		if eventTimeTehran == "" {
+			missing = append(missing, "event_time_tehran")
+		}
+		if eventDateJalali == "" {
+			missing = append(missing, "event_date_jalali")
+		}
+		if timezone == "" {
+			missing = append(missing, "timezone")
+		}
+		if len(missing) > 0 {
+			return zero, "", "", eventID, prefix + ".time_contract: missing " + strings.Join(missing, ",")
+		}
+		if _, err := parseGatewayUTC(eventTimeUTC); err != nil {
+			return zero, "", "", eventID, prefix + ".event_time_utc: invalid Gateway UTC timestamp"
+		}
+	}
 	rawAt := firstIngressString(item["device_recorded_at_raw"], item["device_timestamp_raw"])
-	return GpsPoint{
+	point := GpsPoint{
 		IMEI: imei, Coordinate: coordinate, DateTime: storedDateTime,
 		Speed: speed, Status: status, Directions: directions,
-	}, deviceAt, rawAt, strings.TrimSpace(eventID), ""
+		EventID: eventID, EventTimeUTC: eventTimeUTC, EventTimeTehran: eventTimeTehran,
+		EventDateJalali: eventDateJalali, Timezone: timezone, SourceProtocol: sourceProtocol,
+		TimeProvenance: timeProvenance, OtherOriginalGPSFields: otherOriginalFields,
+	}
+	if istartek && point.TimeProvenance == "" {
+		point.TimeProvenance = "gateway_event_time_utc"
+	}
+	return point, deviceAt, rawAt, eventID, ""
+}
+
+func parseGatewayUTC(value string) (time.Time, error) {
+	value = strings.TrimSpace(value)
+	if parsed, err := time.Parse(time.RFC3339Nano, value); err == nil {
+		return parsed.UTC(), nil
+	}
+	return time.ParseInLocation("2006-01-02 15:04:05", value, time.UTC)
 }
 
 func parseLegacyIngress(value string) (GpsPoint, string, string, string) {
@@ -293,7 +341,9 @@ func normalizeIngressDateTime(value string) (string, string, error) {
 	value = strings.TrimSpace(value)
 	if t, err := time.ParseInLocation("2006-01-02 15:04:05", value, ingressApplicationLocation()); err == nil {
 		formatted := t.Format("2006-01-02 15:04:05")
-		return formatted, formatted, nil
+		// gps_data.date_time keeps the existing Tehran civil-time contract;
+		// the ledger's device_recorded_at is the canonical UTC instant.
+		return formatted, t.UTC().Format("2006-01-02 15:04:05"), nil
 	}
 	if t, err := time.Parse(time.RFC3339, value); err == nil {
 		return t.In(ingressApplicationLocation()).Format("2006-01-02 15:04:05"), t.UTC().Format("2006-01-02 15:04:05"), nil

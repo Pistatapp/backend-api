@@ -193,6 +193,20 @@ func (p *Pipeline) processBatch(ctx context.Context, batch IngestBatch) {
 			continue
 		}
 		row.EventID = event.EventID
+		row.GatewayReceivedAtUTC = event.GatewayReceivedAt
+		row.SourceProtocol = point.SourceProtocol
+		row.EventTimeUTC = point.EventTimeUTC
+		row.EventTimeTehran = point.EventTimeTehran
+		row.EventDateJalali = point.EventDateJalali
+		row.Timezone = point.Timezone
+		row.TimeProvenance = point.TimeProvenance
+		row.OtherOriginalGPSFields = point.OtherOriginalGPSFields
+		if row.SourceProtocol == "istartek" || strings.HasPrefix(strings.ToLower(row.EventID), "ist-") {
+			row.BatchID = event.TraceID
+			if row.BatchID == "" {
+				row.BatchID = row.EventID
+			}
+		}
 		rows = append(rows, row)
 		if p.outbox != nil {
 			outboxRows = append(outboxRows, broadcast.OutboxRecord{

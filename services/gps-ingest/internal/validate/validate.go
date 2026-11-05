@@ -14,12 +14,20 @@ type Directions struct {
 }
 
 type GpsPoint struct {
-	IMEI       string     `json:"imei"`
-	Coordinate [2]float64 `json:"coordinate"`
-	DateTime   string     `json:"date_time"`
-	Speed      int        `json:"speed"`
-	Status     int        `json:"status"`
-	Directions Directions `json:"directions"`
+	IMEI                   string         `json:"imei"`
+	Coordinate             [2]float64     `json:"coordinate"`
+	DateTime               string         `json:"date_time"`
+	Speed                  int            `json:"speed"`
+	Status                 int            `json:"status"`
+	Directions             Directions     `json:"directions"`
+	EventID                string         `json:"event_id,omitempty"`
+	EventTimeUTC           string         `json:"event_time_utc,omitempty"`
+	EventTimeTehran        string         `json:"event_time_tehran,omitempty"`
+	EventDateJalali        string         `json:"event_date_jalali,omitempty"`
+	Timezone               string         `json:"timezone,omitempty"`
+	SourceProtocol         string         `json:"source_protocol,omitempty"`
+	TimeProvenance         string         `json:"time_provenance,omitempty"`
+	OtherOriginalGPSFields map[string]any `json:"other_original_gps_fields,omitempty"`
 }
 
 type Request struct {
