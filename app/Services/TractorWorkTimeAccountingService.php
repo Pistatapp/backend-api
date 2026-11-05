@@ -17,6 +17,11 @@ final class TractorWorkTimeAccountingService
     public const POLICY_VERSION = 'duty-overtime-v1';
     public const MAX_SUPPORTED_INTERVAL_SECONDS = 180;
 
+    public function __construct(private ?IstartekEventResolver $eventResolver = null)
+    {
+        $this->eventResolver ??= new IstartekEventResolver();
+    }
+
     /**
      * Load one civil day from the GPS read model and classify valid intervals.
      * No writes are performed by this service.
@@ -34,23 +39,20 @@ final class TractorWorkTimeAccountingService
             $queryEnd = $duty['end'];
         }
 
-        $rows = $tractor->gpsData()
-            ->whereBetween('gps_data.date_time', [
-                $dayStart->format('Y-m-d H:i:s'),
-                $queryEnd->format('Y-m-d H:i:s'),
-            ])
-            ->orderBy('gps_data.date_time')
-            ->orderBy('gps_data.id')
-            ->get(['id', 'date_time', 'coordinate', 'speed', 'status']);
+        $rows = $this->eventResolver->resolveForWindow(
+            (int) $tractor->id,
+            $dayStart->format('Y-m-d H:i:s'),
+            $queryEnd->format('Y-m-d H:i:s'),
+        );
 
         return $this->calculateFromPoints(
-            $rows->map(fn ($row): array => [
-                'id' => $row->id,
-                'date_time' => $row->date_time,
-                'coordinate' => $row->coordinate,
-                'speed' => $row->speed,
-                'status' => $row->status,
-            ])->all(),
+            array_map(static fn (array $row): array => [
+                'id' => $row['id'] ?? 0,
+                'date_time' => $row['date_time'] ?? null,
+                'coordinate' => $row['coordinate'] ?? null,
+                'speed' => $row['speed'] ?? 0,
+                'status' => $row['status'] ?? 0,
+            ], $rows),
             $tractor,
             $dayStart,
         );

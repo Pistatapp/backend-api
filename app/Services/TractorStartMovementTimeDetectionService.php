@@ -12,6 +12,11 @@ use Illuminate\Support\Facades\Log;
 class TractorStartMovementTimeDetectionService
 {
     use GpsReadConnection;
+
+    public function __construct(private ?IstartekEventResolver $eventResolver = null)
+    {
+        $this->eventResolver ??= new IstartekEventResolver();
+    }
     private const CACHE_TTL = 3600; // 1 hour
     private const REQUIRED_CONSECUTIVE_POINTS = 3;
     private const GPS_DATA_CHUNK_SIZE = 500;
@@ -36,7 +41,20 @@ class TractorStartMovementTimeDetectionService
 
         try {
             $workStartTime = $this->getWorkStartDateTime($tractor, $targetDate);
-            $startTime = $this->findStartMovementTime($tractor->id, $targetDate, $workStartTime);
+            $tractor->loadMissing('gpsDevice');
+            if ($this->eventResolver->isIstartekImei($tractor->gpsDevice?->imei)) {
+                $points = $this->eventResolver->resolveForWindow(
+                    (int) $tractor->id,
+                    $workStartTime->format('Y-m-d H:i:s'),
+                    $targetDate->copy()->addDay()->format('Y-m-d H:i:s'),
+                );
+                $startTime = $this->findFirstMovementTimeFromPoints(array_map(
+                    static fn (array $point): object => (object) $point,
+                    $points,
+                ));
+            } else {
+                $startTime = $this->findStartMovementTime($tractor->id, $targetDate, $workStartTime);
+            }
             Cache::put($cacheKey, $startTime ?? 'null', self::CACHE_TTL);
             return $startTime;
         } catch (\Exception $e) {
@@ -183,10 +201,23 @@ class TractorStartMovementTimeDetectionService
             }
 
             $workStartTime = $tractorToWorkStart[$tractorId];
-            $points = $groupedData->get($tractorId, collect())
-                ->filter(fn($p) => Carbon::parse($p->date_time)->gte($workStartTime))
-                ->values()
-                ->toArray();
+            $tractor = $tractors->firstWhere('id', $tractorId);
+            if ($tractor) {
+                $tractor->loadMissing('gpsDevice');
+            }
+            if ($tractor && $this->eventResolver->isIstartekImei($tractor->gpsDevice?->imei)) {
+                $resolved = $this->eventResolver->resolveForWindow(
+                    (int) $tractorId,
+                    $workStartTime->format('Y-m-d H:i:s'),
+                    $date->copy()->addDay()->format('Y-m-d H:i:s'),
+                );
+                $points = array_map(static fn (array $point): object => (object) $point, $resolved);
+            } else {
+                $points = $groupedData->get($tractorId, collect())
+                    ->filter(fn($p) => Carbon::parse($p->date_time)->gte($workStartTime))
+                    ->values()
+                    ->toArray();
+            }
 
             $startTime = $this->findFirstMovementTimeFromPoints($points);
             $results[$this->getCacheKey($tractorId, $date)] = $startTime ?? 'null';

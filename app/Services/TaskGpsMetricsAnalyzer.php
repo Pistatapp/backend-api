@@ -24,8 +24,10 @@ class TaskGpsMetricsAnalyzer
 
     public function __construct(
         private ?GpsLogContinuityGuard $continuityGuard = null,
+        private ?IstartekEventResolver $eventResolver = null,
     ) {
         $this->continuityGuard ??= new GpsLogContinuityGuard();
+        $this->eventResolver ??= new IstartekEventResolver();
     }
 
     private const MIN_STOPPAGE_DURATION_SECONDS = 60;
@@ -51,11 +53,11 @@ class TaskGpsMetricsAnalyzer
      */
     public function loadRecordsFor(Tractor $tractor, Carbon $taskStartTime, Carbon $taskEndTime): self
     {
-        $gpsData = $tractor->gpsData()
-            ->whereBetween('gps_data.date_time', [$taskStartTime, $taskEndTime])
-            ->orderBy('gps_data.date_time')
-            ->orderBy('gps_data.id')
-            ->get(['date_time', 'coordinate', 'speed', 'status', 'imei']);
+        $gpsData = $this->eventResolver->resolveForWindow(
+            (int) $tractor->id,
+            (string) $taskStartTime,
+            (string) $taskEndTime,
+        );
 
         $this->parseRecords($gpsData);
 

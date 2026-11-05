@@ -14,6 +14,7 @@ class ActiveTractorService
         private GpsDataAnalyzer $gpsDataAnalyzer,
         private TractorEfficiencyService $tractorEfficiencyService,
         private TractorWorkTimeAccountingService $workTimeAccountingService,
+        private ?IstartekEventResolver $eventResolver = null,
     ) {}
 
     /**
@@ -27,13 +28,15 @@ class ActiveTractorService
      */
     public function getTractorPerformance(Tractor $tractor, Carbon $date): array
     {
-        $tractor->load(['driver']);
+        $tractor->load(['driver', 'gpsDevice']);
+
+        $isIstartek = $this->eventResolver?->isIstartekImei($tractor->gpsDevice?->imei) ?? false;
 
         // Check if the date is in the past (before current day at start of day)
         // Use cached data for past dates, real-time analysis for today and future dates
         $isPastDate = $date->copy()->startOfDay()->isBefore(Carbon::today()->startOfDay());
 
-        if ($isPastDate) {
+        if ($isPastDate && ! $isIstartek) {
             // Fetch data from GpsMetricsCalculation for past dates
             return $this->getTractorPerformanceFromMetrics($tractor, $date);
         }
