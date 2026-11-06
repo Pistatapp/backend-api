@@ -11,6 +11,7 @@ use App\Services\ActiveTractorService;
 use App\Services\TractorPathStreamService;
 use App\Services\TractorPathPaginationService;
 use App\Services\TractorStartMovementTimeDetectionService;
+use App\Services\TractorLastKnownPositionService;
 use Carbon\Carbon;
 use InvalidArgumentException;
 
@@ -20,7 +21,8 @@ class ActiveTractorController extends Controller
         private ActiveTractorService $activeTractorService,
         private TractorPathStreamService $tractorPathStreamService,
         private TractorPathPaginationService $tractorPathPaginationService,
-        private TractorStartMovementTimeDetectionService $tractorStartMovementTimeDetectionService
+        private TractorStartMovementTimeDetectionService $tractorStartMovementTimeDetectionService,
+        private TractorLastKnownPositionService $tractorLastKnownPositionService
     ) {}
 
     /**
@@ -43,10 +45,29 @@ class ActiveTractorController extends Controller
         // Detect start movement time for all tractors using the service
         $tractors = $this->tractorStartMovementTimeDetectionService->detectStartMovementTimeForTractors($tractors, $date);
 
-        // This endpoint is a tractor-membership endpoint, not a GPS-history
-        // endpoint. Keep the additive Last Known fields nullable in the
-        // resource, but never resolve them here: a full historical resolver
-        // must not be able to make the tractor list fail or disappear.
+        // Enrich the membership result only through the bounded latest-only
+        // service. This must never call the full historical resolver.
+        $assignedImeis = $tractors->mapWithKeys(function (Tractor $tractor): array {
+            return [(int) $tractor->getKey() => (string) ($tractor->gpsDevice?->imei ?? '')];
+        })->all();
+        $assignedSince = $tractors->mapWithKeys(function (Tractor $tractor): array {
+            $createdAt = $tractor->gpsDevice?->created_at;
+
+            return [(int) $tractor->getKey() => $createdAt ? (string) $createdAt : ''];
+        })->all();
+        $positionResolutions = $this->tractorLastKnownPositionService->resolveForTractors(
+            $tractors->modelKeys(),
+            $assignedImeis,
+            $farm->coordinates,
+            $assignedSince,
+        );
+        $tractors->each(function (Tractor $tractor) use ($positionResolutions): void {
+            $resolution = $positionResolutions[(int) $tractor->getKey()] ?? [];
+            $tractor->setAttribute('last_known_position', $resolution['last_known_position'] ?? null);
+            $tractor->setAttribute('last_known_position_state', $resolution['last_known_position_state'] ?? 'LOCATION_UNKNOWN');
+            $tractor->setAttribute('latest_device_position', $resolution['latest_device_position'] ?? null);
+        });
+
         return ActiveTractorResource::collection($tractors);
     }
 

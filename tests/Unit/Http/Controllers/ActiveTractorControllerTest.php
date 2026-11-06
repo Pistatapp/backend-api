@@ -10,6 +10,7 @@ use App\Models\Tractor;
 use App\Services\ActiveTractorService;
 use App\Services\TractorPathPaginationService;
 use App\Services\TractorPathStreamService;
+use App\Services\TractorLastKnownPositionService;
 use App\Services\TractorStartMovementTimeDetectionService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
@@ -18,7 +19,7 @@ use Tests\TestCase;
 
 class ActiveTractorControllerTest extends TestCase
 {
-    public function test_active_list_returns_all_membership_rows_without_last_known_gps_resolution(): void
+    public function test_active_list_returns_all_membership_rows_with_bounded_last_known_enrichment(): void
     {
         $fixtureIds = [73, 74, 75, 77, 78, 79, 118, 119];
         $tractors = new Collection(array_map(function (int $id): Tractor {
@@ -41,6 +42,8 @@ class ActiveTractorControllerTest extends TestCase
                     'id' => 2000 + $id,
                     'imei' => "fixture-{$id}",
                 ]));
+            } else {
+                $tractor->setRelation('gpsDevice', null);
             }
 
             return $tractor;
@@ -72,11 +75,25 @@ class ActiveTractorControllerTest extends TestCase
             ->once()
             ->andReturn($tractors);
 
+        $lastKnown = Mockery::mock(TractorLastKnownPositionService::class);
+        $lastKnown->shouldReceive('resolveForTractors')
+            ->once()
+            ->andReturn([
+                75 => $this->knownPosition(75),
+                79 => $this->knownPosition(79),
+                119 => [
+                    'last_known_position' => null,
+                    'last_known_position_state' => 'LOCATION_UNKNOWN',
+                    'latest_device_position' => null,
+                ],
+            ]);
+
         $controller = new ActiveTractorController(
             Mockery::mock(ActiveTractorService::class),
             Mockery::mock(TractorPathStreamService::class),
             Mockery::mock(TractorPathPaginationService::class),
             $startMovement,
+            $lastKnown,
         );
 
         $request = Request::create('/api/farms/77/tractors/active', 'GET');
@@ -86,6 +103,8 @@ class ActiveTractorControllerTest extends TestCase
         $this->assertSame($fixtureIds, array_column($payload, 'id'));
         $this->assertContains(75, array_column($payload, 'id'));
         $this->assertContains(79, array_column($payload, 'id'));
+        $this->assertSame(75, $payload[2]['last_known_position']['id']);
+        $this->assertSame(79, $payload[5]['last_known_position']['id']);
         $this->assertNull($payload[7]['last_known_position']);
         $this->assertSame('LOCATION_UNKNOWN', $payload[7]['last_known_position_state']);
         $this->assertNull($payload[7]['latest_device_position']);
@@ -98,8 +117,23 @@ class ActiveTractorControllerTest extends TestCase
         );
 
         $this->assertIsString($source);
-        $this->assertStringNotContainsString('TractorLastKnownPositionService', $source);
+        $this->assertStringContainsString('TractorLastKnownPositionService', $source);
         $this->assertStringNotContainsString('resolveForWindow', $source);
-        $this->assertStringNotContainsString('resolveForTractors', $source);
+        $this->assertStringContainsString('resolveForTractors', $source);
+    }
+
+    /** @return array<string,mixed> */
+    private function knownPosition(int $id): array
+    {
+        return [
+            'last_known_position' => [
+                'id' => $id,
+                'latitude' => 35.0,
+                'longitude' => 51.0,
+                'event_time' => '2026-11-06 10:00:00',
+            ],
+            'last_known_position_state' => 'VERIFIED_TRACTOR_POSITION',
+            'latest_device_position' => null,
+        ];
     }
 }

@@ -113,6 +113,14 @@ class TractorLastKnownPositionService
                 self::VALID_COORDINATE_SQL,
             ];
             $branchBindings = [$id];
+            if ($identityScoped && $imei !== '') {
+                // Restrict candidates to the currently assigned device before
+                // applying the small SQL limit. Otherwise a reassigned
+                // device's recent history could crowd out the real device's
+                // latest point.
+                $where[] = 'imei = ?';
+                $branchBindings[] = $imei;
+            }
             $assignmentStartedAt = trim((string) ($assignedSince[$id] ?? ''));
             if ($assignmentStartedAt !== '') {
                 // gps_devices has no assignment-history table. The current
@@ -184,13 +192,16 @@ class TractorLastKnownPositionService
 
         // UNION branch order is not a contract. Sort the bounded result set by
         // event time and id before selecting the latest device/farm points.
-        usort($rows, static function (object $left, object $right): int {
+        usort($rows, function (object $left, object $right): int {
             $tractorOrder = ((int) ($left->tractor_id ?? 0)) <=> ((int) ($right->tractor_id ?? 0));
             if ($tractorOrder !== 0) {
                 return $tractorOrder;
             }
 
-            $dateOrder = strcmp((string) ($right->date_time ?? ''), (string) ($left->date_time ?? ''));
+            $dateOrder = strcmp(
+                $this->sortTime($right),
+                $this->sortTime($left),
+            );
             return $dateOrder !== 0
                 ? $dateOrder
                 : ((int) ($right->id ?? 0) <=> (int) ($left->id ?? 0));
@@ -423,5 +434,16 @@ class TractorLastKnownPositionService
         return $latitude >= -90 && $latitude <= 90
             && $longitude >= -180 && $longitude <= 180
             && !($latitude === 0.0 && $longitude === 0.0);
+    }
+
+    private function sortTime(object $row): string
+    {
+        // Provenance UTC wins over the legacy storage clock. Rows without
+        // provenance retain their stored ordering and are not reinterpreted.
+        $eventTimeUtc = trim((string) ($row->event_time_utc ?? ''));
+
+        return $eventTimeUtc !== ''
+            ? substr($eventTimeUtc, 0, 19)
+            : (string) ($row->date_time ?? '');
     }
 }

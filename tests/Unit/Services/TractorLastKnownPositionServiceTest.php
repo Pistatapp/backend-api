@@ -75,6 +75,20 @@ class TractorLastKnownPositionServiceTest extends TestCase
         $this->assertSame(7, $result[79]['id']);
     }
 
+    public function test_t06b_verified_sidecar_utc_wins_over_legacy_storage_clock_order(): void
+    {
+        $olderStoredClock = $this->row(601, 79, '2026-11-06 08:00:00', [35.61, 51.61]);
+        $olderStoredClock->event_time_utc = '2026-11-06 04:30:00';
+        $newerEffectiveUtc = $this->row(602, 79, '2026-11-06 07:00:00', [35.62, 51.62]);
+        $newerEffectiveUtc->event_time_utc = '2026-11-06 04:45:00';
+
+        $service = $this->service([$olderStoredClock, $newerEffectiveUtc]);
+
+        $result = $service->forTractors([79]);
+
+        $this->assertSame(602, $result[79]['id']);
+    }
+
     public function test_t07_a_point_for_another_tractor_cannot_cross_the_tractor_boundary(): void
     {
         $service = $this->service([
