@@ -109,7 +109,7 @@ class TractorLastKnownPositionService
             }
 
             $where = [
-                'tractor_id = ?',
+                'g.tractor_id = ?',
                 self::VALID_COORDINATE_SQL,
             ];
             $branchBindings = [$id];
@@ -118,7 +118,7 @@ class TractorLastKnownPositionService
                 // applying the small SQL limit. Otherwise a reassigned
                 // device's recent history could crowd out the real device's
                 // latest point.
-                $where[] = 'imei = ?';
+                $where[] = 'g.imei = ?';
                 $branchBindings[] = $imei;
             }
             $assignmentStartedAt = trim((string) ($assignedSince[$id] ?? ''));
@@ -126,7 +126,7 @@ class TractorLastKnownPositionService
                 // gps_devices has no assignment-history table. The current
                 // device row's creation time is a safe lower bound that keeps
                 // pre-assignment history out without inventing an install date.
-                $where[] = 'date_time >= ?';
+                $where[] = 'g.date_time >= ?';
                 $branchBindings[] = $assignmentStartedAt;
             }
 
