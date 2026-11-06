@@ -18,8 +18,13 @@ use Illuminate\Support\Facades\Broadcast;
 |
 */
 
-Broadcast::channel('gps_devices.{gps_device}', function (User $user, GpsDevice $gps_device) {
-    return true;
+Broadcast::channel('gps_devices.{gps_device}', function (User $user, GpsDevice $gps_device): bool {
+    // A GPS device is only subscribable when it is currently assigned to a
+    // tractor that the authenticated user may view.  This also fails closed
+    // for unassigned/unknown devices instead of relying on device ownership.
+    $tractor = $gps_device->tractor;
+
+    return $tractor !== null && $user->can('view', $tractor);
 });
 
 Broadcast::channel('irrigations.{irrigation}', function (User $user, Irrigation $irrigation) {
