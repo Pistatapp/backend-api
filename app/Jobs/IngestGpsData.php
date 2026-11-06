@@ -289,6 +289,7 @@ class IngestGpsData implements ShouldQueue
                 $this->ensureGpsConnection($gps);
                 $gps->transaction(function () use ($gps, $chunk, &$written) {
                     $written += $this->insertChunkCounting($gps, $chunk);
+                    $this->recordIstartekIdentityEvidence($gps, $chunk);
                 });
             } catch (Throwable $e) {
                 Log::warning('IngestGpsData: bulk chunk insert failed, retrying row-by-row', [
@@ -415,6 +416,13 @@ class IngestGpsData implements ShouldQueue
         $deduped = [];
         foreach ($chunk as $row) {
             $key = ($row['imei'] ?? '').'|'.($row['date_time'] ?? '').'|'.$this->normalizedCoordinateKey($row['coordinate'] ?? null);
+            $code = trim((string) ($row['_gps_log_code'] ?? ''));
+            if (str_starts_with($code, '01-')) {
+                // Keep same-second iStartek conflicts even when their
+                // coordinates happen to be equal. Same code + same payload
+                // still collapses to one incoming row.
+                $key .= '|'.$code.'|'.((string) ($row['_payload_hash'] ?? ''));
+            }
             $deduped[$key] = $row;
         }
 
@@ -435,8 +443,12 @@ class IngestGpsData implements ShouldQueue
             return [$chunk, 0];
         }
 
+        $columns = ['id', 'imei', 'date_time', 'coordinate'];
+        if ($this->hasGpsColumn('gps_log_code')) {
+            $columns[] = 'gps_log_code';
+        }
         $existing = $gps->table('gps_data')
-            ->select(['id', 'imei', 'date_time', 'coordinate'])
+            ->select($columns)
             ->where('imei', $imei)
             ->whereIn('date_time', $times)
             ->orderBy('id')
@@ -457,6 +469,21 @@ class IngestGpsData implements ShouldQueue
 
             foreach ($matches as $match) {
                 if ($this->normalizedCoordinateKey($match->coordinate) === $coordKey) {
+                    $incomingCode = trim((string) ($row['_gps_log_code'] ?? ''));
+                    if (str_starts_with($incomingCode, '01-')
+                        && $this->istartekIdentityTablesExist($gps)
+                        && (string) ($match->gps_log_code ?? '') !== $incomingCode) {
+                        // An older row without the new identity is not proof
+                        // of equivalence. Keep the new event fail-open.
+                        continue;
+                    }
+                    if (str_starts_with($incomingCode, '01-')
+                        && $this->istartekIdentityTablesExist($gps)
+                        && ! $this->sameIstartekPayloadHash($gps, $incomingCode, (string) ($row['_payload_hash'] ?? ''))) {
+                        // Same logical code with another effective payload is
+                        // a conflict, not a duplicate to hide.
+                        continue;
+                    }
                     $skipped++;
 
                     continue 2;
@@ -475,6 +502,23 @@ class IngestGpsData implements ShouldQueue
         }
 
         return [$toInsert, $skipped];
+    }
+
+    private function sameIstartekPayloadHash($gps, string $code, string $payloadHash): bool
+    {
+        if ($payloadHash === '') {
+            return false;
+        }
+
+        $identity = $gps->table('gps_log_identities')
+            ->select('canonical_payload_hash')
+            ->where('gps_log_code', $code)
+            ->lockForUpdate()
+            ->first();
+
+        return $identity !== null
+            && (string) ($identity->canonical_payload_hash ?? '') !== ''
+            && hash_equals((string) $identity->canonical_payload_hash, $payloadHash);
     }
 
     private function normalizedCoordinateKey(mixed $coordinate): string
@@ -624,6 +668,7 @@ class IngestGpsData implements ShouldQueue
         $batchIndex = $row['_batch_index'] ?? null;
         $gpsLogCode = $row['_gps_log_code'] ?? null;
         $rawIngressId = $row['_raw_ingress_id'] ?? null;
+        unset($row['_payload_hash']);
         unset($row['_event_id'], $row['_batch_index'], $row['_gps_log_code'], $row['_raw_ingress_id']);
 
         if ($this->hasGpsColumn('event_id') && $eventId !== null) {
@@ -644,6 +689,8 @@ class IngestGpsData implements ShouldQueue
 
     private static array $gpsColumnExists = [];
 
+    private static ?bool $istartekIdentityTablesExist = null;
+
     private function hasGpsColumn(string $column): bool
     {
         if (array_key_exists($column, self::$gpsColumnExists)) {
@@ -662,6 +709,156 @@ class IngestGpsData implements ShouldQueue
         }
 
         return self::$gpsColumnExists[$column];
+    }
+
+    /**
+     * Record append-only logical identity and raw-receipt evidence for the
+     * owner-approved iStartek code only. This runs in the same mysql_gps
+     * transaction as gps_data persistence; it never filters or hides a GPS
+     * row. A different payload for one IMEI/UTC-second is recorded as an
+     * explicit SAME_SECOND_CONFLICT.
+     *
+     * @param  array<int, array<string,mixed>>  $chunk
+     */
+    private function recordIstartekIdentityEvidence($gps, array $chunk): void
+    {
+        $rows = array_values(array_filter($chunk, function (array $row): bool {
+            $code = trim((string) ($row['_gps_log_code'] ?? ''));
+
+            return str_starts_with($code, '01-');
+        }));
+
+        if ($rows === [] || ! $this->istartekIdentityTablesExist($gps)) {
+            return;
+        }
+
+        foreach ($rows as $row) {
+            $code = trim((string) ($row['_gps_log_code'] ?? ''));
+            $imei = trim((string) ($row['imei'] ?? ''));
+            $eventId = trim((string) ($row['_event_id'] ?? ''));
+            $rawIngressId = trim((string) ($row['_raw_ingress_id'] ?? ''));
+            $payloadHash = trim((string) ($row['_payload_hash'] ?? ''));
+            if ($payloadHash === '') {
+                $payloadHash = hash('sha256', json_encode([
+                    $imei,
+                    $code,
+                    $row['coordinate'] ?? null,
+                    $row['speed'] ?? null,
+                    $row['status'] ?? null,
+                    $row['directions'] ?? null,
+                ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            }
+
+            if (! preg_match('/^01-([0-9]{14,20})-([0-9]{14})$/', $code, $codeParts)
+                || $codeParts[1] !== $imei) {
+                // A malformed/additional field must not make the identity
+                // ledger invent a timestamp. gps_data remains governed by its
+                // existing validation/retry path.
+                continue;
+            }
+
+            $identity = $gps->table('gps_log_identities')
+                ->where('gps_log_code', $code)
+                ->lockForUpdate()
+                ->first();
+
+            $status = 'FIRST';
+            $conflictReason = null;
+            if ($identity === null) {
+                try {
+                    $deviceUtc = Carbon::createFromFormat('YmdHis', $codeParts[2], 'UTC');
+                } catch (Throwable) {
+                    continue;
+                }
+                if ($deviceUtc === false) {
+                    continue;
+                }
+                $gps->table('gps_log_identities')->insert([
+                    'gps_log_code' => $code,
+                    'vendor' => '01',
+                    'imei' => $imei,
+                    'device_event_utc' => $deviceUtc?->format('Y-m-d H:i:s.u'),
+                    'existing_event_id' => $eventId !== '' ? $eventId : null,
+                    'canonical_payload_hash' => $payloadHash,
+                    'status' => 'PERSISTED',
+                    'first_seen_at' => now('UTC'),
+                    'last_seen_at' => now('UTC'),
+                    'created_at' => now('UTC'),
+                    'updated_at' => now('UTC'),
+                ]);
+
+                if ($this->hasGpsColumn('gps_log_code')) {
+                    $canonical = $gps->table('gps_data')
+                        ->select('id')
+                        ->where('gps_log_code', $code)
+                        ->orderBy('id')
+                        ->first();
+                    if ($canonical !== null) {
+                        $gps->table('gps_log_identities')
+                            ->where('gps_log_code', $code)
+                            ->update(['canonical_gps_data_id' => $canonical->id]);
+                    }
+                }
+            } elseif ((string) ($identity->canonical_payload_hash ?? '') !== ''
+                && ! hash_equals((string) $identity->canonical_payload_hash, $payloadHash)) {
+                $status = 'SAME_SECOND_CONFLICT';
+                $conflictReason = 'payload differs for one IMEI and device UTC second';
+                $gps->table('gps_log_identities')
+                    ->where('gps_log_code', $code)
+                    ->update([
+                        'status' => $status,
+                        'last_seen_at' => now('UTC'),
+                        'updated_at' => now('UTC'),
+                    ]);
+            } else {
+                $status = 'RETRANSMISSION';
+                $gps->table('gps_log_identities')
+                    ->where('gps_log_code', $code)
+                    ->update(['last_seen_at' => now('UTC'), 'updated_at' => now('UTC')]);
+            }
+
+            if ($rawIngressId === '') {
+                continue;
+            }
+
+            $gps->table('gps_log_receipts')->upsert([[
+                'raw_ingress_id' => $rawIngressId,
+                'gps_log_code' => $code,
+                'existing_event_id' => $eventId !== '' ? $eventId : null,
+                'payload_hash' => substr($payloadHash, 0, 64),
+                'deduplication_status' => $status,
+                'conflict_reason' => $conflictReason,
+                'created_at' => now('UTC'),
+                'updated_at' => now('UTC'),
+            ]], ['raw_ingress_id'], [
+                'gps_log_code',
+                'existing_event_id',
+                'payload_hash',
+                'deduplication_status',
+                'conflict_reason',
+                'updated_at',
+            ]);
+        }
+    }
+
+    private function istartekIdentityTablesExist($gps): bool
+    {
+        if (self::$istartekIdentityTablesExist !== null) {
+            return self::$istartekIdentityTablesExist;
+        }
+
+        try {
+            $database = (string) config('database.connections.mysql_gps.database');
+            $count = $gps->selectOne(
+                'SELECT COUNT(*) AS c FROM information_schema.tables WHERE table_schema = ? AND table_name IN (?, ?)',
+                [$database, 'gps_log_identities', 'gps_log_receipts']
+            );
+            self::$istartekIdentityTablesExist = ((int) ($count->c ?? 0)) === 2;
+        } catch (Throwable) {
+            self::$istartekIdentityTablesExist = false;
+        }
+
+        return self::$istartekIdentityTablesExist;
     }
 
     /**
@@ -693,6 +890,7 @@ class IngestGpsData implements ShouldQueue
                 $record['_batch_index'] = $event['batch_index'] ?? $sourceIndex;
                 $record['_gps_log_code'] = $event['gps_log_code'] ?? ($item['gps_log_code'] ?? null);
                 $record['_raw_ingress_id'] = $event['raw_ingress_id'] ?? ($item['raw_ingress_id'] ?? null);
+                $record['_payload_hash'] = $event['payload_hash'] ?? hash('sha256', json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE));
                 $records[] = $record;
             } else {
                 $this->quarantineItem($item, $sourceIndex, 'GPS frame failed persistence validation');
