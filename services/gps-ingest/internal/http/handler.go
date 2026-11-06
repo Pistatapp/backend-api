@@ -169,11 +169,26 @@ func (s *Server) handleGPSReports(w http.ResponseWriter, r *http.Request) {
 func eventFromItem(item validate.IngressItem, traceID, receivedAt string) ledger.Event {
 	payloadHash := fmt.Sprintf("%x", sha256.Sum256([]byte(item.RawPayload)))
 	imei, deviceAt := "", item.DeviceRecordedAt
+	gpsLogCode, rawIngressID := "", ""
+	originalEventTimeUTC, eventTimeTehran, eventDateJalali, eventTimezone := "", "", "", ""
+	sourceProtocol, timeProvenance, deduplicationStatus := "", "", ""
 	if item.Point != nil {
 		imei = item.Point.IMEI
 		if deviceAt == "" {
 			deviceAt = item.Point.DateTime
 		}
+		gpsLogCode = item.Point.GPSLogCode
+		rawIngressID = item.Point.RawIngressID
+		originalEventTimeUTC = item.Point.OriginalEventTimeUTC
+		if originalEventTimeUTC == "" {
+			originalEventTimeUTC = item.Point.EventTimeUTC
+		}
+		eventTimeTehran = item.Point.EventTimeTehran
+		eventDateJalali = item.Point.EventDateJalali
+		eventTimezone = item.Point.EventTimezone
+		sourceProtocol = item.Point.SourceProtocol
+		timeProvenance = item.Point.TimeProvenance
+		deduplicationStatus = item.Point.DeduplicationStatus
 	}
 	eventID := strings.TrimSpace(item.EventID)
 	if eventID == "" {
@@ -183,8 +198,12 @@ func eventFromItem(item validate.IngressItem, traceID, receivedAt string) ledger
 		eventID = eventID[:64]
 	}
 	return ledger.Event{
-		EventID: eventID, TraceID: traceID, IMEI: imei,
-		DeviceRecordedAt: deviceAt, GatewayReceivedAt: receivedAt,
+		EventID: eventID, GPSLogCode: gpsLogCode, RawIngressID: rawIngressID,
+		TraceID: traceID, IMEI: imei, DeviceRecordedAt: deviceAt,
+		OriginalEventTimeUTC: originalEventTimeUTC, EventTimeTehran: eventTimeTehran,
+		EventDateJalali: eventDateJalali, EventTimezone: eventTimezone,
+		SourceProtocol: sourceProtocol, TimeProvenance: timeProvenance,
+		DeduplicationStatus: deduplicationStatus, GatewayReceivedAt: receivedAt,
 		PayloadHash: payloadHash, RawPayload: item.RawPayload,
 		RawReference: "gps-ingest:" + eventID,
 		BatchIndex:   item.Index, ErrorReason: item.ErrorReason,

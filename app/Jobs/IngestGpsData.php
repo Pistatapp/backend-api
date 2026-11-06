@@ -7,6 +7,7 @@ use App\Models\Tractor;
 use App\Services\GpsIngressLedger;
 use App\Services\NocMonitor;
 use App\Support\GpsDeviceCache;
+use App\Support\GpsTimestamp;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -229,8 +230,11 @@ class IngestGpsData implements ShouldQueue
             'event_id' => hash('sha256', ($imei ?? '').'|'.($dateTime ?? '').'|'.$payloadHash.'|'.$index),
             'trace_id' => $this->traceId,
             'imei' => $imei,
-            'device_recorded_at' => $dateTime,
-            'gateway_received_at' => $this->gatewayReceivedAt ?? now()->format('Y-m-d H:i:s'),
+            'device_recorded_at' => GpsTimestamp::normalizeToUtc(
+                $dateTime,
+                config('app.timezone', 'Asia/Tehran'),
+            ),
+            'gateway_received_at' => $this->gatewayReceivedAt ?? GpsTimestamp::nowUtc(),
             'payload_hash' => $payloadHash,
             'raw_payload' => $raw,
             'batch_index' => $index,
@@ -618,13 +622,21 @@ class IngestGpsData implements ShouldQueue
     {
         $eventId = $row['_event_id'] ?? null;
         $batchIndex = $row['_batch_index'] ?? null;
-        unset($row['_event_id'], $row['_batch_index']);
+        $gpsLogCode = $row['_gps_log_code'] ?? null;
+        $rawIngressId = $row['_raw_ingress_id'] ?? null;
+        unset($row['_event_id'], $row['_batch_index'], $row['_gps_log_code'], $row['_raw_ingress_id']);
 
         if ($this->hasGpsColumn('event_id') && $eventId !== null) {
             $row['event_id'] = (string) $eventId;
         }
         if ($this->hasGpsColumn('batch_index') && $batchIndex !== null) {
             $row['batch_index'] = (int) $batchIndex;
+        }
+        if ($this->hasGpsColumn('gps_log_code') && is_scalar($gpsLogCode) && trim((string) $gpsLogCode) !== '') {
+            $row['gps_log_code'] = trim((string) $gpsLogCode);
+        }
+        if ($this->hasGpsColumn('raw_ingress_id') && is_scalar($rawIngressId) && trim((string) $rawIngressId) !== '') {
+            $row['raw_ingress_id'] = trim((string) $rawIngressId);
         }
 
         return $row;
@@ -679,6 +691,8 @@ class IngestGpsData implements ShouldQueue
                 $event = $this->eventMetadataForIndex($sourceIndex, $item);
                 $record['_event_id'] = $event['event_id'];
                 $record['_batch_index'] = $event['batch_index'] ?? $sourceIndex;
+                $record['_gps_log_code'] = $event['gps_log_code'] ?? ($item['gps_log_code'] ?? null);
+                $record['_raw_ingress_id'] = $event['raw_ingress_id'] ?? ($item['raw_ingress_id'] ?? null);
                 $records[] = $record;
             } else {
                 $this->quarantineItem($item, $sourceIndex, 'GPS frame failed persistence validation');
@@ -794,6 +808,8 @@ class IngestGpsData implements ShouldQueue
             'directions' => $directions,
             'imei' => $imei,
             'date_time' => $normalizedDateTime,
+            '_gps_log_code' => is_scalar($item['gps_log_code'] ?? null) ? trim((string) $item['gps_log_code']) : null,
+            '_raw_ingress_id' => is_scalar($item['raw_ingress_id'] ?? null) ? trim((string) $item['raw_ingress_id']) : null,
         ];
     }
 

@@ -7,7 +7,7 @@ use App\Http\Requests\GpsReportRequest;
 use App\Jobs\IngestGpsData;
 use App\Services\GpsIngressLedger;
 use App\Services\NocMonitor;
-use Carbon\Carbon;
+use App\Support\GpsTimestamp;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -25,7 +25,7 @@ class GpsReportController extends Controller
             return $this->delegateToGoService($request, $traceId);
         }
 
-        $receivedAt = $this->extractGatewayReceivedAt($request) ?? now()->format('Y-m-d H:i:s');
+        $receivedAt = $this->extractGatewayReceivedAt($request) ?? GpsTimestamp::nowUtc();
         $validData = [];
         $eventMetadata = [];
         $invalidMessages = [];
@@ -176,13 +176,10 @@ class GpsReportController extends Controller
             ? substr(trim((string) $providedEventId), 0, 64)
             : hash('sha256', ($imei ?? '').'|'.($deviceRecordedAt ?? '').'|'.$payloadHash.'|'.$index);
 
-        if ($deviceRecordedAt !== null) {
-            try {
-                $deviceRecordedAt = Carbon::parse($deviceRecordedAt)->format('Y-m-d H:i:s');
-            } catch (Throwable) {
-                $deviceRecordedAt = null;
-            }
-        }
+        $deviceRecordedAt = GpsTimestamp::normalizeToUtc(
+            $deviceRecordedAt,
+            config('app.timezone', 'Asia/Tehran'),
+        );
 
         return [
             'event_id' => $eventId,
@@ -190,6 +187,24 @@ class GpsReportController extends Controller
             'imei' => $imei,
             'device_recorded_at' => $deviceRecordedAt,
             'gateway_received_at' => $gatewayReceivedAt,
+            'gps_log_code' => is_array($candidate) && is_scalar($candidate['gps_log_code'] ?? null)
+                ? trim((string) $candidate['gps_log_code']) : null,
+            'raw_ingress_id' => is_array($candidate) && is_scalar($candidate['raw_ingress_id'] ?? null)
+                ? trim((string) $candidate['raw_ingress_id']) : null,
+            'original_event_time_utc' => is_array($candidate) && is_scalar($candidate['original_event_time_utc'] ?? null)
+                ? (string) $candidate['original_event_time_utc'] : null,
+            'event_time_tehran' => is_array($candidate) && is_scalar($candidate['event_time_tehran'] ?? null)
+                ? (string) $candidate['event_time_tehran'] : null,
+            'event_date_jalali' => is_array($candidate) && is_scalar($candidate['event_date_jalali'] ?? null)
+                ? (string) $candidate['event_date_jalali'] : null,
+            'event_timezone' => is_array($candidate) && is_scalar($candidate['event_timezone'] ?? null)
+                ? (string) $candidate['event_timezone'] : null,
+            'source_protocol' => is_array($candidate) && is_scalar($candidate['source_protocol'] ?? null)
+                ? (string) $candidate['source_protocol'] : null,
+            'time_provenance' => is_array($candidate) && is_scalar($candidate['time_provenance'] ?? null)
+                ? (string) $candidate['time_provenance'] : null,
+            'deduplication_status' => is_array($candidate) && is_scalar($candidate['deduplication_status'] ?? null)
+                ? (string) $candidate['deduplication_status'] : null,
             'payload_hash' => $payloadHash,
             'raw_payload' => $rawItem,
             'batch_index' => $index,
@@ -228,7 +243,13 @@ class GpsReportController extends Controller
             }
 
             try {
-                return Carbon::parse($value)->format('Y-m-d H:i:s');
+                $normalized = GpsTimestamp::normalizeToUtc(
+                    $value,
+                    config('app.timezone', 'Asia/Tehran'),
+                );
+                if ($normalized !== null) {
+                    return $normalized;
+                }
             } catch (Throwable) {
                 Log::warning('GPS ingress supplied an invalid gateway received timestamp', [
                     'header' => $header,

@@ -27,6 +27,7 @@ const (
 type OutboxRecord struct {
 	ID          int64
 	EventID     string
+	GPSLogCode  string
 	TraceID     string
 	IMEI        string
 	DeviceID    int64
@@ -66,11 +67,15 @@ func (s *Store) InsertTx(ctx context.Context, tx *sql.Tx, record OutboxRecord) e
 	}
 
 	var existingHash sql.NullString
+	var existingGPSLogCode sql.NullString
 	err := tx.QueryRowContext(ctx,
-		`SELECT payload_hash FROM gps_broadcast_outbox WHERE event_id = ? LIMIT 1`,
-		record.EventID).Scan(&existingHash)
+		`SELECT payload_hash, gps_log_code FROM gps_broadcast_outbox WHERE event_id = ? OR (gps_log_code IS NOT NULL AND gps_log_code = ?) LIMIT 1`,
+		record.EventID, record.GPSLogCode).Scan(&existingHash, &existingGPSLogCode)
 	if err == nil {
-		if existingHash.Valid && record.PayloadHash != "" && existingHash.String != record.PayloadHash {
+		// A stable GPS log code is the logical identity. Raw HTTP envelopes can
+		// legitimately hash differently across retries, so only legacy/event-id
+		// collisions use the payload hash as a conflict signal.
+		if existingGPSLogCode.String == "" && existingHash.Valid && record.PayloadHash != "" && existingHash.String != record.PayloadHash {
 			return fmt.Errorf("broadcast outbox event_id collision: %s", record.EventID)
 		}
 		return nil
@@ -85,12 +90,12 @@ func (s *Store) InsertTx(ctx context.Context, tx *sql.Tx, record OutboxRecord) e
 	}
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO gps_broadcast_outbox
-			(event_id, trace_id, imei, device_id, tractor_id, payload_hash,
+			(event_id, gps_log_code, trace_id, imei, device_id, tractor_id, payload_hash,
 			 point_payload, status, attempts, next_attempt_at, locked_until,
 			 last_error, sent_at, created_at, updated_at)
 		VALUES (?, NULLIF(?, ''), NULLIF(?, ''), ?, ?, NULLIF(?, ''), ?, ?, 0,
 			NULL, NULL, NULL, NULL, NOW(), NOW())`,
-		record.EventID, record.TraceID, record.IMEI, record.DeviceID,
+		record.EventID, record.GPSLogCode, record.TraceID, record.IMEI, record.DeviceID,
 		record.TractorID, record.PayloadHash, string(payload), OutboxPending); err != nil {
 		return fmt.Errorf("insert broadcast outbox: %w", err)
 	}
@@ -106,7 +111,7 @@ func (s *Store) Pending(ctx context.Context, limit int) ([]OutboxRecord, error) 
 	}
 
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, event_id, COALESCE(trace_id, ''), COALESCE(imei, ''),
+		SELECT id, event_id, COALESCE(gps_log_code, ''), COALESCE(trace_id, ''), COALESCE(imei, ''),
 		       device_id, tractor_id, COALESCE(payload_hash, ''), point_payload,
 		       status, attempts, COALESCE(last_error, '')
 		FROM gps_broadcast_outbox
@@ -123,7 +128,7 @@ func (s *Store) Pending(ctx context.Context, limit int) ([]OutboxRecord, error) 
 	for rows.Next() {
 		var record OutboxRecord
 		var payload []byte
-		if err := rows.Scan(&record.ID, &record.EventID, &record.TraceID,
+		if err := rows.Scan(&record.ID, &record.EventID, &record.GPSLogCode, &record.TraceID,
 			&record.IMEI, &record.DeviceID, &record.TractorID, &record.PayloadHash,
 			&payload, &record.Status, &record.Attempts, &record.LastError); err != nil {
 			return nil, fmt.Errorf("scan pending broadcast outbox: %w", err)
@@ -154,7 +159,7 @@ func (s *Store) Claim(ctx context.Context, id int64) (OutboxRecord, bool, error)
 	var record OutboxRecord
 	var payload []byte
 	err = tx.QueryRowContext(ctx, `
-		SELECT id, event_id, COALESCE(trace_id, ''), COALESCE(imei, ''),
+		SELECT id, event_id, COALESCE(gps_log_code, ''), COALESCE(trace_id, ''), COALESCE(imei, ''),
 		       device_id, tractor_id, COALESCE(payload_hash, ''), point_payload,
 		       status, attempts, COALESCE(last_error, '')
 		FROM gps_broadcast_outbox
@@ -162,7 +167,7 @@ func (s *Store) Claim(ctx context.Context, id int64) (OutboxRecord, bool, error)
 		  AND ((status IN (?, ?) AND (next_attempt_at IS NULL OR next_attempt_at <= NOW()))
 		    OR (status = ? AND (locked_until IS NULL OR locked_until <= NOW())))
 		FOR UPDATE`, id, OutboxPending, OutboxRetryPending, OutboxInFlight).Scan(
-		&record.ID, &record.EventID, &record.TraceID, &record.IMEI, &record.DeviceID,
+		&record.ID, &record.EventID, &record.GPSLogCode, &record.TraceID, &record.IMEI, &record.DeviceID,
 		&record.TractorID, &record.PayloadHash, &payload, &record.Status,
 		&record.Attempts, &record.LastError)
 	if err == sql.ErrNoRows {

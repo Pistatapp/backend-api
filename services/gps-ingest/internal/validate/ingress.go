@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/pistat-hamgit/gps-ingest/internal/identity"
 )
 
 const maxIngressBodyBytes = 8 << 20
@@ -204,10 +206,26 @@ func parseNormalizedIngress(item map[string]any, index int) (GpsPoint, string, s
 	if strings.TrimSpace(eventID) == "" {
 		eventID, _ = item["eventId"].(string)
 	}
+	gpsLogCode := firstIngressString(item["gps_log_code"], item["gpsLogCode"])
+	if gpsLogCode != "" {
+		if parsedIMEI, parsedUTC, codeErr := identity.ParseGPSLogCode(gpsLogCode); codeErr != nil || parsedIMEI != imei {
+			return zero, "", "", "", prefix + ".gps_log_code: invalid code for the supplied IMEI"
+		} else if originalUTC := firstIngressString(item["original_event_time_utc"], item["event_time_utc"], item["device_event_time_utc"]); originalUTC != "" {
+			if parsedTime, parseErr := time.Parse(time.RFC3339Nano, originalUTC); parseErr == nil && !parsedTime.UTC().Truncate(time.Second).Equal(parsedUTC) {
+				return zero, "", "", "", prefix + ".gps_log_code: UTC does not match the device event time"
+			}
+		}
+	}
 	rawAt := firstIngressString(item["device_recorded_at_raw"], item["device_timestamp_raw"])
 	return GpsPoint{
 		IMEI: imei, Coordinate: coordinate, DateTime: storedDateTime,
 		Speed: speed, Status: status, Directions: directions,
+		GPSLogCode: gpsLogCode, RawIngressID: firstIngressString(item["raw_ingress_id"]),
+		EventID: strings.TrimSpace(eventID), OriginalEventTimeUTC: firstIngressString(item["original_event_time_utc"]),
+		EventTimeUTC: firstIngressString(item["event_time_utc"]), EventTimeTehran: firstIngressString(item["event_time_tehran"]),
+		EventDateJalali: firstIngressString(item["event_date_jalali"]), EventTimezone: firstIngressString(item["event_timezone"], item["timezone"]),
+		SourceProtocol: firstIngressString(item["source_protocol"]), TimeProvenance: firstIngressString(item["time_provenance"]),
+		RawPayloadHash: firstIngressString(item["raw_payload_hash"]), DeduplicationStatus: firstIngressString(item["deduplication_status"]),
 	}, deviceAt, rawAt, strings.TrimSpace(eventID), ""
 }
 

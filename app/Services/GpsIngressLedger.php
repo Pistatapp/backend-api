@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\GpsTimestamp;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -47,10 +48,10 @@ class GpsIngressLedger
             'event_id' => $eventId,
             'status' => $status,
             'error_reason' => $reason,
-            'updated_at' => now()->format('Y-m-d H:i:s'),
+            'updated_at' => GpsTimestamp::nowUtc(),
         ];
         if ($status === self::PERSISTED) {
-            $payload['persisted_at'] = now()->format('Y-m-d H:i:s');
+            $payload['persisted_at'] = GpsTimestamp::nowUtc();
         }
 
         try {
@@ -73,7 +74,7 @@ class GpsIngressLedger
      */
     private function write(array $event): void
     {
-        $event['updated_at'] ??= now()->format('Y-m-d H:i:s');
+        $event['updated_at'] ??= GpsTimestamp::nowUtc();
         $event['created_at'] ??= $event['updated_at'];
         $event['attempts'] = (int) ($event['attempts'] ?? 0);
         $databaseEvent = $event;
@@ -88,6 +89,15 @@ class GpsIngressLedger
                     'imei',
                     'device_recorded_at',
                     'gateway_received_at',
+                    'gps_log_code',
+                    'raw_ingress_id',
+                    'original_event_time_utc',
+                    'event_time_tehran',
+                    'event_date_jalali',
+                    'event_timezone',
+                    'source_protocol',
+                    'time_provenance',
+                    'deduplication_status',
                     'payload_hash',
                     'raw_payload',
                     'batch_index',
@@ -118,7 +128,7 @@ class GpsIngressLedger
 
             $line = json_encode([
                 'ledger_version' => 1,
-                'written_at' => now()->format('Y-m-d H:i:s.u'),
+                'written_at' => now('UTC')->format('Y-m-d H:i:s.u'),
                 'event' => $payload,
                 'database_error' => $error->getMessage(),
             ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);

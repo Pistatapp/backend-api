@@ -25,9 +25,18 @@ const (
 
 type Event struct {
 	EventID           string `json:"event_id"`
+	GPSLogCode        string `json:"gps_log_code,omitempty"`
+	RawIngressID      string `json:"raw_ingress_id,omitempty"`
 	TraceID           string `json:"trace_id,omitempty"`
 	IMEI              string `json:"imei,omitempty"`
 	DeviceRecordedAt  string `json:"device_recorded_at,omitempty"`
+	OriginalEventTimeUTC string `json:"original_event_time_utc,omitempty"`
+	EventTimeTehran   string `json:"event_time_tehran,omitempty"`
+	EventDateJalali   string `json:"event_date_jalali,omitempty"`
+	EventTimezone     string `json:"event_timezone,omitempty"`
+	SourceProtocol    string `json:"source_protocol,omitempty"`
+	TimeProvenance    string `json:"time_provenance,omitempty"`
+	DeduplicationStatus string `json:"deduplication_status,omitempty"`
 	GatewayReceivedAt string `json:"gateway_received_at,omitempty"`
 	PayloadHash       string `json:"payload_hash"`
 	RawPayload        string `json:"raw_payload"`
@@ -78,13 +87,22 @@ func (s *Store) RecordPending(ctx context.Context, events []Event) error {
 			const query = `
 				INSERT INTO gps_ingest_events
 				(event_id, trace_id, imei, device_recorded_at, gateway_received_at,
-				 payload_hash, raw_payload, raw_reference, batch_index, status, error_reason, attempts, created_at, updated_at)
-				VALUES (?, NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), ?, ?, NULLIF(?, ''), ?, ?, NULLIF(?, ''), ?, NOW(), NOW())
+				 gps_log_code, raw_ingress_id, original_event_time_utc, event_time_tehran,
+				 event_date_jalali, event_timezone, source_protocol, time_provenance,
+				 deduplication_status, payload_hash, raw_payload, raw_reference, batch_index,
+				 status, error_reason, attempts, created_at, updated_at)
+				VALUES (?, NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''),
+				 NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''),
+				 NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''),
+				 ?, ?, NULLIF(?, ''), ?, ?, NULLIF(?, ''), ?, NOW(), NOW())
 				ON DUPLICATE KEY UPDATE event_id = VALUES(event_id)`
 			for _, event := range events {
 				if _, err = tx.ExecContext(ctx, query,
 					event.EventID, event.TraceID, event.IMEI, event.DeviceRecordedAt,
-					event.GatewayReceivedAt, event.PayloadHash, event.RawPayload,
+					event.GatewayReceivedAt, event.GPSLogCode, event.RawIngressID,
+					event.OriginalEventTimeUTC, event.EventTimeTehran, event.EventDateJalali,
+					event.EventTimezone, event.SourceProtocol, event.TimeProvenance,
+					event.DeduplicationStatus, event.PayloadHash, event.RawPayload,
 					event.RawReference, event.BatchIndex, string(event.Status), event.ErrorReason, event.Attempts,
 				); err != nil {
 					_ = tx.Rollback()
@@ -148,10 +166,15 @@ func (s *Store) Pending(ctx context.Context, limit int) ([]Event, error) {
 	var dbErr error
 	if s.db != nil {
 		rows, err := s.db.QueryContext(ctx, `
-			SELECT event_id, COALESCE(trace_id,''), COALESCE(imei,''),
+			SELECT event_id, COALESCE(gps_log_code,''), COALESCE(raw_ingress_id,''),
+			       COALESCE(trace_id,''), COALESCE(imei,''),
 			       COALESCE(DATE_FORMAT(device_recorded_at, '%Y-%m-%d %H:%i:%s'), ''),
 			       COALESCE(DATE_FORMAT(gateway_received_at, '%Y-%m-%d %H:%i:%s'), ''),
-			       payload_hash, raw_payload, COALESCE(raw_reference,''), batch_index, status, COALESCE(error_reason,''), attempts
+			       COALESCE(original_event_time_utc,''), COALESCE(event_time_tehran,''),
+			       COALESCE(event_date_jalali,''), COALESCE(event_timezone,''),
+			       COALESCE(source_protocol,''), COALESCE(time_provenance,''),
+			       COALESCE(deduplication_status,''), payload_hash, raw_payload,
+			       COALESCE(raw_reference,''), batch_index, status, COALESCE(error_reason,''), attempts
 			FROM gps_ingest_events
 			WHERE status = ?
 			ORDER BY id ASC
@@ -162,9 +185,12 @@ func (s *Store) Pending(ctx context.Context, limit int) ([]Event, error) {
 			for rows.Next() {
 				var event Event
 				var status string
-				if err := rows.Scan(&event.EventID, &event.TraceID, &event.IMEI, &event.DeviceRecordedAt,
-					&event.GatewayReceivedAt, &event.PayloadHash, &event.RawPayload, &event.RawReference,
-					&event.BatchIndex, &status, &event.ErrorReason, &event.Attempts); err != nil {
+				if err := rows.Scan(&event.EventID, &event.GPSLogCode, &event.RawIngressID,
+					&event.TraceID, &event.IMEI, &event.DeviceRecordedAt, &event.GatewayReceivedAt,
+					&event.OriginalEventTimeUTC, &event.EventTimeTehran, &event.EventDateJalali,
+					&event.EventTimezone, &event.SourceProtocol, &event.TimeProvenance,
+					&event.DeduplicationStatus, &event.PayloadHash, &event.RawPayload,
+					&event.RawReference, &event.BatchIndex, &status, &event.ErrorReason, &event.Attempts); err != nil {
 					_ = rows.Close()
 					return nil, err
 				}

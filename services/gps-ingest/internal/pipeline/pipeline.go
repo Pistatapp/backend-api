@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -196,7 +197,7 @@ func (p *Pipeline) processBatch(ctx context.Context, batch IngestBatch) {
 		rows = append(rows, row)
 		if p.outbox != nil {
 			outboxRows = append(outboxRows, broadcast.OutboxRecord{
-				EventID: event.EventID, TraceID: event.TraceID, IMEI: event.IMEI,
+				EventID: event.EventID, GPSLogCode: event.GPSLogCode, TraceID: event.TraceID, IMEI: event.IMEI,
 				DeviceID: mapping.DeviceID, TractorID: mapping.TractorID,
 				PayloadHash: event.PayloadHash, Point: point,
 			})
@@ -217,6 +218,18 @@ func (p *Pipeline) processBatch(ctx context.Context, batch IngestBatch) {
 	}
 	if persistErr != nil {
 		p.metrics.PersistenceErrorsTotal.Add(1)
+		var conflict *storage.SameSecondConflictError
+		if errors.As(persistErr, &conflict) && conflict.Committed {
+			for _, row := range rows {
+				event := eventByID(batch.Events, row.EventID)
+				if row.EventID == conflict.EventID {
+					markEvent(ctx, p.ledger, event, ledger.QuarantinedWithRaw, persistErr.Error())
+					continue
+				}
+				markEvent(ctx, p.ledger, event, ledger.Persisted, "")
+			}
+			return
+		}
 		for _, row := range rows {
 			event := eventByID(batch.Events, row.EventID)
 			status := ledger.RetryPending

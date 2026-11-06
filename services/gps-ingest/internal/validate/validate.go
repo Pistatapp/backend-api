@@ -20,6 +20,20 @@ type GpsPoint struct {
 	Speed      int        `json:"speed"`
 	Status     int        `json:"status"`
 	Directions Directions `json:"directions"`
+	// Additive iStartek identity/provenance fields. Legacy payloads and other
+	// vendors leave them empty and retain their existing contract.
+	GPSLogCode           string `json:"gps_log_code,omitempty"`
+	RawIngressID         string `json:"raw_ingress_id,omitempty"`
+	EventID              string `json:"event_id,omitempty"`
+	OriginalEventTimeUTC string `json:"original_event_time_utc,omitempty"`
+	EventTimeUTC         string `json:"event_time_utc,omitempty"`
+	EventTimeTehran      string `json:"event_time_tehran,omitempty"`
+	EventDateJalali      string `json:"event_date_jalali,omitempty"`
+	EventTimezone        string `json:"event_timezone,omitempty"`
+	SourceProtocol       string `json:"source_protocol,omitempty"`
+	TimeProvenance       string `json:"time_provenance,omitempty"`
+	RawPayloadHash       string `json:"raw_payload_hash,omitempty"`
+	DeduplicationStatus  string `json:"deduplication_status,omitempty"`
 }
 
 type Request struct {
