@@ -130,7 +130,7 @@ class TractorLastKnownPositionService
                             LEFT JOIN gps_event_time_provenance p
                               ON p.gps_data_id = g.id AND p.gps_date_time = g.date_time
                             WHERE '.implode(' AND ', $where).'
-                            ORDER BY g.date_time DESC
+                            ORDER BY date_time DESC
                             LIMIT '.self::CANDIDATE_ROWS_PER_TRACTOR.')';
             array_push($bindings, ...$branchBindings);
 
@@ -152,7 +152,7 @@ class TractorLastKnownPositionService
                                 LEFT JOIN gps_event_time_provenance p
                                   ON p.gps_data_id = g.id AND p.gps_date_time = g.date_time
                                 WHERE '.implode(' AND ', $farmWhere).'
-                                ORDER BY g.date_time DESC
+                                ORDER BY date_time DESC
                                 LIMIT '.self::CANDIDATE_ROWS_PER_TRACTOR.')';
                 array_push($bindings, ...$farmBindings);
             }
