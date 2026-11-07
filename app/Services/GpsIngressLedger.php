@@ -80,6 +80,18 @@ class GpsIngressLedger
         $databaseEvent = $event;
         unset($databaseEvent['_job_index']);
 
+        // gps_ingest_events.gateway_received_at is MySQL DATETIME. Gateway
+        // and verified-quarantine recovery metadata may carry RFC3339/Zulu
+        // timestamps with fractional seconds; normalize only this additive
+        // Ledger field and keep the original value in raw_payload/evidence.
+        if (array_key_exists('gateway_received_at', $databaseEvent)) {
+            $databaseEvent['gateway_received_at'] = GpsTimestamp::normalizeToUtc(
+                is_scalar($databaseEvent['gateway_received_at'])
+                    ? (string) $databaseEvent['gateway_received_at']
+                    : null
+            );
+        }
+
         try {
             DB::connection('mysql_gps')->table('gps_ingest_events')->upsert(
                 [$databaseEvent],
