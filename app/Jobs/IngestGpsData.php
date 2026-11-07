@@ -36,12 +36,20 @@ class IngestGpsData implements ShouldQueue
 
     public array $backoff = [2, 5, 10];
 
+    /**
+     * Historical recovery uses the same transactional persistence path but
+     * must never enqueue a live GPS broadcast for an old event.
+     */
+    public bool $emitLiveBroadcast = true;
+
     public function __construct(
         public array $data,
         public ?string $traceId = null,
         public array $eventMetadata = [],
         public ?string $gatewayReceivedAt = null,
+        bool $emitLiveBroadcast = true,
     ) {
+        $this->emitLiveBroadcast = $emitLiveBroadcast;
         $this->onConnection(config('queue.default', 'redis'));
         $this->onQueue('gps-processing');
     }
@@ -158,13 +166,17 @@ class IngestGpsData implements ShouldQueue
                 ]
             );
 
-            // Only broadcast after durable write — otherwise markers move while path stays empty.
-            BroadcastGpsEvents::dispatch(
-                array_column($group, 'item'),
-                $tractor->id,
-                $deviceImei,
-                $this->traceId
-            );
+            // Only broadcast natural/live ingestion after durable write. A
+            // bounded historical recovery deliberately persists through this
+            // same path without emitting a live GPS event.
+            if ($this->emitLiveBroadcast) {
+                BroadcastGpsEvents::dispatch(
+                    array_column($group, 'item'),
+                    $tractor->id,
+                    $deviceImei,
+                    $this->traceId
+                );
+            }
         }
     }
 
@@ -289,6 +301,12 @@ class IngestGpsData implements ShouldQueue
                 $this->ensureGpsConnection($gps);
                 $gps->transaction(function () use ($gps, $chunk, &$written) {
                     $written += $this->insertChunkCounting($gps, $chunk);
+                    $this->persistGatewayTimeProvenance(
+                        $chunk,
+                        (string) ($chunk[0]['imei'] ?? ''),
+                        (int) ($chunk[0]['tractor_id'] ?? 0),
+                        $gps
+                    );
                     $this->recordIstartekIdentityEvidence($gps, $chunk);
                 });
             } catch (Throwable $e) {
@@ -418,9 +436,8 @@ class IngestGpsData implements ShouldQueue
             $key = ($row['imei'] ?? '').'|'.($row['date_time'] ?? '').'|'.$this->normalizedCoordinateKey($row['coordinate'] ?? null);
             $code = trim((string) ($row['_gps_log_code'] ?? ''));
             if (str_starts_with($code, '01-')) {
-                // Keep same-second iStartek conflicts even when their
-                // coordinates happen to be equal. Same code + same payload
-                // still collapses to one incoming row.
+                // Same-second iStartek events with different effective payload
+                // remain visible to the identity ledger as conflicts.
                 $key .= '|'.$code.'|'.((string) ($row['_payload_hash'] ?? ''));
             }
             $deduped[$key] = $row;
@@ -473,15 +490,11 @@ class IngestGpsData implements ShouldQueue
                     if (str_starts_with($incomingCode, '01-')
                         && $this->istartekIdentityTablesExist($gps)
                         && (string) ($match->gps_log_code ?? '') !== $incomingCode) {
-                        // An older row without the new identity is not proof
-                        // of equivalence. Keep the new event fail-open.
                         continue;
                     }
                     if (str_starts_with($incomingCode, '01-')
                         && $this->istartekIdentityTablesExist($gps)
                         && ! $this->sameIstartekPayloadHash($gps, $incomingCode, (string) ($row['_payload_hash'] ?? ''))) {
-                        // Same logical code with another effective payload is
-                        // a conflict, not a duplicate to hide.
                         continue;
                     }
                     $skipped++;
@@ -502,23 +515,6 @@ class IngestGpsData implements ShouldQueue
         }
 
         return [$toInsert, $skipped];
-    }
-
-    private function sameIstartekPayloadHash($gps, string $code, string $payloadHash): bool
-    {
-        if ($payloadHash === '') {
-            return false;
-        }
-
-        $identity = $gps->table('gps_log_identities')
-            ->select('canonical_payload_hash')
-            ->where('gps_log_code', $code)
-            ->lockForUpdate()
-            ->first();
-
-        return $identity !== null
-            && (string) ($identity->canonical_payload_hash ?? '') !== ''
-            && hash_equals((string) $identity->canonical_payload_hash, $payloadHash);
     }
 
     private function normalizedCoordinateKey(mixed $coordinate): string
@@ -564,7 +560,18 @@ class IngestGpsData implements ShouldQueue
             while ($attempts < 3) {
                 $attempts++;
                 try {
-                    $deltaWritten = $this->persistChunkWithDelta($gps, [$row]);
+                    $deltaWritten = $gps->transaction(function () use ($gps, $row): int {
+                        $deltaWritten = $this->persistChunkWithDelta($gps, [$row]);
+                        $this->persistGatewayTimeProvenance(
+                            [$row],
+                            (string) ($row['imei'] ?? ''),
+                            (int) ($row['tractor_id'] ?? 0),
+                            $gps
+                        );
+                        $this->recordIstartekIdentityEvidence($gps, [$row]);
+
+                        return $deltaWritten;
+                    });
                     if ($deltaWritten > 0) {
                         $written += $deltaWritten;
                         $rowWritten = true;
@@ -668,8 +675,22 @@ class IngestGpsData implements ShouldQueue
         $batchIndex = $row['_batch_index'] ?? null;
         $gpsLogCode = $row['_gps_log_code'] ?? null;
         $rawIngressId = $row['_raw_ingress_id'] ?? null;
-        unset($row['_payload_hash']);
-        unset($row['_event_id'], $row['_batch_index'], $row['_gps_log_code'], $row['_raw_ingress_id']);
+        unset(
+            $row['_event_id'],
+            $row['_batch_index'],
+            $row['_gps_log_code'],
+            $row['_raw_ingress_id'],
+            $row['_payload_hash'],
+            $row['_source_protocol'],
+            $row['_event_time_utc'],
+            $row['_event_date_jalali'],
+            $row['_event_time_tehran'],
+            $row['_event_time_tehran_clock'],
+            $row['_timezone'],
+            $row['_time_provenance'],
+            $row['_time_source'],
+            $row['_other_original_gps_fields'],
+        );
 
         if ($this->hasGpsColumn('event_id') && $eventId !== null) {
             $row['event_id'] = (string) $eventId;
@@ -685,6 +706,165 @@ class IngestGpsData implements ShouldQueue
         }
 
         return $row;
+    }
+
+    /**
+     * Store the Gateway-owned iStartek time contract beside the legacy GPS row.
+     * No Jalali or Tehran value is calculated here.
+     *
+     * @param  array<int, array<string, mixed>>  $records
+     */
+    private function persistGatewayTimeProvenance(array $records, string $imei, int $tractorId, $gps = null): void
+    {
+        $istartekRecords = array_values(array_filter(
+            $records,
+            static function (array $row): bool {
+                $sourceProtocol = strtolower(trim((string) ($row['_source_protocol'] ?? '')));
+                $eventId = strtolower(trim((string) ($row['_event_id'] ?? '')));
+
+                return $sourceProtocol === 'istartek' || str_starts_with($eventId, 'ist-');
+            }
+        ));
+        if ($istartekRecords === []) {
+            return;
+        }
+
+        $gps ??= DB::connection('mysql_gps');
+        $database = (string) config('database.connections.mysql_gps.database');
+        $hasTable = (int) ($gps->selectOne(
+            'SELECT COUNT(*) AS c FROM information_schema.tables WHERE table_schema = ? AND table_name = ?',
+            [$database, 'gps_event_time_provenance']
+        )->c ?? 0) > 0;
+        $hasEventAuditTable = (int) ($gps->selectOne(
+            'SELECT COUNT(*) AS c FROM information_schema.tables WHERE table_schema = ? AND table_name = ?',
+            [$database, 'gps_event_time_provenance_events']
+        )->c ?? 0) > 0;
+        if (! $hasTable || ! $hasEventAuditTable) {
+            throw new \RuntimeException('iStartek provenance table is not installed');
+        }
+
+        $now = now('UTC')->format('Y-m-d H:i:s');
+        $batchId = $this->provenanceBatchId($istartekRecords, $imei);
+        foreach ($istartekRecords as $row) {
+            $eventId = trim((string) ($row['_event_id'] ?? ''));
+            $eventTimeUTC = trim((string) ($row['_event_time_utc'] ?? ''));
+            $eventDateJalali = trim((string) ($row['_event_date_jalali'] ?? ''));
+            $eventTimeTehran = trim((string) ($row['_event_time_tehran'] ?? ''));
+            $eventTimeTehranClock = trim((string) ($row['_event_time_tehran_clock'] ?? ''));
+            $timezone = trim((string) ($row['_timezone'] ?? ''));
+            $otherOriginalFields = $row['_other_original_gps_fields'] ?? [];
+            if ($eventId === '' || $eventTimeUTC === '' || $eventDateJalali === '' || $eventTimeTehran === '' || $timezone === '') {
+                throw new \RuntimeException('iStartek row is missing Gateway time contract fields');
+            }
+
+            try {
+                $storedUTC = Carbon::parse($eventTimeUTC)->utc()->format('Y-m-d H:i:s.u');
+            } catch (Throwable $e) {
+                throw new \RuntimeException('iStartek event_time_utc is invalid', 0, $e);
+            }
+
+            if ($eventTimeTehranClock === '') {
+                try {
+                    $eventTimeTehranClock = Carbon::parse($eventTimeTehran, 'Asia/Tehran')->format('H:i:s');
+                } catch (Throwable) {
+                    $eventTimeTehranClock = null;
+                }
+            }
+
+            $candidates = $gps->table('gps_data')
+                ->select(['id', 'coordinate'])
+                ->where('tractor_id', $tractorId)
+                ->where('imei', $imei)
+                ->where('date_time', (string) $row['date_time'])
+                ->orderByDesc('id')
+                ->get();
+            $coordinateKey = $this->normalizedCoordinateKey($row['coordinate'] ?? null);
+            $gpsDataId = null;
+            foreach ($candidates as $candidate) {
+                if ($this->normalizedCoordinateKey($candidate->coordinate) === $coordinateKey) {
+                    $gpsDataId = (int) $candidate->id;
+                    break;
+                }
+            }
+            if ($gpsDataId === null) {
+                throw new \RuntimeException('Persisted iStartek GPS row could not be resolved for provenance');
+            }
+
+            $auditValues = [
+                'gps_data_id' => $gpsDataId,
+                'gps_date_time' => (string) $row['date_time'],
+                'tractor_id' => $tractorId,
+                'imei' => $imei,
+                'source_protocol' => 'istartek',
+                'event_time_utc' => $storedUTC,
+                // These civil fields are supplied by the Gateway; PiStat does
+                // not derive Tehran/Jalali values from UTC.
+                'event_time_tehran' => (string) $row['date_time'],
+                'event_date_jalali' => $eventDateJalali,
+                'event_time_tehran_clock' => $eventTimeTehranClock,
+                'timezone' => $timezone,
+                'other_original_gps_fields' => json_encode(
+                    is_array($otherOriginalFields) ? $otherOriginalFields : [],
+                    JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE
+                ),
+                'gateway_received_at_utc' => $this->gatewayReceivedAt !== null
+                    ? GpsTimestamp::normalizeToUtc($this->gatewayReceivedAt)
+                    : null,
+                'time_source' => trim((string) ($row['_time_source'] ?? '')) !== ''
+                    ? trim((string) $row['_time_source'])
+                    : 'gateway',
+                'time_provenance' => trim((string) ($row['_time_provenance'] ?? '')) !== ''
+                    ? trim((string) $row['_time_provenance'])
+                    : 'protocol_verified_utc',
+                'verification_status' => 'verified',
+                'updated_at' => $now,
+            ];
+            if ($this->hasProvenanceColumn($gps, 'gps_event_time_provenance', 'batch_id')) {
+                $auditValues['batch_id'] = $batchId;
+            }
+            $eventAuditValues = $auditValues + ['audit_status' => 'verified'];
+            $gps->table('gps_event_time_provenance_events')->updateOrInsert(
+                ['event_id' => substr($eventId, 0, 64)],
+                $eventAuditValues + ['created_at' => $now]
+            );
+
+            $existing = $gps->table('gps_event_time_provenance')
+                ->where('gps_data_id', $gpsDataId)
+                ->where('gps_date_time', (string) $row['date_time'])
+                ->first(['event_id']);
+            // Keep one stable logical plotted point while retaining every
+            // Gateway event_id in the event-audit table above.
+            if ($existing === null || empty($existing->event_id)) {
+                $gps->table('gps_event_time_provenance')->updateOrInsert(
+                    ['gps_data_id' => $gpsDataId, 'gps_date_time' => (string) $row['date_time']],
+                    $auditValues + ['event_id' => substr($eventId, 0, 64), 'created_at' => $now]
+                );
+            }
+        }
+    }
+
+    private function provenanceBatchId(array $records, string $imei): string
+    {
+        if (trim((string) $this->traceId) !== '') {
+            return substr('trace:'.trim((string) $this->traceId), 0, 128);
+        }
+
+        return 'ingest:'.hash('sha256', $imei.'|'.($records[0]['date_time'] ?? '').'|'.count($records));
+    }
+
+    private function hasProvenanceColumn($gps, string $table, string $column): bool
+    {
+        static $cache = [];
+        $database = (string) config('database.connections.mysql_gps.database');
+        $key = $database.'|'.$table.'|'.$column;
+        if (array_key_exists($key, $cache)) {
+            return $cache[$key];
+        }
+
+        return $cache[$key] = (int) ($gps->selectOne(
+            'SELECT COUNT(*) AS c FROM information_schema.columns WHERE table_schema = ? AND table_name = ? AND column_name = ?',
+            [$database, $table, $column]
+        )->c ?? 0) > 0;
     }
 
     private static array $gpsColumnExists = [];
@@ -711,21 +891,34 @@ class IngestGpsData implements ShouldQueue
         return self::$gpsColumnExists[$column];
     }
 
+    private function sameIstartekPayloadHash($gps, string $code, string $payloadHash): bool
+    {
+        if ($payloadHash === '') {
+            return false;
+        }
+
+        $identity = $gps->table('gps_log_identities')
+            ->select('canonical_payload_hash')
+            ->where('gps_log_code', $code)
+            ->lockForUpdate()
+            ->first();
+
+        return $identity !== null
+            && (string) ($identity->canonical_payload_hash ?? '') !== ''
+            && hash_equals((string) $identity->canonical_payload_hash, $payloadHash);
+    }
+
     /**
      * Record append-only logical identity and raw-receipt evidence for the
      * owner-approved iStartek code only. This runs in the same mysql_gps
-     * transaction as gps_data persistence; it never filters or hides a GPS
-     * row. A different payload for one IMEI/UTC-second is recorded as an
-     * explicit SAME_SECOND_CONFLICT.
+     * transaction as gps_data persistence and never hides a GPS row.
      *
      * @param  array<int, array<string,mixed>>  $chunk
      */
     private function recordIstartekIdentityEvidence($gps, array $chunk): void
     {
         $rows = array_values(array_filter($chunk, function (array $row): bool {
-            $code = trim((string) ($row['_gps_log_code'] ?? ''));
-
-            return str_starts_with($code, '01-');
+            return str_starts_with(trim((string) ($row['_gps_log_code'] ?? '')), '01-');
         }));
 
         if ($rows === [] || ! $this->istartekIdentityTablesExist($gps)) {
@@ -751,9 +944,6 @@ class IngestGpsData implements ShouldQueue
 
             if (! preg_match('/^01-([0-9]{14,20})-([0-9]{14})$/', $code, $codeParts)
                 || $codeParts[1] !== $imei) {
-                // A malformed/additional field must not make the identity
-                // ledger invent a timestamp. gps_data remains governed by its
-                // existing validation/retry path.
                 continue;
             }
 
@@ -777,7 +967,7 @@ class IngestGpsData implements ShouldQueue
                     'gps_log_code' => $code,
                     'vendor' => '01',
                     'imei' => $imei,
-                    'device_event_utc' => $deviceUtc?->format('Y-m-d H:i:s.u'),
+                    'device_event_utc' => $deviceUtc->format('Y-m-d H:i:s.u'),
                     'existing_event_id' => $eventId !== '' ? $eventId : null,
                     'canonical_payload_hash' => $payloadHash,
                     'status' => 'PERSISTED',
@@ -888,9 +1078,6 @@ class IngestGpsData implements ShouldQueue
                 $event = $this->eventMetadataForIndex($sourceIndex, $item);
                 $record['_event_id'] = $event['event_id'];
                 $record['_batch_index'] = $event['batch_index'] ?? $sourceIndex;
-                $record['_gps_log_code'] = $event['gps_log_code'] ?? ($item['gps_log_code'] ?? null);
-                $record['_raw_ingress_id'] = $event['raw_ingress_id'] ?? ($item['raw_ingress_id'] ?? null);
-                $record['_payload_hash'] = $event['payload_hash'] ?? hash('sha256', json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE));
                 $records[] = $record;
             } else {
                 $this->quarantineItem($item, $sourceIndex, 'GPS frame failed persistence validation');
@@ -998,7 +1185,7 @@ class IngestGpsData implements ShouldQueue
             return null;
         }
 
-        return [
+        $record = [
             'tractor_id' => $tractorId,
             'coordinate' => $coordinate,
             'speed' => (int) ($item['speed'] ?? 0),
@@ -1006,9 +1193,64 @@ class IngestGpsData implements ShouldQueue
             'directions' => $directions,
             'imei' => $imei,
             'date_time' => $normalizedDateTime,
-            '_gps_log_code' => is_scalar($item['gps_log_code'] ?? null) ? trim((string) $item['gps_log_code']) : null,
-            '_raw_ingress_id' => is_scalar($item['raw_ingress_id'] ?? null) ? trim((string) $item['raw_ingress_id']) : null,
         ];
+
+        $sourceProtocol = strtolower(trim((string) ($item['source_protocol'] ?? $item['protocol'] ?? '')));
+        $eventId = is_scalar($item['event_id'] ?? null) ? trim((string) $item['event_id']) : '';
+        $isIstartek = $sourceProtocol === 'istartek'
+            || str_starts_with(strtolower($eventId), 'ist-');
+        if ($isIstartek) {
+            $record['_source_protocol'] = 'istartek';
+            $record['_gps_log_code'] = is_scalar($item['gps_log_code'] ?? null)
+                ? trim((string) $item['gps_log_code'])
+                : '';
+            $record['_raw_ingress_id'] = is_scalar($item['raw_ingress_id'] ?? null)
+                ? trim((string) $item['raw_ingress_id'])
+                : '';
+            $record['_payload_hash'] = is_scalar($item['payload_hash'] ?? ($item['raw_payload_hash'] ?? null))
+                ? trim((string) ($item['payload_hash'] ?? $item['raw_payload_hash']))
+                : '';
+            $record['_event_time_utc'] = is_scalar($item['event_time_utc'] ?? null)
+                ? trim((string) $item['event_time_utc'])
+                : '';
+            $record['_event_date_jalali'] = is_scalar($item['event_date_jalali'] ?? null)
+                ? trim((string) $item['event_date_jalali'])
+                : '';
+            $record['_event_time_tehran'] = is_scalar($item['event_time_tehran'] ?? null)
+                ? trim((string) $item['event_time_tehran'])
+                : '';
+            $record['_timezone'] = is_scalar($item['timezone'] ?? null)
+                ? trim((string) $item['timezone'])
+                : '';
+            $record['_time_provenance'] = is_scalar($item['time_provenance'] ?? null)
+                ? trim((string) $item['time_provenance'])
+                : '';
+            $record['_time_source'] = is_scalar($item['time_source'] ?? null)
+                ? trim((string) $item['time_source'])
+                : '';
+            $record['_other_original_gps_fields'] = is_array($item['other_original_gps_fields'] ?? null)
+                ? $item['other_original_gps_fields']
+                : [];
+
+            $missingContractFields = [];
+            foreach (['_event_id' => $eventId, '_event_time_utc' => $record['_event_time_utc'], '_event_date_jalali' => $record['_event_date_jalali'], '_event_time_tehran' => $record['_event_time_tehran'], '_timezone' => $record['_timezone']] as $field => $value) {
+                if ($value === '') {
+                    $missingContractFields[] = $field;
+                }
+            }
+            if ($missingContractFields !== []) {
+                Log::warning('IngestGpsData: quarantining iStartek frame with incomplete time contract', [
+                    'index' => $index,
+                    'imei' => $imei,
+                    'tractor_id' => $tractorId,
+                    'missing_fields' => $missingContractFields,
+                ]);
+
+                return null;
+            }
+        }
+
+        return $record;
     }
 
     private function encodeJsonField(mixed $value, string $field, int $index, int $tractorId): ?string
